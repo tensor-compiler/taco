@@ -596,18 +596,18 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           return;
         }
         // Precondition 2: Every result iterator must have insert capability
-        for (Iterator iterator : lattice.results()) {
-          while (true) {
-            if (!iterator.hasInsert()) {
-              reason = "Precondition failed: The output tensor must allow inserts";
-              return;
-            }
-            if (iterator.isLeaf()) {
-              break;
-            }
-            iterator = iterator.getChild();
-          }
-        }
+//        for (Iterator iterator : lattice.results()) {
+//          while (true) {
+//            if (!iterator.hasInsert()) {
+//              reason = "Precondition failed: The output tensor must allow inserts";
+//              return;
+//            }
+//            if (iterator.isLeaf()) {
+//              break;
+//            }
+//            iterator = iterator.getChild();
+//          }
+//        } TODO: write new relaxed precondition
 
         vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(i);
         IndexVar underivedAncestor = underivedAncestors.back();

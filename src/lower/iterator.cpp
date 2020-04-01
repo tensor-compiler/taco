@@ -78,6 +78,23 @@ Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
   content->validVar = Var::make("v" + modeName, Bool);
 }
 
+Iterator::Iterator(const Iterator &sparseMaskIterator, Expr resultTensor) : content(new Content) {
+  content->indexVar = sparseMaskIterator.getIndexVar();
+
+  content->mode = sparseMaskIterator.getMode();
+  content->parent = sparseMaskIterator.getParent();
+//  content->parent.setChild(*this);
+ content->tensor = resultTensor;
+
+  content->posVar   = sparseMaskIterator.getPosVar();
+  content->endVar   = sparseMaskIterator.getEndVar();
+  content->beginVar = sparseMaskIterator.getBeginVar();
+
+  content->coordVar = sparseMaskIterator.getCoordVar();
+  content->segendVar = sparseMaskIterator.getSegendVar();
+  content->validVar = sparseMaskIterator.getValidVar();
+}
+
 bool Iterator::isRoot() const {
   return !getParent().defined();
 }
@@ -331,7 +348,7 @@ bool operator==(const Iterator& a, const Iterator& b) {
     return true;
   }
 
-  return (a.getIndexVar() == b.getIndexVar() && a.getTensor() == b.getTensor()
+  return (a.getIndexVar() == b.getIndexVar()
       && a.getParent() == b.getParent());
 }
 
@@ -420,6 +437,7 @@ Iterators::Iterators(IndexStmt stmt) : Iterators(stmt, createIRTensorVars(stmt))
             }
             else if (*sparseMaskAccess == nullptr && *resultAccess != nullptr) {
               // If for all A index variables: B is indexed with same index variables and has same formats as A then is sparse mask
+              // TODO: allow a dense postfix like in TTM
               vector<IndexVar> resultVars = (*resultAccess)->indexVars;
               Format resultFormat = (*resultAccess)->tensorVar.getFormat();
 
@@ -507,8 +525,10 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
   if (hasSparseMask) {
     content->levelIterators.insert({{Access(resultAccess), 0}, tensorVars.at(resultAccess->tensorVar)});
     for (size_t i = 0; i < resultAccess->indexVars.size(); i++) {
-      content->levelIterators.insert({{Access(resultAccess), (int) i+1},
-              content->levelIterators.at({Access(sparseMaskAccess), (int)i+1})});
+      const Iterator &sparseMaskIterator = content->levelIterators.at({Access(sparseMaskAccess), (int)i+1});
+      Iterator resultIterator(sparseMaskIterator, tensorVars.at(resultAccess->tensorVar));
+      content->levelIterators.insert({{Access(resultAccess), (int) i + 1},
+                                     resultIterator});
     }
   }
 

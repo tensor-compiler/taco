@@ -482,7 +482,7 @@ TEST(scheduling_eval, sddmmCPU) {
   int NUM_J = 1039/10;
   int NUM_K = 1057/10;
   float SPARSITY = .3;
-  Tensor<double> A("A", {NUM_I, NUM_K}, {Dense, Dense});
+  Tensor<double> A("A", {NUM_I, NUM_K}, CSR);
   Tensor<double> B("B", {NUM_I, NUM_K}, CSR);
   Tensor<double> C("C", {NUM_I, NUM_J}, {Dense, Dense});
   Tensor<double> D("D", {NUM_J, NUM_K}, {Dense, Dense});
@@ -590,8 +590,8 @@ TEST(scheduling_eval, ttvCPU) {
   int NUM_J = 1039/10;
   int NUM_K = 1057/10;
   float SPARSITY = .3;
-  Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense}); // TODO: change to sparse outputs
-  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
+  Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Sparse}); // TODO: change to sparse outputs
+  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Dense, Sparse, Sparse});
   Tensor<double> c("c", {NUM_K}, {Dense});
 
   srand(9536);
@@ -625,7 +625,7 @@ TEST(scheduling_eval, ttvCPU) {
   A.assemble();
   A.compute();
 
-  Tensor<double> expected("expected", {NUM_I, NUM_J}, {Dense, Dense});
+  Tensor<double> expected("expected", {NUM_I, NUM_J}, {Dense, Sparse});
   expected(i,j) = B(i,j,k) * c(k);
   expected.compile();
   expected.assemble();
@@ -642,8 +642,8 @@ TEST(scheduling_eval, ttmCPU) {
   int NUM_K = 1057/40;
   int NUM_L = 1232/40;
   float SPARSITY = .1;
-  Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Dense, Dense, Dense}); // TODO: change to sparse outputs
-  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
+  Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Dense, Sparse, Dense}); // TODO: change to sparse outputs
+  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Dense, Sparse, Sparse});
   Tensor<double> C("C", {NUM_K, NUM_L}, {Dense, Dense});
 
   srand(935);
@@ -679,7 +679,7 @@ TEST(scheduling_eval, ttmCPU) {
   A.assemble();
   A.compute();
 
-  Tensor<double> expected("expected", {NUM_I, NUM_J, NUM_L}, {Dense, Dense, Dense});
+  Tensor<double> expected("expected", {NUM_I, NUM_J, NUM_L}, {Dense, Sparse, Dense});
   expected(i,j,l) = B(i,j,k) * C(k,l);
   expected.compile();
   expected.assemble();
@@ -907,7 +907,7 @@ TEST(scheduling_eval, sddmmGPU) {
   int NUM_K = 1039/10;
   int NUM_J = 128;
   float SPARSITY = .3;
-  Tensor<double> A("A", {NUM_I, NUM_K}, {Dense, Dense});
+  Tensor<double> A("A", {NUM_I, NUM_K}, CSR);
   Tensor<double> B("B", {NUM_I, NUM_K}, CSR);
   Tensor<double> C("C", {NUM_I, NUM_J}, {Dense, Dense});
   Tensor<double> D("D", {NUM_J, NUM_K}, {Dense, Dense});
@@ -968,7 +968,7 @@ TEST(scheduling_eval, ttmGPU) {
   int NUM_K = 1232/40;
   int NUM_L = 128;
   float SPARSITY = .1;
-  Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Dense, Dense, Dense}); // TODO: change to sparse outputs
+  Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Dense, Sparse, Dense}); // TODO: change to sparse outputs
   Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
   Tensor<double> C("C", {NUM_K, NUM_L}, {Dense, Dense});
 
@@ -1005,7 +1005,7 @@ TEST(scheduling_eval, ttmGPU) {
   A.assemble();
   A.compute();
 
-  Tensor<double> expected("expected", {NUM_I, NUM_J, NUM_L}, {Dense, Dense, Dense});
+  Tensor<double> expected("expected", {NUM_I, NUM_J, NUM_L}, {Dense, Sparse, Dense});
   expected(i,j,l) = B(i,j,k) * C(k,l);
   expected.compile();
   expected.assemble();
@@ -1021,8 +1021,8 @@ TEST(scheduling_eval, ttvGPU) {
   int NUM_J = 1039/10;
   int NUM_K = 1057/10;
   float SPARSITY = .3;
-  Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense}); // TODO: change to sparse outputs
-  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
+  Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Sparse}); // TODO: change to sparse outputs
+  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Dense, Sparse, Sparse});
   Tensor<double> c("c", {NUM_K}, {Dense});
 
   srand(35325);
@@ -1057,7 +1057,7 @@ TEST(scheduling_eval, ttvGPU) {
   A.assemble();
   A.compute();
 
-  Tensor<double> expected("expected", {NUM_I, NUM_J}, {Dense, Dense});
+  Tensor<double> expected("expected", {NUM_I, NUM_J}, {Dense, Sparse});
   expected(i,j) = B(i,j,k) * c(k);
   expected.compile();
   expected.assemble();
@@ -1128,7 +1128,7 @@ TEST(scheduling_eval, mttkrpGPU) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
-TEST(generate_evaluation_files, DISABLED_cpu) {
+TEST(generate_evaluation_files, cpu) {
   if (should_use_CUDA_codegen()) {
     return;
   }
@@ -1212,7 +1212,7 @@ TEST(generate_evaluation_files, DISABLED_cpu) {
   {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-    Tensor<double> A("A", {NUM_I, NUM_K}, {Dense, Dense});
+    Tensor<double> A("A", {NUM_I, NUM_K}, CSR);
     Tensor<double> B("B", {NUM_I, NUM_K}, CSR);
     Tensor<double> C("C", {NUM_I, NUM_J}, {Dense, Dense});
     Tensor<double> D("D", {NUM_J, NUM_K}, {Dense, Dense});
@@ -1235,8 +1235,8 @@ TEST(generate_evaluation_files, DISABLED_cpu) {
   {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-    Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense}); // TODO: change to sparse outputs
-    Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
+    Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Sparse}); // TODO: change to sparse outputs
+    Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Dense, Sparse, Sparse});
     Tensor<double> c("c", {NUM_K}, {Dense});
     A(i,j) = B(i,j,k) * c(k);
     IndexStmt stmt = A.getAssignment().concretize();
@@ -1257,7 +1257,7 @@ TEST(generate_evaluation_files, DISABLED_cpu) {
   {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-    Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Dense, Dense, Dense}); // TODO: change to sparse outputs
+    Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Dense, Sparse, Dense}); // TODO: change to sparse outputs
     Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
     Tensor<double> C("C", {NUM_K, NUM_L}, {Dense, Dense});
     A(i,j,l) = B(i,j,k) * C(k,l);
@@ -1444,7 +1444,7 @@ TEST(generate_evaluation_files, DISABLED_cpu) {
   }
 }
 
-TEST(generate_evaluation_files, DISABLED_gpu) {
+TEST(generate_evaluation_files, gpu) {
   if (!should_use_CUDA_codegen()) {
     return;
   }
@@ -1560,7 +1560,7 @@ TEST(generate_evaluation_files, DISABLED_gpu) {
     for (auto paramSet : sddmm_parameters) {
       int NUM_K = paramSet[2] * WARP_SIZE;
       std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-      Tensor<double> A("A", {NUM_I, NUM_K}, {Dense, Dense});
+      Tensor<double> A("A", {NUM_I, NUM_K}, CSR);
       Tensor<double> B("B", {NUM_I, NUM_K}, CSR);
       Tensor<double> D("D", {NUM_J, NUM_K}, {Dense, Dense});
       A(i,k) = B(i,k) * C(i,j) * D(j,k);
@@ -1580,8 +1580,8 @@ TEST(generate_evaluation_files, DISABLED_gpu) {
   {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-    Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense}); // TODO: change to sparse outputs
-    Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
+    Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Sparse}); // TODO: change to sparse outputs
+    Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Dense, Sparse, Sparse});
     Tensor<double> c("c", {NUM_K}, {Dense});
     IndexExpr precomputedExpr = B(i,j,k) * c(k);
     A(i,j) = precomputedExpr;
@@ -1603,11 +1603,11 @@ TEST(generate_evaluation_files, DISABLED_gpu) {
   {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-    Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Dense, Dense, Dense}); // TODO: change to sparse outputs
+    Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Sparse, Sparse, Dense}); // TODO: change to sparse outputs
     bool isFirst = true;
     for (auto paramSet : ttm_parameters) {
       int NUM_K = paramSet[2] * WARP_SIZE;
-      Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
+      Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Dense, Sparse, Sparse});
       Tensor<double> C("C", {NUM_K, NUM_L}, {Dense, Dense});
       A(i,j,l) = B(i,j,k) * C(k,l);
       IndexStmt stmt = A.getAssignment().concretize();
