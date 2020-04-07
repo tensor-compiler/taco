@@ -15,9 +15,12 @@
 #include "taco/util/comparable.h"
 #include "taco/type.h"
 #include "taco/ir/ir.h"
-
+#include "taco/codegen/module.h"
 #include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
+#include "taco/ir_tags.h"
+#include "taco/lower/iterator.h"
+#include "taco/index_notation/provenance_graph.h"
 
 namespace taco {
 
@@ -51,6 +54,7 @@ struct ForallNode;
 struct WhereNode;
 struct SequenceNode;
 struct MultiNode;
+struct SuchThatNode;
 
 class IndexExprVisitorStrict;
 class IndexStmtVisitorStrict;
@@ -249,7 +253,7 @@ class Literal : public IndexExpr {
 public:
   Literal() = default;
   Literal(const LiteralNode*);
-  
+
   Literal(bool);
   Literal(unsigned char);
   Literal(unsigned short);
@@ -391,7 +395,7 @@ public:
   typedef CastNode Node;
 };
 
-  
+
 /// A call to an intrinsic.
 /// ```
 /// a(i) = abs(b(i));
@@ -402,8 +406,8 @@ class CallIntrinsic : public IndexExpr {
 public:
   CallIntrinsic() = default;
   CallIntrinsic(const CallIntrinsicNode*);
-  CallIntrinsic(const std::shared_ptr<Intrinsic>& func, 
-                const std::vector<IndexExpr>& args); 
+  CallIntrinsic(const std::shared_ptr<Intrinsic>& func,
+                const std::vector<IndexExpr>& args);
 
   const Intrinsic& getFunc() const;
   const std::vector<IndexExpr>& getArgs() const;
@@ -465,7 +469,6 @@ public:
 /// Create a summation index expression.
 Reduction sum(IndexVar i, IndexExpr expr);
 
-
 /// A an index statement computes a tensor.  The index statements are
 /// assignment, forall, where, multi, and sequence.
 class IndexStmt : public util::IntrusivePtr<const IndexStmtNode> {
@@ -481,7 +484,158 @@ public:
 
   /// Returns the domains/dimensions of the index variables in the statement.
   /// These are inferred from the dimensions they access.
-  std::map<IndexVar,Dimension> getIndexVarDomains();
+  std::map<IndexVar,Dimension> getIndexVarDomains() const;
+
+  /// Takes any index notation and concretizes unknowns to make it concrete notation
+  IndexStmt concretize() const;
+
+  /// The \code{split} transformation splits (strip-mines) an index
+  /// variable into two nested index variables, where the size of the
+  /// inner index variable is constant.  The size of the outer index
+  /// variable is the size of the original index variable divided by the
+  /// size of the inner index variable, and the product of the new index
+  /// variables sizes therefore equals the size of the original index
+  /// variable.  Note that in the generated code, when the size of the
+  /// inner index variable does not perfectly divide the original index
+  /// variable, a \textit{tail strategy} is employed such as emitting a variable
+  /// sized loop that handles remaining iterations.
+  /// Preconditions: splitFactor is a positive nonzero integer
+  IndexStmt split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const; // TODO: TailStrategy
+
+  /// The divide transformation splits one index variable into
+  /// two nested index variables, where the size of the outer
+  /// index variable is constant.  The size of the inner index variable
+  /// is thus the size of the original index variable divided by the
+  /// size of the outer index variable.  The divide
+  /// transformation is important in sparse codes because locating the
+  /// starting point of a tile can require an $O(n)$ or $O(\log (n))$
+  /// search.  Therefore, if we want to parallelize a blocked
+  /// loop, then we want a fixed number of blocks and not a number
+  /// proportional to the tensor size.
+  /// Preconditions: divideFactor is a positive nonzero integer
+  IndexStmt divide(IndexVar i, IndexVar i1, IndexVar i2, size_t divideFactor) const; // TODO: TailStrategy
+
+
+  /// The reorder transformation swaps two directly nested index
+  /// variables in an iteration graph.  This changes the order of
+  /// iteration through the space and the order of tensor accesses.
+  ///
+  /// Preconditions:
+  /// The precondition of a reorder transformation is that it must not hoist
+  /// a tensor operation outside a reduction that it does not distribute
+  /// over. Otherwise, this will alter the contents of a reduction and change the
+  /// value of the result. In addition, we check that the result of the reorder
+  /// transformation does not cause for tensors to be iterated out of order.
+  /// Certain sparse data formats can only be accessed in a given mode ordering
+  /// and we verify that this ordering is preserved after the reorder.
+  IndexStmt reorder(IndexVar i, IndexVar j) const;
+
+  /// reorder takes a new ordering for a set of index variables that are directly nested in the iteration order
+  IndexStmt reorder(std::vector<IndexVar> reorderedvars) const;
+
+  /// The parallelize
+  /// transformation tags an index variable for parallel execution.  The
+  /// transformation takes as an argument the type of parallel hardware
+  /// to execute on.  The set of parallel hardware is extensible and our
+  /// current code generation algorithm supports SIMD vector units, CPU
+  /// threads, GPU thread blocks, GPU warps, and individual GPU threads.
+  /// Parallelizing the iteration over an index variable changes the iteration
+  /// order of the loop, and therefore requires reductions inside the
+  /// iteration space described by the index variable's sub-tree in the
+  /// iteration graph to be associative.  Furthermore, if the
+  /// computation uses a reduction strategy that does not preserve the
+  /// order, such as atomic instructions, then the reductions must also
+  /// be commutative.
+  ///
+  /// Preconditions:
+  /// Once a parallelize transformation is used, no other transformations may be
+  /// applied on the iteration graph as the preconditions for other transformations assume
+  /// serial code. In addition there are sometimes hardware-specific rules to how things can
+  /// be parallelized such as a CUDA warp is a fixed size of 32 threads or to parallelize over
+  /// CUDA threads then you must also parallelize over CUDA thread-blocks. These hardware-specific
+  /// rules are checked in the code generator rather than before the transformation.
+  ///
+  /// In addition to hardware-specific preconditions, there are preconditions related to
+  /// coiteration that apply for all hardware. An index variable that indexes
+  /// into multiple sparse data structures cannot be parallelized as it is a while loop. Instead
+  /// this loop can be parallelized by first strip-mining it with the split or divide
+  /// transformation to create a parallel for loop with a serial nested while loop. Expressions
+  /// that have an output in a format that does not support random insert can also not be
+  /// parallelized. Parallelizing these expressions would require creating multiple copies of a
+  /// datastructure and then merging them, which is left to future work. Note that there is a special
+  /// case where the output's sparsity pattern is the same as one of the inputs.
+  /// This true of the popular sampled dense-dense matrix multiply (SDDMM),
+  /// tensor times vector (TTV), and tensor times matrix (TTM) kernels for example.
+  /// This does not require creating multiple copies, but the precondition still
+  /// prevents it as the implementation does not yet handle this special case.
+  ///
+  /// Finally, there are preconditions related to data races during reductions. The parallelize
+  /// transformation allows for supplying a strategy to handle these data races. The NoRaces
+  /// strategy has the precondition that there can be no reductions in the computation.
+  /// The IgnoreRaces strategy has the precondition that for the given inputs the code generator can
+  /// assume that no data races will occur. For all other strategies other than Atomics,
+  /// there is the precondition
+  /// that the racing reduction must be over the index variable being parallelized.
+  IndexStmt parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy) const;
+
+  /// pos and coord create
+  /// new index variables in their respective iteration spaces.
+  /// pos requires a tensor access expression as input, that
+  /// describes the tensor whose coordinate hierarchy to perform a
+  /// position cut with respect to.  Specifically, the derived ipos
+  /// variable will iterate over the tensor's position space at the
+  /// level that the i variable is used in the access expression
+  ///
+  /// Preconditions:
+  /// The index variable supplied to the coord transformation must be in
+  /// position space. The index variable supplied to the pos transformation
+  /// must be in coordinate space. The pos transformation also takes an
+  /// input to indicate which position space to use. This input must appear in the computation
+  /// expression and also be indexed by this index variable. In the case that this
+  /// index variable is derived from multiple index variables, these variables must appear
+  /// directly nested in the mode ordering of this datastructure. This allows for
+  /// working with multi-dimensional position spaces.
+  IndexStmt pos(IndexVar i, IndexVar ipos, Access access) const;
+  // TODO: coord
+
+  /// The fuse transformation collapses two directly nested index
+  /// variables.  It results in a new fused index variable that iterates
+  /// over the product of the coordinates of the fused index variables.
+  /// This transformation by itself does not change iteration order, but
+  /// facilitates other transformations such as iterating over the
+  /// position space of several variables and distributing a
+  /// multi-dimensional loop nest across a thread array on GPUs.
+  ///
+  /// Preconditions:
+  /// The fuse transformation takes in two index variables. The second
+  /// index variable must be directly nested under the first index variable in
+  /// the iteration graph. In addition, the first index variable must be in
+  /// coordinate space. To work with a multi-dimensional position space,
+  /// it is instead necessary to fuse the coordinate dimensions and then use the
+  /// pos transformation. This allows us to isolate the necessary preconditions
+  /// to the pos transformation.
+  IndexStmt fuse(IndexVar i, IndexVar j, IndexVar f) const;
+
+  ///  The precompute transformation is described in kjolstad2019
+  ///  allows us to leverage scratchpad memories and
+  ///  reorder computations to increase locality
+  IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const;
+
+  /// bound specifies a compile-time constraint on an index variable's
+  /// iteration space that allows knowledge of the
+  /// size or structured sparsity pattern of the inputs to be
+  /// incorporated during bounds propagatio
+  ///
+  /// Preconditions:
+  /// The precondition for bound is that the computation bounds supplied are correct
+  /// given the inputs that this code will be run on.
+  IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const;
+
+  /// The unroll
+  /// primitive unrolls the corresponding loop by a statically-known
+  /// integer number of iterations
+  /// Preconditions: unrollFactor is a positive nonzero integer
+  IndexStmt unroll(IndexVar i, size_t unrollFactor) const;
 };
 
 /// Compare two index statments by value.
@@ -497,7 +651,6 @@ template <typename SubType> bool isa(IndexStmt);
 /// Casts the index statement to the given subtype. Assumes S is a subtype and
 /// the subtypes are Assignment, Forall, Where, Multi, and Sequence.
 template <typename SubType> SubType to(IndexStmt);
-
 
 /// An assignment statement assigns an index expression to the locations in a
 /// tensor given by an lhs access expression.
@@ -555,24 +708,25 @@ public:
 /// sub-statement for each of these values.
 class Forall : public IndexStmt {
 public:
-  enum TAG {PARALLELIZE};
-
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
-  Forall(IndexVar indexVar, IndexStmt stmt, std::set<TAG> tags);
+  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
 
-  std::set<TAG> getTags() const;
+  ParallelUnit getParallelUnit() const;
+  OutputRaceStrategy getOutputRaceStrategy() const;
+
+  size_t getUnrollFactor() const;
 
   typedef ForallNode Node;
 };
 
 /// Create a forall index statement.
 Forall forall(IndexVar i, IndexStmt stmt);
-Forall forall(IndexVar i, IndexStmt stmt, std::set<Forall::TAG> tags);
+Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0);
 
 
 /// A where statment has a producer statement that binds a tensor variable in
@@ -639,7 +793,6 @@ public:
 /// Create a multi index statement.
 Multi multi(IndexStmt stmt1, IndexStmt stmt2);
 
-
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.
 class IndexVar : public util::Comparable<IndexVar> {
@@ -653,13 +806,34 @@ public:
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);
 
+
 private:
   struct Content;
   std::shared_ptr<Content> content;
 };
 
+struct IndexVar::Content {
+  std::string name;
+};
+
 std::ostream& operator<<(std::ostream&, const IndexVar&);
 
+/// A suchthat statement provides a set of IndexVarRel that constrain
+/// the iteration space for the child concrete index notation
+class SuchThat : public IndexStmt {
+public:
+  SuchThat() = default;
+  SuchThat(const SuchThatNode*);
+  SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
+
+  IndexStmt getStmt() const;
+  std::vector<IndexVarRel> getPredicate() const;
+
+  typedef SuchThatNode Node;
+};
+
+/// Create a suchthat index statement.
+SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
 
 /// A tensor variable in an index expression, which can either be an operand
 /// or the result of the expression.

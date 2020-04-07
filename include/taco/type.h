@@ -7,6 +7,7 @@
 #include <initializer_list>
 #include "taco/error.h"
 #include <complex>
+#include <memory>
 
 namespace taco {
 
@@ -199,6 +200,7 @@ union IndexTypeUnion {
   IndexTypeUnion() {int32Value = 0;}
 };
 
+class IndexVar;
 
 /// A tensor dimension is the size of a tensor mode.  Tensor dimensions can be
 /// variable or fixed sized, which impacts code generation.  Variable dimensions
@@ -212,6 +214,9 @@ public:
   /// Create a fixed sized dimension.
   Dimension(size_t size);
 
+  /// Create a dimension sized to an indexvar iteration size
+  explicit Dimension(IndexVar indexVar);
+
   /// True if the dimension is variable size, false otherwise.
   bool isVariable() const;
 
@@ -221,8 +226,13 @@ public:
   /// Returns the size of the dimension or 0 if it is variable sized.
   size_t getSize() const;
 
+  bool isIndexVarSized() const;
+
+  IndexVar getIndexVarSize() const;
+
 private:
-  size_t size;
+  struct Content;
+  std::shared_ptr<Content> content;
 };
 
 bool operator==(const Dimension&, const Dimension&);

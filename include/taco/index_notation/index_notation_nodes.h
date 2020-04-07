@@ -213,8 +213,8 @@ struct YieldNode : public IndexStmtNode {
 };
 
 struct ForallNode : public IndexStmtNode {
-  ForallNode(IndexVar indexVar, IndexStmt stmt, std::set<Forall::TAG> tags)
-      : indexVar(indexVar), stmt(stmt), tags(tags) {}
+  ForallNode(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy  output_race_strategy, size_t unrollFactor = 0)
+      : indexVar(indexVar), stmt(stmt), parallel_unit(parallel_unit), output_race_strategy(output_race_strategy), unrollFactor(unrollFactor) {}
 
   void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
@@ -222,7 +222,9 @@ struct ForallNode : public IndexStmtNode {
 
   IndexVar indexVar;
   IndexStmt stmt;
-  std::set<Forall::TAG> tags;
+  ParallelUnit parallel_unit;
+  OutputRaceStrategy  output_race_strategy;
+  size_t unrollFactor = 0;
 };
 
 struct WhereNode : public IndexStmtNode {
@@ -246,6 +248,17 @@ struct MultiNode : public IndexStmtNode {
 
   IndexStmt stmt1;
   IndexStmt stmt2;
+};
+
+struct SuchThatNode : public IndexStmtNode {
+  SuchThatNode(IndexStmt stmt, std::vector<IndexVarRel> predicate) : stmt(stmt), predicate(predicate) {}
+
+  void accept(IndexStmtVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  IndexStmt stmt;
+  std::vector<IndexVarRel> predicate;
 };
 
 struct SequenceNode : public IndexStmtNode {

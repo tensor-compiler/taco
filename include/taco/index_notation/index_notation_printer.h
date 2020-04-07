@@ -35,6 +35,7 @@ public:
   void visit(const WhereNode*);
   void visit(const MultiNode*);
   void visit(const SequenceNode*);
+  void visit(const SuchThatNode*);
 
 private:
   std::ostream& os;

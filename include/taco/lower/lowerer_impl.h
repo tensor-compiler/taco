@@ -5,10 +5,12 @@
 #include <map>
 #include <set>
 #include <memory>
+#include <taco/index_notation/index_notation.h>
 
 #include "taco/lower/iterator.h"
 #include "taco/util/scopedset.h"
 #include "taco/util/uncopyable.h"
+#include "taco/ir_tags.h"
 
 namespace taco {
 
@@ -21,6 +23,7 @@ class Yield;
 class Forall;
 class Where;
 class Multi;
+class SuchThat;
 class Sequence;
 
 class IndexExpr;
@@ -64,13 +67,18 @@ protected:
   /// Lower a forall statement.
   virtual ir::Stmt lowerForall(Forall forall);
 
+  /// Lower a forall that needs to be cloned so that one copy does not have guards
+  /// used for vectorized and unrolled loops
+  virtual ir::Stmt lowerForallCloned(Forall forall);
+
   /// Lower a forall that iterates over all the coordinates in the forall index
   /// var's dimension, and locates tensor positions from the locate iterators.
   virtual ir::Stmt lowerForallDimension(Forall forall,
                                         std::vector<Iterator> locaters,
                                         std::vector<Iterator> inserters,
                                         std::vector<Iterator> appenders,
-                                        std::set<Access> reducedAccesses);
+                                        std::set<Access> reducedAccesses,
+                                        ir::Stmt recoveryStmt);
 
   /// Lower a forall that iterates over the coordinates in the iterator, and
   /// locates tensor positions from the locate iterators.
@@ -78,7 +86,8 @@ protected:
                                          std::vector<Iterator> locaters,
                                          std::vector<Iterator> inserters,
                                          std::vector<Iterator> appenders,
-                                         std::set<Access> reducedAccesses);
+                                         std::set<Access> reducedAccesses,
+                                         ir::Stmt recoveryStmt);
 
   /// Lower a forall that iterates over the positions in the iterator, accesses
   /// the iterators coordinate, and locates tensor positions from the locate
@@ -87,54 +96,68 @@ protected:
                                        std::vector<Iterator> locaters,
                                        std::vector<Iterator> inserters,
                                        std::vector<Iterator> appenders,
-                                       std::set<Access> reducedAccesses);
+                                       std::set<Access> reducedAccesses,
+                                       ir::Stmt recoveryStmt);
 
-  /**
-   * Lower the merge lattice to code that iterates over the sparse iteration
-   * space of coordinates and computes the concrete index notation statement.
-   * The merge lattice dictates the code to iterate over the coordinates, by
-   * successively iterating to the exhaustion of each relevant sparse iteration
-   * space region (i.e., the regions in a venn diagram).  The statement is then
-   * computed and/or indices assembled at each point in its sparse iteration
-   * space.
-   *
-   * \param lattice
-   *      A merge lattice that describes the sparse iteration space of the
-   *      concrete index notation statement.
-   * \param coordinate
-   *      An IR expression that resolves to the variable containing the current
-   *      coordinate the merge lattice is at.
-   * \param statement
-   *      A concrete index notation statement to compute at the points in the
-   *      sparse iteration space described by the merge lattice.
-   *
-   * \return
-   *       IR code to compute the forall loop.
-   */
-  virtual ir::Stmt lowerMergeLattice(MergeLattice lattice, ir::Expr coordinate,
+  virtual ir::Stmt lowerForallFusedPosition(Forall forall, Iterator iterator,
+                                       std::vector<Iterator> locaters,
+                                       std::vector<Iterator> inserters,
+                                       std::vector<Iterator> appenders,
+                                       std::set<Access> reducedAccesses,
+                                       ir::Stmt recoveryStmt);
+
+  /// Used in lowerForallFusedPosition to generate code to
+  /// search for the start of the iteration of the loop (a separate kernel on GPUs)
+  virtual ir::Stmt searchForFusedPositionStart(Forall forall, Iterator posIterator);
+
+    /**
+     * Lower the merge lattice to code that iterates over the sparse iteration
+     * space of coordinates and computes the concrete index notation statement.
+     * The merge lattice dictates the code to iterate over the coordinates, by
+     * successively iterating to the exhaustion of each relevant sparse iteration
+     * space region (i.e., the regions in a venn diagram).  The statement is then
+     * computed and/or indices assembled at each point in its sparse iteration
+     * space.
+     *
+     * \param lattice
+     *      A merge lattice that describes the sparse iteration space of the
+     *      concrete index notation statement.
+     * \param coordinate
+     *      An IR expression that resolves to the variable containing the current
+     *      coordinate the merge lattice is at.
+     * \param statement
+     *      A concrete index notation statement to compute at the points in the
+     *      sparse iteration space described by the merge lattice.
+     *
+     * \return
+     *       IR code to compute the forall loop.
+     */
+  virtual ir::Stmt lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar,
                                      IndexStmt statement, 
                                      const std::set<Access>& reducedAccesses);
 
-  /**
-   * Lower the merge point at the top of the given lattice to code that iterates
-   * until one region of the sparse iteration space of coordinates and computes
-   * the concrete index notation statement.
-   *
-   * \param pointLattice
-   *      A merge lattice whose top point describes a region of the sparse
-   *      iteration space of the concrete index notation statement.
-   * \param coordinate
-   *      An IR expression that resolves to the variable containing the current
-   *      coordinate the merge point is at.
-   *      A concrete index notation statement to compute at the points in the
-   *      sparse iteration space region described by the merge point.
-   */
+  virtual ir::Stmt resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coordinate, bool emitVarDecl);
+
+    /**
+     * Lower the merge point at the top of the given lattice to code that iterates
+     * until one region of the sparse iteration space of coordinates and computes
+     * the concrete index notation statement.
+     *
+     * \param pointLattice
+     *      A merge lattice whose top point describes a region of the sparse
+     *      iteration space of the concrete index notation statement.
+     * \param coordinate
+     *      An IR expression that resolves to the variable containing the current
+     *      coordinate the merge point is at.
+     *      A concrete index notation statement to compute at the points in the
+     *      sparse iteration space region described by the merge point.
+     */
   virtual ir::Stmt lowerMergePoint(MergeLattice pointLattice,
-                                   ir::Expr coordinate, IndexStmt statement,
-                                   const std::set<Access>& reducedAccesses);
+                                   ir::Expr coordinate, IndexVar coordinateVar, IndexStmt statement,
+                                   const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared);
 
   /// Lower a merge lattice to cases.
-  virtual ir::Stmt lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
+  virtual ir::Stmt lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
                                    MergeLattice lattice,
                                    const std::set<Access>& reducedAccesses);
 
@@ -155,6 +178,8 @@ protected:
   /// Lower a multi statement.
   virtual ir::Stmt lowerMulti(Multi multi);
 
+  /// Lower a suchthat statement.
+  virtual ir::Stmt lowerSuchThat(SuchThat suchThat);
 
   /// Lower an access expression.
   virtual ir::Expr lowerAccess(Access access);
@@ -304,13 +329,20 @@ protected:
    *      A IR statement that declares and initializes each iterator's iterators
    *      variable
    */
-  ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators);
+  ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coord, IndexVar coordinateVar);
+  ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar);
 
-  /// Conditionally increment iterator position variables.
-  ir::Stmt codeToIncIteratorVars(ir::Expr coordinate,
-                                 std::vector<Iterator> iterators);
 
-  /// Create statements to append coordinate to result modes.
+  /// Recovers a derived indexvar from an underived variable.
+  ir::Stmt codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar indexVar, bool emitVarDecl);
+
+    /// Conditionally increment iterator position variables.
+  ir::Stmt codeToIncIteratorVars(ir::Expr coordinate, IndexVar coordinateVar,
+          std::vector<Iterator> iterators, std::vector<Iterator> mergers);
+
+  ir::Stmt codeToLoadCoordinatesFromPosIterators(std::vector<Iterator> iterators, bool declVars);
+
+    /// Create statements to append coordinate to result modes.
   ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
 
   /// Create statements to append positions to result modes.
@@ -327,6 +359,9 @@ private:
   bool assemble;
   bool compute;
 
+  int markAssignsAtomicDepth = 0;
+  ParallelUnit atomicParallelUnit;
+
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
 
@@ -341,8 +376,37 @@ private:
   /// Map from index variables to their dimensions, currently [0, expr).
   std::map<IndexVar, ir::Expr> dimensions;
 
+  /// Map from index variables to their bounds, currently also [0, expr) but allows adding minimum in future too
+  std::map<IndexVar, std::vector<ir::Expr>> underivedBounds;
+
+  /// Map from indexvars to their variable names
+  std::map<IndexVar, ir::Expr> indexVarToExprMap;
+
   /// Tensor and mode iterators to iterate over in the lowered code
   Iterators iterators;
+
+  /// Keep track of relations between IndexVars
+  ProvenanceGraph provGraph;
+
+  bool ignoreVectorize = false; // already being taken into account
+
+  std::vector<ir::Stmt> whereConsumers;
+  std::vector<TensorVar> whereTemps;
+  std::map<TensorVar, const AccessNode *> whereTempsToResult;
+
+  bool captureNextLocatePos = false;
+  ir::Stmt capturedLocatePos; // used for whereConsumer when want to replicate same locating
+
+  bool emitUnderivedGuards = true;
+
+  int inParallelLoopDepth = 0;
+
+  std::map<ParallelUnit, ir::Expr> parallelUnitSizes;
+  std::map<ParallelUnit, IndexVar> parallelUnitIndexVars;
+
+  /// Keep track of what IndexVars have already been defined
+  std::set<IndexVar> definedIndexVars;
+  std::vector<IndexVar> definedIndexVarsOrdered;
 
   /// Map from tensor accesses to variables storing reduced values.
   std::map<Access, ir::Expr> reducedValueVars;

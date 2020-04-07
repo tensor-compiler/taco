@@ -179,8 +179,31 @@ INSTANTIATE_TEST_CASE_P(reorder, apply,
                                         forall(k,
                                                S(i,j,k) = T(i,j,k)
                                                )))
-                          )
-         )
+                          ),
+         TransformationTest(Reorder({j, i, k}),
+                            forall(i,
+                                   forall(j,
+                                          forall(k,
+                                                 S(i,j,k) = T(i,j,k)
+                                          ))),
+                            forall(j,
+                                   forall(i,
+                                          forall(k,
+                                                 S(i,j,k) = T(i,j,k)
+                                          )))
+         ),
+         TransformationTest(Reorder({k, j, i}),
+                            forall(i,
+                                   forall(j,
+                                          forall(k,
+                                                 S(i,j,k) = T(i,j,k)
+                                          ))),
+                            forall(k,
+                                   forall(j,
+                                          forall(i,
+                                                 S(i,j,k) = T(i,j,k)
+                                          )))
+         ))
 );
 
 static Assignment elmul = (a(i) = b(i) * c(i));
@@ -221,15 +244,15 @@ INSTANTIATE_TEST_CASE_P(parallelize, apply,
                         Values(
                                 TransformationTest(Parallelize(i),
                                                    forall(i, w(i) = b(i)),
-                                                   forall(i, w(i) = b(i), {Forall::PARALLELIZE})
+                                                   forall(i, w(i) = b(i), ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)
                                 ),
                                 TransformationTest(Parallelize(i),
                                                    forall(i, forall(j, W(i,j) = A(i,j))),
-                                                   forall(i, forall(j, W(i,j) = A(i,j)), {Forall::PARALLELIZE})
+                                                   forall(i, forall(j, W(i,j) = A(i,j)), ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)
                                 ),
                                 TransformationTest(Parallelize(j),
                                                    forall(i, forall(j, W(i,j) = A(i,j))),
-                                                   forall(i, forall(j, W(i,j) = A(i,j), {Forall::PARALLELIZE}))
+                                                   forall(i, forall(j, W(i,j) = A(i,j), ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces))
                                 )
                         )
 );
@@ -246,8 +269,8 @@ INSTANTIATE_TEST_CASE_P(misc, reorderLoopsTopologically, Values(
   NotationTest(forall(i, w(i) = b(i)),
                   forall(i, w(i) = b(i))),
 
-  NotationTest(forall(i, w(i) = b(i), {Forall::PARALLELIZE}),
-                  forall(i, w(i) = b(i), {Forall::PARALLELIZE})),
+  NotationTest(forall(i, w(i) = b(i), ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces),
+                  forall(i, w(i) = b(i), ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)),
 
   NotationTest(forall(i, forall(j, W(i,j) = A(i,j))),
                   forall(i, forall(j, W(i,j) = A(i,j)))),

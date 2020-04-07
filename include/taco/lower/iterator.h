@@ -10,7 +10,6 @@
 
 #include "taco/ir/ir.h"
 #include "taco/util/comparable.h"
-#include "lower/tensor_path.h"
 #include "taco/lower/mode_format_impl.h"
 
 namespace taco {
@@ -18,6 +17,9 @@ class Type;
 class ModeAccess;
 class IndexStmt;
 class IndexVar;
+class ProvenanceGraph;
+class TensorVar;
+class Access;
 
 namespace ir {
 class Stmt;
@@ -33,14 +35,14 @@ public:
   Iterator();
 
   /// Construct a dimension iterator.
-  Iterator(IndexVar indexVar);
+  Iterator(IndexVar indexVar, bool isFull=true);
 
   /// Construct a root iterator.
   Iterator(ir::Expr tensorVar);
 
   /// Construct a non-root iterator.
   Iterator(IndexVar indexVar, ir::Expr tensor, Mode mode, Iterator parent,
-           std::string name);
+           std::string name, bool useNameForPos=true);
 
   /// Returns true if the iterator is a root iterator.
   bool isRoot() const;
@@ -119,7 +121,8 @@ public:
   ir::Expr getBeginVar() const;
 
 
-  /// Return code for level functions that implement coordinate value iteration.
+  ModeFunction coordBounds(const ir::Expr& parentPos) const;
+    /// Return code for level functions that implement coordinate value iteration.
   ModeFunction coordBounds(const std::vector<ir::Expr>& parentCoords) const;
   ModeFunction coordAccess(const std::vector<ir::Expr>& coords) const;
   
@@ -195,6 +198,8 @@ public:
    */
   Iterator levelIterator(ModeAccess) const;
 
+  std::map<ModeAccess,Iterator> levelIterators() const;
+
   /**
    * Retrieve the mode access corresponding to the given coordinate hierarchy
    * level iterator.
@@ -206,8 +211,10 @@ public:
    */
   Iterator modeIterator(IndexVar) const;
 
+  std::map<IndexVar, Iterator> modeIterators() const;
+
 private:
-  void createAccessIterators(Access access, Format format, ir::Expr tensorIR);
+  void createAccessIterators(Access access, Format format, ir::Expr tensorIR, ProvenanceGraph provGraph);
 
   struct Content;
   std::shared_ptr<Content> content;

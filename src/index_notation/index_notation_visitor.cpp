@@ -112,4 +112,8 @@ void IndexNotationVisitor::visit(const MultiNode* op) {
   op->stmt2.accept(this);
 }
 
+void IndexNotationVisitor::visit(const SuchThatNode* op) {
+  op->stmt.accept(this);
+}
+
 }

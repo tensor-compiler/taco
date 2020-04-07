@@ -416,9 +416,9 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       declarations.insert({decl->var, stmt});
       if (decl->var.type().isInt() && isa<Var>(rhs) && 
           !util::contains(loopDependentVars, decl->var)) {
-        taco_iassert(!varsToReplace.contains(decl->var)) 
-            << "Copy propagation pass currently does not support variables " 
-            << "with same name declared in nested scopes";
+//        TODO: taco_iassert(!varsToReplace.contains(decl->var))
+//            << "Copy propagation pass currently does not support variables "
+//            << "with same name declared in nested scopes: " << decl->var.as<Var>()->name;
         varsToReplace.insert({decl->var, {rhs, stmt}});
         dependencies.insert({rhs, decl->var});
       }
@@ -428,7 +428,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       Expr lhs = isa<Var>(assign->lhs) ? assign->lhs : rewrite(assign->lhs);
       Expr rhs = rewrite(assign->rhs);
       stmt = (lhs == assign->lhs && rhs == assign->rhs) ? assign : 
-             Assign::make(lhs, rhs);
+             Assign::make(lhs, rhs, assign->use_atomics);
       
       if (declarations.contains(lhs)) {
         taco_iassert(isa<Var>(lhs));
@@ -478,6 +478,10 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
         necessaryDecls(necessaryDecls) {}
 
     void visit(const VarDecl* decl) {
+      if (isa<ir::Call>(decl->rhs)) { // don't remove function calls that might have side effects
+        stmt = decl;
+        return;
+      }
       stmt = util::contains(necessaryDecls, decl)? decl : Block::make();
     }
   };

@@ -216,14 +216,8 @@ void IndexNotationPrinter::visit(const YieldNode* op) {
 void IndexNotationPrinter::visit(const ForallNode* op) {
   os << "forall(" << op->indexVar << ", ";
   op->stmt.accept(this);
-  for (auto iter = op->tags.begin(); iter != op->tags.end(); ++iter) {
-    switch (*iter) {
-      case Forall::PARALLELIZE:
-        os << ", PARALLELIZE";
-        break;
-      default:
-        taco_ierror;
-    }
+  if (op->parallel_unit != ParallelUnit::NotParallel) {
+    os << ", " << ParallelUnit_NAMES[(int) op->parallel_unit] << ", " << OutputRaceStrategy_NAMES[(int) op->output_race_strategy];
   }
   os << ")";
 }
@@ -241,6 +235,19 @@ void IndexNotationPrinter::visit(const MultiNode* op) {
   op->stmt1.accept(this);
   os << ", ";
   op->stmt2.accept(this);
+  os << ")";
+}
+
+void IndexNotationPrinter::visit(const SuchThatNode* op) {
+  os << "suchthat(";
+  op->stmt.accept(this);
+  os << ", ";
+  for (auto iter = op->predicate.begin(); iter != op->predicate.end(); ++iter) {
+    os << *iter;
+    if (iter + 1 != op->predicate.end()) {
+      os << " and ";
+    }
+  }
   os << ")";
 }
 

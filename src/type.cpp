@@ -3,6 +3,7 @@
 #include "taco/error/error_messages.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
+#include "taco/index_notation/index_notation.h"
 
 #include <ostream>
 #include <set>
@@ -217,16 +218,32 @@ Datatype Complex(int bits) {
 Datatype Complex64  = Datatype(Datatype::Complex64);
 Datatype Complex128 = Datatype(Datatype::Complex128);
 
+struct Dimension::Content {
+  size_t size;
+  IndexVar indexVar;
+  bool indexVarDefined;
+};
+
 // class Dimension
-Dimension::Dimension() : size(0) {
+Dimension::Dimension() : content(new Content) {
+  content->size = 0;
+  content->indexVarDefined = false;
 }
 
-Dimension::Dimension(size_t size) : size(size) {
+Dimension::Dimension(size_t size) : content(new Content) {
   taco_iassert(size > 0) << "Cannot create a dimension of size 0";
+  content->size = size;
+  content->indexVarDefined = false;
+}
+
+Dimension::Dimension(IndexVar indexVar) : content(new Content) {
+  content->size = 0;
+  content->indexVarDefined = true;
+  content->indexVar = indexVar;
 }
 
 bool Dimension::isVariable() const {
-  return getSize() == 0;
+  return getSize() == 0 && !content->indexVarDefined;
 }
 
 bool Dimension::isFixed() const {
@@ -234,7 +251,16 @@ bool Dimension::isFixed() const {
 }
 
 size_t Dimension::getSize() const {
-  return size;
+  return content->size;
+}
+
+bool Dimension::isIndexVarSized() const {
+  return content->indexVarDefined;
+}
+
+IndexVar Dimension::getIndexVarSize() const {
+  taco_iassert(content->indexVarDefined);
+  return content->indexVar;
 }
 
 bool operator==(const Dimension& a, const Dimension& b) {

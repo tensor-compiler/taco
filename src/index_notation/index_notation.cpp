@@ -6,6 +6,8 @@
 #include <vector>
 #include <utility>
 #include <set>
+#include <taco/ir/simplify.h>
+#include "lower/mode_access.h"
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
@@ -19,6 +21,8 @@
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_printer.h"
 #include "taco/ir/ir.h"
+#include "taco/lower/lower.h"
+#include "taco/codegen/module.h"
 
 #include "taco/util/name_generator.h"
 #include "taco/util/scopedmap.h"
@@ -300,7 +304,8 @@ struct Equals : public IndexNotationVisitorStrict {
     auto bnode = to<ForallNode>(bStmt.ptr);
     if (anode->indexVar != bnode->indexVar ||
         !equals(anode->stmt, bnode->stmt) ||
-        anode->tags != bnode->tags) {
+        anode->parallel_unit != bnode->parallel_unit ||
+        anode->output_race_strategy != bnode->output_race_strategy) {
       eq = false;
       return;
     }
@@ -343,6 +348,20 @@ struct Equals : public IndexNotationVisitorStrict {
     auto bnode = to<MultiNode>(bStmt.ptr);
     if (!equals(anode->stmt1, bnode->stmt1) ||
         !equals(anode->stmt2, bnode->stmt2)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const SuchThatNode* anode) {
+    if (!isa<SuchThatNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<SuchThatNode>(bStmt.ptr);
+    if (anode->predicate != bnode->predicate ||
+        !equals(anode->stmt, bnode->stmt)) {
       eq = false;
       return;
     }
@@ -426,7 +445,7 @@ Assignment Access::operator=(const TensorVar& var) {
 Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   Assignment assignment = Assignment(result, getIndexVars(), expr, Add());
-  check(assignment);
+  // check(assignment); TODO: fix check for precompute
   const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
 }
@@ -953,7 +972,7 @@ std::vector<IndexVar> IndexStmt::getIndexVars() const {
   return vars;
 }
 
-map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() {
+map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() const {
   map<IndexVar, Dimension> indexVarDomains;
   match(*this,
     std::function<void(const AssignmentNode*,Matcher*)>([](
@@ -980,6 +999,197 @@ map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() {
   return indexVarDomains;
 }
 
+IndexStmt IndexStmt::concretize() const {
+  IndexStmt stmt = *this;
+  if (isEinsumNotation(stmt)) {
+    stmt = makeReductionNotation(stmt);
+  }
+  if (isReductionNotation(stmt)) {
+    stmt = makeConcreteNotation(stmt);
+  }
+  return stmt;
+}
+
+IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const {
+  IndexVarRel rel = IndexVarRel(new SplitRelNode(i, i1, i2, splitFactor));
+  string reason;
+
+  // Add predicate to concrete index notation
+  IndexStmt transformed = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  // Replace all occurrences of i with nested i1, i2
+  transformed = Transformation(ForAllReplace({i}, {i1, i2})).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  return transformed;
+}
+
+IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const {
+  taco_not_supported_yet;
+  // mostly the same as split, but instead of splitFactor being a constant use an expression
+}
+
+IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
+  IndexStmt transformed = *this;
+  string reason;
+  if (i != iw) {
+    IndexVarRel rel = IndexVarRel(new PrecomputeRelNode(i, iw));
+    transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed, &reason);
+    if (!transformed.defined()) {
+      taco_uerror << reason;
+    }
+  }
+
+  transformed = Transformation(Precompute(expr, i, iw, workspace)).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
+IndexStmt IndexStmt::reorder(taco::IndexVar i, taco::IndexVar j) const {
+  string reason;
+  IndexStmt transformed = Reorder(i, j).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
+IndexStmt IndexStmt::reorder(std::vector<IndexVar> reorderedvars) const {
+  string reason;
+  IndexStmt transformed = Reorder(reorderedvars).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
+IndexStmt IndexStmt::parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy) const {
+  string reason;
+  IndexStmt transformed = Parallelize(i, parallel_unit, output_race_strategy).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
+IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
+  // check access is contained in stmt
+  bool foundAccess = false;
+  for (Access argAccess : getArgumentAccesses(*this)) {
+    if (argAccess.getTensorVar() == access.getTensorVar() && argAccess.getIndexVars() == access.getIndexVars()) {
+      foundAccess = true;
+      false;
+    }
+  }
+  if (!foundAccess) {
+    taco_uerror << "Access: " << access << " does not appear in index statement as an argument";
+  }
+
+  // check access is correct
+  ProvenanceGraph provGraph = ProvenanceGraph(*this);
+  vector<IndexVar> underivedParentAncestors = provGraph.getUnderivedAncestors(i);
+  int max_mode = 0;
+  for (IndexVar underived : underivedParentAncestors) {
+    size_t mode_index = 0; // which of the access index vars match?
+    for (auto var : access.getIndexVars()) {
+      if (var == underived) {
+        break;
+      }
+      mode_index++;
+    }
+    if (mode_index > max_mode) max_mode = mode_index;
+  }
+  if (max_mode >= access.getIndexVars().size()) {
+    taco_uerror << "Index variable " << i << " does not appear in access: " << access;
+  }
+
+  int mode = access.getTensorVar().getFormat().getModeOrdering()[max_mode];
+  if (access.getTensorVar().getFormat().getModeFormats()[mode] == Dense) {
+    taco_uerror << "Pos transformation is not valid for dense formats, the coordinate space should be transformed instead";
+  }
+
+  IndexVarRel rel = IndexVarRel(new PosRelNode(i, ipos, access));
+  string reason;
+
+  // Add predicate to concrete index notation
+  IndexStmt transformed = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  // Replace all occurrences of i with ipos
+  transformed = Transformation(ForAllReplace({i}, {ipos})).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  return transformed;
+}
+
+IndexStmt IndexStmt::fuse(IndexVar i, IndexVar j, IndexVar f) const {
+  IndexVarRel rel = IndexVarRel(new FuseRelNode(i, j, f));
+  string reason;
+
+  // Add predicate to concrete index notation
+  IndexStmt transformed = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  // Replace all occurrences of i, j with f
+  transformed = Transformation(ForAllReplace({i,j}, {f})).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  return transformed;
+}
+
+IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const {
+  IndexVarRel rel = IndexVarRel(new BoundRelNode(i, i1, bound, bound_type));
+  string reason;
+
+  // Add predicate to concrete index notation
+  IndexStmt transformed = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  // Replace all occurrences of i with i1
+  transformed = Transformation(ForAllReplace({i}, {i1})).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  return transformed;
+}
+
+IndexStmt IndexStmt::unroll(IndexVar i, size_t unrollFactor) const {
+  struct UnrollLoop : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+    IndexVar i;
+    size_t unrollFactor;
+    UnrollLoop(IndexVar i, size_t unrollFactor) : i(i), unrollFactor(unrollFactor) {}
+
+    void visit(const ForallNode* node) {
+      if (node->indexVar == i) {
+        stmt = Forall(i, rewrite(node->stmt), node->parallel_unit, node->output_race_strategy, unrollFactor);
+      }
+      else {
+        IndexNotationRewriter::visit(node);
+      }
+    }
+  };
+  return UnrollLoop(i, unrollFactor).rewrite(*this);
+}
+
 bool equals(IndexStmt a, IndexStmt b) {
   if (!a.defined() && !b.defined()) {
     return true;
@@ -996,7 +1206,6 @@ std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
   printer.print(expr);
   return os;
 }
-
 
 // class Assignment
 Assignment::Assignment(const AssignmentNode* n) : IndexStmt(n) {
@@ -1076,11 +1285,11 @@ Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt)
-    : Forall(new ForallNode(indexVar, stmt, {})) {
+    : Forall(indexVar, stmt, ParallelUnit::NotParallel, OutputRaceStrategy::IgnoreRaces) {
 }
 
-Forall::Forall(IndexVar indexVar, IndexStmt stmt, std::set<TAG> tags)
-        : Forall(new ForallNode(indexVar, stmt, tags)) {
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor)
+        : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor)) {
 }
 
 IndexVar Forall::getIndexVar() const {
@@ -1091,18 +1300,24 @@ IndexStmt Forall::getStmt() const {
   return getNode(*this)->stmt;
 }
 
-std::set<Forall::TAG> Forall::getTags() const {
-  return getNode(*this)->tags;
+ParallelUnit Forall::getParallelUnit() const {
+  return getNode(*this)->parallel_unit;
 }
 
+OutputRaceStrategy Forall::getOutputRaceStrategy() const {
+  return getNode(*this)->output_race_strategy;
+}
 
+size_t Forall::getUnrollFactor() const {
+  return getNode(*this)->unrollFactor;
+}
 
 Forall forall(IndexVar i, IndexStmt stmt) {
   return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt stmt, std::set<Forall::TAG> tags) {
-  return Forall(i, stmt, tags);
+Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor) {
+  return Forall(i, stmt, parallel_unit, output_race_strategy, unrollFactor);
 }
 
 template <> bool isa<Forall>(IndexStmt s) {
@@ -1212,12 +1427,36 @@ template <> Multi to<Multi>(IndexStmt s) {
   return Multi(to<MultiNode>(s.ptr));
 }
 
+// class SuchThat
+SuchThat::SuchThat(const SuchThatNode* n) : IndexStmt(n) {
+}
+
+SuchThat::SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate)
+        : SuchThat(new SuchThatNode(stmt, predicate)) {
+}
+
+IndexStmt SuchThat::getStmt() const {
+  return getNode(*this)->stmt;
+}
+
+std::vector<IndexVarRel> SuchThat::getPredicate() const {
+  return getNode(*this)->predicate;
+}
+
+SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate) {
+  return SuchThat(stmt, predicate);
+}
+
+template <> bool isa<SuchThat>(IndexStmt s) {
+  return isa<SuchThatNode>(s.ptr);
+}
+
+template <> SuchThat to<SuchThat>(IndexStmt s) {
+  taco_iassert(isa<SuchThat>(s));
+  return SuchThat(to<SuchThatNode>(s.ptr));
+}
 
 // class IndexVar
-struct IndexVar::Content {
-  string name;
-};
-
 IndexVar::IndexVar() : IndexVar(util::uniqueName('i')) {}
 
 IndexVar::IndexVar(const std::string& name) : content(new Content) {
@@ -1239,7 +1478,6 @@ bool operator<(const IndexVar& a, const IndexVar& b) {
 std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
   return os << var.getName();
 }
-
 
 // class TensorVar
 struct TensorVar::Content {
@@ -1362,7 +1600,9 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 static bool isValid(Assignment assignment, string* reason) {
-  INIT_REASON(reason);
+  if (reason == nullptr) {
+    INIT_REASON(reason);
+  }
   auto rhs = assignment.getRhs();
   auto lhs = assignment.getLhs();
   auto result = lhs.getTensorVar();
@@ -1491,34 +1731,52 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
   // Concrete notation until proved otherwise
   bool isConcrete = true;
 
+  bool inWhereProducer = false;
+  bool inWhereConsumer = false;
   util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
+  std::set<IndexVar> definedVars; // used to check if all variables recoverable TODO: need to actually use scope like above
+
+  ProvenanceGraph provGraph = ProvenanceGraph(stmt);
 
   match(stmt,
     std::function<void(const ForallNode*,Matcher*)>([&](const ForallNode* op,
                                                         Matcher* ctx) {
       boundVars.scope();
       boundVars.insert({op->indexVar,0});
+      definedVars.insert(op->indexVar);
       ctx->match(op->stmt);
       boundVars.unscope();
     }),
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
-        if (!boundVars.contains(var)) {
+        // non underived variables may appear in temporaries, but we don't check these
+        if (!boundVars.contains(var) && provGraph.isUnderived(var) && (provGraph.isFullyDerived(var) || !provGraph.isRecoverable(var, definedVars))) {
           *reason = "all variables in concrete notation must be bound by a "
-                    "forall statement.";
+                    "forall statement";
           isConcrete = false;
         }
       }
     }),
+    std::function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op, Matcher* ctx) {
+      bool alreadyInProducer = inWhereProducer;
+      inWhereProducer = true;
+      ctx->match(op->producer);
+      if (!alreadyInProducer) inWhereProducer = false;
+      bool alreadyInConsumer = inWhereConsumer;
+      inWhereConsumer = true;
+      ctx->match(op->consumer);
+      if (!alreadyInConsumer) inWhereConsumer = false;
+    }),
     std::function<void(const AssignmentNode*,Matcher*)>([&](
         const AssignmentNode* op, Matcher* ctx) {
-      if(!isValid(Assignment(op), reason)) {
+      if(!inWhereConsumer && !inWhereProducer && !isValid(Assignment(op), reason)) { // TODO: fix check for precompute
         isConcrete = false;
         return;
       }
 
+      // allow introducing precompute loops where we set a temporary to values instead of +=
       if (Assignment(op).getReductionVars().size() > 0 &&
-          op->op == IndexExpr()) {
+          op->op == IndexExpr() && !inWhereProducer) {
         *reason = "reduction variables in concrete notation must be dominated "
                   "by compound assignments (such as +=)";
         isConcrete = false;
@@ -1531,6 +1789,20 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const ReductionNode*)>([&](const ReductionNode* op) {
       *reason = "concrete notation cannot contain reduction nodes";
       isConcrete = false;
+    }),
+    std::function<void(const SuchThatNode*)>([&](const SuchThatNode* op) {
+      const string failed_reason = "concrete notation cannot contain nested SuchThat nodes";
+      if (!isa<SuchThat>(stmt)) {
+        *reason = failed_reason;
+        isConcrete = false;
+        return;
+      }
+      SuchThat firstSuchThat = to<SuchThat>(stmt);
+      if (firstSuchThat != op) {
+        *reason = failed_reason;
+        isConcrete = false;
+        return;
+      }
     })
   );
   return isConcrete;
@@ -1827,17 +2099,23 @@ std::vector<Access> getArgumentAccesses(IndexStmt stmt)
   return result;
 }
 
+// Return corresponding underived indexvars
 struct GetIndexVars : IndexNotationVisitor {
+  GetIndexVars(ProvenanceGraph provGraph) : provGraph(provGraph) {}
   vector<IndexVar> indexVars;
   set<IndexVar> seen;
+  ProvenanceGraph provGraph;
 
   using IndexNotationVisitor::visit;
 
   void add(const vector<IndexVar>& vars) {
     for (auto& var : vars) {
-      if (!util::contains(seen, var)) {
-        seen.insert(var);
-        indexVars.push_back(var);
+      std::vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(var);
+      for (auto &underived : underivedAncestors) {
+        if (!util::contains(seen, underived)) {
+          seen.insert(underived);
+          indexVars.push_back(underived);
+        }
       }
     }
   }
@@ -1858,14 +2136,14 @@ struct GetIndexVars : IndexNotationVisitor {
 };
 
 vector<IndexVar> getIndexVars(IndexStmt stmt) {
-  GetIndexVars visitor;
+  GetIndexVars visitor = GetIndexVars(ProvenanceGraph(stmt));
   stmt.accept(&visitor);
   return visitor.indexVars;
 }
 
 
 vector<IndexVar> getIndexVars(IndexExpr expr) {
-  GetIndexVars visitor;
+  GetIndexVars visitor = GetIndexVars(ProvenanceGraph());
   expr.accept(&visitor);
   return visitor.indexVars;
 }
@@ -2102,7 +2380,7 @@ private:
       stmt = op;
     }
     else {
-      stmt = new ForallNode(op->indexVar, body, op->tags);
+      stmt = new ForallNode(op->indexVar, body, op->parallel_unit, op->output_race_strategy, op->unrollFactor);
     }
   }
 
@@ -2129,6 +2407,19 @@ private:
 
   void visit(const MultiNode* op) {
     taco_not_supported_yet;
+  }
+
+  void visit(const SuchThatNode* op) {
+    IndexStmt body = rewrite(op->stmt);
+    if (!body.defined()) {
+      stmt = IndexStmt();
+    }
+    else if (body == op->stmt) {
+      stmt = op;
+    }
+    else {
+      stmt = new SuchThatNode(body, op->predicate);
+    }
   }
 };
 

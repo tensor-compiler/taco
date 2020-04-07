@@ -54,6 +54,48 @@ const string cHeaders =
   "int cmp(const void *a, const void *b) {\n"
   "  return *((const int*)a) - *((const int*)b);\n"
   "}\n"
+  "int taco_binarySearchAfter(int *array, int arrayStart, int arrayEnd, int target) {\n"
+  "  if (array[arrayStart] >= target) {\n"
+  "    return arrayStart;\n"
+  "  }\n"
+  "  int lowerBound = arrayStart; // always < target\n"
+  "  int upperBound = arrayEnd; // always >= target\n"
+  "  while (upperBound - lowerBound > 1) {\n"
+  "    int mid = (upperBound + lowerBound) / 2;\n"
+  "    int midValue = array[mid];\n"
+  "    if (midValue < target) {\n"
+  "      lowerBound = mid;\n"
+  "    }\n"
+  "    else if (midValue > target) {\n"
+  "      upperBound = mid;\n"
+  "    }\n"
+  "    else {\n"
+  "      return mid;\n"
+  "    }\n"
+  "  }\n"
+  "  return upperBound;\n"
+  "}\n"
+  "int taco_binarySearchBefore(int *array, int arrayStart, int arrayEnd, int target) {\n"
+  "  if (array[arrayEnd] <= target) {\n"
+  "    return arrayEnd;\n"
+  "  }\n"
+  "  int lowerBound = arrayStart; // always <= target\n"
+  "  int upperBound = arrayEnd; // always > target\n"
+  "  while (upperBound - lowerBound > 1) {\n"
+  "    int mid = (upperBound + lowerBound) / 2;\n"
+  "    int midValue = array[mid];\n"
+  "    if (midValue < target) {\n"
+  "      lowerBound = mid;\n"
+  "    }\n"
+  "    else if (midValue > target) {\n"
+  "      upperBound = mid;\n"
+  "    }\n"
+  "    else {\n"
+  "      return mid;\n"
+  "    }\n"
+  "  }\n"
+  "  return lowerBound;\n"
+  "}\n"
   "#endif\n";
 } // anonymous namespace
 
@@ -154,12 +196,15 @@ protected:
   }
 };
 
-CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind)
-    : CodeGen(dest, false, true, C), out(dest), outputKind(outputKind) {}
+CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind, bool simplify)
+    : CodeGen(dest, false, simplify, C), out(dest), outputKind(outputKind) {}
 
 CodeGen_C::~CodeGen_C() {}
 
 void CodeGen_C::compile(Stmt stmt, bool isFirst) {
+  varMap = {};
+  localVars = {};
+
   if (isFirst) {
     // output the headers
     out << cHeaders;
@@ -184,7 +229,7 @@ void CodeGen_C::visit(const Function* func) {
   // output function declaration
   doIndent();
   out << printFuncName(func);
-  
+
   // if we're just generating a header, this is all we need to do
   if (outputKind == HeaderGen) {
     out << ";\n";
@@ -207,17 +252,17 @@ void CodeGen_C::visit(const Function* func) {
   out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << endl;
 
   if (emittingCoroutine) {
-    out << printContextDeclAndInit(varMap, localVars, numYields, func->name) 
+    out << printContextDeclAndInit(varMap, localVars, numYields, func->name)
         << endl;
   }
 
   // output body
   print(func->body);
-  
+
   // output repack only if we allocated memory
   if (checkForAlloc(func))
     out << endl << printPack(varFinder.outputProperties, func->outputs);
-  
+
   if (emittingCoroutine) {
     out << printCoroutineFinish(numYields, funcName);
   }
@@ -269,7 +314,7 @@ static string genVectorizePragma(int width) {
     ret << "vectorize(enable)";
   else
     ret << "vectorize_width(" << width << ")";
-  
+
   return ret.str();
 }
 
@@ -278,18 +323,29 @@ static string getParallelizePragma(LoopKind kind) {
   ret << "#pragma omp parallel for schedule";
   switch (kind) {
     case LoopKind::Static:
-      ret << "(static)";
+      ret << "(static, 1)";
       break;
     case LoopKind::Dynamic:
-      ret << "(dynamic, 16)";
+      ret << "(dynamic, 1)";
       break;
     case LoopKind::Runtime:
-      ret << "(runtime)";
+      ret << "(runtime, 1)";
+      break;
+    case LoopKind::Static_Chunked:
+      ret << "(static)";
       break;
     default:
       break;
   }
   return ret.str();
+}
+
+static string getUnrollPragma(size_t unrollFactor) {
+  return "#pragma unroll " + std::to_string(unrollFactor);
+}
+
+static string getAtomicPragma() {
+  return "#pragma omp atomic";
 }
 
 // The next two need to output the correct pragmas depending
@@ -307,15 +363,21 @@ void CodeGen_C::visit(const For* op) {
     case LoopKind::Static:
     case LoopKind::Dynamic:
     case LoopKind::Runtime:
+    case LoopKind::Static_Chunked:
       doIndent();
       out << getParallelizePragma(op->kind);
       out << "\n";
+      break;
     default:
+      if (op->unrollFactor > 0) {
+        doIndent();
+        out << getUnrollPragma(op->unrollFactor) << endl;
+      }
       break;
   }
-  
+
   doIndent();
-  stream << keywordString("for") << " ("; 
+  stream << keywordString("for") << " (";
   if (!emittingCoroutine) {
     stream << keywordString(util::toString(op->var.type())) << " ";
   }
@@ -356,7 +418,7 @@ void CodeGen_C::visit(const While* op) {
     out << genVectorizePragma(op->vec_width);
     out << "\n";
   }
-  
+
   IRPrinter::visit(op);
 }
 
@@ -383,11 +445,19 @@ void CodeGen_C::visit(const Min* op) {
 }
 
 void CodeGen_C::visit(const Max* op) {
-  stream << "TACO_MAX(";
-  op->a.accept(this);
-  stream << ", ";
-  op->b.accept(this);
-  stream << ")";
+  if (op->operands.size() == 1) {
+    op->operands[0].accept(this);
+    return;
+  }
+  for (size_t i=0; i<op->operands.size()-1; i++) {
+    stream << "TACO_MAX(";
+    op->operands[i].accept(this);
+    stream << ",";
+  }
+  op->operands.back().accept(this);
+  for (size_t i=0; i<op->operands.size()-1; i++) {
+    stream << ")";
+  }
 }
 
 void CodeGen_C::visit(const Allocate* op) {
@@ -420,10 +490,26 @@ void CodeGen_C::visit(const Sqrt* op) {
   op->a.accept(this);
   stream << ")";
 }
-  
+
+void CodeGen_C::visit(const Assign* op) {
+  if (op->use_atomics) {
+    doIndent();
+    stream << getAtomicPragma() << endl;
+  }
+  IRPrinter::visit(op);
+}
+
+void CodeGen_C::visit(const Store* op) {
+  if (op->use_atomics) {
+    doIndent();
+    stream << getAtomicPragma() << endl;
+  }
+  IRPrinter::visit(op);
+}
+
 void CodeGen_C::generateShim(const Stmt& func, stringstream &ret) {
   const Function *funcPtr = func.as<Function>();
-  
+
   ret << "int _shim_" << funcPtr->name << "(void** parameterPack) {\n";
   ret << "  return " << funcPtr->name << "(";
 
@@ -440,12 +526,12 @@ void CodeGen_C::generateShim(const Stmt& func, stringstream &ret) {
     i = 4;
     delimiter = ", ";
   }
-  
+
   for (auto output : funcPtr->outputs) {
     auto var = output.as<Var>();
     auto cast_type = var->is_tensor ? "taco_tensor_t*"
     : printCType(var->type, var->is_ptr);
-    
+
     ret << delimiter << "(" << cast_type << ")(parameterPack[" << i++ << "])";
     delimiter = ", ";
   }
@@ -459,5 +545,5 @@ void CodeGen_C::generateShim(const Stmt& func, stringstream &ret) {
   ret << ");\n";
   ret << "}\n";
 }
-
-}}
+}
+}

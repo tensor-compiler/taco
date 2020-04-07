@@ -36,9 +36,15 @@ Iterator::Iterator() : content(nullptr) {
 Iterator::Iterator(std::shared_ptr<Content> content) : content(content) {
 }
 
-Iterator::Iterator(IndexVar indexVar) : content(new Content) {
+Iterator::Iterator(IndexVar indexVar, bool isFull) : content(new Content) {
   content->indexVar = indexVar;
   content->coordVar = Var::make(indexVar.getName(), Int());
+  content->posVar = Var::make(indexVar.getName() + "_pos", Int());
+
+  if (!isFull) {
+    content->beginVar = Var::make(indexVar.getName() + "_begin", Int());
+    content->endVar = Var::make(indexVar.getName() + "_end", Int());
+  }
 }
 
 Iterator::Iterator(ir::Expr tensor) : content(new Content) {
@@ -49,7 +55,7 @@ Iterator::Iterator(ir::Expr tensor) : content(new Content) {
 }
 
 Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
-                   string name) : content(new Content) {
+                   string name, bool useNameForPos) : content(new Content) {
   content->indexVar = indexVar;
 
   content->mode = mode;
@@ -59,7 +65,11 @@ Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
   string modeName = mode.getName();
   content->tensor = tensor;
 
-  content->posVar   = Var::make("p" + modeName,            Int());
+  string posNamePrefix = "p" + modeName;
+  if (useNameForPos) {
+    posNamePrefix = name;
+  }
+  content->posVar   = Var::make(name,            Int());
   content->endVar   = Var::make("p" + modeName + "_end",   Int());
   content->beginVar = Var::make("p" + modeName + "_begin", Int());
 
@@ -153,7 +163,7 @@ bool Iterator::isModeIterator() const {
 
 bool Iterator::isFull() const {
   taco_iassert(defined());
-  if (isDimensionIterator()) return true;
+  if (isDimensionIterator()) return !content->beginVar.defined() && !content->endVar.defined();
   return getMode().defined() && getMode().getModeFormat().isFull();
 }
 
@@ -214,6 +224,11 @@ bool Iterator::hasAppend() const {
 ModeFunction Iterator::coordBounds(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
   return getMode().getModeFormat().impl->coordIterBounds(coords, getMode());
+}
+
+ModeFunction Iterator::coordBounds(const ir::Expr& parentPos) const {
+  taco_iassert(defined() && content->mode.defined());
+  return getMode().getModeFormat().impl->coordBounds(parentPos, getMode());
 }
 
 ModeFunction Iterator::coordAccess(const std::vector<ir::Expr>& coords) const {
@@ -312,7 +327,12 @@ bool operator==(const Iterator& a, const Iterator& b) {
   if (a.isDimensionIterator() && b.isDimensionIterator()) {
     return a.getIndexVar() == b.getIndexVar();
   }
-  return a.content == b.content;
+  if (a.content == b.content) {
+    return true;
+  }
+
+  return (a.getIndexVar() == b.getIndexVar() && a.getTensor() == b.getTensor()
+      && a.getParent() == b.getParent());
 }
 
 bool operator<(const Iterator& a, const Iterator& b) {
@@ -375,10 +395,18 @@ Iterators::Iterators(IndexStmt stmt) : Iterators(stmt, createIRTensorVars(stmt))
 Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 : Iterators()
 {
-  // Create dimension iteratorss
+  ProvenanceGraph provGraph = ProvenanceGraph(stmt);
+  set<IndexVar> underivedAdded;
+  // Create dimension iterators
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](auto n, auto m) {
-      content->modeIterators.insert({n->indexVar, n->indexVar});
+      content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !provGraph.hasCoordBounds(n->indexVar) && provGraph.isCoordVariable(n->indexVar))});
+      for (const IndexVar& underived : provGraph.getUnderivedAncestors(n->indexVar)) {
+        if (!underivedAdded.count(underived)) {
+          content->modeIterators.insert({underived, underived});
+          underivedAdded.insert(underived);
+        }
+      }
       m->match(n->stmt);
     })
   );
@@ -389,7 +417,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
       taco_iassert(util::contains(tensorVars, n->tensorVar));
       Expr tensorIR = tensorVars.at(n->tensorVar);
       Format format = n->tensorVar.getFormat();
-      createAccessIterators(Access(n), format, tensorIR);
+      createAccessIterators(Access(n), format, tensorIR, provGraph);
     }),
     function<void(const AssignmentNode*, Matcher*)>([&](auto n, auto m) {
       m->match(n->rhs);
@@ -405,7 +433,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 
 
 void
-Iterators::createAccessIterators(Access access, Format format, Expr tensorIR)
+Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, ProvenanceGraph provGraph)
 {
   TensorVar tensorConcrete = access.getTensorVar();
   taco_iassert(tensorConcrete.getOrder() == format.getOrder())
@@ -431,12 +459,24 @@ Iterators::createAccessIterators(Access access, Format format, Expr tensorIR)
       int modeNumber = format.getModeOrdering()[level-1];
       Dimension dim = shape.getDimension(modeNumber);
       IndexVar indexVar = access.getIndexVars()[modeNumber];
+      IndexVar iteratorIndexVar;
+      if (!provGraph.getPosIteratorDescendant(indexVar, &iteratorIndexVar)) {
+        iteratorIndexVar = indexVar;
+      }
+      else if (!provGraph.isPosOfAccess(iteratorIndexVar, access)) {
+        // want to iterate across level as a position variable if has irregular descendant, but otherwise iterate normally
+        iteratorIndexVar = indexVar;
+      }
       Mode mode(tensorIR, dim, level, modeType, modePack, pos,
                 parentModeType);
 
-      string name = indexVar.getName() + tensorConcrete.getName();
-      Iterator iterator(indexVar, tensorIR, mode, parent, name);
+      string name = iteratorIndexVar.getName() + tensorConcrete.getName();
+      Iterator iterator(iteratorIndexVar, tensorIR, mode, parent, name, true);
       content->levelIterators.insert({{access,modeNumber+1}, iterator});
+      if (iteratorIndexVar != indexVar) {
+        // add to allowing lowering to find correct iterator for this pos variable
+        content->modeIterators[iteratorIndexVar] = iterator;
+      }
 
       parent = iterator;
       parentModeType = modeType;
@@ -455,6 +495,11 @@ Iterator Iterators::levelIterator(ModeAccess modeAccess) const
   return content->levelIterators.at(modeAccess);
 }
 
+std::map<ModeAccess,Iterator> Iterators::levelIterators() const
+{
+  return content->levelIterators;
+}
+
 
 ModeAccess Iterators::modeAccess(Iterator iterator) const
 {
@@ -469,6 +514,10 @@ Iterator Iterators::modeIterator(IndexVar indexVar) const
   taco_iassert(content != nullptr);
   taco_iassert(util::contains(content->modeIterators, indexVar));
   return content->modeIterators.at(indexVar);
+}
+
+std::map<IndexVar, Iterator> Iterators::modeIterators() const {
+  return content->modeIterators;
 }
 
 

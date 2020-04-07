@@ -203,8 +203,7 @@ string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << printType(tensor->type, true);
-    ret << " " << restrictKeyword() << " " << varname
-        << " = (" << printType(tensor->type, true) << ")(";
+    ret << " " << restrictKeyword() << " " << varname << " = (" << printType(tensor->type, true) << ")(";
     ret << tensor->name << "->vals);\n";
     return ret.str();
   } else if (op->property == TensorProperty::ValuesSize) {
@@ -220,7 +219,7 @@ string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
   if (op->property == TensorProperty::Dimension) {
     tp = "int";
     ret << tp << " " << varname << " = (int)(" << tensor->name
-        << "->dimensions[" << op->mode << "]);\n";;
+        << "->dimensions[" << op->mode << "]);\n";
   } else {
     taco_iassert(op->property == TensorProperty::Indices);
     tp = "int*";

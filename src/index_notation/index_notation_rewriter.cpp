@@ -159,7 +159,7 @@ void IndexNotationRewriter::visit(const ForallNode* op) {
     stmt = op;
   }
   else {
-    stmt = new ForallNode(op->indexVar, s, op->tags);
+    stmt = new ForallNode(op->indexVar, s, op->parallel_unit, op->output_race_strategy, op->unrollFactor);
   }
 }
 
@@ -195,6 +195,17 @@ void IndexNotationRewriter::visit(const MultiNode* op) {
     stmt = new MultiNode(stmt1, stmt2);
   }
 }
+
+void IndexNotationRewriter::visit(const SuchThatNode* op) {
+  IndexStmt s = rewrite(op->stmt);
+  if (s == op->stmt) {
+    stmt = op;
+  }
+  else {
+    stmt = new SuchThatNode(s, op->predicate);
+  }
+}
+
 
 
 // Functions
@@ -288,6 +299,10 @@ struct ReplaceRewriter : public IndexNotationRewriter {
   }
 
   void visit(const MultiNode* op) {
+    SUBSTITUTE_STMT;
+  }
+
+  void visit(const SuchThatNode* op) {
     SUBSTITUTE_STMT;
   }
 };

@@ -11,6 +11,7 @@
 #include "taco/util/uncopyable.h"
 #include "taco/storage/typed_value.h"
 #include <cstring>
+#include "taco/ir_tags.h"
 
 namespace taco {
 namespace ir {
@@ -63,7 +64,8 @@ enum class IRNodeType {
   Comment,
   BlankLine,
   Print,
-  GetProperty
+  GetProperty,
+  Break
 };
 
 enum class TensorProperty {
@@ -347,11 +349,12 @@ struct Min : public ExprNode<Min> {
 
 /** Maximum of two values. */
 struct Max : public ExprNode<Max> {
-  Expr a;
-  Expr b;
+  std::vector<Expr> operands;
 
   static Expr make(Expr a, Expr b);
   static Expr make(Expr a, Expr b, Datatype type);
+  static Expr make(std::vector<Expr> operands);
+  static Expr make(std::vector<Expr> operands, Datatype type);
 
   static const IRNodeType _type_info = IRNodeType::Max;
 };
@@ -545,8 +548,10 @@ struct Store : public StmtNode<Store> {
   Expr arr;
   Expr loc;
   Expr data;
+  bool use_atomics;
+  ParallelUnit atomic_parallel_unit;
 
-  static Stmt make(Expr arr, Expr loc, Expr data);
+  static Stmt make(Expr arr, Expr loc, Expr data, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
 
   static const IRNodeType _type_info = IRNodeType::Store;
 };
@@ -583,7 +588,7 @@ struct Switch : public StmtNode<Switch> {
   static const IRNodeType _type_info = IRNodeType::Switch;
 };
 
-enum class LoopKind {Serial, Static, Dynamic, Runtime, Vectorized};
+enum class LoopKind {Serial, Static, Dynamic, Runtime, Vectorized, Static_Chunked};
 
 /** A for loop from start to end by increment.
  * A vectorized loop will require the increment to be 1 and the
@@ -601,11 +606,12 @@ struct For : public StmtNode<For> {
   Stmt contents;
   LoopKind kind;
   int vec_width;  // vectorization width
-  bool accelerator;
+  ParallelUnit parallel_unit;
+  size_t unrollFactor;
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
                    Stmt contents, LoopKind kind=LoopKind::Serial,
-                   bool accelerator=false, int vec_width=0);
+                   ParallelUnit parallel_unit=ParallelUnit::NotParallel, size_t unrollFactor=0, int vec_width=0);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };
@@ -655,8 +661,10 @@ struct VarDecl : public StmtNode<VarDecl> {
 struct Assign : public StmtNode<Assign> {
   Expr lhs;
   Expr rhs;
+  bool use_atomics;
+  ParallelUnit atomic_parallel_unit;
   
-  static Stmt make(Expr lhs, Expr rhs);
+  static Stmt make(Expr lhs, Expr rhs, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
   
   static const IRNodeType _type_info = IRNodeType::VarAssign;
 };
@@ -707,6 +715,13 @@ struct BlankLine : public StmtNode<BlankLine> {
   static Stmt make();
 
   static const IRNodeType _type_info = IRNodeType::BlankLine;
+};
+
+/** Breaks current loop */
+struct Break : public StmtNode<Break> {
+  static Stmt make();
+
+  static const IRNodeType _type_info = IRNodeType::Break;
 };
 
 /** A print statement.

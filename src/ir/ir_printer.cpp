@@ -172,13 +172,16 @@ void IRPrinter::visit(const Min* op) {
   stream << ")";
 }
 
-void IRPrinter::visit(const Max* op){
+void IRPrinter::visit(const Max* op) {
   stream << "max(";
-  op->a.accept(this);
-  stream << ", ";
-  op->b.accept(this);
+  for (size_t i=0; i<op->operands.size(); i++) {
+    op->operands[i].accept(this);
+    if (i < op->operands.size()-1)
+      stream << ", ";
+  }
   stream << ")";
 }
+
 
 void IRPrinter::visit(const BitAnd* op){
   printBinOp(op->a, op->b, "&", Precedence::BAND);
@@ -551,6 +554,11 @@ void IRPrinter::visit(const BlankLine*) {
   stream << endl;
 }
 
+void IRPrinter::visit(const Break*) {
+  doIndent();
+  stream << "continue;" << endl; // TODO: add continue statement
+}
+
 void IRPrinter::visit(const Print* op) {
   doIndent();
   stream << "printf(";
@@ -619,7 +627,7 @@ void IRPrinter::doIndent() {
 void IRPrinter::printBinOp(Expr a, Expr b, string op, Precedence precedence) {
   // Add parentheses if required by C operator precedence or for Boolean 
   // expressions of form `a || (b && c)` (to avoid C compiler warnings)
-  bool parenthesize = (precedence > parentPrecedence || 
+  bool parenthesize = (precedence >= parentPrecedence ||
                        (precedence == Precedence::LAND && 
                         parentPrecedence == Precedence::LOR));
   if (parenthesize) {

@@ -376,11 +376,19 @@ Expr Max::make(Expr a, Expr b) {
 Expr Max::make(Expr a, Expr b, Datatype type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
-  
-  Max *max = new Max;
+
+  return Max::make({a, b}, type);
+}
+
+Expr Max::make(std::vector<Expr> operands) {
+  taco_iassert(operands.size() > 0);
+  return Max::make(operands, operands[0].type());
+}
+
+Expr Max::make(std::vector<Expr> operands, Datatype type) {
+  Max* max = new Max;
+  max->operands = operands;
   max->type = type;
-  max->a = a;
-  max->b = b;
   return max;
 }
 
@@ -570,11 +578,13 @@ Stmt Scope::make(Stmt scopedStmt) {
 }
 
 // Store to an array
-Stmt Store::make(Expr arr, Expr loc, Expr data) {
+Stmt Store::make(Expr arr, Expr loc, Expr data, bool use_atomics, ParallelUnit atomic_parallel_unit) {
   Store *store = new Store;
   store->arr = arr;
   store->loc = loc;
   store->data = data;
+  store->use_atomics = use_atomics;
+  store->atomic_parallel_unit = atomic_parallel_unit;
   return store;
 }
 
@@ -631,7 +641,7 @@ Stmt Switch::make(std::vector<std::pair<Expr,Stmt>> cases, Expr controlExpr) {
 
 // For loop
 Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
-  LoopKind kind, bool accelerator, int vec_width) {
+  LoopKind kind, ParallelUnit parallel_unit, size_t unrollFactor, int vec_width) {
   For *loop = new For;
   loop->var = var;
   loop->start = start;
@@ -639,8 +649,9 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
   loop->increment = increment;
   loop->contents = Scope::make(body);
   loop->kind = kind;
+  loop->unrollFactor = unrollFactor;
   loop->vec_width = vec_width;
-  loop->accelerator = accelerator;
+  loop->parallel_unit = parallel_unit;
   return loop;
 }
 
@@ -713,12 +724,14 @@ Stmt VarDecl::make(Expr var, Expr rhs) {
 }
 
 // VarAssign
-Stmt Assign::make(Expr lhs, Expr rhs) {
+Stmt Assign::make(Expr lhs, Expr rhs, bool use_atomics, ParallelUnit atomic_parallel_unit) {
   taco_iassert(lhs.as<Var>() || lhs.as<GetProperty>())
     << "Can only assign to a Var or GetProperty";
   Assign *assign = new Assign;
   assign->lhs = lhs;
   assign->rhs = rhs;
+  assign->use_atomics = use_atomics;
+  assign->atomic_parallel_unit = atomic_parallel_unit;
   return assign;
 }
 
@@ -769,6 +782,11 @@ Stmt Comment::make(std::string text) {
 // BlankLine
 Stmt BlankLine::make() {
   return new BlankLine;
+}
+
+// Break
+Stmt Break::make() {
+  return new Break;
 }
 
 // Print
@@ -927,6 +945,8 @@ template<> void StmtNode<Comment>::accept(IRVisitorStrict *v)
     const { v->visit((const Comment*)this); }
 template<> void StmtNode<BlankLine>::accept(IRVisitorStrict *v)
     const { v->visit((const BlankLine*)this); }
+template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
+  const { v->visit((const Break*)this); }
 template<> void StmtNode<Print>::accept(IRVisitorStrict *v)
     const { v->visit((const Print*)this); }
 template<> void ExprNode<GetProperty>::accept(IRVisitorStrict *v)

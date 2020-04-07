@@ -395,9 +395,13 @@ void TensorBase::compile(bool assembleWhileCompute) {
   stmt = reorderLoopsTopologically(stmt);
   stmt = insertTemporaries(stmt);
   stmt = parallelizeOuterLoop(stmt);
-  content->assembleFunc = lower(stmt, "assemble", true, false);
-  content->computeFunc = lower(stmt, "compute",  assembleWhileCompute, true);
+  compile(stmt, assembleWhileCompute);
+}
 
+void TensorBase::compile(taco::IndexStmt stmt, bool assembleWhileCompute) {
+  IndexStmt stmtToCompile = stmt.concretize();
+  content->assembleFunc = lower(stmtToCompile, "assemble", true, false);
+  content->computeFunc = lower(stmtToCompile, "compute",  assembleWhileCompute, true);
   content->module->reset();
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
@@ -416,11 +420,15 @@ static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr) {
 
     map<TensorVar, TensorBase> arguments;
     void visit(const AccessNode* node) {
+      if (!isa<AccessTensorNode>(node)) {
+        return; // temporary ignore
+      }
+      taco_iassert(isa<AccessTensorNode>(node)) << "Unknown subexpression";
+
       if (!util::contains(arguments, node->tensorVar)) {
         arguments.insert({node->tensorVar, to<AccessTensorNode>(node)->tensor});
       }
 
-      taco_iassert(isa<AccessTensorNode>(node)) << "Unknown subexpression";
       TensorBase tensor = to<AccessTensorNode>(node)->tensor;
       if (!util::contains(inserted, tensor)) {
         inserted.insert(tensor);

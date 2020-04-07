@@ -44,19 +44,36 @@ protected:
   void visit(const Literal*);
   void visit(const Yield*);
   void visit(const Call*);
+  void visit(const Store*);
+  void visit(const Assign*);
+  void visit(const Break*);
+  void visit(const Free* op);
   std::string printDeviceFuncName(const std::vector<std::pair<std::string, Expr>> currentParameters, int index);
-  void printDeviceFuncCall(const std::vector<std::pair<std::string, Expr>> currentParameters, int index, Expr start, Expr end, Expr increment);
-  void printThreadIDVariable(std::pair<std::string, Expr> threadIDVar, Expr start, Expr increment);
-  void printThreadBoundCheck(std::pair<std::string, Expr> threadIDVar, Expr end);
+  void printDeviceFuncCall(const std::vector<std::pair<std::string, Expr>> currentParameters, Expr blockSize, int index, Expr gridSize);
+  void printThreadIDVariable(std::pair<std::string, Expr> threadIDVar, Expr start, Expr increment, Expr numThreads);
+  void printBlockIDVariable(std::pair<std::string, Expr> blockIDVar, Expr start, Expr increment);
+  void printWarpIDVariable(std::pair<std::string, Expr> warpIDVar, Expr start, Expr increment, Expr warpSize);
+  void printThreadBoundCheck(Expr end);
   void printDeviceFunctions(const Function* func);
   void printBinCastedOp(Expr a, Expr b, std::string op, Precedence precedence);
   Stmt simplifyFunctionBodies(Stmt stmt);
+
+  bool isHostFunction=true;
 
   std::map<Expr, std::string, ExprCompare> varMap;
   std::vector<Expr> localVars;
 
   std::vector<std::vector<std::pair<std::string, Expr>>> deviceFunctionParameters;
+  std::vector<Expr> deviceFunctionBlockSizes;
+  std::vector<Expr> deviceFunctionGridSizes;
   std::vector<Stmt> deviceFunctions; // expressions to replace to calls of device function
+  std::set<Expr> scalarVarsPassedToDeviceFunction; // need to be allocated in uvm
+  int deviceFunctionLoopDepth;
+  std::set<ParallelUnit> parentParallelUnits;
+  std::map<ParallelUnit, Expr> parallelUnitSizes;
+  std::map<ParallelUnit, Expr> parallelUnitIDVars;
+
+  bool emittedTimerStartCode = false;
 
   std::ostream &out;
   

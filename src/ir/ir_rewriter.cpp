@@ -117,7 +117,21 @@ void IRRewriter::visit(const Min* op) {
 }
 
 void IRRewriter::visit(const Max* op) {
-  expr = visitBinaryOp(op, this);
+  vector<Expr> operands;
+  bool operandsSame = true;
+  for (const Expr& operand : op->operands) {
+    Expr rewrittenOperand = rewrite(operand);
+    operands.push_back(rewrittenOperand);
+    if (rewrittenOperand != operand) {
+      operandsSame = false;
+    }
+  }
+  if (operandsSame) {
+    expr = op;
+  }
+  else {
+    expr = Max::make(operands);
+  }
 }
 
 void IRRewriter::visit(const BitAnd* op) {
@@ -273,7 +287,7 @@ void IRRewriter::visit(const Store* op) {
     stmt = op;
   }
   else {
-    stmt = Store::make(arr, loc, data);
+    stmt = Store::make(arr, loc, data, op->use_atomics);
   }
 }
 
@@ -289,7 +303,7 @@ void IRRewriter::visit(const For* op) {
   }
   else {
     stmt = For::make(var, start, end, increment, contents, op->kind,
-                     op->accelerator, op->vec_width);
+                     op->parallel_unit, op->unrollFactor, op->vec_width);
   }
 }
 
@@ -381,7 +395,7 @@ void IRRewriter::visit(const Assign* op) {
     stmt = op;
   }
   else {
-    stmt = Assign::make(lhs, rhs);
+    stmt = Assign::make(lhs, rhs, op->use_atomics);
   }
 }
 
@@ -430,6 +444,10 @@ void IRRewriter::visit(const Comment* op) {
 }
 
 void IRRewriter::visit(const BlankLine* op) {
+  stmt = op;
+}
+
+void IRRewriter::visit(const Break* op) {
   stmt = op;
 }
 

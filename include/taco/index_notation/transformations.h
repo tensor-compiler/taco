@@ -4,6 +4,8 @@
 #include <memory>
 #include <string>
 #include <ostream>
+#include <vector>
+#include "index_notation.h"
 
 namespace taco {
 
@@ -15,6 +17,8 @@ class IndexStmt;
 class TransformationInterface;
 class Reorder;
 class Precompute;
+class ForAllReplace;
+class AddSuchThatPredicates;
 class Parallelize;
 class TopoReorder;
 
@@ -26,12 +30,14 @@ class Transformation {
 public:
   Transformation(Reorder);
   Transformation(Precompute);
+  Transformation(ForAllReplace);
   Transformation(Parallelize);
   Transformation(TopoReorder);
+  Transformation(AddSuchThatPredicates);
 
-  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 
-  friend std::ostream& operator<<(std::ostream&, const Transformation&);
+  friend std::ostream &operator<<(std::ostream &, const Transformation &);
 
 private:
   std::shared_ptr<const TransformationInterface> transformation;
@@ -42,25 +48,29 @@ private:
 class TransformationInterface {
 public:
   virtual ~TransformationInterface() = default;
-  virtual IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const =0;
-  virtual void print(std::ostream& os) const = 0;
+  virtual IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const = 0;
+  virtual void print(std::ostream &os) const = 0;
 };
 
 
 /// The reorder optimization rewrites an index statement to swap the order of
 /// the `i` and `j` loops.
+/// Can also supply replacePattern and will find nested foralls with this set of indexvar
+/// and reorder them to new ordering
 class Reorder : public TransformationInterface {
 public:
   Reorder(IndexVar i, IndexVar j);
+  Reorder(std::vector<IndexVar> replacePattern);
 
   IndexVar geti() const;
   IndexVar getj() const;
+  const std::vector<IndexVar>& getreplacepattern() const;
 
   /// Apply the reorder optimization to a concrete index statement.  Returns
   /// an undefined statement and a reason if the statement cannot be lowered.
-  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 
-  void print(std::ostream& os) const;
+  void print(std::ostream &os) const;
 
 private:
   struct Content;
@@ -68,7 +78,7 @@ private:
 };
 
 /// Print a reorder command.
-std::ostream& operator<<(std::ostream&, const Reorder&);
+std::ostream &operator<<(std::ostream &, const Reorder &);
 
 
 /// The precompute optimizaton rewrites an index expression to precompute `expr`
@@ -84,9 +94,9 @@ public:
   TensorVar getWorkspace() const;
 
   /// Apply the precompute optimization to a concrete index statement.
-  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 
-  void print(std::ostream& os) const;
+  void print(std::ostream &os) const;
 
   bool defined() const;
 
@@ -96,7 +106,46 @@ private:
 };
 
 /// Print a precompute command.
-std::ostream& operator<<(std::ostream&, const Precompute&);
+std::ostream &operator<<(std::ostream &, const Precompute &);
+
+/// Replaces all occurrences of directly nested forall nodes of pattern with
+/// directly nested loops of replacement
+class ForAllReplace : public TransformationInterface {
+public:
+  ForAllReplace();
+
+  ForAllReplace(std::vector<IndexVar> pattern, std::vector<IndexVar> replacement);
+
+  std::vector<IndexVar> getPattern() const;
+
+  std::vector<IndexVar> getReplacement() const;
+
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
+
+  void print(std::ostream &os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+/// Adds a SuchThat node if it does not exist and adds the given IndexVarRels
+class AddSuchThatPredicates : public TransformationInterface {
+public:
+  AddSuchThatPredicates();
+
+  AddSuchThatPredicates(std::vector<IndexVarRel> predicates);
+
+  std::vector<IndexVarRel> getPredicates() const;
+
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
+
+  void print(std::ostream &os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
 
 /// The parallelize optimization tags a Forall as parallelized
 /// after checking for preconditions
@@ -104,8 +153,11 @@ class Parallelize : public TransformationInterface {
 public:
   Parallelize();
   Parallelize(IndexVar i);
+  Parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy);
 
   IndexVar geti() const;
+  ParallelUnit getParallelUnit() const;
+  OutputRaceStrategy getOutputRaceStrategy() const;
 
   /// Apply the parallelize optimization to a concrete index statement.
   IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
@@ -117,9 +169,13 @@ private:
   std::shared_ptr<Content> content;
 };
 
+/// Print a ForAllReplace command.
+std::ostream &operator<<(std::ostream &, const ForAllReplace &);
+
 /// Print a parallelize command.
 std::ostream& operator<<(std::ostream&, const Parallelize&);
 
+std::ostream& operator<<(std::ostream&, const AddSuchThatPredicates&);
 
 // Autoscheduling functions
 
@@ -145,6 +201,5 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt);
  * 1. The result is a is scattered into but does not support random insert.
  */
 IndexStmt insertTemporaries(IndexStmt stmt);
-
 }
 #endif
