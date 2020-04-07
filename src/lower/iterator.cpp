@@ -412,7 +412,7 @@ Iterators::Iterators(IndexStmt stmt) : Iterators(stmt, createIRTensorVars(stmt))
 // want to reuse iterators from sparseMask access for result
 // returns true if sparse mask exists in stmt and sets sparseMaskAccess and resultAccess accordingly
   bool findSparseMaskForResult(const IndexStmt stmt, const AccessNode **sparseMaskAccess, const AccessNode **resultAccess) {
-    bool isLHS = false;
+    bool isLHS = true;
     *resultAccess = nullptr;
     *sparseMaskAccess = nullptr;
     bool noSparseMask = false;
@@ -474,10 +474,14 @@ Iterators::Iterators(IndexStmt stmt) : Iterators(stmt, createIRTensorVars(stmt))
             }
           }),
           function<void(const AssignmentNode*, Matcher*)>([&](auto n, auto m) {
-            isLHS = true;
             m->match(n->lhs);
             isLHS = false;
             m->match(n->rhs);
+          }),
+          function<void(const WhereNode*, Matcher*)>([&](auto n, auto m) {
+            m->match(n->consumer);
+            isLHS = false;
+            m->match(n->producer);
           })
     );
 

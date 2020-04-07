@@ -284,7 +284,7 @@ private:
     set<Iterator> resultIterators;
     for (auto accessVar : underivedAncestorsSet) {
       if (lhsUnderivedAncestors.count(accessVar)) {
-        resultIterators.insert(getIterator(lhs, accessVar));
+        resultIterators.insert(getIterator(lhs, i));
       }
     }
 
