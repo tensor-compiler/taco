@@ -177,7 +177,8 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
       }),
       function<void(const AccessNode*)>([&](const AccessNode* n) {
         auto indexVars = n->indexVars;
-        if (util::contains(indexVars, indexVar)) {
+        if (util::contains(indexVars, indexVar) &&
+            !util::contains(getTemporaries(stmt), n->tensorVar)) {
           int loc = (int)distance(indexVars.begin(),
                                   find(indexVars.begin(),indexVars.end(),
                                        indexVar));

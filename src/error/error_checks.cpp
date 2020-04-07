@@ -50,7 +50,16 @@ bool dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
           readNode->tensorVar.getType().getShape().getDimension(mode);
       if (util::contains(indexVarDims,var) &&
           indexVarDims.at(var) != dimension) {
-        return false;
+        if (!dimension.isIndexVarSized() &&
+            !indexVarDims.at(var).isIndexVarSized()) {
+          return false;
+        } else if (dimension.isIndexVarSized() &&
+                   dimension.getIndexVarSize() != var) {
+          return false;
+        } else if (indexVarDims.at(var).isIndexVarSized() &&
+                   dimension.getIndexVarSize() != var) {
+          return false;
+        }
       }
       else {
         indexVarDims.insert({var, dimension});
