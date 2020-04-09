@@ -12,6 +12,7 @@ class Type;
 class Datatype;
 class Index;
 class Array;
+class Literal;
 
 /// Storage for a tensor object.  Tensor storage consists of a value array that
 /// contains the tensor values and one index per mode.  The type of each
@@ -22,7 +23,7 @@ public:
 
   /// Construct tensor storage for the given format.
   TensorStorage(Datatype componentType, const std::vector<int>& dimensions,
-                Format format);
+                Format format, Literal fillVal);
 
   /// Returns the tensor storage format.
   const Format& getFormat() const;
@@ -45,6 +46,10 @@ public:
   /// Returns the value array that contains the tensor components.
   const Array& getValues() const;
 
+  /// Returns the fill array containing the tensor fill value. This is always
+  /// of size one.
+  const Array& getFill() const;
+
   /// Returns the tensor component value array.
   Array getValues();
 
@@ -59,6 +64,9 @@ public:
 
   /// Set the tensor component value array.
   void setValues(const Array& values);
+
+  /// Set the fill array. This should always be size 1
+  void setFill(const Array& fill);
 
 private:
   struct Content;

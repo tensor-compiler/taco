@@ -76,6 +76,7 @@ enum class TensorProperty {
   ModeTypes,
   Indices,
   Values,
+  FillValue,
   ValuesSize
 };
 

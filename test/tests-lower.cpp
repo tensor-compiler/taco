@@ -42,6 +42,8 @@ static TensorVar b("b", vectype, Format());
 static TensorVar c("c", vectype, Format());
 static TensorVar d("d", vectype, Format());
 
+static TensorVar fill_10("fillA", vectype, Format(), Literal((double) 10));
+
 static TensorVar w("w", vectype, dense);
 
 static TensorVar A("A", mattype, Format());
@@ -83,7 +85,7 @@ struct TestCase {
 
   TensorStorage getResult(TensorVar var, Format format) const {
     auto dimensions = getDimensions(var);
-    TensorStorage storage(type<double>(), dimensions, format);
+    TensorStorage storage(type<double>(), dimensions, format, var.getFill());
 
     // TODO: Get rid of this and lower to use dimensions instead
     vector<taco::ModeIndex> modeIndices(format.getOrder());
@@ -100,11 +102,12 @@ struct TestCase {
 
   static
   TensorStorage pack(Format format, const vector<int>& dims,
-                     const vector<pair<vector<int>,double>>& components){
+                     const vector<pair<vector<int>,double>>& components,
+                     Literal fill){
     size_t order = dims.size();
     size_t num = components.size();
     if (order == 0) {
-      TensorStorage storage = TensorStorage(type<double>(), {}, format);
+      TensorStorage storage = TensorStorage(type<double>(), {}, format, fill);
       Array array = makeArray(type<double>(), 1);
       *((double*)array.getData()) = components[0].second;
       storage.setValues(array);
@@ -123,18 +126,18 @@ struct TestCase {
         }
         values[i] = components[i].second;
       }
-      return taco::pack(type<double>(), dims, format, coords, values.data());
+      return taco::pack(type<double>(), dims, format, coords, values.data(), fill);
     }
   }
 
   TensorStorage getArgument(TensorVar var, Format format) const {
     taco_iassert(contains(inputs, var)) << var;
-    return pack(format, getDimensions(var), inputs.at(var));
+    return pack(format, getDimensions(var), inputs.at(var), var.getFill());
   }
 
   TensorStorage getExpected(TensorVar var, Format format) const {
     taco_iassert(contains(expected, var)) << var;
-    return pack(format, getDimensions(var), expected.at(var));
+    return pack(format, getDimensions(var), expected.at(var), var.getFill());
   }
 };
 
@@ -202,7 +205,7 @@ map<TensorVar,TensorVar> formatVars(const std::vector<TensorVar>& vars,
       // Default format is dense in all dimensions
       format = Format(vector<ModeFormatPack>(var.getOrder(), dense));
     }
-    formatted.insert({var, TensorVar(var.getName(), var.getType(), format)});
+    formatted.insert({var, TensorVar(var.getName(), var.getType(), format, var.getFill())});
   }
   return formatted;
 }
@@ -1559,6 +1562,23 @@ TEST_STMT(vector_not,
   }
 )
 
+//TEST_STMT(vector_add_fill,
+//          forall(i,
+//                 fill_10(i) = b(i) * c(i)
+//          ),
+//          Values(
+//                  Formats({{fill_10, dense}, {b,sparse}, {c, sparse}}),
+//                  Formats({{fill_10, sparse}, {b,sparse}, {c, sparse}})
+//          ),
+//          {
+//            TestCase(
+//                    {{b, {{{0}, 2.0}}},
+//                     {c, {{{0}, 3.0}, {{1}, 6.0}}}},
+//
+//                    {{fill_10, {{{0}, 5.0}, {{1}, 6.0}}}})
+//          }
+//)
+
 // Test tensorOps
 
 Op testOp("testOp", MulAdd(), BC_BD_CD());
@@ -1568,7 +1588,11 @@ TEST_STMT(testOp1,
                  a(i) = testOp(b(i), c(i), d(i))
           ),
           Values(
-                  Formats({{a,sparse}, {b,sparse}, {c,sparse}, {d, sparse}})
+                  Formats({{a,sparse}, {b,sparse}, {c,sparse}, {d, sparse}}),
+                  Formats({{a,dense}, {b,dense}, {c,dense}, {d, dense}}),
+                  Formats({{a,dense}, {b,sparse}, {c,dense}, {d, sparse}}),
+                  Formats({{a,dense}, {b,sparse}, {c,dense}, {d, dense}}),
+                  Formats({{a,dense}, {b,sparse}, {c,sparse}, {d, sparse}})
           ),
           {
             TestCase(
@@ -1582,9 +1606,7 @@ TEST_STMT(testOp1,
 
 
 Op specialOp("specialOp", GeneralAdd(), BC_BD_CD(), {{{0,1}, MulRegionDef()}, {{0,2}, SubRegionDef()}});
-
-
-TEST_STMT(testSpecialOp,
+TEST_STMT(lowerSpecialRegions1,
           forall(i,
                      forall(j,
                        A(i, j) = specialOp(B(i, j), C(i, j), D(i, j))
@@ -1592,8 +1614,8 @@ TEST_STMT(testSpecialOp,
           Values(
                   Formats({{A, Format({dense,dense})}, {B, Format({dense,dense})}, {C, Format({dense,dense})},
                            {D, Format({dense,dense})}}),
-//                  Formats({{A, Format({dense,sparse})}, {B, Format({dense,sparse})}, {C, Format({dense,sparse})},
-//                           {D, Format({dense,sparse})}}),
+                  Formats({{A, Format({dense,sparse})}, {B, Format({dense,sparse})}, {C, Format({dense,sparse})},
+                           {D, Format({dense,sparse})}}),
                   Formats({{A, Format({sparse,sparse})}, {B, Format({sparse,sparse})}, {C, Format({sparse,sparse})},
                            {D, Format({sparse,sparse})}})
           ),
@@ -1604,6 +1626,31 @@ TEST_STMT(testSpecialOp,
               {D, {{{1, 2}, 1.0}, {{2, 1}, 4.0}, {{3, 3}, 5.0}, {{4, 3}, 5.0}}}},
 
             {{A, {{{0, 1}, 6.0}, {{1, 2}, -1.0}, {{2, 1}, 7.0}}}})
+          }
+)
+
+Op compUnion("compUnion", GeneralAdd(), ComplementUnion());
+TEST_STMT(lowerCompUnion,
+          forall(i,
+                 forall(j,
+                        A(i, j) = compUnion(B(i, j), C(i, j), D(i, j))
+                 )),
+          Values(
+                  Formats({{A, Format({dense,dense})}, {B, Format({dense,dense})}, {C, Format({dense,dense})},
+                           {D, Format({dense,dense})}}),
+                  Formats({{A, Format({dense,sparse})}, {B, Format({dense,sparse})}, {C, Format({dense,sparse})},
+                           {D, Format({dense,sparse})}}),
+                  Formats({{A, Format({sparse,sparse})}, {B, Format({sparse,sparse})}, {C, Format({sparse,sparse})},
+                           {D, Format({sparse,sparse})}})
+          ),
+          {
+            TestCase(
+            {{B, {{{0, 1}, 2.0}, {{1, 1}, 3.0}, {{1, 2}, 2.0}, {{4, 3}, 4.0}}},
+              {C, {{{0, 1}, 3.0}, {{2, 1}, 3.0}, {{2, 2}, 4.0}, {{4, 3}, 6.0}}},
+              {D, {{{1, 2}, 1.0}, {{2, 1}, 4.0}, {{3, 3}, 5.0}, {{4, 3}, 5.0}}}},
+
+            {{A, {{{0, 1}, 5.0}, {{1, 2}, 3.0}, {{2, 1}, 7.0},
+                  {{2, 2}, 4.0}, {{3, 3}, 5.0}, {{4, 3}, 15.0}}}})
           }
 )
 

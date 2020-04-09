@@ -278,10 +278,13 @@ public:
   Literal(std::complex<float>);
   Literal(std::complex<double>);
 
-  static IndexExpr zero(Datatype);
+  static Literal zero(Datatype);
 
   /// Returns the literal value.
   template <typename T> T getVal() const;
+
+  /// Returns an untyped pointer to the literal value
+  void* getValPtr();
 
   typedef LiteralNode Node;
 };
@@ -869,10 +872,10 @@ SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
 class TensorVar : public util::Comparable<TensorVar> {
 public:
   TensorVar();
-  TensorVar(const Type& type);
-  TensorVar(const std::string& name, const Type& type);
-  TensorVar(const Type& type, const Format& format);
-  TensorVar(const std::string& name, const Type& type, const Format& format);
+  TensorVar(const Type& type, const Literal& fill = Literal());
+  TensorVar(const std::string& name, const Type& type, const Literal& fill = Literal());
+  TensorVar(const Type& type, const Format& format, const Literal& fill = Literal());
+  TensorVar(const std::string& name, const Type& type, const Format& format, const Literal& fill = Literal());
 
   /// Returns the name of the tensor variable.
   std::string getName() const;
@@ -889,6 +892,12 @@ public:
   /// Returns the schedule of the tensor var, which describes how to compile
   /// and execute it's expression.
   const Schedule& getSchedule() const;
+
+  /// Gets the fill value of the tensor variable. May be left undefined.
+  const Literal& getFill() const;
+
+  /// Set the fill value of the tensor variable
+  void setFill(const Literal& fill);
 
   /// Set the name of the tensor variable.
   void setName(std::string name);
@@ -1004,5 +1013,8 @@ IndexExpr zero(IndexExpr, const std::set<Access>& zeroed);
 /// zero and then propagating and removing zeroes.
 IndexStmt zero(IndexStmt, const std::set<Access>& zeroed);
 
+/// Returns true if there are no forall nodes in the indexStmt. Used to check
+/// if the last loop is being lowered.
+bool hasNoForAlls(IndexStmt);
 }
 #endif

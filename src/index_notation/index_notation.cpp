@@ -656,7 +656,7 @@ Literal::Literal(std::complex<float> val) : Literal(new LiteralNode(val)) {
 Literal::Literal(std::complex<double> val) : Literal(new LiteralNode(val)) {
 }
 
-IndexExpr Literal::zero(Datatype type) {
+Literal Literal::zero(Datatype type) {
   switch (type.getKind()) {
     case Datatype::Bool:        return Literal(false);
     case Datatype::UInt8:       return Literal(uint8_t(0));
@@ -674,7 +674,7 @@ IndexExpr Literal::zero(Datatype type) {
     default:                    taco_ierror << "unsupported type";
   };
 
-  return IndexExpr();
+  return Literal();
 }
 
 template <typename T> T Literal::getVal() const {
@@ -696,6 +696,10 @@ template float Literal::getVal() const;
 template double Literal::getVal() const;
 template std::complex<float> Literal::getVal() const;
 template std::complex<double> Literal::getVal() const;
+
+void* Literal::getValPtr() {
+  return getNode(*this)->val;
+}
 
 template <> bool isa<Literal>(IndexExpr e) {
   return isa<LiteralNode>(e.ptr);
@@ -1700,6 +1704,7 @@ struct TensorVar::Content {
   Type type;
   Format format;
   Schedule schedule;
+  Literal fill;
 };
 
 TensorVar::TensorVar() : content(nullptr) {
@@ -1709,23 +1714,24 @@ static Format createDenseFormat(const Type& type) {
   return Format(vector<ModeFormatPack>(type.getOrder(), ModeFormat(Dense)));
 }
 
-TensorVar::TensorVar(const Type& type)
-: TensorVar(type, createDenseFormat(type)) {
+TensorVar::TensorVar(const Type& type, const Literal& fill)
+: TensorVar(type, createDenseFormat(type), fill) {
 }
 
-TensorVar::TensorVar(const std::string& name, const Type& type)
-: TensorVar(name, type, createDenseFormat(type)) {
+TensorVar::TensorVar(const std::string& name, const Type& type, const Literal& fill)
+: TensorVar(name, type, createDenseFormat(type), fill) {
 }
 
-TensorVar::TensorVar(const Type& type, const Format& format)
-    : TensorVar(util::uniqueName('A'), type, format) {
+TensorVar::TensorVar(const Type& type, const Format& format, const Literal& fill)
+    : TensorVar(util::uniqueName('A'), type, format, fill) {
 }
 
-TensorVar::TensorVar(const string& name, const Type& type, const Format& format)
+TensorVar::TensorVar(const string& name, const Type& type, const Format& format, const Literal& fill)
     : content(new Content) {
   content->name = name;
   content->type = type;
   content->format = format;
+  content->fill = fill.defined()? fill : Literal::zero(type.getDataType());
 }
 
 std::string TensorVar::getName() const {
@@ -1759,6 +1765,14 @@ const Schedule& TensorVar::getSchedule() const {
   content->schedule.clearPrecomputes();
   getSchedule.schedule = content->schedule;
   return content->schedule;
+}
+
+const Literal& TensorVar::getFill() const {
+  return content->fill;
+}
+
+void TensorVar::setFill(const Literal &fill) {
+  content->fill = fill;
 }
 
 void TensorVar::setName(std::string name) {
@@ -2722,5 +2736,17 @@ IndexExpr zero(IndexExpr expr, const set<Access>& zeroed) {
 IndexStmt zero(IndexStmt stmt, const std::set<Access>& zeroed) {
   return Zero(zeroed).rewrite(stmt);
 }
+
+bool hasNoForAlls(IndexStmt stmt) {
+
+  bool noForAlls = true;
+  match(stmt,
+        std::function<void(const ForallNode*)>([&](const ForallNode* op) {
+          noForAlls = false;
+        })
+  );
+  return noForAlls;
+}
+
 
 }

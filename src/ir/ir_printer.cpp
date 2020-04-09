@@ -131,7 +131,12 @@ void IRPrinter::visit(const Var* op) {
 }
 
 void IRPrinter::visit(const Neg* op) {
-  stream << "-";
+  if(op->type == taco::Bool) {
+    stream << "!";
+  }
+  else {
+    stream << "-";
+  }
   parentPrecedence = Precedence::NEG;
   op->a.accept(this);
 }

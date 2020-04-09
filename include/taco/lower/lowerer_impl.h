@@ -77,6 +77,7 @@ protected:
                                         std::vector<Iterator> locaters,
                                         std::vector<Iterator> inserters,
                                         std::vector<Iterator> appenders,
+                                        MergeLattice caseLattice,
                                         std::set<Access> reducedAccesses,
                                         ir::Stmt recoveryStmt);
 
@@ -86,6 +87,7 @@ protected:
                                          std::vector<Iterator> locaters,
                                          std::vector<Iterator> inserters,
                                          std::vector<Iterator> appenders,
+                                         MergeLattice caseLattice,
                                          std::set<Access> reducedAccesses,
                                          ir::Stmt recoveryStmt);
 
@@ -96,6 +98,7 @@ protected:
                                        std::vector<Iterator> locaters,
                                        std::vector<Iterator> inserters,
                                        std::vector<Iterator> appenders,
+                                       MergeLattice caseLattice,
                                        std::set<Access> reducedAccesses,
                                        ir::Stmt recoveryStmt);
 
@@ -103,6 +106,7 @@ protected:
                                        std::vector<Iterator> locaters,
                                        std::vector<Iterator> inserters,
                                        std::vector<Iterator> appenders,
+                                       MergeLattice caseLattice,
                                        std::set<Access> reducedAccesses,
                                        ir::Stmt recoveryStmt);
 
@@ -166,6 +170,7 @@ protected:
                                    std::vector<Iterator> locaters,
                                    std::vector<Iterator> inserters,
                                    std::vector<Iterator> appenders,
+                                   MergeLattice caseLattice,
                                    const std::set<Access>& reducedAccesses);
 
 
@@ -311,7 +316,7 @@ protected:
    * Generate code to zero-initialize values array in range
    * [begin * size, (begin + 1) * size).
    */
-  ir::Stmt zeroInitValues(ir::Expr tensor, ir::Expr begin, ir::Expr size);
+  ir::Stmt initValues(ir::Expr tensor, ir::Expr initVal, ir::Expr begin, ir::Expr size);
 
   /// Declare position variables and initialize them with a locate.
   ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
@@ -358,6 +363,52 @@ protected:
 
   /// Expression that evaluates to true if none of the iteratators are exhausted
   ir::Expr checkThatNoneAreExhausted(std::vector<Iterator> iterators);
+
+  /// Lowers a merge lattice to cases assuming there are no more loops to be emitted in stmt.
+  /// Will emit checks for explicit zeros for each mode iterator and each locator in the lattice.
+  ir::Stmt lowerMergeCasesWithExplicitZeroChecks(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
+                                                 MergeLattice lattice, const std::set<Access>& reducedAccesses);
+
+  /// Constructs cases comparing the coordVar for each iterator to the resolved coordinate.
+  /// Returns a vector where coordComparisons[i] corresponds to a case for iters[i]
+  /// If no case can be formed for a given iterator, an undefined expr is appended where a case would normally be.
+  template<typename C>
+  std::vector<ir::Expr> compareToResolvedCoordinate(const std::vector<Iterator>& iters, ir::Expr resolvedCoordinate,
+                                                    IndexVar coordinateVar) {
+    std::vector<ir::Expr> coordComparisons;
+
+    for (Iterator iterator : iters) {
+      if (!(provGraph.isCoordVariable(iterator.getIndexVar()) &&
+            provGraph.isDerivedFrom(iterator.getIndexVar(), coordinateVar))) {
+        coordComparisons.push_back(C::make(iterator.getCoordVar(), resolvedCoordinate));
+      } else {
+        coordComparisons.push_back(ir::Expr());
+      }
+    }
+
+    return coordComparisons;
+  }
+
+  /// Makes the preamble of booleans used in case checks for the inner most loop of the computations
+  /// The iterator to condition map contains the name of the boolean indicating if each corresponding mode iterator
+  /// and each locator is non-zero. This function populates this map so the caller can user the boolean names to emit
+  /// checks for each lattice point.
+  std::vector<ir::Stmt> constructInnerLoopCasePreamble(ir::Expr coordinate, IndexVar coordinateVar,
+                                                       MergeLattice lattice,
+                                                       std::map<Iterator, ir::Expr>& iteratorToConditionMap);
+
+  /// Lowers merge cases in the lattice using a map to know what expr to emit for each iterator in the lattice.
+  /// The map must be of iterators to exprs of boolean types
+  std::vector<ir::Stmt> lowerCasesFromMap(std::map<Iterator, ir::Expr> iteratorToCondition,
+                                          ir::Expr coordinate, IndexStmt stmt, const MergeLattice& lattice,
+                                          const std::set<Access>& reducedAccesses);
+
+  /// Constructs an expression which checks if this access is "zero"
+  ir::Expr constructCheckForAccessZero(Access);
+
+  /// Filters out a list of iterators and returns those the lowerer should explicitly check for zeros.
+  /// For now, we only check mode iterators.
+  std::vector<Iterator> getModeIterators(const std::vector<Iterator>&);
 
 private:
   bool assemble;

@@ -53,19 +53,27 @@ public:
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
   TensorBase(Datatype ctype, std::vector<int> dimensions, 
-             ModeFormat modeType = ModeFormat::compressed);
+             ModeFormat modeType = ModeFormat::compressed, Literal fill = Literal());
   
   /// Create a tensor with the given dimensions and format.
-  TensorBase(Datatype ctype, std::vector<int> dimensions, Format format); 
+  TensorBase(Datatype ctype, std::vector<int> dimensions, Format format, Literal fill = Literal());
 
   /// Create a tensor with the given data type, dimensions and format. The 
   /// format defaults to sparse in every mode.
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions, 
-             ModeFormat modeType = ModeFormat::compressed); 
-  
+             ModeFormat modeType = ModeFormat::compressed, Literal fill = Literal());
+
+  /// Create a tensor with the given dimensions and fill value. The format
+  /// defaults to sparse in every mode.
+  TensorBase(Datatype ctype, std::vector<int> dimensions, Literal fill);
+
+  /// Create a tensor with the given data type, dimensions and fill value. The
+  /// format defaults to sparse in every mode.
+  TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions, Literal fill);
+
   /// Create a tensor with the given data type, dimensions and format.
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions,
-             Format format);
+             Format format, Literal fill = Literal());
 
   /// Set the name of the tensor.
   void setName(std::string name) const;
@@ -440,6 +448,9 @@ public:
   /// Get the taco_tensor_t representation of this tensor.
   taco_tensor_t* getTacoTensorT();
 
+  /// Get the fill value of this tensor.
+  Literal getFillValue() const;
+
   /// True iff two tensors have the same type and the same values.
   friend bool equals(const TensorBase&, const TensorBase&);
 
@@ -486,7 +497,7 @@ template <typename CType>
 class Tensor : public TensorBase {
 public:
   /// Create a scalar
-  Tensor() : TensorBase() {}
+  Tensor() : TensorBase(type<CType>()) {}
 
   /// Create a scalar with the given name
   explicit Tensor(std::string name) : TensorBase(name, type<CType>()) {}
@@ -496,22 +507,35 @@ public:
 
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
-  Tensor(std::vector<int> dimensions, ModeFormat modeType = ModeFormat::compressed) 
-      : TensorBase(type<CType>(), dimensions) {}
+  Tensor(std::vector<int> dimensions, ModeFormat modeType = ModeFormat::compressed,
+          CType fill = CType())
+      : TensorBase(type<CType>(), dimensions, fill) {}
 
   /// Create a tensor with the given dimensions and format
-  Tensor(std::vector<int> dimensions, Format format)
-      : TensorBase(type<CType>(), dimensions, format) {}
+  Tensor(std::vector<int> dimensions, Format format, CType fill = CType())
+      : TensorBase(type<CType>(), dimensions, format, fill) {}
 
   /// Create a tensor with the given name, dimensions and format. The format 
   /// defaults to sparse in every mode.
   Tensor(std::string name, std::vector<int> dimensions, 
-         ModeFormat modeType = ModeFormat::compressed)
-      : TensorBase(name, type<CType>(), dimensions, modeType) {}
+         ModeFormat modeType = ModeFormat::compressed,
+         CType fill = CType())
+      : TensorBase(name, type<CType>(), dimensions, modeType, fill) {}
+
+  /// Create a tensor with the given dimensions and fill value. The format
+  /// defaults to sparse in every mode.
+  Tensor(std::vector<int> dimensions, CType fill)
+      : TensorBase(type<CType>(), dimensions, fill) {}
+
+  /// Create a tensor with the given data type, dimensions and fill value. The
+  /// format defaults to sparse in every mode.
+  Tensor(std::string name, std::vector<int> dimensions, CType fill)
+      : TensorBase(name, type<CType>(), dimensions, fill) {}
 
   /// Create a tensor with the given name, dimensions and format
-  Tensor(std::string name, std::vector<int> dimensions, Format format)
-      : TensorBase(name, type<CType>(), dimensions, format) {}
+  Tensor(std::string name, std::vector<int> dimensions, Format format,
+          CType fill = CType())
+      : TensorBase(name, type<CType>(), dimensions, format, fill) {}
 
   /// Create a tensor from a TensorBase instance. The Tensor and TensorBase
   /// objects will reference the same underlying tensor so it is a shallow copy.

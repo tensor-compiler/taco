@@ -59,10 +59,10 @@ struct TensorBase::Content {
   shared_ptr<Module> module;
 
   Content(string name, Datatype dataType, const vector<int>& dimensions,
-          Format format)
+          Format format, Literal fill)
       : dataType(dataType), dimensions(dimensions),
-        storage(TensorStorage(dataType, dimensions, format)),
-        tensorVar(TensorVar(name, Type(dataType,convert(dimensions)),format)) {}
+        storage(TensorStorage(dataType, dimensions, format, fill)),
+        tensorVar(TensorVar(name, Type(dataType,convert(dimensions)),format, fill)) {}
 };
 
 TensorBase::TensorBase() : TensorBase(Float()) {
@@ -73,23 +73,31 @@ TensorBase::TensorBase(Datatype ctype)
 }
 
 TensorBase::TensorBase(std::string name, Datatype ctype)
-    : TensorBase(name, ctype, {}, Format())  {
+    : TensorBase(name, ctype, {}, Format(), Literal::zero(ctype))  {
 }
 
 TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, 
-                       ModeFormat modeType)
+                       ModeFormat modeType, Literal fill)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, 
-                 std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
+                 std::vector<ModeFormatPack>(dimensions.size(), modeType), fill) {
 }
 
-TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, Format format) 
-    : TensorBase(util::uniqueName('A'), ctype, dimensions, format) {
+TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, Format format, Literal fill)
+    : TensorBase(util::uniqueName('A'), ctype, dimensions, format, fill) {
 }
 
 TensorBase::TensorBase(std::string name, Datatype ctype, 
-                       std::vector<int> dimensions, ModeFormat modeType) 
+                       std::vector<int> dimensions, ModeFormat modeType, Literal fill)
     : TensorBase(name, ctype, dimensions, 
-                 std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
+                 std::vector<ModeFormatPack>(dimensions.size(), modeType), fill) {
+}
+
+TensorBase::TensorBase(Datatype ctype, std::vector<int> dimensions, Literal fill)
+    : TensorBase(ctype, dimensions, ModeFormat::compressed, fill) {
+}
+
+TensorBase::TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions, Literal fill)
+    : TensorBase(name, ctype, dimensions, ModeFormat::compressed, fill) {
 }
 
 static Format initFormat(Format format) {
@@ -118,11 +126,18 @@ static Format initFormat(Format format) {
 }
 
 TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
-                       Format format)
-    : content(new Content(name, ctype, dimensions, initFormat(format))) {
+                       Format format, Literal fill) {
+
+  // Default fill to zero since undefined. This is done since we need the ctype to initialize the
+  // fill and we can't use this inside the default arguments.
+  fill = fill.defined()? fill : Literal::zero(ctype);
+  content = shared_ptr<Content>(new Content(name, ctype, dimensions, initFormat(format), fill));
+
   taco_uassert((size_t)format.getOrder() == dimensions.size()) <<
       "The number of format mode types (" << format.getOrder() << ") " <<
       "must match the tensor order (" << dimensions.size() << ").";
+
+  taco_uassert(ctype == fill.getDataType()) << "Fill value must be of the same type as the tensor.";
 
   content->allocSize = 1 << 20;
 
@@ -269,6 +284,7 @@ void TensorBase::pack() {
     bufferStorage->indices[0][0] = (uint8_t*)pos.data();
     bufferStorage->indices[0][1] = (uint8_t*)bufferCoords.data();
     bufferStorage->vals = (uint8_t*)this->coordinateBuffer->data();
+    bufferStorage->fill_value = (uint8_t*)(getStorage().getFill().getData());
 
     std::vector<void*> arguments = {content->storage, bufferStorage};
     helperFuncs->callFuncPacked("pack", arguments.data());
@@ -339,6 +355,7 @@ void TensorBase::pack() {
     bufferStorage->indices[i][1] = (uint8_t*)coordinates[i].data();
   }
   bufferStorage->vals = (uint8_t*)values;
+  bufferStorage->fill_value = (uint8_t*)(getStorage().getFill().getData());
 
   // Pack nonzero components into required format
   std::vector<void*> arguments = {content->storage, bufferStorage};
@@ -410,6 +427,10 @@ void TensorBase::compile(taco::IndexStmt stmt, bool assembleWhileCompute) {
 
 taco_tensor_t* TensorBase::getTacoTensorT() {
   return getStorage();
+}
+
+Literal TensorBase::getFillValue() const {
+  return content->tensorVar.getFill();
 }
 
 static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr) {
@@ -702,6 +723,11 @@ bool equalsTyped(const TensorBase& a, const TensorBase& b) {
 bool equals(const TensorBase& a, const TensorBase& b) {
   // Component type must be the same
   if (a.getComponentType() != b.getComponentType()) {
+    return false;
+  }
+
+  // Fill values must be the same
+  if (!equals(a.getFillValue(), b.getFillValue())) {
     return false;
   }
 

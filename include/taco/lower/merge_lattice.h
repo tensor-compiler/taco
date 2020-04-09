@@ -54,13 +54,16 @@ public:
    * Removes lattice points whose iterators are identical to the iterators of an earlier point, since we have
    * already iterated over this sub-space.
    */
-  static MergeLattice removeProducersWithIdenticalIterators(const MergeLattice&);
+  static std::vector<MergePoint> removePointsWithIdenticalIterators(const std::vector<MergePoint>&);
 
   /**
    * remove lattice points that lack any of the full iterators of the first point, since when a full iterator exhausts
    * we have iterated over the whole space.
    */
-  static MergeLattice removePointsThatLackFullIterators(const MergeLattice &l);
+  static std::vector<MergePoint> removePointsThatLackFullIterators(const std::vector<MergePoint>&);
+
+  /// Returns true if we need to emit checks for explicit zeros in the lattice given.
+  static bool needExplicitZeroChecks(const MergeLattice& lattice);
 
   /**
    * Returns the sub-lattice rooted at the given merge point.
@@ -76,6 +79,11 @@ public:
    * Retrieve all the iterators merged by this lattice.
    */
   const std::vector<Iterator>& iterators() const;
+
+  /**
+ * Retrieve all the locators in this lattice.
+ */
+  const std::vector<Iterator>& locators() const;
 
   /**
    * Returns iterators that have been exhausted prior to the merge point.
@@ -96,11 +104,24 @@ public:
   /**
    * Get a list of iterators that should be omitted at this merge point.
    */
-  std::vector<Iterator> retrieveIteratorsToOmit(const MergePoint& point) const;
+  std::vector<Iterator> retrieveRegionIteratorsToOmit(const MergePoint& point) const;
 
+  /**
+   * Returns a set of sets of tensor iterators. A merge point with a tensorRegion in this set should not
+   * be removed from the lattice.
+   *
+   * Needed so that special regions are kept when applying optimizations that remove merge points.
+   */
+   std::set<std::set<Iterator>> getTensorRegionsToKeep() const;
+
+  /**
+    * Removes points from the lattice that would duplicate iteration over the input tensors.
+    */
+  MergeLattice getLoopLattice() const;
 
 private:
   std::vector<MergePoint> points_;
+  std::set<std::set<Iterator>> regionsToKeep;
 
 public:
   /**
@@ -108,7 +129,7 @@ public:
    * is primarily intended for testing purposes and most construction should
    * happen through `MergeLattice::make`.
    */
-  MergeLattice(std::vector<MergePoint> points);
+  MergeLattice(std::vector<MergePoint> points, std::set<std::set<Iterator>> regionsToKeep = {});
 };
 
 std::ostream& operator<<(std::ostream&, const MergeLattice&);
