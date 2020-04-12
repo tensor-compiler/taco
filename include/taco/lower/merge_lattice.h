@@ -63,7 +63,7 @@ public:
   static std::vector<MergePoint> removePointsThatLackFullIterators(const std::vector<MergePoint>&);
 
   /// Returns true if we need to emit checks for explicit zeros in the lattice given.
-  static bool needExplicitZeroChecks(const MergeLattice& lattice);
+  bool needExplicitZeroChecks();
 
   /**
    * Returns the sub-lattice rooted at the given merge point.
@@ -100,6 +100,13 @@ public:
    * no point in the space will be considered and discarded.
    */
   bool exact() const;
+
+  /**
+   * True if any of the mode iterators in the lattice is a leaf iterator.
+   *
+   * This method checks both the iterators and locators since they both contain mode iterators.
+   */
+  bool anyModeIteratorIsLeaf() const;
 
   /**
    * Get a list of iterators that should be omitted at this merge point.

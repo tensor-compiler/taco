@@ -1654,5 +1654,23 @@ TEST_STMT(lowerCompUnion,
           }
 )
 
+Op bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
+TEST_STMT(bfsMask,
+          forall(i,
+                 forall(j,
+                        a(i) += bfsMaskOp(B(i, j), c(j), c(i))
+                 )),
+          Values(
+                  Formats({{a, Format({dense})}, {B, Format({dense,sparse})}, {c, Format({dense})}})
+          ),
+          {
+            TestCase(
+            {{B, {{{0, 1}, 1.0}, {{1, 1}, 1.0}, {{1, 2}, 1.0}, {{4, 3}, 1.0}}},
+              {c, {{{1}, 1.0}}}},
+
+            {{a, {{{0}, 1.0}}}})
+          }
+)
+
 
 }}

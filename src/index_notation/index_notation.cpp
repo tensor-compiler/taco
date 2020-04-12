@@ -2565,7 +2565,7 @@ private:
         rewrittenArg = Literal::zero(arg.getDataType());
       }
 
-      if(equals(annihilatorVal, rewrittenArg)) {
+      if(annihilatorVal.defined() && equals(annihilatorVal, rewrittenArg)) {
         expr = IndexExpr();
         return;
       }

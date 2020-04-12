@@ -289,6 +289,7 @@ private:
       }
       regionsToKeep.insert(regionToKeep);
     }
+
     lattice = MergeLattice(lattice.points(), regionsToKeep);
   }
 
@@ -894,7 +895,7 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators, ProvenanceGr
   MergeLattice lattice = builder.build(forall.getStmt());
 
   // Can't remove points if lattice contains omitters since we lose merge cases during lowering.
-  if(hasNoForAlls(forall.getStmt()) && needExplicitZeroChecks(lattice)) {
+  if(lattice.anyModeIteratorIsLeaf() && lattice.needExplicitZeroChecks()) {
     return lattice;
   }
 
@@ -940,11 +941,11 @@ MergeLattice::removePointsWithIdenticalIterators(const std::vector<MergePoint>& 
   return result;
 }
 
-bool MergeLattice::needExplicitZeroChecks(const MergeLattice &lattice) {
-  if(util::any(lattice.points(), [](const MergePoint& mp) {return mp.isOmitter();})) {
+bool MergeLattice::needExplicitZeroChecks() {
+  if(util::any(points(), [](const MergePoint& mp) {return mp.isOmitter();})) {
     return true;
   }
-  return !lattice.getTensorRegionsToKeep().empty();
+  return !getTensorRegionsToKeep().empty();
 }
 
 MergeLattice MergeLattice::subLattice(MergePoint lp) const {
@@ -1028,6 +1029,14 @@ bool MergeLattice::exact() const {
     }
   }
   return true;
+}
+
+bool MergeLattice::anyModeIteratorIsLeaf() const {
+  if(points().empty()) {
+    return false;
+  }
+  vector<Iterator> latticeIters = util::combine(iterators(), locators());
+  return util::any(latticeIters, [](const Iterator& it) {return it.isModeIterator() && it.isLeaf();});
 }
 
 std::vector<Iterator> MergeLattice::retrieveRegionIteratorsToOmit(const MergePoint &point) const {

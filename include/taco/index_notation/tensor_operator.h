@@ -21,47 +21,28 @@ using algebraImpl = TensorOpNode::algebraImpl;
 public:
   // Full construction
   Op(opImpl lowererFunc, algebraImpl algebraFunc, std::vector<Property> properties,
-     std::map<std::vector<int>, opImpl> specialDefinitions = {})
-  : name(util::uniqueName("Op")), lowererFunc(lowererFunc), algebraFunc(algebraFunc),
-    properties(properties), regionDefinitions(specialDefinitions) {
-  }
+     std::map<std::vector<int>, opImpl> specialDefinitions = {});
 
   Op(std::string name, opImpl lowererFunc, algebraImpl algebraFunc, std::vector<Property> properties,
-     std::map<std::vector<int>, opImpl> specialDefinitions = {})
-  : name(name), lowererFunc(lowererFunc), algebraFunc(algebraFunc), properties(properties),
-    regionDefinitions(specialDefinitions) {
-  }
+     std::map<std::vector<int>, opImpl> specialDefinitions = {});
 
   // Construct without specifying algebra
   Op(std::string name, opImpl lowererFunc, std::vector<Property> properties,
-     std::map<std::vector<int>, opImpl> specialDefinitions  = {})
-  : Op(name, lowererFunc, nullptr, properties, specialDefinitions) {
-  }
+     std::map<std::vector<int>, opImpl> specialDefinitions  = {});
 
   Op(opImpl lowererFunc, std::vector<Property> properties,
-     std::map<std::vector<int>, opImpl> specialDefinitions = {})
-  : Op(util::uniqueName("Op"), lowererFunc, nullptr, properties, specialDefinitions) {
-  }
+     std::map<std::vector<int>, opImpl> specialDefinitions = {});
 
   // Construct without properties
   Op(std::string name, opImpl lowererFunc, algebraImpl algebraFunc,
-     std::map<std::vector<int>, opImpl> specialDefinitions = {})
-  : Op(name, lowererFunc, algebraFunc, {}, specialDefinitions) {
-  }
+     std::map<std::vector<int>, opImpl> specialDefinitions = {});
 
-  Op(opImpl lowererFunc, algebraImpl algebraFunc,
-     std::map<std::vector<int>, opImpl> specialDefinitions = {})
-  : Op(util::uniqueName("Op"), lowererFunc, algebraFunc, {}, specialDefinitions) {
-  }
+  Op(opImpl lowererFunc, algebraImpl algebraFunc, std::map<std::vector<int>, opImpl> specialDefinitions = {});
 
   // Construct without algebra or properties
-  Op(std::string name, opImpl lowererFunc, std::map<std::vector<int>, opImpl> specialDefinitions = {})
-  : Op(name, lowererFunc, nullptr, specialDefinitions) {
-  }
+  Op(std::string name, opImpl lowererFunc, std::map<std::vector<int>, opImpl> specialDefinitions = {});
 
-  explicit Op(opImpl lowererFunc, std::map<std::vector<int>, opImpl> specialDefinitions = {})
-  : Op(lowererFunc, nullptr, specialDefinitions) {
-  }
+  explicit Op(opImpl lowererFunc, std::map<std::vector<int>, opImpl> specialDefinitions = {});
 
   template<typename... IndexExprs>
   TensorOp operator()(IndexExprs&&... exprs) {
@@ -82,25 +63,17 @@ private:
   std::vector<Property> properties;
   std::map<std::vector<int>, opImpl> regionDefinitions;
 
-  IterationAlgebra inferAlgFromProperties(const std::vector<IndexExpr>& exprs) {
-    if(properties.empty()) {
-      return constructDefaultAlgebra(exprs);
-    }
-    return {};
-  }
+  IterationAlgebra inferAlgFromProperties(const std::vector<IndexExpr>& exprs);
+
+  // Constructs an algebra for iterating over the operator assuming the annihilator
+  // of the expression is the input to this function.
+  // Returns a pair where pair.first is the algebra for iteration and pair.second is
+  // the number of subregions iterated by the algebra.
+  std::pair<IterationAlgebra, int> constructAnnihilatorAlg(const std::vector<IndexExpr>& args,
+                                                           Annihilator annihilator);
 
   // Constructs an algebra that iterates over the entire space
-  static IterationAlgebra constructDefaultAlgebra(const std::vector<IndexExpr>& exprs) {
-    if(exprs.empty()) return Region();
-
-    IterationAlgebra tensorsRegions(exprs[0]);
-    for(size_t i = 1; i < exprs.size(); ++i) {
-      tensorsRegions = Union(tensorsRegions, exprs[i]);
-    }
-
-    IterationAlgebra background = Complement(tensorsRegions);
-    return Union(tensorsRegions, background);
-  }
+  static IterationAlgebra constructDefaultAlgebra(const std::vector<IndexExpr>& exprs);
 };
 
 }

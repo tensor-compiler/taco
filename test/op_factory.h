@@ -101,6 +101,13 @@ struct unionEdge {
   }
 };
 
+struct BfsMaskAlg {
+  IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
+    std::vector<IndexExpr> r = regions;
+    return Intersect(Intersect(r[0], r[1]), Complement(r[2]));
+  }
+};
+
 // Lowerers
 struct MulAdd {
   ir::Expr operator()(const std::vector<ir::Expr> &v) {
@@ -124,6 +131,12 @@ struct GeneralAdd {
     }
 
     return add;
+  }
+};
+
+struct BfsLower {
+  ir::Expr operator()(const std::vector<ir::Expr> &v) {
+    return ir::Mul::make(v[0], v[1]);
   }
 };
 
