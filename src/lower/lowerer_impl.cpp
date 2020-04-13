@@ -325,11 +325,11 @@ splitAppenderAndInserters(const vector<Iterator>& results) {
     taco_iassert(result.hasAppend() || result.hasInsert())
         << "Results must support append or insert";
 
-    if (result.hasAppend()) {
+    bool sparseMask = result.getTensor() != result.getParent().getTensor();
+    if (result.hasAppend() && !sparseMask) {
       appenders.push_back(result);
-    }
-    else {
-      taco_iassert(result.hasInsert());
+    } else {
+      taco_iassert(result.hasInsert() || sparseMask);
       inserters.push_back(result);
     }
   }
