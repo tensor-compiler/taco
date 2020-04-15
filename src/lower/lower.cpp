@@ -49,13 +49,12 @@ ir::Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute,
       << "Not lowerable, because " << reason << ": " << stmt;
   ir::Stmt lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute);
 
-  std::string messages;
-
-  std::cout << "Suppressing verifier output" << endl; // TODO:
-  // TODO: verify(lowered, &messages);
-  if (!messages.empty()) {
-    std::cerr << "Verifier messages:\n" << messages << "\n";
-  }
+  // TODO: re-enable this
+  // std::string messages;
+  // verify(lowered, &messages);
+  // if (!messages.empty()) {
+  //   std::cerr << "Verifier messages:\n" << messages << "\n";
+  // }
   
   return lowered;
 }
