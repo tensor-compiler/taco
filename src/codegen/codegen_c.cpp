@@ -329,7 +329,7 @@ static string getParallelizePragma(LoopKind kind) {
       ret << "(dynamic, 1)";
       break;
     case LoopKind::Runtime:
-      ret << "(runtime, 1)";
+      ret << "(runtime)";
       break;
     case LoopKind::Static_Chunked:
       ret << "(static)";
