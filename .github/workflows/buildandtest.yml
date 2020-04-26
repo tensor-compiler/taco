@@ -26,7 +26,25 @@ jobs:
     - name: test
       run: bin/taco-test
       working-directory: build
-      
+
+  build-test-cpu-release:
+    name: builds taco release for cpu and runs all gtest
+    runs-on: ubuntu-18.04
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: create_build
+        run: mkdir build
+      - name: cmake
+        run: cmake -DCMAKE_BUILD_TYPE=Release ..
+        working-directory: build
+      - name: make
+        run: make -j8
+        working-directory: build
+      - name: test
+        run: bin/taco-test
+        working-directory: build
+
   build-gpu:
     name: build taco for gpu, but does not run tests
     runs-on: ubuntu-18.04
