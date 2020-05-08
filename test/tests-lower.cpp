@@ -123,7 +123,7 @@ struct TestCase {
         auto& coordinates = components[i].first;
         std::vector<int> ordering = format.getModeOrdering();
         for (size_t j=0; j < coordinates.size(); ++j) {
-          coords[j][i] = coordinates[ordering[j]];
+          coords[j][i] = coordinates[j];
         }
         values[i] = components[i].second;
       }
@@ -1686,7 +1686,7 @@ TEST_STMT(BoolRing2,
           ),
           {
             TestCase(
-            {{B, {{{0, 1}, 1.0}, {{1, 1}, 1.0}, {{3, 1}, 1.0}, {{1, 2}, 1.0}, {{4, 3}, 1.0}}},
+            {{B, {{{1, 0}, 1.0}, {{1, 1}, 1.0}, {{1, 3}, 1.0}, {{2, 1}, 1.0}, {{3, 4}, 1.0}}},
               {c, {{{1}, 1.0}}}},
 
             {{a, {{{0}, 1.0}, {{3}, 1.0}}}})
@@ -1703,7 +1703,7 @@ TEST_STMT(BoolRing3,
           ),
           {
             TestCase(
-            {{B, {{{0, 1}, 1.0}, {{1, 1}, 1.0}, {{3, 1}, 1.0}, {{1, 2}, 1.0}, {{4, 3}, 1.0}}},
+            {{B, {{{1, 0}, 1.0}, {{1, 1}, 1.0}, {{1, 3}, 1.0}, {{2, 1}, 1.0}, {{3, 4}, 1.0}}},
               {c, {{{1}, 1.0}}}},
 
             {{a, {{{0}, 1.0}, {{1}, 1.0}, {{3}, 1.0}}}})
