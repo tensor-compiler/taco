@@ -410,9 +410,13 @@ protected:
   /// For now, we only check mode iterators.
   std::vector<Iterator> getModeIterators(const std::vector<Iterator>&);
 
+  /// Emit early exit
+  ir::Stmt emitEarlyExit(ir::Expr reductionExpr, std::vector<Property>&);
+
 private:
   bool assemble;
   bool compute;
+  bool loopOrderAllowsShortCircuit = false;
 
   int markAssignsAtomicDepth = 0;
   ParallelUnit atomicParallelUnit;

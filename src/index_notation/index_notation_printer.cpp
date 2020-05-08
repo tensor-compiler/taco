@@ -189,6 +189,10 @@ void IndexNotationPrinter::visit(const ReductionNode* op) {
     void visit(const BinaryExprNode* node) {
       reductionName = "reduction(" + node->getOperatorString() + ")";
     }
+
+    void visit(const TensorOpNode* node) {
+      reductionName = node->name + "Reduce";
+    }
   };
   parentPrecedence = Precedence::REDUCTION;
   os << ReductionName().get(op->op) << "(" << op->var << ", ";
@@ -207,6 +211,10 @@ void IndexNotationPrinter::visit(const AssignmentNode* op) {
     }
     void visit(const BinaryExprNode* node) {
       operatorName = node->getOperatorString();
+    }
+
+    void visit(const TensorOpNode* node) {
+      operatorName = node->name;
     }
   };
 

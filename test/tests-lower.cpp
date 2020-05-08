@@ -121,8 +121,9 @@ struct TestCase {
       vector<double> values(num);
       for (size_t i=0; i < components.size(); ++i) {
         auto& coordinates = components[i].first;
+        std::vector<int> ordering = format.getModeOrdering();
         for (size_t j=0; j < coordinates.size(); ++j) {
-          coords[j][i] = coordinates[j];
+          coords[j][i] = coordinates[ordering[j]];
         }
         values[i] = components[i].second;
       }
@@ -1654,21 +1655,82 @@ TEST_STMT(lowerCompUnion,
           }
 )
 
+Op scOr("Or", OrImpl(), {Annihilator((double)1), Identity(Literal((double)0))});
+Op scAnd("And", AndImpl(), {Annihilator((double)0), Identity((double)1)});
 Op bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
-TEST_STMT(bfsMask,
+
+TEST_STMT(BoolRing,
           forall(i,
                  forall(j,
-                        a(i) += bfsMaskOp(B(i, j), c(j), c(i))
+                        Assignment(a(i), bfsMaskOp(scAnd(B(i, j), c(j)), c(i)), scOr())
                  )),
           Values(
                   Formats({{a, Format({dense})}, {B, Format({dense,sparse})}, {c, Format({dense})}})
           ),
           {
             TestCase(
-            {{B, {{{0, 1}, 1.0}, {{1, 1}, 1.0}, {{1, 2}, 1.0}, {{4, 3}, 1.0}}},
+            {{B, {{{0, 1}, 1.0}, {{1, 1}, 1.0}, {{1, 2}, 1.0}, {{3, 1}, 1.0}, {{4, 3}, 1.0}}},
               {c, {{{1}, 1.0}}}},
 
-            {{a, {{{0}, 1.0}}}})
+            {{a, {{{0}, 1.0}, {{3}, 1.0}}}})
+          }
+)
+
+TEST_STMT(BoolRing2,
+          forall(j,
+                 forall(i,
+                        Assignment(a(i), bfsMaskOp(scAnd(B(i, j), c(j)), c(i)), scOr())
+                 )),
+          Values(
+                  Formats({{a, Format({dense})}, {B, Format({dense,sparse}, {1, 0})}, {c, Format({sparse})}})
+          ),
+          {
+            TestCase(
+            {{B, {{{0, 1}, 1.0}, {{1, 1}, 1.0}, {{3, 1}, 1.0}, {{1, 2}, 1.0}, {{4, 3}, 1.0}}},
+              {c, {{{1}, 1.0}}}},
+
+            {{a, {{{0}, 1.0}, {{3}, 1.0}}}})
+          }
+)
+
+TEST_STMT(BoolRing3,
+          forall(j,
+                 forall(i,
+                        Assignment(a(i), scAnd(B(i, j), c(j)), scOr())
+                 )),
+          Values(
+                  Formats({{a, Format({dense})}, {B, Format({dense,sparse}, {1, 0})}, {c, Format({sparse})}})
+          ),
+          {
+            TestCase(
+            {{B, {{{0, 1}, 1.0}, {{1, 1}, 1.0}, {{3, 1}, 1.0}, {{1, 2}, 1.0}, {{4, 3}, 1.0}}},
+              {c, {{{1}, 1.0}}}},
+
+            {{a, {{{0}, 1.0}, {{1}, 1.0}, {{3}, 1.0}}}})
+          }
+)
+
+Op customMin("Min", MinImpl(), {Identity(std::numeric_limits<double>::infinity()) });
+Op Plus("Plus", GeneralAdd(), {Annihilator(std::numeric_limits<double>::infinity())});
+
+static TensorVar a_inf("a", vectype, Format(), std::numeric_limits<double>::infinity());
+static TensorVar c_inf("c", vectype, Format(), std::numeric_limits<double>::infinity());
+static TensorVar B_inf("B", mattype, Format(), std::numeric_limits<double>::infinity());
+
+TEST_STMT(MinPlusRing,
+          forall(i,
+                 forall(j,
+                        Assignment(a_inf(i), Plus(B_inf(i, j), c_inf(j)), customMin())
+                 )),
+          Values(
+                  Formats({{a_inf, Format({dense})}, {B_inf, Format({dense,sparse})}, {c_inf, Format({dense})}})
+          ),
+          {
+            TestCase(
+            {{B_inf, {{{0, 1}, 3.0}, {{1, 1}, 4.0}, {{1, 2}, 2.0}, {{3,2}, 5.0}, {{4, 3}, 1.0}}},
+              {c_inf, {{{1}, 1.0}, {{2}, 6.0}}}},
+
+            {{a_inf, {{{0}, 4.0}, {{1}, 5.0}, {{3}, 11.0}}}})
           }
 )
 

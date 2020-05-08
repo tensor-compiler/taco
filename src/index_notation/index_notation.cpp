@@ -2138,14 +2138,16 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
       // that's not a reduction
       vector<IndexVar> topLevelReductions;
       IndexExpr rhs = node->rhs;
+      IndexExpr reductionOp;
       while (isa<Reduction>(rhs)) {
         Reduction reduction = to<Reduction>(rhs);
         topLevelReductions.push_back(reduction.getVar());
         rhs = reduction.getExpr();
+        reductionOp = reduction.getOp();
       }
 
       if (rhs != node->rhs) {
-        stmt = Assignment(node->lhs, rhs, Add());
+        stmt = Assignment(node->lhs, rhs, reductionOp);
         for (auto& i : util::reverse(topLevelReductions)) {
           stmt = forall(i, stmt);
         }
@@ -2234,6 +2236,45 @@ vector<TensorVar> getArguments(IndexStmt stmt) {
   }
 
   return result;
+}
+
+bool allForFreeLoopsBeforeAllReductionLoops(IndexStmt stmt) {
+
+  struct LoopOrderGetter : IndexNotationVisitor {
+
+    std::vector<IndexVar> loopOrder;
+    std::set<IndexVar> freeVars;
+
+    using IndexNotationVisitor::visit;
+    void visit(const AssignmentNode *op) {
+      for(const auto& var : op->lhs.getIndexVars()) {
+        freeVars.insert(var);
+      }
+      IndexNotationVisitor::visit(op);
+    }
+
+    void visit(const ForallNode *op) {
+      loopOrder.push_back(op->indexVar);
+      IndexNotationVisitor::visit(op);
+    }
+  };
+
+
+  LoopOrderGetter getter;
+  getter.visit(stmt);
+
+  bool seenReductionVar = false;
+  for(auto& var : getter.loopOrder) {
+    if(util::contains(getter.freeVars, var)) {
+      if(seenReductionVar) {
+        // A reduction loop came before a loop over a free var
+        return false;
+      }
+    } else {
+      seenReductionVar = true;
+    }
+  }
+  return true;
 }
 
 std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
@@ -2550,7 +2591,6 @@ private:
     bool rewritten = false;
 
     Annihilator annihilator = findProperty<Annihilator>(op->properties);
-    Literal annihilatorVal = annihilator.defined()? annihilator.annihilator(): Literal();
 
     // TODO: Check exhausted default against result default
     for(int argIdx = 0; argIdx < (int) op->args.size(); ++argIdx) {
@@ -2565,34 +2605,27 @@ private:
         rewrittenArg = Literal::zero(arg.getDataType());
       }
 
-      if(annihilatorVal.defined() && equals(annihilatorVal, rewrittenArg)) {
-        expr = IndexExpr();
-        return;
-      }
-
       args.push_back(rewrittenArg);
       if (arg != rewrittenArg) {
         rewritten = true;
       }
     }
 
-    Identity identity = findProperty<Identity>(op->properties);
-    Literal identityVal = identity.defined()? identity.identity(): Literal();
-
-    // If only one term is not the identity, replace expr with just that term
-    size_t nonIdentityTerms = 0;
-    IndexExpr nonIdentityTerm;
-    for(const auto& arg : args) {
-      if(!equals(identityVal, arg)) {
-        nonIdentityTerm = arg;
-        ++nonIdentityTerms;
+    if(annihilator.defined()) {
+      IndexExpr e = annihilator.annihilates(args);
+      if(e.defined()) {
+        expr = e;
+        return;
       }
-      if(nonIdentityTerms > 1) break;
     }
 
-    if(nonIdentityTerms == 1) {
-      expr = nonIdentityTerm;
-      return;
+    Identity identity = findProperty<Identity>(op->properties);
+    if(identity.defined()) {
+      IndexExpr e = identity.simplify(args);
+      if(e.defined()) {
+        expr = e;
+        return;
+      }
     }
 
     if (rewritten) {
@@ -2735,6 +2768,136 @@ IndexExpr zero(IndexExpr expr, const set<Access>& zeroed) {
 
 IndexStmt zero(IndexStmt stmt, const std::set<Access>& zeroed) {
   return Zero(zeroed).rewrite(stmt);
+}
+
+struct fillValueInferrer : IndexExprRewriterStrict {
+  public:
+    virtual void visit(const AccessNode* op) {
+      expr = op->tensorVar.getFill();
+    };
+
+    virtual void visit(const LiteralNode* op) {
+      expr = op;
+    }
+
+    virtual void visit(const NegNode* op) {
+      IndexExpr a = rewrite(op->a);
+      if(equals(a, Literal::zero(a.getDataType()))) {
+        expr = a;
+        return;
+      }
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const AddNode* op) {
+      IndexExpr a = rewrite(op->a);
+      IndexExpr b = rewrite(op->b);
+
+      if(equals(a, Literal::zero(a.getDataType())) && isa<Literal>(b)) {
+        expr = b;
+        return;
+      }
+
+      if(equals(b, Literal::zero(b.getDataType())) && isa<Literal>(a)) {
+        expr = a;
+        return;
+      }
+
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const SubNode* op) {
+      IndexExpr a = rewrite(op->a);
+      IndexExpr b = rewrite(op->b);
+
+      if(equals(b, Literal::zero(b.getDataType())) && isa<Literal>(a)) {
+        expr = a;
+        return;
+      }
+
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const MulNode* op) {
+      IndexExpr a = rewrite(op->a);
+      IndexExpr b = rewrite(op->b);
+
+      if(equals(a, Literal::zero(a.getDataType()))) {
+        expr = a;
+        return;
+      }
+
+      if(equals(b, Literal::zero(b.getDataType()))) {
+        expr = b;
+        return;
+      }
+
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const DivNode* op) {
+      IndexExpr a = rewrite(op->a);
+      IndexExpr b = rewrite(op->b);
+
+      if(equals(a, Literal::zero(a.getDataType()))) {
+        expr = a;
+        return;
+      }
+
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const SqrtNode* op) {
+      IndexExpr a = rewrite(op->a);
+      if(equals(a, Literal::zero(a.getDataType()))) {
+        expr = a;
+        return;
+      }
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const CastNode* op) {
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const TensorOpNode* op) {
+      Annihilator annihilator = findProperty<Annihilator>(op->properties);
+      if(annihilator.defined()) {
+        IndexExpr e = annihilator.annihilates(op->args);
+        if(e.defined()) {
+          expr = e;
+          return;
+        }
+      }
+
+      Identity identity = findProperty<Identity>(op->properties);
+      if(identity.defined()) {
+        IndexExpr e = identity.simplify(op->args);
+        if(e.defined()) {
+          expr = e;
+          return;
+        }
+      }
+
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const CallIntrinsicNode*) {
+
+    }
+
+    virtual void visit(const ReductionNode*) {
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const IndexVarNode*) {
+      expr = IndexExpr();
+    }
+  };
+
+
+IndexExpr inferFill(IndexExpr expr) {
+  return fillValueInferrer().rewrite(expr);
 }
 
 bool hasNoForAlls(IndexStmt stmt) {

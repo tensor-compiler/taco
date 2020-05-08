@@ -6,11 +6,13 @@
 
 namespace taco {
 
+class IndexExpr;
+
 /// A class containing properties about an operation
 class Property : public util::IntrusivePtr<const PropertyPtr> {
 public:
   Property();
-  Property(const PropertyPtr* p);
+  explicit Property(const PropertyPtr* p);
 
   bool equals(const Property& p) const;
   std::ostream& print(std::ostream&) const;
@@ -22,9 +24,12 @@ std::ostream& operator<<(std::ostream&, const Property&);
 class Annihilator : public Property {
 public:
   explicit Annihilator(Literal);
-  Annihilator(const PropertyPtr*);
+  Annihilator(Literal, std::vector<int>&);
+  explicit Annihilator(const PropertyPtr*);
 
   const Literal& annihilator() const;
+  const std::vector<int>& positions() const;
+  IndexExpr annihilates(const std::vector<IndexExpr>&) const;
 
   typedef AnnihilatorPtr Ptr;
 };
@@ -33,9 +38,12 @@ public:
 class Identity : public Property {
 public:
   explicit Identity(Literal);
-  Identity(const PropertyPtr*);
+  Identity(Literal, std::vector<int>&);
+  explicit Identity(const PropertyPtr*);
 
   const Literal& identity() const;
+  const std::vector<int>& positions() const;
+  IndexExpr simplify(const std::vector<IndexExpr>&) const;
 
   typedef IdentityPtr Ptr;
 };
@@ -44,7 +52,7 @@ public:
 class Associative : public Property {
 public:
   Associative();
-  Associative(const PropertyPtr*);
+  explicit Associative(const PropertyPtr*);
 
   typedef AssociativePtr Ptr;
 };
@@ -54,7 +62,7 @@ class Commutative : public Property {
 public:
   Commutative();
   explicit Commutative(const std::vector<int>&);
-  Commutative(const PropertyPtr*);
+  explicit Commutative(const PropertyPtr*);
 
   const std::vector<int>& ordering() const;
 

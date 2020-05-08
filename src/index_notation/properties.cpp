@@ -47,12 +47,41 @@ template<> Annihilator to<Annihilator>(const Property& p) {
 Annihilator::Annihilator(Literal annihilator) : Annihilator(new AnnihilatorPtr(annihilator)) {
 }
 
+Annihilator::Annihilator(Literal annihilator, std::vector<int> &p) : Annihilator(new AnnihilatorPtr(annihilator, p)) {
+}
+
 Annihilator::Annihilator(const PropertyPtr* p) : Property(p) {
 }
 
 const Literal& Annihilator::annihilator() const {
   taco_iassert(defined());
   return getPtr(*this)->annihilator();
+}
+
+const std::vector<int> & Annihilator::positions() const {
+  taco_iassert(defined());
+  return getPtr(*this)->positions();
+}
+
+IndexExpr Annihilator::annihilates(const std::vector<IndexExpr>& exprs) const {
+  taco_iassert(defined());
+  Literal a = annihilator();
+  std::vector<int> pos = positions();
+  if (pos.empty()) {
+    for(int i = 0; i < (int)exprs.size(); ++i) {
+      pos.push_back(i);
+    }
+  }
+
+  for(const auto& idx : pos) {
+    taco_uassert(idx < (int)exprs.size()) << "Not enough args in expression";
+    if(::taco::equals(exprs[idx], a)) {
+      return a;
+    }
+  }
+
+  // We could not simplify.
+  return IndexExpr();
 }
 
 // Identity class definitions
@@ -71,9 +100,56 @@ Identity::Identity(Literal identity) : Identity(new IdentityPtr(identity)) {
 Identity::Identity(const PropertyPtr* p) : Property(p) {
 }
 
+Identity::Identity(Literal identity, std::vector<int>& positions) : Identity(new IdentityPtr(identity, positions)) {
+}
+
 const Literal& Identity::identity() const {
   taco_iassert(defined());
   return getPtr(*this)->identity();
+}
+
+const std::vector<int>& Identity::positions() const {
+  taco_iassert(defined());
+  return getPtr(*this)->positions();
+}
+
+IndexExpr Identity::simplify(const std::vector<IndexExpr>& exprs) const {
+  // If only one term is not the identity, replace expr with just that term.
+  // If all terms are identity, replace with identity.
+  Literal identityVal = identity();
+  size_t nonIdentityTermsChecked = 0;
+  IndexExpr nonIdentityTerm;
+
+  std::vector<int> pos = positions();
+  if (pos.empty()) {
+    for(int i = 0; i < (int)exprs.size(); ++i) {
+      pos.push_back(i);
+    }
+  }
+
+
+  for(const auto& idx : pos) {
+    if(!::taco::equals(identityVal, exprs[idx])) {
+      nonIdentityTerm = exprs[idx];
+      ++nonIdentityTermsChecked;
+    }
+    if(nonIdentityTermsChecked > 1) {
+      return IndexExpr();
+    }
+  }
+
+  size_t identityTermsChecked = pos.size() - nonIdentityTermsChecked;
+  if(nonIdentityTermsChecked == 1 && identityTermsChecked == (exprs.size() - 1)) {
+    // If we checked all exprs and all are the identity except one return that term
+    return nonIdentityTerm;
+  }
+
+  if(identityTermsChecked == exprs.size()) {
+    // If we checked every expression and
+    return identityVal;
+  }
+
+  return IndexExpr();
 }
 
 // Associative class definitions

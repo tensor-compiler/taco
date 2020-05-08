@@ -14,7 +14,7 @@ Stmt compoundStore(Expr a, Expr i, Expr val, bool use_atomics, ParallelUnit atom
   return Store::make(a, i, add, use_atomics, atomic_parallel_unit);
 }
 
-Stmt compoundAssign(Expr a, Expr val, bool use_atomics, ParallelUnit atomic_parallel_unit) {
+Stmt addAssign(Expr a, Expr val, bool use_atomics, ParallelUnit atomic_parallel_unit) {
   Expr add = (val.type().getKind() == Datatype::Bool) 
              ? Or::make(a, val) : Add::make(a, val);
   return Assign::make(a, add, use_atomics, atomic_parallel_unit);

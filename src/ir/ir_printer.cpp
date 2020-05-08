@@ -561,7 +561,12 @@ void IRPrinter::visit(const BlankLine*) {
 
 void IRPrinter::visit(const Break*) {
   doIndent();
-  stream << "continue;" << endl; // TODO: add continue statement
+  stream << "break;" << endl;
+}
+
+void IRPrinter::visit(const Continue*) {
+  doIndent();
+  stream << "continue;" << endl;
 }
 
 void IRPrinter::visit(const Print* op) {

@@ -6,7 +6,7 @@ namespace taco {
 
 // Iteration Algebra Definitions
 
-IterationAlgebra::IterationAlgebra() : IterationAlgebra(new RegionNode(nullptr)) {}
+IterationAlgebra::IterationAlgebra() : IterationAlgebra(nullptr) {}
 IterationAlgebra::IterationAlgebra(const IterationAlgebraNode* n) : util::IntrusivePtr<const IterationAlgebraNode>(n) {}
 IterationAlgebra::IterationAlgebra(IndexExpr expr) : IterationAlgebra(new RegionNode(expr)) {}
 

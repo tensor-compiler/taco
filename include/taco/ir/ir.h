@@ -65,7 +65,8 @@ enum class IRNodeType {
   BlankLine,
   Print,
   GetProperty,
-  Break
+  Break,
+  Continue
 };
 
 enum class TensorProperty {
@@ -232,6 +233,16 @@ struct Literal : public ExprNode<Literal> {
   T getValue() const {
     taco_iassert(taco::type<T>() == type);
     return *static_cast<const T*>(value.get());
+  }
+
+  Expr promote(Datatype dt) const {
+    taco_iassert(max_type(dt, type) == dt);
+    if(type == dt) {
+      return Literal::make(getTypedVal(), dt);
+    }
+
+
+
   }
 
   TypedComponentVal getTypedVal() const {
@@ -723,6 +734,13 @@ struct Break : public StmtNode<Break> {
   static Stmt make();
 
   static const IRNodeType _type_info = IRNodeType::Break;
+};
+
+/** Continues to the next iteration of the current loop */
+struct Continue : public StmtNode<Continue> {
+  static Stmt make();
+
+  static const IRNodeType _type_info = IRNodeType::Continue;
 };
 
 /** A print statement.

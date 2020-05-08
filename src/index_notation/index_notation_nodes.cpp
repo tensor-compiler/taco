@@ -54,7 +54,7 @@ TensorOpNode::TensorOpNode(std::string name, const std::vector<IndexExpr>& args,
 // class ReductionNode
 ReductionNode::ReductionNode(IndexExpr op, IndexVar var, IndexExpr a)
     : IndexExprNode(a.getDataType()), op(op), var(var), a(a) {
-  taco_iassert(isa<BinaryExprNode>(op.ptr));
+  taco_iassert(isa<BinaryExprNode>(op.ptr) || isa<TensorOpNode>(op.ptr));
 }
 
 IndexVarNode::IndexVarNode(const std::string& name, const Datatype& type) 

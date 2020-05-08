@@ -208,6 +208,11 @@ private:
   static Datatype inferReturnType(opImpl f, const std::vector<IndexExpr>& inputs) {
     std::function<ir::Expr(IndexExpr)> getExprs = [](IndexExpr arg) { return ir::Var::make("t", arg.getDataType()); };
     std::vector<ir::Expr> exprs = util::map(inputs, getExprs);
+
+    if(exprs.empty()) {
+      return taco::Datatype();
+    }
+
     return f(exprs).type();
   }
 

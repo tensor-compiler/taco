@@ -13,11 +13,6 @@
 namespace taco {
 namespace ir {
 
-template<typename T, typename F>
-Literal foldConstant() {
-
-}
-
 struct ExpressionSimplifier : IRRewriter {
   using IRRewriter::visit;
   void visit(const Or* op) {

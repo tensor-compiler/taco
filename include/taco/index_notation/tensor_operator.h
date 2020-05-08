@@ -69,8 +69,10 @@ private:
   // of the expression is the input to this function.
   // Returns a pair where pair.first is the algebra for iteration and pair.second is
   // the number of subregions iterated by the algebra.
-  std::pair<IterationAlgebra, int> constructAnnihilatorAlg(const std::vector<IndexExpr>& args,
-                                                           Annihilator annihilator);
+  IterationAlgebra constructAnnihilatorAlg(const std::vector<IndexExpr>& args, Annihilator annihilator);
+
+  IterationAlgebra constructIdentityAlg(const std::vector<IndexExpr>& args, Identity identity);
+
 
   // Constructs an algebra that iterates over the entire space
   static IterationAlgebra constructDefaultAlgebra(const std::vector<IndexExpr>& exprs);

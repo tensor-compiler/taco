@@ -2,6 +2,7 @@
 #include "taco/lower/lowerer_impl.h"
 
 #include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/tensor_operator.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/ir/ir.h"
@@ -113,6 +114,7 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
   this->compute = compute;
   definedIndexVarsOrdered = {};
   definedIndexVars = {};
+  loopOrderAllowsShortCircuit = allForFreeLoopsBeforeAllReductionLoops(stmt);
 
   // Create result and parameter variables
   vector<TensorVar> results = getResults(stmt);
@@ -271,8 +273,20 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
         // TODO: we don't need to mark all assigns/stores just when scattering/reducing
       }
       else {
-        taco_iassert(isa<taco::Add>(assignment.getOperator()));
-        return compoundAssign(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result), atomicParallelUnit);
+        if (isa<taco::Add>(assignment.getOperator())) {
+          return addAssign(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result),
+                           atomicParallelUnit);
+        }
+        taco_iassert(isa<taco::TensorOp>(assignment.getOperator()));
+
+        TensorOp op = to<TensorOp>(assignment.getOperator());
+        Expr assignOp = op.getFunc()({var, rhs});
+        Stmt assign = Assign::make(var, assignOp, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result),
+                                   atomicParallelUnit);
+
+        std::vector<Property> properties = op.getProperties();
+        assign = Block::make(assign, emitEarlyExit(var, properties));
+        return assign;
       }
     }
     // Assignments to tensor variables (non-scalar).
@@ -285,7 +299,21 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
         computeStmt = Store::make(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
       }
       else {
-        computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
+        if (isa<taco::Add>(assignment.getOperator())) {
+          computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
+        } else {
+
+          taco_iassert(isa<taco::TensorOp>(assignment.getOperator()));
+
+          TensorOp op = to<TensorOp>(assignment.getOperator());
+          Expr assignOp = op.getFunc()({Load::make(values, loc), rhs});
+          computeStmt = Store::make(values, loc, assignOp,
+                                    markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result),
+                                    atomicParallelUnit);
+
+          std::vector<Property> properties = op.getProperties();
+          computeStmt = Block::make(computeStmt, emitEarlyExit(Load::make(values, loc), properties));
+        }
       }
       taco_iassert(computeStmt.defined());
       return computeStmt;
@@ -368,7 +396,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
       if (isa<ir::Literal>(ir::simplify(iterBounds[0])) && ir::simplify(iterBounds[0]).as<ir::Literal>()->equalsScalar(0)) {
         guardCondition = maxGuard;
       }
-      ir::Stmt guard = ir::IfThenElse::make(guardCondition, ir::Break::make());
+      ir::Stmt guard = Block::make(IfThenElse::make(minGuard, Continue::make()), IfThenElse::make(maxGuard, Break::make()));
       recoverySteps.push_back(guard);
     }
 
@@ -378,7 +406,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     // place underived guard
     if (emitUnderivedGuards && underivedBounds.count(varToRecover) && !provGraph.hasPosDescendant(varToRecover)) {
       Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]),
-                                    Break::make());
+                                    Continue::make());
       recoverySteps.push_back(guard);
     }
   }
@@ -982,7 +1010,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
       else {
         locateCoordVar = ir::Assign::make(coordVarUnknown, posVarUnknown);
       }
-      Stmt loopBody = ir::Block::make(compoundAssign(posVarUnknown, 1), locateCoordVar, loopToTrackUnderiveds);
+      Stmt loopBody = ir::Block::make(addAssign(posVarUnknown, 1), locateCoordVar, loopToTrackUnderiveds);
       if (posIteratorLevel.getParent().hasPosIter()) { // TODO: if level is unique or not
         loopToTrackUnderiveds = IfThenElse::make(loopcond, loopBody);
       }
@@ -1733,6 +1761,14 @@ bool LowererImpl::generateComputeCode() const {
   return this->compute;
 }
 
+Stmt LowererImpl::emitEarlyExit(Expr reductionExpr, std::vector<Property>& properties) {
+  if (loopOrderAllowsShortCircuit && findProperty<Annihilator>(properties).defined()) {
+    Literal annh = findProperty<Annihilator>(properties).annihilator();
+    Expr isAnnihilator = ir::Eq::make(reductionExpr, lower(annh));
+    return IfThenElse::make(isAnnihilator, Block::make(Break::make()));
+  }
+  return Stmt();
+}
 
 Expr LowererImpl::getTensorVar(TensorVar tensorVar) const {
   taco_iassert(util::contains(this->tensorVars, tensorVar)) << tensorVar;
@@ -2226,7 +2262,7 @@ Stmt LowererImpl::reduceDuplicateCoordinates(Expr coordinate,
       // need a separate segend variable.
       segendVar = iterVar;
       if (alwaysReduce) {
-        result.push_back(compoundAssign(segendVar, 1));
+        result.push_back(addAssign(segendVar, 1));
       }
     } else {
       Expr segendInit = alwaysReduce ? ir::Add::make(iterVar, 1) : iterVar;
@@ -2236,9 +2272,9 @@ Stmt LowererImpl::reduceDuplicateCoordinates(Expr coordinate,
     vector<Stmt> dedupStmts;
     if (reducedVal.defined()) {
       Expr partialVal = Load::make(tensorVals, segendVar);
-      dedupStmts.push_back(compoundAssign(reducedVal, partialVal));
+      dedupStmts.push_back(addAssign(reducedVal, partialVal));
     }
-    dedupStmts.push_back(compoundAssign(segendVar, 1));
+    dedupStmts.push_back(addAssign(segendVar, 1));
     Stmt dedupBody = Block::make(dedupStmts);
 
     ModeFunction posAccess = iterator.posAccess(segendVar, 
@@ -2389,7 +2425,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar,
     Expr ivar = iterators[0].getIteratorVar();
 
     if (iterators[0].isUnique()) {
-      return compoundAssign(ivar, 1); 
+      return addAssign(ivar, 1);
     }
 
     // If iterator is over bottommost coordinate hierarchy level with 
@@ -2416,7 +2452,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar,
                      : ir::Cast::make(Eq::make(iterator.getCoordVar(), 
                                                coordinate),
                                       ivar.type());
-      result.push_back(compoundAssign(ivar, increment));
+      result.push_back(addAssign(ivar, increment));
     } else if (!iterator.isLeaf()) {
       result.push_back(Assign::make(ivar, iterator.getSegendVar()));
     }
@@ -2428,7 +2464,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar,
     bool isMerger = find(mergers.begin(), mergers.end(), iterator) != mergers.end();
     if (isMerger) {
       Expr ivar = iterator.getIteratorVar();
-      result.push_back(compoundAssign(ivar, 1));
+      result.push_back(addAssign(ivar, 1));
     }
     else {
       result.push_back(codeToLoadCoordinatesFromPosIterators(iterators, false));
@@ -2514,7 +2550,7 @@ Stmt LowererImpl::appendCoordinate(vector<Iterator> appenders, Expr coord) {
     } 
     
     if (generateAssembleCode() || isLastAppender(appender)) {
-      appendStmts.push_back(compoundAssign(pos, 1));
+      appendStmts.push_back(addAssign(pos, 1));
 
       Stmt appendCode = Block::make(appendStmts);
       if (appenderChild.defined() && appenderChild.hasAppend()) {

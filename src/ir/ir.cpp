@@ -183,6 +183,8 @@ std::complex<double> Literal::getComplexValue() const {
   return 0.0;
 }
 
+
+
 template <typename T> bool compare(const Literal* literal, double val) {
       return literal->getValue<T>() == static_cast<T>(val);
 }
@@ -789,6 +791,11 @@ Stmt Break::make() {
   return new Break;
 }
 
+// Continue
+Stmt Continue::make() {
+  return new Continue;
+}
+
 // Print
 Stmt Print::make(std::string fmt, std::vector<Expr> params) {
   Print* pr = new Print;
@@ -950,6 +957,8 @@ template<> void StmtNode<BlankLine>::accept(IRVisitorStrict *v)
     const { v->visit((const BlankLine*)this); }
 template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
   const { v->visit((const Break*)this); }
+template<> void StmtNode<Continue>::accept(IRVisitorStrict *v)
+  const { v->visit((const Continue*)this); }
 template<> void StmtNode<Print>::accept(IRVisitorStrict *v)
     const { v->visit((const Print*)this); }
 template<> void ExprNode<GetProperty>::accept(IRVisitorStrict *v)

@@ -1,5 +1,7 @@
 #include "test.h"
+#include "taco/index_notation/tensor_operator.h"
 #include "taco/index_notation/index_notation.h"
+#include "op_factory.h"
 
 using namespace taco;
 
@@ -202,3 +204,15 @@ INSTANTIATE_TEST_CASE_P(separate_reductions, concrete,
                                          tk += c(k))),
                             forall(j, tj += b(j))))));
 
+
+
+Op scOr("Or", OrImpl(), {Annihilator((bool)1), Identity((bool)0)});
+Op scAnd("And", AndImpl(), {Annihilator((bool)0), Identity((bool)0)});
+
+Op bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
+INSTANTIATE_TEST_CASE_P(tensorOpConcrete, concrete,
+              Values(ConcreteTest(a(i) = Reduction(scOr(), j, bfsMaskOp(scAnd(B(i, j), c(j)), c(i))),
+                                  forall(i,
+                                         forall(j,
+                                                Assignment(a(i), bfsMaskOp(scAnd(B(i, j), c(j)), c(i)), scOr())
+                                         )))));

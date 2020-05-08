@@ -66,6 +66,7 @@ protected:
   virtual void visit(const Comment* op);
   virtual void visit(const BlankLine* op);
   virtual void visit(const Break* op);
+  virtual void visit(const Continue* op);
   virtual void visit(const Print* op);
   virtual void visit(const GetProperty* op);
 };

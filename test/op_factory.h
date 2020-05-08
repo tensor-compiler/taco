@@ -60,9 +60,9 @@ struct ComplementIntersect {
 
 struct IntersectGenDeMorgan {
   IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
-    IterationAlgebra unions;
-    for(const auto& region : regions) {
-      unions = Union(unions, Complement(region));
+    IterationAlgebra unions = Complement(regions[0]);
+    for(size_t i = 1; i < regions.size(); ++i) {
+      unions = Union(unions, Complement(regions[i]));
     }
     return Complement(unions);
   }
@@ -104,7 +104,7 @@ struct unionEdge {
 struct BfsMaskAlg {
   IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
     std::vector<IndexExpr> r = regions;
-    return Intersect(Intersect(r[0], r[1]), Complement(r[2]));
+    return Intersect(r[0], Complement(r[1]));
   }
 };
 
@@ -134,9 +134,28 @@ struct GeneralAdd {
   }
 };
 
+struct MinImpl {
+  ir::Expr operator()(const std::vector<ir::Expr> &v) {
+    taco_iassert(v.size() >= 2) << "Min operator needs at least two operands";
+    return ir::Min::make(v[0], v[1]);
+  }
+};
+
 struct BfsLower {
   ir::Expr operator()(const std::vector<ir::Expr> &v) {
-    return ir::Mul::make(v[0], v[1]);
+    return v[0];
+  }
+};
+
+struct OrImpl {
+  ir::Expr operator()(const std::vector<ir::Expr> &v) {
+    return ir::Or::make(v[0], v[1]);
+  }
+};
+
+struct AndImpl {
+  ir::Expr operator()(const std::vector<ir::Expr> &v) {
+    return ir::And::make(v[0], v[1]);
   }
 };
 

@@ -31,7 +31,11 @@ public:
 struct AnnihilatorPtr : public PropertyPtr {
   AnnihilatorPtr();
   AnnihilatorPtr(Literal);
+  AnnihilatorPtr(Literal, std::vector<int>&);
+
   const Literal& annihilator() const;
+  const std::vector<int>& positions() const;
+
   virtual std::ostream& print(std::ostream& os) const;
   virtual bool equals(const PropertyPtr* p) const;
 
@@ -44,7 +48,11 @@ struct IdentityPtr : public PropertyPtr {
 public:
   IdentityPtr();
   IdentityPtr(Literal);
+  IdentityPtr(Literal, std::vector<int>&);
+
   const Literal& identity() const;
+  const std::vector<int>& positions() const;
+
   virtual std::ostream& print(std::ostream& os) const;
   virtual bool equals(const PropertyPtr* p) const;
 

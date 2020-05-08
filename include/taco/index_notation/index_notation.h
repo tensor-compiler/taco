@@ -978,7 +978,12 @@ std::vector<TensorVar> getResults(IndexStmt stmt);
 /// Returns the input tensors to the index statement, in the order they appear.
 std::vector<TensorVar> getArguments(IndexStmt stmt);
 
-/// Returns the temporaries in the index statement, in the order they appear.
+/// Returns true iff all of the loops over free variables come before all of the loops over
+/// reduction variables. Therefore, this returns true if the reduction controlled by the loops
+/// does not a scatter.
+bool allForFreeLoopsBeforeAllReductionLoops(IndexStmt stmt);
+
+  /// Returns the temporaries in the index statement, in the order they appear.
 std::vector<TensorVar> getTemporaries(IndexStmt stmt);
 
 /// Returns the tensors in the index statement.
@@ -1012,6 +1017,10 @@ IndexExpr zero(IndexExpr, const std::set<Access>& zeroed);
 /// Simplify an index expression by setting the zeroed Access expressions to
 /// zero and then propagating and removing zeroes.
 IndexStmt zero(IndexStmt, const std::set<Access>& zeroed);
+
+/// Infers the fill value of the input expression by applying properties if possible. If unable
+/// to successfully infer the fill value of the result, returns the empty IndexExpr
+IndexExpr inferFill(IndexExpr);
 
 /// Returns true if there are no forall nodes in the indexStmt. Used to check
 /// if the last loop is being lowered.

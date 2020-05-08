@@ -267,6 +267,7 @@ private:
   }
 
   void visit(const TensorOpNode* expr) {
+    taco_iassert(expr->iterAlg.defined()) << "Algebra must be defined" << endl;
     lattice = build(expr->iterAlg);
 
     // Now we need to store regions that should be kept when applying optimizations.

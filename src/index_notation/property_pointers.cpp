@@ -6,10 +6,12 @@ namespace taco {
 
 struct AnnihilatorPtr::Content {
   Literal annihilator;
+  std::vector<int> positions;
 };
 
 struct IdentityPtr::Content {
   Literal identity;
+  std::vector<int> positions;
 };
 
 // Property pointer definitions
@@ -34,10 +36,20 @@ AnnihilatorPtr::AnnihilatorPtr() : PropertyPtr(), content(nullptr) {
 
 AnnihilatorPtr::AnnihilatorPtr(Literal annihilator) : PropertyPtr(), content(new Content) {
   content->annihilator = annihilator;
+  content->positions = std::vector<int>();
+}
+
+AnnihilatorPtr::AnnihilatorPtr(Literal annihilator, std::vector<int>& pos) : PropertyPtr(), content(new Content) {
+  content->annihilator = annihilator;
+  content->positions = pos;
 }
 
 const Literal& AnnihilatorPtr::annihilator() const {
   return content->annihilator;
+}
+
+const std::vector<int> & AnnihilatorPtr::positions() const {
+  return content->positions;
 }
 
 std::ostream& AnnihilatorPtr::print(std::ostream& os) const {
@@ -65,8 +77,17 @@ IdentityPtr::IdentityPtr(Literal identity) : PropertyPtr(), content(new Content)
   content->identity = identity;
 }
 
+IdentityPtr::IdentityPtr(Literal identity, std::vector<int> &p) : PropertyPtr(), content(new Content) {
+  content->identity;
+  content->positions = p;
+}
+
 const Literal& IdentityPtr::identity() const {
   return content->identity;
+}
+
+const std::vector<int> & IdentityPtr::positions() const {
+  return content->positions;
 }
 
 std::ostream& IdentityPtr::print(std::ostream& os) const {

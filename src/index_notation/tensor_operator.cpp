@@ -53,11 +53,24 @@ IterationAlgebra Op::inferAlgFromProperties(const std::vector<IndexExpr>& exprs)
 
   // Start with smallest regions first. So we first check for annihilator and positional annihilator
   if(findProperty<Annihilator>(properties).defined()) {
-    Literal annihilator = findProperty<Annihilator>(properties).annihilator();
-
+    Annihilator annihilator = findProperty<Annihilator>(properties);
+    IterationAlgebra alg = constructAnnihilatorAlg(exprs, annihilator);
+    if(alg.defined()) {
+      return alg;
+    }
   }
 
-  return {};
+  // Idempotence here ...
+
+  if(findProperty<Identity>(properties).defined()) {
+    Identity identity = findProperty<Identity>(properties);
+    IterationAlgebra alg = constructIdentityAlg(exprs, identity);
+    if(alg.defined()) {
+      return alg;
+    }
+  }
+
+  return constructDefaultAlgebra(exprs);
 }
 
 // Constructs an algebra that iterates over the entire space
@@ -73,10 +86,60 @@ IterationAlgebra Op::constructDefaultAlgebra(const std::vector<IndexExpr>& exprs
   return Union(tensorsRegions, background);
 }
 
-std::pair<IterationAlgebra, int> Op::constructAnnihilatorAlg(const std::vector<IndexExpr> &args,
-                                                             taco::Annihilator annihilator) {
-  taco_iassert(args.size() > 1) << "Annihilator must be applied to operand with at least two arguments";
+IterationAlgebra Op::constructAnnihilatorAlg(const std::vector<IndexExpr> &args, taco::Annihilator annihilator) {
+  if(args.size () < 2) {
+    return IterationAlgebra();
+  }
 
+  Literal annVal = annihilator.annihilator();
+  std::vector<IndexExpr> toIntersect;
+
+  if(annihilator.positions().empty()) {
+    for(IndexExpr arg : args) {
+      if(equals(inferFill(arg), annVal)) {
+        toIntersect.push_back(arg);
+      }
+    }
+  } else {
+    for(size_t idx : annihilator.positions()) {
+      if(equals(inferFill(args[idx]), annVal)) {
+        toIntersect.push_back(args[idx]);
+      }
+    }
+  }
+
+  if(toIntersect.empty()) {
+    return IterationAlgebra();
+  }
+
+  IterationAlgebra alg = toIntersect[0];
+  for(size_t i = 1; i < toIntersect.size(); ++i) {
+    alg = Intersect(alg, toIntersect[i]);
+  }
+
+  return alg;
+}
+
+IterationAlgebra Op::constructIdentityAlg(const std::vector<IndexExpr> &args, taco::Identity identity) {
+  if(args.size() < 2) {
+    return IterationAlgebra();
+  }
+
+  Literal idntyVal = identity.identity();
+
+  if(identity.positions().empty()) {
+    for(IndexExpr arg : args) {
+      if(!equals(inferFill(arg), idntyVal)) {
+        return IterationAlgebra();
+      }
+    }
+  }
+
+  IterationAlgebra alg(args[0]);
+  for(size_t i = 1; i < args.size(); ++i) {
+    alg = Union(alg, args[i]);
+  }
+  return alg;
 }
 
 }
