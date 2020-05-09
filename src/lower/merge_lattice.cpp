@@ -102,6 +102,7 @@ private:
   void visit(const ComplementNode* node) {
     taco_iassert(isa<Region>(node->a)) << "Demorgan's rule must be applied before lowering.";
     lattice = build(node->a);
+
     vector<MergePoint> points = flipPoints(lattice.points());
 
     // Otherwise, all tensors are sparse

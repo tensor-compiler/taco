@@ -1734,5 +1734,23 @@ TEST_STMT(MinPlusRing,
           }
 )
 
+Op sparsify("sparsify", identityFunc(), [](const std::vector<IndexExpr>& v) {return Union(v[0], Complement(v[1]));});
+
+TEST_STMT(SparsifyTest,
+          forall(i,
+                        a(i) = sparsify(b(i), i)
+                 ),
+          Values(
+                  Formats({{a, Format({sparse})}, {b, Format({dense})} })
+          ),
+          {
+            TestCase(
+            {{b, {{{0}, 3.0}, {{2}, 4.0}, {{4}, 2.0}}}},
+
+            {{a, {{{0}, 3.0}, {{2}, 4.0}, {{4}, 2.0}}}})
+          }
+)
+
+
 
 }}

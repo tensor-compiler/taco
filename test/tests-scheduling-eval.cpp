@@ -8,6 +8,7 @@
 #include "taco/index_notation/index_notation.h"
 #include "codegen/codegen.h"
 #include "taco/lower/lower.h"
+#include "op_factory.h"
 
 using namespace taco;
 const IndexVar i("i"), j("j"), k("k"), l("l"), m("m"), n("n");
@@ -1718,4 +1719,64 @@ TEST(generate_figures, DISABLED_cpu) {
     source_file << source.str();
     source_file.close();
   }
+}
+
+TEST(scheduling_eval, scheduledBoolRing) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 102;
+  int NUM_J = 102;
+  float SPARSITY = .3;
+
+  Tensor<uint8_t> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<uint8_t> x("x", {NUM_J}, {Dense});
+  Tensor<uint8_t> y("y", {NUM_I}, {Dense});
+
+  uint8_t one = 1;
+  uint8_t zero = 0;
+
+  Op scOr("Or", OrImpl(), {Annihilator(one), Identity(zero)});
+  Op scAnd("And", AndImpl(), {Annihilator(one), Identity(zero)});
+  Op bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
+
+  srand(120);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, one);
+      }
+    }
+  }
+
+  for (int j = 0; j < NUM_J; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    if (rand_float < SPARSITY) {
+      x.insert({j}, one);
+    } else {
+      x.insert({j}, zero);
+    }
+  }
+
+  x.pack();
+  A.pack();
+
+  y(i) = Reduction(scOr(), j, bfsMaskOp(scAnd(A(i, j), x(j)), x(i)));
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = scheduleSpMVCPU(stmt);
+
+  //printToFile("spmv_cpu", stmt);
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<uint8_t> expected("expected", {NUM_I}, {Dense});
+  expected(i) = Reduction(scOr(), j, bfsMaskOp(scAnd(A(i, j), x(j)), x(i)));
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
 }

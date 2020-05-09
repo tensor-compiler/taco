@@ -1457,7 +1457,6 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
                                   vector<Iterator> appenders,
                                   MergeLattice caseLattice,
                                   const set<Access>& reducedAccesses) {
-  Stmt initVals = resizeAndInitValues(appenders, reducedAccesses);
 
   // Inserter positions
   Stmt declInserterPosVars = declLocatePosVars(inserters);
@@ -1470,9 +1469,10 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
     captureNextLocatePos = false;
   }
 
-  // Code of loop body statement
-  Stmt body;
   if (caseLattice.anyModeIteratorIsLeaf() && caseLattice.points().size() > 1) {
+
+    // Code of loop body statement
+    // Explicit zero checks needed
     std::vector<Stmt> stmts;
 
     // Need to emit checks based on case lattice
@@ -1487,12 +1487,20 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
         caseMap.insert({it, accessCase});
       }
     }
+
+    // This will lower the body for each case to actually compute. Therefore, we don't need to resize assembly arrays
     std::vector<Stmt> loweredCases = lowerCasesFromMap(caseMap, coordinate, stmt, caseLattice, reducedAccesses);
+
     append(stmts, loweredCases);
-    body = Block::make(stmts);
-  } else {
-    body = lower(stmt);
+    Stmt body = Block::make(stmts);
+
+    return Block::make(declInserterPosVars, declLocatorPosVars, body);
   }
+
+  Stmt initVals = resizeAndInitValues(appenders, reducedAccesses);
+
+  // Code of loop body statement
+  Stmt body = lower(stmt);
 
   // Code to append coordinates
   Stmt appendCoords = appendCoordinate(appenders, coordinate);
