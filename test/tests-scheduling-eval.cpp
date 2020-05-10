@@ -1721,7 +1721,7 @@ TEST(generate_figures, DISABLED_cpu) {
   }
 }
 
-TEST(scheduling_eval, scheduledBoolRing) {
+TEST(scheduling_eval, bfsPullScheduled) {
   if (should_use_CUDA_codegen()) {
     return;
   }
@@ -1737,7 +1737,7 @@ TEST(scheduling_eval, scheduledBoolRing) {
   uint8_t zero = 0;
 
   Op scOr("Or", OrImpl(), {Annihilator(one), Identity(zero)});
-  Op scAnd("And", AndImpl(), {Annihilator(one), Identity(zero)});
+  Op scAnd("And", AndImpl(), {Annihilator(zero), Identity(one)});
   Op bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
 
   srand(120);
@@ -1775,6 +1775,68 @@ TEST(scheduling_eval, scheduledBoolRing) {
 
   Tensor<uint8_t> expected("expected", {NUM_I}, {Dense});
   expected(i) = Reduction(scOr(), j, bfsMaskOp(scAnd(A(i, j), x(j)), x(i)));
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
+}
+
+TEST(scheduling_eval, bfsPushScheduled) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 102;
+  int NUM_J = 102;
+  float SPARSITY = .3;
+
+  Tensor<uint8_t> A("A", {NUM_I, NUM_J}, CSC);
+  Tensor<uint8_t> x("x", {NUM_J}, {compressed});
+  Tensor<uint8_t> y("y", {NUM_I}, {Dense});
+
+  uint8_t one = 1;
+  uint8_t zero = 0;
+
+  Op scOr("Or", OrImpl(), {Annihilator(one), Identity(zero)});
+  Op scAnd("And", AndImpl(), {Annihilator(zero), Identity(one)});
+  Op bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
+
+  srand(120);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, one);
+      }
+    }
+  }
+
+  for (int j = 0; j < NUM_J; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    if (rand_float < SPARSITY) {
+      x.insert({j}, one);
+    } else {
+      x.insert({j}, zero);
+    }
+  }
+
+  x.pack();
+  A.pack();
+
+  IndexExpr computeExpr = Reduction(scOr(), j, scAnd(A(i, j), x(j)));
+
+  y(i) = computeExpr;
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = stmt.reorder(i, j).parallelize(j, ParallelUnit::CPUThread, OutputRaceStrategy::Atomics);
+
+  //printToFile("spmv_cpu", stmt);
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<uint8_t> expected("expected", {NUM_I}, {Dense});
+  expected(i) = computeExpr;
   expected.compile();
   expected.assemble();
   expected.compute();
