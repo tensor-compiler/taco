@@ -154,6 +154,12 @@ struct OrImpl {
   }
 };
 
+struct BitOrImpl {
+  ir::Expr operator()(const std::vector<ir::Expr> &v) {
+    return ir::BitOr::make(v[0], v[1]);
+  }
+};
+
 struct AndImpl {
   ir::Expr operator()(const std::vector<ir::Expr> &v) {
     return ir::And::make(v[0], v[1]);

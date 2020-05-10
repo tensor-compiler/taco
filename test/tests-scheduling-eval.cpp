@@ -1725,16 +1725,17 @@ TEST(scheduling_eval, bfsPullScheduled) {
   if (should_use_CUDA_codegen()) {
     return;
   }
-  int NUM_I = 102;
-  int NUM_J = 102;
+  constexpr int numVertices = 10;
+  int NUM_I = numVertices;
+  int NUM_J = numVertices;
   float SPARSITY = .3;
 
-  Tensor<uint8_t> A("A", {NUM_I, NUM_J}, CSR);
-  Tensor<uint8_t> x("x", {NUM_J}, {Dense});
-  Tensor<uint8_t> y("y", {NUM_I}, {Dense});
+  Tensor<uint16_t> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<uint16_t> x("x", {NUM_J}, {Dense});
+  Tensor<uint16_t> y("y", {NUM_I}, {Dense});
 
-  uint8_t one = 1;
-  uint8_t zero = 0;
+  uint16_t one = 1;
+  uint16_t zero = 0;
 
   Op scOr("Or", OrImpl(), {Annihilator(one), Identity(zero)});
   Op scAnd("And", AndImpl(), {Annihilator(zero), Identity(one)});
@@ -1773,7 +1774,8 @@ TEST(scheduling_eval, bfsPullScheduled) {
   y.assemble();
   y.compute();
 
-  Tensor<uint8_t> expected("expected", {NUM_I}, {Dense});
+
+  Tensor<uint16_t> expected("expected", {NUM_I}, {Dense});
   expected(i) = Reduction(scOr(), j, bfsMaskOp(scAnd(A(i, j), x(j)), x(i)));
   expected.compile();
   expected.assemble();
@@ -1785,18 +1787,19 @@ TEST(scheduling_eval, bfsPushScheduled) {
   if (should_use_CUDA_codegen()) {
     return;
   }
-  int NUM_I = 102;
-  int NUM_J = 102;
+  constexpr int numVertices = 30;
+  int NUM_I = numVertices;
+  int NUM_J = numVertices;
   float SPARSITY = .3;
 
-  Tensor<uint8_t> A("A", {NUM_I, NUM_J}, CSC);
-  Tensor<uint8_t> x("x", {NUM_J}, {compressed});
-  Tensor<uint8_t> y("y", {NUM_I}, {Dense});
+  Tensor<int> A("A", {NUM_I, NUM_J}, CSC);
+  Tensor<int> x("x", {NUM_J}, {compressed});
+  Tensor<int> y("y", {NUM_I}, {Dense});
 
-  uint8_t one = 1;
-  uint8_t zero = 0;
+  int one = 1;
+  int zero = 0;
 
-  Op scOr("Or", OrImpl(), {Annihilator(one), Identity(zero)});
+  Op scOr("Or", BitOrImpl(), {Annihilator(one), Identity(zero)});
   Op scAnd("And", AndImpl(), {Annihilator(zero), Identity(one)});
   Op bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
 
@@ -1814,20 +1817,16 @@ TEST(scheduling_eval, bfsPushScheduled) {
     float rand_float = (float)rand()/(float)(RAND_MAX);
     if (rand_float < SPARSITY) {
       x.insert({j}, one);
-    } else {
-      x.insert({j}, zero);
     }
   }
 
   x.pack();
   A.pack();
-
-  IndexExpr computeExpr = Reduction(scOr(), j, scAnd(A(i, j), x(j)));
-
-  y(i) = computeExpr;
+  y(i) = Reduction(scOr(), j, scAnd(A(i, j), x(j)));
 
   IndexStmt stmt = y.getAssignment().concretize();
-  stmt = stmt.reorder(i, j).parallelize(j, ParallelUnit::CPUThread, OutputRaceStrategy::Atomics);
+  stmt = stmt.reorder(i, j)
+             .parallelize(j, ParallelUnit::CPUThread, OutputRaceStrategy::Atomics);
 
   //printToFile("spmv_cpu", stmt);
 
@@ -1835,8 +1834,8 @@ TEST(scheduling_eval, bfsPushScheduled) {
   y.assemble();
   y.compute();
 
-  Tensor<uint8_t> expected("expected", {NUM_I}, {Dense});
-  expected(i) = computeExpr;
+  Tensor<int> expected("expected", {NUM_I}, {Dense});
+  expected(i) = Reduction(scOr(), j, scAnd(A(i, j), x(j)));
   expected.compile();
   expected.assemble();
   expected.compute();

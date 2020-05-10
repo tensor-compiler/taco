@@ -44,7 +44,7 @@ string get_default_CUDA_compiler_flags() {
   #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
   inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
   {
-    if (code != cudaSuccess && code != 29) // 29 is driver is shutting down which is normal behavior 
+    if (code != cudaSuccess && code != cudaErrorCudartUnloading) // cudart unloading is normal behavior
     {
       taco_ierror << "GPUassert: " << code << " " << cudaGetErrorString(code) << " " << file << " " << line;
     }
