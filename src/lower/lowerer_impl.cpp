@@ -1932,7 +1932,6 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
     if (doLocate) {
       Iterator locateIterator = locator;
       if (locateIterator.hasPosIter()) {
-        taco_iassert(!provGraph.isUnderived(locateIterator.getIndexVar()));
         continue; // these will be recovered with separate procedure
       }
       do {
