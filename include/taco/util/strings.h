@@ -13,11 +13,23 @@
 namespace taco {
 namespace util {
 
-/// Turn anything that can be written to a stream into a string.
+/// Turn anything except floating points that can be written to a stream
+/// into a string.
 template <class T>
-std::string toString(const T &val) {
+typename std::enable_if<!std::is_floating_point<T>::value, std::string>::type
+toString(const T &val) {
   std::stringstream sstream;
   sstream << val;
+  return sstream.str();
+}
+
+/// Turn any floating point that can be written to a stream into a string,
+/// forcing inclusion of the decimal point.
+template <class T>
+typename std::enable_if<std::is_floating_point<T>::value, std::string>::type
+toString(const T &val) {
+  std::stringstream sstream;
+  sstream << std::showpoint << val;
   return sstream.str();
 }
 
