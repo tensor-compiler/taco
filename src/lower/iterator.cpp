@@ -411,7 +411,7 @@ Iterators::Iterators(IndexStmt stmt) : Iterators(stmt, createIRTensorVars(stmt))
 // if there is a sparse mask for the result like in SDDMM, TTV, and TTM
 // want to reuse iterators from sparseMask access for result
 // returns true if sparse mask exists in stmt and sets sparseMaskAccess and resultAccess accordingly
-  bool findSparseMaskForResult(const IndexStmt stmt, const AccessNode **sparseMaskAccess, const AccessNode **resultAccess) {
+  bool findSparseMaskForResult(const IndexStmt stmt, const AccessNode **sparseMaskAccess, const AccessNode **resultAccess, int *match_depth) {
     bool isLHS = true;
     *resultAccess = nullptr;
     *sparseMaskAccess = nullptr;
@@ -437,21 +437,27 @@ Iterators::Iterators(IndexStmt stmt) : Iterators(stmt, createIRTensorVars(stmt))
             }
             else if (*sparseMaskAccess == nullptr && *resultAccess != nullptr) {
               // If for all A index variables: B is indexed with same index variables and has same formats as A then is sparse mask
-              // TODO: allow a dense postfix like in TTM
               vector<IndexVar> resultVars = (*resultAccess)->indexVars;
               Format resultFormat = (*resultAccess)->tensorVar.getFormat();
 
               vector<IndexVar> accessVars = n->indexVars;
               Format accessFormat = n->tensorVar.getFormat();
 
+              *match_depth = resultVars.size();
               bool resultMatchFailed = false;
-              if (resultVars.size() > accessVars.size()) {
-                resultMatchFailed = true;
-              }
-              else {
-                for (size_t i = 0; i < resultVars.size(); i++) {
-                  if (resultVars[i] != accessVars[i] ||
-                      resultFormat.getModeFormats()[i] != accessFormat.getModeFormats()[i]) {
+              bool inDensePostfix = false;
+              for (size_t i = 0; i < resultVars.size(); i++) {
+                if (inDensePostfix && resultFormat.getModeFormats()[i] != Dense) {
+                  resultMatchFailed = true;
+                  break;
+                }
+                if (i >= accessVars.size() || resultVars[i] != accessVars[i] ||
+                    resultFormat.getModeFormats()[i] != accessFormat.getModeFormats()[i]) {
+                  if (resultFormat.getModeFormats()[i] == Dense) {
+                    inDensePostfix = true;
+                    *match_depth = i;
+                  }
+                  else {
                     resultMatchFailed = true;
                     break;
                   }
@@ -509,7 +515,8 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 
   const AccessNode *sparseMaskAccess;
   const AccessNode *resultAccess;
-  bool hasSparseMask = findSparseMaskForResult(stmt, &sparseMaskAccess, &resultAccess);
+  int sparseMaskMatchDepth;
+  bool hasSparseMask = findSparseMaskForResult(stmt, &sparseMaskAccess, &resultAccess, &sparseMaskMatchDepth);
 
   // Create access iterators
   match(stmt,
@@ -527,12 +534,35 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
   );
 
   if (hasSparseMask) {
+    Iterator parent;
     content->levelIterators.insert({{Access(resultAccess), 0}, tensorVars.at(resultAccess->tensorVar)});
-    for (size_t i = 0; i < resultAccess->indexVars.size(); i++) {
+    for (int i = 0; i < sparseMaskMatchDepth; i++) {
       const Iterator &sparseMaskIterator = content->levelIterators.at({Access(sparseMaskAccess), (int)i+1});
       Iterator resultIterator(sparseMaskIterator, tensorVars.at(resultAccess->tensorVar));
       content->levelIterators.insert({{Access(resultAccess), (int) i + 1},
                                      resultIterator});
+      parent = resultIterator;
+    }
+    // fill rest with dense dimensions
+    for (int i = sparseMaskMatchDepth; i < (int) resultAccess->indexVars.size(); i++) {
+      Expr tensorIR = tensorVars.at(resultAccess->tensorVar);
+      Format format = resultAccess->tensorVar.getFormat();
+      int modeNumber = format.getModeOrdering()[i];
+      Shape shape = resultAccess->tensorVar.getType().getShape();
+      Dimension dim = shape.getDimension(modeNumber);
+      IndexVar indexVar = Access(resultAccess).getIndexVars()[modeNumber];
+      ModeFormatPack modeTypePack = format.getModeFormatPacks()[i];
+      ModePack modePack(modeTypePack.getModeFormats().size(),
+                        modeTypePack.getModeFormats()[0], tensorIR,
+                        modeNumber, i+1);
+      ModeFormat parentModeType = modeTypePack.getModeFormats()[0];
+      Mode mode(tensorIR, dim, i+1, Dense, modePack, i,
+                parentModeType);
+
+      string name = indexVar.getName() + Access(resultAccess).getTensorVar().getName();
+      Iterator iterator(indexVar, tensorIR, mode, parent, name, true);
+      parent = iterator;
+      content->levelIterators.insert({{Access(resultAccess),modeNumber+1}, iterator});
     }
   }
 
