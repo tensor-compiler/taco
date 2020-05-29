@@ -12,8 +12,8 @@
 using namespace taco;
 
 const IndexVar i("i"), j("j"), k("k"), l("l");
-IndexStmt schedule_ttm(IndexStmt stmt, Tensor<double> B, int NUM_L, int NNZ_PER_WARP=8*32,
-                         int BLOCK_SIZE=256) {
+IndexStmt schedule_ttm(IndexStmt stmt, Tensor<double> B, int NUM_L, int NNZ_PER_WARP=8,
+                         int BLOCK_SIZE=512) {
   int WARP_SIZE = 32;
   int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   int CO_FACTOR = NUM_L / 32;
@@ -53,7 +53,6 @@ TEST(ttm_gpu, cpu) {
   A(i,j,l) = B(i,j,k) * C(k,l);
 
   IndexStmt stmt = A.getAssignment().concretize();
-  stmt = parallelizeOuterLoop(stmt);
   ir::Stmt compute = lower(stmt, "ttm_cpu",  false, true);
 
   stringstream source;
