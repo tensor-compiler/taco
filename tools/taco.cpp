@@ -96,7 +96,8 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("f=<tensor>:<format>",
             "Specify the format of a tensor in the expression. Formats are "
-            "specified per dimension using d (dense) and s (sparse). "
+            "specified per dimension using d (dense), s (sparse), "
+            "u (sparse, not unique), q (singleton), or c (singleton, not unique). "
             "All formats default to dense. "
             "The ordering of modes can also be optionally specified as a "
             "comma-delimited list of modes in the order they should be stored. "
