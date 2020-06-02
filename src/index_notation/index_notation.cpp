@@ -134,7 +134,7 @@ struct Equals : public IndexNotationVisitorStrict {
       eq = false;
       return;
     }
-    if (anode->indexVars.size() != anode->indexVars.size()) {
+    if (anode->indexVars.size() != bnode->indexVars.size()) {
       eq = false;
       return;
     }
@@ -279,7 +279,7 @@ struct Equals : public IndexNotationVisitorStrict {
       return;
     }
     auto bnode = to<YieldNode>(bStmt.ptr);
-    if (anode->indexVars.size() != anode->indexVars.size()) {
+    if (anode->indexVars.size() != bnode->indexVars.size()) {
       eq = false;
       return;
     }
