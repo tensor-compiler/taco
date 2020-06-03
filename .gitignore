@@ -1,6 +1,9 @@
 build/
 bin/
 lib/
+python_bindings/libs/
+python_bindings/pytaco/core/
+*__pycache__*
 *.swp
 *.swo
 *.DS_Store
