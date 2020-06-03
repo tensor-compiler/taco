@@ -669,10 +669,7 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(tensor.getStorage());
 
   // Pack operand tensors
-  auto operands = (!std::getenv("OLD_LOWER") ||
-                   std::string(std::getenv("OLD_LOWER")) != "1")
-                  ? getArguments(makeConcreteNotation(tensor.getAssignment()))
-                  : getArguments(tensor.getAssignment());
+  auto operands = getArguments(makeConcreteNotation(tensor.getAssignment()));
 
   auto tensors = getTensors(tensor.getAssignment().getRhs());
   for (auto& operand : operands) {
@@ -1231,10 +1228,7 @@ void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
 }
 
 void packOperands(const TensorBase& tensor) {
-  auto operands = (!std::getenv("OLD_LOWER") ||
-                   std::string(std::getenv("OLD_LOWER")) == "1")
-                  ? getArguments(makeConcreteNotation(tensor.getAssignment()))
-                  : getArguments(tensor.getAssignment());
+  auto operands = getArguments(makeConcreteNotation(tensor.getAssignment()));
 
   auto tensors = getTensors(tensor.getAssignment().getRhs());
   for (auto& operand : operands) {
