@@ -229,10 +229,12 @@ void CodeGen_C::visit(const Function* func) {
   resetUniqueNameCounters();
   FindVars inputVarFinder(func->inputs, {}, this);
   func->body.accept(&inputVarFinder);
+  FindVars outputVarFinder({}, func->outputs, this);
+  func->body.accept(&outputVarFinder);
 
   // output function declaration
   doIndent();
-  out << printFuncName(func, inputVarFinder.varDecls);
+  out << printFuncName(func, inputVarFinder.varDecls, outputVarFinder.varDecls);
 
   // if we're just generating a header, this is all we need to do
   if (outputKind == HeaderGen) {
@@ -246,6 +248,7 @@ void CodeGen_C::visit(const Function* func) {
   indent++;
 
   // find all the vars that are not inputs or outputs and declare them
+  resetUniqueNameCounters();
   FindVars varFinder(func->inputs, func->outputs, this);
   func->body.accept(&varFinder);
   varMap = varFinder.varMap;

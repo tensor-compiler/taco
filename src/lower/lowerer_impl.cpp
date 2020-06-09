@@ -106,7 +106,7 @@ static bool hasStores(Stmt stmt) {
 
 Stmt
 LowererImpl::lower(IndexStmt stmt, string name, 
-                   bool assemble, bool compute, bool pack)
+                   bool assemble, bool compute, bool pack, bool unpack)
 {
   this->assemble = assemble;
   this->compute = compute;
@@ -120,7 +120,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   // Convert tensor results and arguments IR variables
   map<TensorVar, Expr> resultVars;
-  vector<Expr> resultsIR = createVars(results, &resultVars);
+  vector<Expr> resultsIR = createVars(results, &resultVars, unpack);
   tensorVars.insert(resultVars.begin(), resultVars.end());
   vector<Expr> argumentsIR = createVars(arguments, &tensorVars, pack);
 
