@@ -194,6 +194,38 @@ string CodeGen::printContextDeclAndInit(map<Expr, string, ExprCompare> varMap,
   return ret.str();
 }
 
+string CodeGen::printTensorProperty(string varname, const GetProperty* op) {
+  stringstream ret;
+
+  auto tensor = op->tensor.as<Var>();
+  if (op->property == TensorProperty::Values) {
+    // for the values, it's in the last slot
+    ret << printType(tensor->type, true);
+    ret << " " << varname;
+    return ret.str();
+  } else if (op->property == TensorProperty::ValuesSize) {
+    ret << "int " << varname;
+    return ret.str();
+  }
+
+  string tp;
+
+  // for a Dense level, nnz is an int
+  // for a Fixed level, ptr is an int
+  // all others are int*
+  if (op->property == TensorProperty::Dimension) {
+    tp = "int";
+    ret << tp << " " << varname;
+  } else {
+    taco_iassert(op->property == TensorProperty::Indices);
+    tp = "int*";
+    auto nm = op->index;
+    ret << tp << " " << varname;
+  }
+
+  return ret.str();
+}
+
 string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
                             bool is_output_prop) {
   stringstream ret;
@@ -316,6 +348,12 @@ string CodeGen::printDecls(map<Expr, string, ExprCompare> varMap,
   for (auto prop: sortedProps) {
     bool isOutputProp = (find(outputs.begin(), outputs.end(),
                               prop->tensor) != outputs.end());
+    
+    auto var = prop->tensor.as<Var>();
+    if (var->is_unfolded) {
+      continue; 
+    }
+
     ret << unpackTensorProperty(varMap[prop], prop, isOutputProp);
     propsAlreadyGenerated.insert(varMap[prop]);
   }
@@ -422,7 +460,7 @@ string CodeGen::genUniqueName(string name) {
 }
 
 
-string CodeGen::printFuncName(const Function *func) {
+string CodeGen::printFuncName(const Function *func, std::map<Expr, std::string, ExprCompare> varMap) {
   stringstream ret;
 
   ret << "int " << func->name << "(";
@@ -448,10 +486,17 @@ string CodeGen::printFuncName(const Function *func) {
     }
     delimiter = ", ";
   }
+
+  bool unfold = false;
   for (size_t i=0; i<func->inputs.size(); i++) {
     auto var = func->inputs[i].as<Var>();
     taco_iassert(var) << "Unable to convert output " << func->inputs[i]
                       << " to Var";
+    if (var->is_unfolded) {
+      unfold = true;
+      break;
+    }
+
     if (var->is_tensor) {
       ret << delimiter << "taco_tensor_t *" << var->name;
     } else {
@@ -459,6 +504,16 @@ string CodeGen::printFuncName(const Function *func) {
       ret << delimiter << tp << " " << var->name;
     }
     delimiter = ", ";
+  }
+
+  if (unfold) {
+    // TODO: maybe need to sort? 
+    for (auto p : varMap) {
+      auto prop = p.first.as<GetProperty>();
+      auto varname = p.second; 
+      ret << delimiter << printTensorProperty(varname, prop);
+      delimiter = ", ";
+    }
   }
 
   ret << ")";

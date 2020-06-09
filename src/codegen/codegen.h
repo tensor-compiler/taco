@@ -49,7 +49,7 @@ protected:
   std::string printCoroutineFinish(int numYields, std::string funcName);
   void printYield(const Yield* op, std::vector<Expr> localVars,
                          std::map<Expr, std::string, ExprCompare> varMap, int labelCount, std::string funcName);
-  std::string printFuncName(const Function *func);
+  std::string printFuncName(const Function *func, std::map<Expr, std::string, ExprCompare> varMap={});
 
   void resetUniqueNameCounters();
   std::string genUniqueName(std::string name);
@@ -59,7 +59,7 @@ protected:
 private:
   virtual std::string restrictKeyword() const { return ""; }
 
-
+  std::string printTensorProperty(std::string varname, const GetProperty* op);
   std::string unpackTensorProperty(std::string varname, const GetProperty* op,
                               bool is_output_prop);
   std::string packTensorProperty(std::string varname, Expr tnsr, TensorProperty property,

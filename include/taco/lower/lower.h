@@ -45,7 +45,7 @@ private:
 /// also provide a custom `Lowerer` to specify custom ways to lower some or all
 /// parts of a concrete index notation statement.
 ir::Stmt lower(IndexStmt stmt, std::string functionName,
-               bool assemble=true, bool compute=true,
+               bool assemble=true, bool compute=true, bool pack=false,
                Lowerer lowerer=Lowerer());
 
 /// Check whether the an index statement can be lowered to C code.  If the
