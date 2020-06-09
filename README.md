@@ -23,7 +23,7 @@ email list where we post announcements, RFCs, and notifications of API
 changes, or the [taco-discuss](https://lists.csail.mit.edu/mailman/listinfo/taco-discuss)
 email list for open discussions and questions.
 
-TL;DR build taco using cmake. Run `taco-test` in the `bin` directory.
+TL;DR build taco using CMake. Run `taco-test` in the `bin` directory.
 
 
 # Build and test 
@@ -37,11 +37,21 @@ Build taco using CMake 2.8.3 or greater:
     cmake -DCMAKE_BUILD_TYPE=Release ..
     make -j8
   
-To build taco with support for parallel execution (using OpenMP), use the following cmake line with the instructions above:
+To build taco with the Python API (pytaco), add `-DPYTHON=ON` to the cmake line above. For example:
+
+    cmake -DCMAKE_BUILD_TYPE=Release -DPYTHON=ON ..
+
+You will then need to add the pytaco module to PYTHONPATH:
+
+    export PYTHONPATH=<taco-directory>/python_bindings/:$PYTHONPATH
+
+pytaco requires NumPy and SciPy to be installed.
+
+To build taco with support for parallel execution (using OpenMP), add `-DOPENMP=ON` to the cmake line above. For example:
 
     cmake -DCMAKE_BUILD_TYPE=Release -DOPENMP=ON ..
 
-To build taco for NVIDIA CUDA, use the following cmake line with the instructions above:
+To build taco for NVIDIA CUDA, add `-DCUDA=ON` to the cmake line above. For example:
 
     cmake -DCMAKE_BUILD_TYPE=Release -DCUDA=ON ..
 
@@ -51,12 +61,17 @@ Please also make sure that you have CUDA installed properly and that the followi
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/cuda/lib64:$LIBRARY_PATH
     
-If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag
+If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag.
 
-Run the test suite:
+To run the C++ test suite:
 
     cd <taco-directory>
     ./build/bin/taco-test
+
+To run the Python test suite:
+
+    cd <taco-directory>
+    python3 python_bindings/unit_tests.py
 
 
 # Library Example
@@ -99,6 +114,7 @@ A.compute();
 
 std::cout << A << std::endl;
 ```
+
 
 # Code generation tools
 
