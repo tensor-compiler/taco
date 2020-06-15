@@ -479,6 +479,32 @@ string CodeGen::genUniqueName(string name) {
   return os.str();
 }
 
+vector<const GetProperty*> sortProps(std::map<Expr, std::string, ExprCompare> map) {
+  vector<const GetProperty*> sortedProps;
+
+  for (auto const& p: map) {
+    if (p.first.as<GetProperty>())
+      sortedProps.push_back(p.first.as<GetProperty>());
+  }
+
+  // sort the properties in order to generate them in a canonical order
+  sort(sortedProps.begin(), sortedProps.end(),
+       [&](const GetProperty *a,
+           const GetProperty *b) -> bool {
+
+         // if they're different properties, sort by property
+         if (a->property != b->property)
+           return a->property < b->property;
+
+         // now either the mode gives order, or index #
+         if (a->mode != b->mode)
+           return a->mode < b->mode;
+
+         return a->index < b->index;
+       });
+
+  return sortedProps;
+}
 
 string CodeGen::printFuncName(const Function *func, 
                               std::map<Expr, std::string, ExprCompare> inputMap, 
@@ -517,11 +543,8 @@ string CodeGen::printFuncName(const Function *func,
   }
 
   if (unfoldOutput) {
-    // TODO: maybe need to sort? 
-    for (auto p : outputMap) {
-      auto prop = p.first.as<GetProperty>();
-      auto varname = p.second; 
-      ret << delimiter << printTensorProperty(varname, prop, true);
+    for (auto prop : sortProps(outputMap)) {
+      ret << delimiter << printTensorProperty(outputMap[prop], prop, true);
       delimiter = ", ";
     }
   }
@@ -546,11 +569,8 @@ string CodeGen::printFuncName(const Function *func,
   }
 
   if (unfoldInput) {
-    // TODO: maybe need to sort? 
-    for (auto p : inputMap) {
-      auto prop = p.first.as<GetProperty>();
-      auto varname = p.second; 
-      ret << delimiter << printTensorProperty(varname, prop, false);
+    for (auto prop : sortProps(inputMap)) {
+      ret << delimiter << printTensorProperty(inputMap[prop], prop, false);
       delimiter = ", ";
     }
   }
