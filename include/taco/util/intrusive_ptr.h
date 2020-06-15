@@ -62,6 +62,11 @@ public:
     return *this;
   }
 
+  // Special function needed in pybind11 for custom smart pointers
+  const T* get() {
+    return ptr;
+  }
+
   /// Copy assignment operator for managed object
   IntrusivePtr& operator=(T *p) {
     if (ptr) {

@@ -167,10 +167,11 @@ TensorBase Parser::parseAssign() {
   }
   content->resultTensor = content->tensors.at(lhs.getTensorVar().getName());
 
-  Assignment assignment = Assignment(content->resultTensor.getTensorVar(),
-                                     lhs.getIndexVars(), rhs,
-                                     accumulate ? new AddNode : IndexExpr());
-  content->resultTensor.setAssignment(assignment);
+  if(accumulate) {
+    content->resultTensor(lhs.getIndexVars()) += rhs;
+  }else{
+    content->resultTensor(lhs.getIndexVars()) = rhs;
+  }
   return content->resultTensor;
 }
 
@@ -269,12 +270,17 @@ IndexExpr Parser::parseFinal() {
   }
 }
 
+const std::vector<std::string> Parser::getNames() const{
+  return names;
+}
+
 Access Parser::parseAccess() {
   if(content->currentToken != Token::identifier) {
     throw ParseError("Expected tensor name");
   }
   string tensorName = content->lexer.getIdentifier();
   consume(Token::identifier);
+  names.push_back(tensorName);
 
   vector<IndexVar> varlist;
   if (content->currentToken == Token::underscore) {
