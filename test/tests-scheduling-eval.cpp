@@ -129,6 +129,25 @@ IndexStmt scheduleSpMVGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precompute
           .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
 }
 
+IndexStmt scheduleSpMVGPU_wsp(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int NNZ_PER_THREAD=8, int BLOCK_SIZE=256) {
+  int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
+  int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
+  IndexVar f("f"), fpos("fpos"), fpos1("fpos1"), fpos2("fpos2"), block("block"), warp("warp"), thread("thread"), thread_nz("thread_nz"), thread_nz_pre("thread_nz_pre");
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(thread_nz)}), taco::dense, true);
+  return stmt.fuse(i, j, f)
+          .pos(f, fpos, A(i, j))
+          .split(fpos, block, fpos1, NNZ_PER_TB)
+          .split(fpos1, warp, fpos2, NNZ_PER_WARP)
+          .split(fpos2, thread, thread_nz, NNZ_PER_THREAD)
+          .reorder({block, warp, thread, thread_nz})
+          .precompute(precomputedExpr, thread_nz, thread_nz_pre, precomputed, true)
+          // .precompute(precomputedExpr, thread_nz, thread_nz_pre, precomputed)
+          .unroll(thread_nz_pre, NNZ_PER_THREAD)
+          .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
+          .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::IgnoreRaces)
+          .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
+}
+
 IndexStmt scheduleSpMVRowsGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int ROWS_PER_WARP=1, int BLOCK_SIZE=256) {
   int ROWS_PER_TB = ROWS_PER_WARP * BLOCK_SIZE;
   IndexVar block("block"), warp("warp"), thread("thread"), thread_nz("thread_nz"), i1("i1"), jpos("jpos"), block_row("block_row"), warp_row("warp_row");
@@ -168,6 +187,27 @@ IndexStmt scheduleSpMVSplitPosGPU(IndexStmt stmt, Tensor<double> A, IndexExpr pr
 }
 
 IndexStmt scheduleSpMMGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int NNZ_PER_WARP=8, int BLOCK_SIZE=256) {
+  int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
+  IndexVar f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), nnz("nnz"), nnz_pre("nnz_pre");
+  IndexVar dense_val_unbounded("dense_val_unbounded"), dense_val("dense_val"), thread("thread");
+  IndexVar thread_nz("thread_nz");
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(nnz)}), taco::dense);
+  return stmt.reorder({i, j, k})
+          .fuse(i, j, f)
+          .pos(f, fpos, A(i, j))
+          .split(fpos, block, fpos1, NNZ_PER_TB)
+          .split(fpos1, warp, nnz, NNZ_PER_WARP)
+          .split(k, dense_val_unbounded, thread, WARP_SIZE)
+          .reorder({block, warp, thread, dense_val_unbounded, nnz})
+          //.precompute(precomputedExpr, nnz, nnz, precomputed)
+          .bound(dense_val_unbounded, dense_val, 4, BoundType::MaxExact)
+          //.unroll(dense_val, 4)
+          .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
+          .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::IgnoreRaces)
+          .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
+}
+
+IndexStmt scheduleSpMMGPU_wsp(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int NNZ_PER_WARP=8, int BLOCK_SIZE=256) {
   int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   IndexVar f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), nnz("nnz"), nnz_pre("nnz_pre");
   IndexVar dense_val_unbounded("dense_val_unbounded"), dense_val("dense_val"), thread("thread");
@@ -796,6 +836,124 @@ TEST(scheduling_eval, spmvGPU) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, y);
 }
+
+TEST(scheduling_eval, smpreGPU) {
+  if (!should_use_CUDA_codegen()) {
+    std::cout << "not using cuda" << std::endl;
+    return;
+  }
+  int NUM_I = 425;
+  int NUM_J = 425;
+  float SPARSITY = .19;
+  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<double> x("x", {NUM_J}, {Dense});
+  Tensor<double> y("y", {NUM_I}, {Dense});
+
+  srand(94353);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, (double) ((int) (rand_float * 3 / SPARSITY)));
+      }
+    }
+  }
+
+  for (int j = 0; j < NUM_J; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    x.insert({j}, (double)rand_float);
+  }
+
+  x.pack();
+  A.pack();
+  IndexExpr precomputed = A(i, j) * x(j);
+  y(i) = precomputed;
+  // std::cout << y(i) << std::endl;
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  // stmt = scheduleSpMVGPU_wsp(stmt, A, precomputed);
+  stmt = scheduleSpMVGPU_wsp(stmt, A, precomputed);
+  std::cout << "stmt:" << std::endl;
+  std::cout << stmt << std::endl;
+
+  //printToFile("spmv_gpu", stmt);
+
+  // y.compile(stmt);
+  // Just overload th compile 
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  // y.recompile("/tmp/taco_tmp_Ryt3Xk/vdhf888td940");
+  // y.reassemble();
+  // y.recompute();
+
+  Tensor<double> expected("expected", {NUM_I}, {Dense});
+  expected(i) = A(i, j) * x(j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
+}
+
+TEST(scheduling_eval, spmmGPU_wsp) {
+
+ if (!should_use_CUDA_codegen()) {
+    std::cout << "not using cuda" << std::endl;
+    return;
+  }
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  int NUM_K = 128;
+  float SPARSITY = .3;
+  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<double> B("B", {NUM_J, NUM_K}, {Dense, Dense});
+  Tensor<double> C("C", {NUM_I, NUM_K}, Format({{Dense, Dense}, {1, 0}}));
+
+  srand(4343211);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, (double) ((int) (rand_float*3/SPARSITY)));
+      }
+    }
+  }
+
+  for (int j = 0; j < NUM_J; j++) {
+    for (int k = 0; k < NUM_K; k++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      B.insert({j, k}, (double) ((int) (rand_float*3/SPARSITY)));
+    }
+  }
+
+  A.pack();
+  B.pack();
+  IndexExpr precomputed = A(i, j);
+  C(i, k) = B(j, k) * precomputed;
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = scheduleSpMMGPU_wsp(stmt, A, precomputed);
+
+  //printToFile("spmm_gpu", stmt);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  // C.recompile("/tmp/taco_tmp_HT60Vh/vdhf888td940");
+  // C.reassemble();
+  // C.recompute();
+
+  Tensor<double> expected("expected", {NUM_I, NUM_K}, Format({{Dense, Dense}, {1, 0}}));
+  expected(i, k) = A(i, j) * B(j, k);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, C);
+}
+
 
 TEST(scheduling_eval, spmmGPU) {
   if (!should_use_CUDA_codegen()) {

@@ -87,6 +87,7 @@ class Precompute : public TransformationInterface {
 public:
   Precompute();
   Precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace);
+  Precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace, bool shared_mem);
 
   IndexExpr getExpr() const;
   IndexVar geti() const;

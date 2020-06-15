@@ -164,6 +164,51 @@ string Module::compile() {
   return fullpath;
 }
 
+string Module::recompile(string file_path) {
+  string prefix = file_path;
+  string fullpath = prefix + ".so";
+  
+  string cc;
+  string cflags;
+  string file_ending;
+  string shims_file;
+  if (should_use_CUDA_codegen()) {
+    cc = "nvcc";
+    cflags = util::getFromEnv("TACO_NVCCFLAGS",
+    get_default_CUDA_compiler_flags());
+    file_ending = ".cu";
+    shims_file = prefix + "_shims.cpp";
+  }
+  else {
+    cc = util::getFromEnv(target.compiler_env, target.compiler);
+    cflags = util::getFromEnv("TACO_CFLAGS",
+    "-O3 -ffast-math -std=c99") + " -shared -fPIC";
+    file_ending = ".c";
+    shims_file = "";
+  }
+#if USE_OPENMP
+  cflags += " -fopenmp";
+#endif
+  
+  string cmd = cc + " " + cflags + " " +
+    prefix + file_ending + " " + shims_file + " " + 
+    "-o " + fullpath + " -lm";
+  
+  // now compile it
+  int err = system(cmd.data());
+  taco_uassert(err == 0) << "Compilation command failed:\n" << cmd
+    << "\nreturned " << err;
+
+  // use dlsym() to open the compiled library
+  if (lib_handle) {
+    dlclose(lib_handle);
+  }
+  lib_handle = dlopen(fullpath.data(), RTLD_NOW | RTLD_LOCAL);
+  taco_uassert(lib_handle) << "Failed to load generated code";
+
+  return fullpath;
+}
+
 void Module::setSource(string source) {
   this->source << source;
   moduleFromUserSource = true;

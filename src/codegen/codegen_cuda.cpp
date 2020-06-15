@@ -295,6 +295,8 @@ public:
   vector<pair<string, Expr>> warpIDVars;
   vector<Expr> numThreads;
   vector<Expr> numWarps;
+  vector<Expr> sizeSharedMemory;
+  std::string typeSharedMemory;
 
   CodeGen_CUDA *codeGen;
   // copy inputs and outputs into the map
@@ -359,6 +361,17 @@ protected:
 
       threadFors.push_back(op);
       threadIDVars.push_back(pair<string, Expr>(scopeMap[op->var], op->var));
+      // if (isa<Var>(op->var)){
+      //   std::cout << "~~~~~ Found a var! " << to<Var>(op->var)->name << std::endl;
+      //   if (to<Var>(op->var)->is_shared_memory)
+      //   {
+      //     std::cout << "~~~~~ THIS VAR IS MARKED AS SHARED MEMORY" << std::endl;
+
+      //     // string elementType = printCUDAType(op->var.type(), false);
+      //     // sizeSharedMemory.push_back(Mul::make(to<Expr>()->num_elements, Literal::make(256)));
+      //   }
+      // }
+      
       Expr blockSize = ir::simplify(ir::Div::make(ir::Sub::make(op->end, op->start), op->increment));
       numThreads.push_back(blockSize);
     }
@@ -378,6 +391,20 @@ protected:
   }
 
   virtual void visit(const Var *op) {
+
+    if (isa<Var>(op)){
+        // std::cout << "~~~~~ Found a var! " << to<Var>(op)->name << std::endl;
+        if (to<Var>(op)->is_shared_memory)
+        {
+          std::cout << "~~~~~ THIS VAR IS MARKED AS SHARED MEMORY" << std::endl;
+          // std::cout << to<Expr>(op) << std::endl;
+          string elementType = printCUDAType( op->type, false);
+          std::cout << "element type : " << elementType << std::endl;
+          typeSharedMemory = elementType;
+          // sizeSharedMemory.push_back(Mul::make(to<Expr>()->num_elements, Literal::make(256)));
+        }
+      }
+
     if (scopeMap.count(op) == 0) {
       string name = codeGen->genUniqueName(op->name);
       if (!inDeviceFunction) {
@@ -395,6 +422,20 @@ protected:
   }
 
   virtual void visit(const VarDecl *op) {
+
+    // if (isa<Var>(op->var)){
+    //     std::cout << "@@@@ Found a var decl! " << to<Var>(op->var)->name << std::endl;
+    //     if (to<Var>(op->var)->is_shared_memory)
+    //     {
+    //       std::cout << "@@@@@@@ THIS VAR IS MARKED AS SHARED MEMORY" << std::endl;
+    //       // std::cout << to<Expr>(op) << std::endl;
+    //       // string elementType = printCUDAType( op->type, false);
+    //       // std::cout << "element type : " << elementType << std::endl;
+    //       // typeSharedMemory = elementType;
+    //       // sizeSharedMemory.push_back(Mul::make(to<Expr>()->num_elements, Literal::make(256)));
+    //     }
+    //   }
+
     if (inDeviceFunction) {
       variablesDeclaredInKernel.insert(op->var);
     }
@@ -580,7 +621,23 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
   gridSize.accept(this);
   stream << ", ";
   blockSize.accept(this);
-  stream << ">>>";
+
+  if (usesshared == false)
+  {
+    stream << ">>>";
+  }
+  else
+  {
+    // BIG TODO: no hard code 2048
+    // Should be num_threads * num_prec_elems * sizeof(prec_type)
+    stream << ", " ;
+    sizeofshared.accept(this);
+    stream << " * sizeof(" << typeofshared << ")>>>"; 
+    // 2048*sizeof(double)>>>";
+  }
+  
+
+  
   stream << "(";
 
   string delimiter = "";
@@ -627,6 +684,9 @@ void CodeGen_CUDA::compile(Stmt stmt, bool isFirst) {
   parentParallelUnits = {};
   parallelUnitSizes = {};
   parallelUnitIDVars = {};
+  sizeofshared = Expr();
+  typeofshared = "";
+  usesshared = false;
   emittedTimerStartCode = false;
   isHostFunction = true;
   if (isFirst) {
@@ -1021,8 +1081,107 @@ void CodeGen_CUDA::visit(const Max* op) {
 
 void CodeGen_CUDA::visit(const Allocate* op) {
   string elementType = printCUDAType(op->var.type(), false);
+
+  // std::cout << op->var << std::endl;
+  if (isa<Var>(op->var)){
+    if (to<Var>(op->var)->name == "precomputed")
+    {
+      std::cout << " found precomputed!! " << std::endl;
+      // std::cout << "var : " << to<Var>(op->var) << std::endl;
+      // std::cout << "*var : " << *(to<Var>(op->var)) << std::endl;
+      // stream << "__shared__" << " ";
+    }
+    if (to<Var>(op->var)->is_shared_memory)
+    {
+      std::cout << "HEY IT IS MARKED AS SHARED MEMORY" << std::endl;
+      // doIndent();
+      // stream << "__shared__ ";
+    }
+    else
+    {
+      std::cout << "NOT marked as shared memory" << std::endl;
+    }
+    
+    // __syncthreads() ??;
+  }
+
   if (!isHostFunction) {
-    if (parentParallelUnits.count(ParallelUnit::GPUThread)) {
+
+    if (to<Var>(op->var)->is_shared_memory)
+    {
+      std::cout << "AT visit allocate, " << to<Var>(op->var)->name << " is shared mem" << std::endl;
+// __shared__ double w_GPUThread[32]; if no warps
+    // __shared__ double w_GPUThread_ALL[32 * # num warps]; if warps
+    // double * w_GPUThread = w_GPUThread_ALL + warp_id * 32;
+
+    // Example.. todo: figure this out and put it back
+    taco_iassert(!op->is_realloc);
+    doIndent();
+    stream << "__shared__ " << elementType << " ";
+    op->var.accept(this);
+    if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
+      stream << "_ALL";
+    }
+    stream << "[";
+    if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
+      // Expr numElements = Mul::make(op->num_elements, 
+      //       Div::make(parallelUnitSizes[ParallelUnit::GPUBlock], 
+      //       parallelUnitSizes[ParallelUnit::GPUWarp]));
+      // Expr numElements = Mul::make(op->num_elements, 
+      //       parallelUnitSizes[ParallelUnit::GPUWarp]);
+      Expr numElements = Mul::make(op->num_elements, 
+            parallelUnitSizes[ParallelUnit::GPUBlock]);
+            // BIG TODO: remove hard coded 8
+      // std::cout << "######warp " << parallelUnitSizes[ParallelUnit::GPUWarp] << std::endl;
+      // std::cout << "######block " << parallelUnitSizes[ParallelUnit::GPUBlock] << std::endl;
+      // std::cout << "######threads " << parallelUnitSizes[ParallelUnit::GPUThread] << std::endl;
+      // std::cout << "######warpred " << parallelUnitSizes[ParallelUnit::GPUWarpReduction] << std::endl;
+      // std::cout << "######blockred " << parallelUnitSizes[ParallelUnit::GPUBlockReduction] << std::endl;
+      
+      // std::pair<Expr,std::string> pr = ;
+      sizeofshared = numElements;
+      typeofshared = elementType;
+      usesshared = true;
+      // sharedMemTypes.push_back(std::make_pair(op->var, elementType));
+      // std::cout << "var type from map: " << sharedMemTypes[0].second << std::endl;
+      // sharedMemSizes.push_back(std::make_pair(op->var, numElements));
+      // std::cout << "var numElem from map: " << sharedMemSizes[0].second << std::endl;
+
+
+
+
+      ir::simplify(numElements).accept(this);
+    }
+    else {
+      std::cout << "AT visit allocate, " << to<Var>(op->var)->name << " is *** NOT*** shared mem" << std::endl;
+      doIndent();
+      stream << elementType << " ";
+      op->var.accept(this);
+      stream << "[";
+      op->num_elements.accept(this);
+      stream << "];" << endl;
+      return;
+    }
+    stream << "];" << endl;
+    if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
+      doIndent();
+      stream << elementType << " * ";
+      op->var.accept(this);
+
+      stream << " = ";
+      op->var.accept(this);
+      stream << "_ALL + threadIdx.x";
+      // parallelUnitIDVars[ParallelUnit::GPUWarp].accept(this);
+      stream << " * ";
+      op->num_elements.accept(this);
+      // parallelUnitSizes[ParallelUnit::GPUWarp].accept(this);
+      stream << ";" << endl;
+    }
+    return;
+    }
+    else
+    {
+      if (parentParallelUnits.count(ParallelUnit::GPUThread)) {
       // double w_GPUThread[num];
       // for threads allocate thread local memory
       doIndent();
@@ -1066,6 +1225,23 @@ void CodeGen_CUDA::visit(const Allocate* op) {
       stream << ";" << endl;
     }
     return;
+    }
+    
+
+    
+
+    // if (parentParallelUnits.count(ParallelUnit::GPUThread)) {
+    //   // double w_GPUThread[num];
+    //   // for threads allocate thread local memory
+    //   doIndent();
+    //   stream << elementType << " ";
+    //   op->var.accept(this);
+    //   stream << "[";
+    //   op->num_elements.accept(this);
+    //   stream << "];" << endl;
+    //   return;
+    // }
+    
   }
   string variable_name;
   if (op->is_realloc) {

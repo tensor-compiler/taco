@@ -107,6 +107,7 @@ static bool hasStores(Stmt stmt) {
 Stmt
 LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
 {
+  std::cout << "file, line, function " << __FILE__ << " " << __LINE__ << " lower\n";
   this->assemble = assemble;
   this->compute = compute;
   definedIndexVarsOrdered = {};
@@ -126,9 +127,21 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
   // Create variables for temporaries
   // TODO Remove this
   for (auto& temp : temporaries) {
-    ir::Expr irVar = ir::Var::make(temp.getName(), temp.getType().getDataType(),
+    std::cout << __FILE__ << " " << __LINE__ << " temp: " << temp << std::endl;
+    if (((TensorVar)(temp)).is_shared_memory()){
+      std::cout  << __FILE__ << " " << __LINE__ << "TENSOR VAR IS SHARED MEMORY" << std::endl;
+      ir::Expr irVar = ir::Var::make(temp.getName(), temp.getType().getDataType(),
+                                   true, true, true);
+        tensorVars.insert({temp, irVar});
+    }
+    else{
+      ir::Expr irVar = ir::Var::make(temp.getName(), temp.getType().getDataType(),
                                    true, true);
-    tensorVars.insert({temp, irVar});
+        std::cout  << __FILE__ << " " << __LINE__ << "TENSOR VAR IS **NOT** SHARED MEMORY" << std::endl;
+        tensorVars.insert({temp, irVar});
+    }
+    
+    
   }
 
   // Create variables for keeping track of result values array capacity
@@ -1278,14 +1291,34 @@ Stmt LowererImpl::lowerWhere(Where where) {
   }
   else {
     if (generateComputeCode()) {
-      Expr values = ir::Var::make(temporary.getName(),
+      Expr values;
+      if (temporary.is_shared_memory()){
+        std::cout << "~~~~~~ at lower where " << temporary.getName() << " is marked as shared. " << std::endl;
+        values = ir::Var::make(temporary.getName(),
+                                  temporary.getType().getDataType(),
+                                  true, false, true);
+      }
+      else
+      {
+        std::cout << "~~~~~~ at lower where " << temporary.getName() << " is **NOT** marked as shared. " << std::endl;
+
+        values = ir::Var::make(temporary.getName(),
                                   temporary.getType().getDataType(),
                                   true, false);
+      }
+      
+      
       taco_iassert(temporary.getType().getOrder() == 1); // TODO
       Dimension temporarySize = temporary.getType().getShape().getDimension(0);
       Expr size;
       if (temporarySize.isFixed()) {
-        size = ir::Literal::make(temporarySize.getSize());
+        // if (temporary.is_shared_memory()){
+          size = ir::Literal::make(temporarySize.getSize());
+        // }
+        // else{
+          // size = ir::Literal::make(temporarySize.getSize());
+        // }
+        // size = ir::Literal::make(temporarySize.getSize());
       }
       else if (temporarySize.isIndexVarSized()) {
         IndexVar var = temporarySize.getIndexVarSize();
@@ -1297,6 +1330,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
       }
 
       // no decl needed for shared memory
+      // ????
       Stmt decl = Stmt();
       if((isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) || !should_use_CUDA_codegen()) {
         decl = VarDecl::make(values, ir::Literal::make(0));
@@ -1305,6 +1339,9 @@ Stmt LowererImpl::lowerWhere(Where where) {
 
       Expr p = Var::make("p" + temporary.getName(), Int());
       Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
+
+      // if shared mem, do something
+
       Stmt zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
 
       freeTemporary = Free::make(values);

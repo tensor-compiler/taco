@@ -25,6 +25,9 @@ public:
 
   /// Compile the source into a library, returning its full path
   std::string compile();
+
+  // Recompile 
+  std::string recompile(std::string file_path);
   
   /// Compile the module into a source file located at the specified location
   /// path and prefix.  The generated source will be path/prefix.{.c|.bc, .h}

@@ -406,11 +406,17 @@ public:
 
   void compile(IndexStmt stmt, bool assembleWhileCompute=false);
 
+  void recompile(std::string file_path);
+
   /// Assemble the tensor storage, including index and value arrays.
   void assemble();
 
+  void reassemble();
+
   /// Compute the given expression and put the values in the tensor storage.
   void compute();
+
+  void recompute();
 
   /// Compile, assemble and compute as needed.
   void evaluate();

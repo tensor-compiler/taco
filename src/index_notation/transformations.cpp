@@ -133,6 +133,7 @@ struct Precompute::Content {
   IndexVar i;
   IndexVar iw;
   TensorVar workspace;
+  bool is_shared_mem = false;
 };
 
 Precompute::Precompute() : content(nullptr) {
@@ -144,6 +145,16 @@ Precompute::Precompute(IndexExpr expr, IndexVar i, IndexVar iw,
   content->i = i;
   content->iw = iw;
   content->workspace = workspace;
+  content->is_shared_mem = false;
+}
+
+Precompute::Precompute(IndexExpr expr, IndexVar i, IndexVar iw,
+                     TensorVar workspace, bool shared_mem) : content(new Content) {
+  content->expr = expr;
+  content->i = i;
+  content->iw = iw;
+  content->workspace = workspace;
+  content->is_shared_mem = shared_mem;
 }
 
 IndexExpr Precompute::getExpr() const {
@@ -235,11 +246,25 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
         IndexStmt s = foralli.getStmt();
         TensorVar ws = precompute.getWorkspace();
         IndexExpr e = precompute.getExpr();
+        std::cout << __FILE__ << ": " << __LINE__ << "precompute getExpr e = " << e << std::endl;
+
+        if (ws.is_shared_memory()){
+          std::cout << __FILE__ << __LINE__ << " workspace is shared memory! " << std::endl;
+        }
+
         IndexVar iw = precompute.getiw();
+        std::cout << "precompute getiw iw = " << iw << std::endl;
+        std::cout << "precompute ws = " << ws << std::endl;
+        std::cout << "precompute s = " << s << std::endl;
 
         IndexStmt consumer = forall(i, replace(s, {{e, ws(i)}}));
+        std::cout << "precompute consumer = " << consumer << std::endl;
+
         IndexStmt producer = forall(iw, ws(iw) = replace(e, {{i,iw}}));
+        std::cout << "precompute producer = " << producer << std::endl;
+
         Where where(consumer, producer);
+        std::cout << "precompute where = " << where << std::endl;
 
         stmt = where;
         return;

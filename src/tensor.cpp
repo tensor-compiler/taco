@@ -408,6 +408,10 @@ void TensorBase::compile(taco::IndexStmt stmt, bool assembleWhileCompute) {
   content->module->compile();
 }
 
+void TensorBase::recompile(std::string file_path) {
+  content->module->recompile(file_path);
+}
+
 taco_tensor_t* TensorBase::getTacoTensorT() {
   return getStorage();
 }
@@ -473,9 +477,31 @@ void TensorBase::assemble() {
   }
 }
 
+void TensorBase::reassemble() {
+
+  auto arguments = packArguments(*this);
+  content->module->callFuncPacked("assemble", arguments.data());
+
+  if (!content->assembleWhileCompute) {
+    taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
+    content->valuesSize = unpackTensorData(*tensorData, *this);
+  }
+}
+
 void TensorBase::compute() {
   taco_uassert(this->content->computeFunc.defined())
       << error::compute_without_compile;
+
+  auto arguments = packArguments(*this);
+  this->content->module->callFuncPacked("compute", arguments.data());
+
+  if (content->assembleWhileCompute) {
+    taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
+    content->valuesSize = unpackTensorData(*tensorData, *this);
+  }
+}
+
+void TensorBase::recompute() {
 
   auto arguments = packArguments(*this);
   this->content->module->callFuncPacked("compute", arguments.data());

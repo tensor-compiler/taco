@@ -73,6 +73,11 @@ protected:
   std::map<ParallelUnit, Expr> parallelUnitSizes;
   std::map<ParallelUnit, Expr> parallelUnitIDVars;
 
+
+  Expr sizeofshared;
+  std::string typeofshared;
+  bool usesshared;
+
   bool emittedTimerStartCode = false;
 
   std::ostream &out;
