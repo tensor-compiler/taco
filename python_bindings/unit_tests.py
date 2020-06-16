@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(1, "@CMAKE_LIBRARY_OUTPUT_DIRECTORY@")
 import unittest, os, shutil, tempfile
 import pytaco as pt
 import numpy as np
