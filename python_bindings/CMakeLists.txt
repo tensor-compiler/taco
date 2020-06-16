@@ -12,9 +12,17 @@ foreach(dir ${PY_SRC_DIRS})
     file(GLOB PY_SOURCES ${PY_SOURCES} ${dir}/*.cpp)
 endforeach()
 
+file(GLOB PYTACO_FILES ${CMAKE_CURRENT_SOURCE_DIR}/pytaco/*.py)
+file(GLOB PYTENSOR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/pytaco/pytensor/*.py)
+
 set(PY_SOURCES ${PY_SOURCES})
 pybind11_add_module(core_modules ${PY_SOURCES} ${TACO_SOURCES})
 
-set_target_properties(core_modules PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${TACO_PROJECT_DIR}/python_bindings/pytaco/core)
+set_target_properties(core_modules PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/pytaco/core)
 target_link_libraries(core_modules LINK_PRIVATE taco)
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/pytaco DESTINATION ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 
+set(PY_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/lib/pytaco)
+install(FILES ${PYTACO_FILES} DESTINATION ${PY_INSTALL_PATH})
+install(FILES ${PYTENSOR_FILES} DESTINATION ${PY_INSTALL_PATH}/pytensor)
+install(TARGETS core_modules DESTINATION ${PY_INSTALL_PATH}/core)
