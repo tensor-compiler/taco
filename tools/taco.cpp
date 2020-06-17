@@ -755,11 +755,6 @@ int main(int argc, char* argv[]) {
     TensorBase tensor = parser.getTensor(tensorName); 
 
     const Format format = tensor.getFormat();
-    if (format.getOrder() == 1) {
-      // Don't pack if vector. 
-      continue; 
-    }
-
     std::vector<IndexVar> indexVars = a.getIndexVars();
 
     TensorBase bufferTensor = getCOOTensor(tensor);
@@ -780,20 +775,17 @@ int main(int argc, char* argv[]) {
 
   TensorBase resultTensor = parser.getResultTensor();
   const Format resultFormat = resultTensor.getFormat();
-  ir::Stmt unpack;
 
-  if (resultFormat.getOrder() > 1) { // Don't unpack if vector.
-    TensorBase resultBufferTensor = getCOOTensor(resultTensor);
-    std::vector<IndexVar> resultIndexVars = getResultAccesses(stmt).first.at(0).getIndexVars();
-    IndexStmt unpackStmt = (resultBufferTensor(resultIndexVars) = resultTensor(resultIndexVars));
-    
-    for (int i = resultFormat.getOrder() - 1; i >= 0; --i) {
-      int mode = resultFormat.getModeOrdering()[i];
-      unpackStmt = forall(resultIndexVars[mode], unpackStmt);
-    }
-
-    unpack = lower(unpackStmt, "unpack", true, true, false, true);
+  TensorBase resultBufferTensor = getCOOTensor(resultTensor);
+  std::vector<IndexVar> resultIndexVars = getResultAccesses(stmt).first.at(0).getIndexVars();
+  IndexStmt unpackStmt = (resultBufferTensor(resultIndexVars) = resultTensor(resultIndexVars));
+  
+  for (int i = resultFormat.getOrder() - 1; i >= 0; --i) {
+    int mode = resultFormat.getModeOrdering()[i];
+    unpackStmt = forall(resultIndexVars[mode], unpackStmt);
   }
+
+  ir::Stmt unpack = lower(unpackStmt, "unpack", true, true, false, true);
 
   stringstream ss; 
   ss << resultFormat; 
