@@ -798,7 +798,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   body = Block::make({recoveryStmt, body});
 
-  Stmt posAppend = generateAppendPositions(appenders);
+  Stmt posAppend = appendPositions(appenders);
 
   // Emit loop with preamble and postamble
   std::vector<ir::Expr> bounds = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
@@ -857,7 +857,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   body = Block::make(recoveryStmt, body);
 
   // Code to append positions
-  Stmt posAppend = generateAppendPositions(appenders);
+  Stmt posAppend = appendPositions(appenders);
 
   // Code to compute iteration bounds
   Stmt boundsCompute;
@@ -1014,7 +1014,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   }
 
   // Code to append positions
-  Stmt posAppend = generateAppendPositions(appenders);
+  Stmt posAppend = appendPositions(appenders);
 
   // Code to compute iteration bounds
   Stmt boundsCompute;
@@ -1095,11 +1095,11 @@ Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar
   Stmt mergeLoops = Block::make(mergeLoopsVec);
 
   // Append position to the pos array
-  Stmt appendPositions = generateAppendPositions(appenders);
+  Stmt appendPos = appendPositions(appenders);
 
   return Block::blanks(iteratorVarInits,
                        mergeLoops,
-                       appendPositions);
+                       appendPos);
 }
 
 Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
@@ -2239,7 +2239,8 @@ bool isLastAppender(Iterator iter) {
 }
 
 
-Stmt LowererImpl::appendCoordinate(vector<Iterator> appenders, Expr coord) {
+Stmt LowererImpl::appendCoordinate(vector<Iterator> appenders, Expr coord,
+                                   Expr filter) {
   vector<Stmt> result;
   for (auto& appender : appenders) {
     Expr pos = appender.getPosVar();
@@ -2281,6 +2282,8 @@ Stmt LowererImpl::appendCoordinate(vector<Iterator> appenders, Expr coord) {
         Expr shouldAppend = Lt::make(appenderChild.getBeginVar(), 
                                      appenderChild.getPosVar());
         appendCode = IfThenElse::make(shouldAppend, appendCode);
+      } else if (filter.defined()) {
+        appendCode = IfThenElse::make(Neq::make(filter, 0.0), appendCode);
       }
       result.push_back(appendCode);
     }
@@ -2289,7 +2292,7 @@ Stmt LowererImpl::appendCoordinate(vector<Iterator> appenders, Expr coord) {
 }
 
 
-Stmt LowererImpl::generateAppendPositions(vector<Iterator> appenders) {
+Stmt LowererImpl::appendPositions(vector<Iterator> appenders) {
   vector<Stmt> result;
   if (generateAssembleCode()) {
     for (Iterator appender : appenders) {

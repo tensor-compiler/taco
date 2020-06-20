@@ -343,10 +343,10 @@ protected:
   ir::Stmt codeToLoadCoordinatesFromPosIterators(std::vector<Iterator> iterators, bool declVars);
 
     /// Create statements to append coordinate to result modes.
-  ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
+  ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord); 
 
   /// Create statements to append positions to result modes.
-  ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
+  ir::Stmt appendPositions(std::vector<Iterator> appenders);
 
 
   /// Create an expression to index into a tensor value array.
