@@ -622,7 +622,7 @@ public:
   ///  The precompute transformation is described in kjolstad2019
   ///  allows us to leverage scratchpad memories and
   ///  reorder computations to increase locality
-  IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace, GPUWorkspace gpuworkspace=GPUWorkspace::None) const;
+  IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const;
 
   /// bound specifies a compile-time constraint on an index variable's
   /// iteration space that allows knowledge of the

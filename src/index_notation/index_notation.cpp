@@ -1377,7 +1377,7 @@ IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFa
   return *this;
 }
 
-IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace, GPUWorkspace gpuworkspace) const {
+IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
   IndexStmt transformed = *this;
   string reason;
   if (i != iw) {
@@ -1388,7 +1388,7 @@ IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorV
     }
   }
 
-  transformed = Transformation(Precompute(expr, i, iw, workspace, gpuworkspace)).apply(transformed, &reason);
+  transformed = Transformation(Precompute(expr, i, iw, workspace)).apply(transformed, &reason);
   if (!transformed.defined()) {
     taco_uerror << reason;
   }
