@@ -218,6 +218,7 @@ template <typename SubType> SubType to(IndexExpr);
 class Access : public IndexExpr {
 public:
   Access() = default;
+  Access(const Access&) = default;
   Access(const AccessNode*);
   Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={});
 
