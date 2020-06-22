@@ -342,7 +342,11 @@ protected:
 
   ir::Stmt codeToLoadCoordinatesFromPosIterators(std::vector<Iterator> iterators, bool declVars);
 
-    /// Create statements to append coordinate to result modes.
+  /// Create statements to append coordinate to a result mode.
+  ir::Stmt appendCoordinate(Iterator appender, ir::Expr coord, 
+                            ir::Expr filter = ir::Expr());
+
+  /// Create statements to append coordinate to result modes.
   ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord); 
 
   /// Create statements to append positions to result modes.

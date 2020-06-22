@@ -200,13 +200,13 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
         header.push_back(defineScalarVariable(result, true));
       }
     }
-    for (auto& argument : arguments) {
-      if (isScalar(argument.getType())) {
-        taco_iassert(!util::contains(scalars, argument));
-        taco_iassert(util::contains(tensorVars, argument));
-        scalars.insert({argument, tensorVars.at(argument)});
-        header.push_back(defineScalarVariable(argument, false));
-      }
+  }
+  for (auto& argument : arguments) {
+    if (isScalar(argument.getType())) {
+      taco_iassert(!util::contains(scalars, argument));
+      taco_iassert(util::contains(tensorVars, argument));
+      scalars.insert({argument, tensorVars.at(argument)});
+      header.push_back(defineScalarVariable(argument, false));
     }
   }
 
@@ -258,50 +258,52 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
 Stmt LowererImpl::lowerAssignment(Assignment assignment)
 {
   TensorVar result = assignment.getLhs().getTensorVar();
+  Expr var = getTensorVar(result);
+  Expr rhs = lower(assignment.getRhs());
 
-  if (generateComputeCode()) {
-    Expr var = getTensorVar(result);
-    Expr rhs = lower(assignment.getRhs());
-
-    // Assignment to scalar variables.
-    if (isScalar(result.getType())) {
-      if (!assignment.getOperator().defined()) {
-        return Assign::make(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result), atomicParallelUnit);
-        // TODO: we don't need to mark all assigns/stores just when scattering/reducing
-      }
-      else {
-        taco_iassert(isa<taco::Add>(assignment.getOperator()));
-        return compoundAssign(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result), atomicParallelUnit);
-      }
+  // Assignment to scalar variables.
+  if (isScalar(result.getType())) {
+    if (!generateComputeCode()) {
+      return Stmt();
     }
-    // Assignments to tensor variables (non-scalar).
+
+    if (!assignment.getOperator().defined()) {
+      return Assign::make(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result), atomicParallelUnit);
+      // TODO: we don't need to mark all assigns/stores just when scattering/reducing
+    }
     else {
-      Expr values = getValuesArray(result);
-      Expr loc = generateValueLocExpr(assignment.getLhs());
-
-      Stmt computeStmt;
-      if (!assignment.getOperator().defined()) {
-        computeStmt = Store::make(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
-      }
-      else {
-        computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
-      }
-      taco_iassert(computeStmt.defined());
-      return computeStmt;
+      taco_iassert(isa<taco::Add>(assignment.getOperator()));
+      return compoundAssign(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result), atomicParallelUnit);
     }
   }
-  // We're only assembling so defer allocating value memory to the end when
-  // we'll know exactly how much we need.
-  else if (generateAssembleCode()) {
-    // TODO
-    return Stmt();
+
+  // Assignments to tensor variables (non-scalar).
+  Expr values = getValuesArray(result);
+  Expr loc = generateValueLocExpr(assignment.getLhs());
+
+  Stmt computeStmt;
+  if (generateComputeCode()) {
+    if (!assignment.getOperator().defined()) {
+      computeStmt = Store::make(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
+    }
+    else {
+      computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
+    }
   }
-  // We're neither assembling or computing so we emit nothing.
-  else {
-    return Stmt();
+
+  Iterator leafIterator = getIterators(assignment.getLhs()).back();
+  Expr filter = rhs; // TODO: check if require filtering
+  if (leafIterator.hasAppend()) {
+    Stmt appendCoord = appendCoordinate(leafIterator, Expr(), filter);
+    if (filter.defined()) {
+      appendCoord = IfThenElse::make(Neq::make(filter, 0.0), appendCoord);
+    }
+    if (appendCoord.defined()) {
+      computeStmt = Block::make(computeStmt, appendCoord);
+    }
   }
-  taco_unreachable;
-  return Stmt();
+  
+  return computeStmt;
 }
 
 
@@ -2239,53 +2241,64 @@ bool isLastAppender(Iterator iter) {
 }
 
 
-Stmt LowererImpl::appendCoordinate(vector<Iterator> appenders, Expr coord,
-                                   Expr filter) {
-  vector<Stmt> result;
-  for (auto& appender : appenders) {
-    Expr pos = appender.getPosVar();
-    Iterator appenderChild = appender.getChild();
+Stmt LowererImpl::appendCoordinate(Iterator appender, Expr coord, Expr filter) {
+  if (!generateAssembleCode() && !isLastAppender(appender)) {
+    return Stmt();
+  }
 
-    if (appenderChild.defined() && appenderChild.isBranchless()) {
-      // Already emitted assembly code for current level when handling 
-      // branchless child level, so don't emit code again.
-      continue;
+  Expr pos = appender.getPosVar();
+  Iterator appenderChild = appender.getChild();
+
+  // TODO: move to appendCoordinate(vector<Iterator>)?
+  if (appenderChild.defined() && appenderChild.isBranchless()) {
+    // Already emitted assembly code for current level when handling 
+    // branchless child level, so don't emit code again.
+    return Stmt();
+  }
+  
+  std::vector<Stmt> appendStmts;
+
+  if (generateAssembleCode()) {
+    Expr coord = getCoordinateVar(appender);
+    appendStmts.push_back(appender.getAppendCoord(pos, coord));
+    while (!appender.isRoot() && appender.isBranchless()) {
+      // Need to append result coordinate to parent level as well if child 
+      // level is branchless (so child coordinates will have unique parents).
+      appender = appender.getParent();
+      if (!appender.isRoot()) {
+        taco_iassert(appender.hasAppend()) << "Parent level of branchless, "
+            << "append-capable level must also be append-capable";
+        taco_iassert(!appender.isUnique()) << "Need to be able to insert " 
+            << "duplicate coordinates to level, but level is declared unique";
+
+        coord = getCoordinateVar(appender);
+        appendStmts.push_back(appender.getAppendCoord(pos, coord));
+      }
     }
+  } 
+  
+  appendStmts.push_back(compoundAssign(pos, 1));
 
-    vector<Stmt> appendStmts;
+  Stmt appendCode = Block::make(appendStmts);
+  // TODO: move to appendCoordinate(vector<Iterator>)?
+  if (appenderChild.defined() && appenderChild.hasAppend()) {
+    // Emit guard to avoid appending empty slices to result.
+    // TODO: Users should be able to configure whether to append zeroes.
+    Expr shouldAppend = Lt::make(appenderChild.getBeginVar(), 
+                                 appenderChild.getPosVar());
+    appendCode = IfThenElse::make(shouldAppend, appendCode);
+  }
 
-    if (generateAssembleCode()) {
-      appendStmts.push_back(appender.getAppendCoord(pos, coord));
-      while (!appender.isRoot() && appender.isBranchless()) {
-        // Need to append result coordinate to parent level as well if child 
-        // level is branchless (so child coordinates will have unique parents).
-        appender = appender.getParent();
-        if (!appender.isRoot()) {
-          taco_iassert(appender.hasAppend()) << "Parent level of branchless, "
-              << "append-capable level must also be append-capable";
-          taco_iassert(!appender.isUnique()) << "Need to be able to insert " 
-              << "duplicate coordinates to level, but level is declared unique";
+  return appendCode;
+}
 
-          Expr coord = getCoordinateVar(appender);
-          appendStmts.push_back(appender.getAppendCoord(pos, coord));
-        }
-      }
-    } 
-    
-    if (generateAssembleCode() || isLastAppender(appender)) {
-      appendStmts.push_back(compoundAssign(pos, 1));
 
-      Stmt appendCode = Block::make(appendStmts);
-      if (appenderChild.defined() && appenderChild.hasAppend()) {
-        // Emit guard to avoid appending empty slices to result.
-        // TODO: Users should be able to configure whether to append zeroes.
-        Expr shouldAppend = Lt::make(appenderChild.getBeginVar(), 
-                                     appenderChild.getPosVar());
-        appendCode = IfThenElse::make(shouldAppend, appendCode);
-      } else if (filter.defined()) {
-        appendCode = IfThenElse::make(Neq::make(filter, 0.0), appendCode);
-      }
-      result.push_back(appendCode);
+Stmt LowererImpl::appendCoordinate(vector<Iterator> appenders, Expr coord) {
+  std::vector<Stmt> result;
+  for (auto& appender : appenders) {
+    if (!appender.isLeaf()) {
+      Stmt appendCoord = appendCoordinate(appender, coord);
+      result.push_back(appendCoord);
     }
   }
   return result.empty() ? Stmt() : Block::make(result);
