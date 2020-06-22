@@ -622,8 +622,7 @@ public:
   ///  The precompute transformation is described in kjolstad2019
   ///  allows us to leverage scratchpad memories and
   ///  reorder computations to increase locality
-  IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const;
-  IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace, bool shared_mem) const;
+  IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace, GPUWorkspace gpuworkspace=GPUWorkspace::None) const;
 
   /// bound specifies a compile-time constraint on an index variable's
   /// iteration space that allows knowledge of the
@@ -850,10 +849,11 @@ public:
   TensorVar(const Type& type);
   TensorVar(const std::string& name, const Type& type);
   TensorVar(const Type& type, const Format& format);
-  TensorVar(const std::string& name, const Type& type, const Format& format);
-  TensorVar(const std::string& name, const Type& type, const Format& format, bool is_shared_mem);
+  // TensorVar(const std::string& name, const Type& type, const Format& format);
+  TensorVar(const std::string& name, const Type& type, const Format& format, GPUWorkspace gpuworkspace=GPUWorkspace::None);
 
-  bool is_shared_memory();
+  // Returns the type of GPU workspace this TensorVar is, which is None by default. 
+  GPUWorkspace getGPUWorkspace();
 
   /// Returns the name of the tensor variable.
   std::string getName() const;

@@ -86,8 +86,7 @@ std::ostream &operator<<(std::ostream &, const Reorder &);
 class Precompute : public TransformationInterface {
 public:
   Precompute();
-  Precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace);
-  Precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace, bool shared_mem);
+  Precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace, GPUWorkspace gpuworkspace=GPUWorkspace::None);
 
   IndexExpr getExpr() const;
   IndexVar geti() const;

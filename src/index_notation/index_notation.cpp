@@ -1377,10 +1377,7 @@ IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFa
   return *this;
 }
 
-IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace, bool shared_mem) const {
-  if (shared_mem){
-    std::cout << "is shared_mem " << __FILE__ << " " << __LINE__ << std::endl;
-  }
+IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace, GPUWorkspace gpuworkspace) const {
   IndexStmt transformed = *this;
   string reason;
   if (i != iw) {
@@ -1391,25 +1388,7 @@ IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorV
     }
   }
 
-  transformed = Transformation(Precompute(expr, i, iw, workspace, shared_mem)).apply(transformed, &reason);
-  if (!transformed.defined()) {
-    taco_uerror << reason;
-  }
-  return transformed;
-}
-
-IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
-  IndexStmt transformed = *this;
-  string reason;
-  if (i != iw) {
-    IndexVarRel rel = IndexVarRel(new PrecomputeRelNode(i, iw));
-    transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed, &reason);
-    if (!transformed.defined()) {
-      taco_uerror << reason;
-    }
-  }
-
-  transformed = Transformation(Precompute(expr, i, iw, workspace)).apply(transformed, &reason);
+  transformed = Transformation(Precompute(expr, i, iw, workspace, gpuworkspace)).apply(transformed, &reason);
   if (!transformed.defined()) {
     taco_uerror << reason;
   }
@@ -1840,7 +1819,7 @@ struct TensorVar::Content {
   Type type;
   Format format;
   Schedule schedule;
-  bool shared_memory = false;
+  GPUWorkspace gpuworkspace;
 };
 
 TensorVar::TensorVar() : content(nullptr) {
@@ -1862,23 +1841,16 @@ TensorVar::TensorVar(const Type& type, const Format& format)
     : TensorVar(util::uniqueName('A'), type, format) {
 }
 
-TensorVar::TensorVar(const string& name, const Type& type, const Format& format)
+TensorVar::TensorVar(const string& name, const Type& type, const Format& format, GPUWorkspace gpuworkspace)
     : content(new Content) {
   content->name = name;
   content->type = type;
   content->format = format;
+  content->gpuworkspace = gpuworkspace;
 }
 
-TensorVar::TensorVar(const string& name, const Type& type, const Format& format, bool is_shared_mem)
-    : content(new Content) {
-  content->name = name;
-  content->type = type;
-  content->format = format;
-  content->shared_memory = is_shared_mem;
-}
-
-bool TensorVar::is_shared_memory() {
-  return content->shared_memory;
+GPUWorkspace TensorVar::getGPUWorkspace() {
+  return content->gpuworkspace;
 }
 
 std::string TensorVar::getName() const {

@@ -29,4 +29,10 @@ enum class BoundType {
 extern const char *BoundType_NAMES[];
 }
 
+/* TODO: Not sure if this is the right place for these. */
+enum class GPUWorkspace {
+  None, DenseSharedMemory
+};
+extern const char *GPUWorkspace_NAMES[];
+
 #endif //TACO_IR_TAGS_H

@@ -241,7 +241,7 @@ bool Literal::equalsScalar(double scalar) const {
   return false;
 }
 
-Expr Var::make(std::string name, Datatype type, bool is_ptr, bool is_tensor, bool is_shared_mem) {
+Expr Var::make(std::string name, Datatype type, bool is_ptr, bool is_tensor, GPUWorkspace gpuworkspace) {
   Var *var = new Var;
   var->type = type;
   var->name = name;
@@ -249,12 +249,7 @@ Expr Var::make(std::string name, Datatype type, bool is_ptr, bool is_tensor, boo
   // TODO: is_ptr and is_tensor should be part of type
   var->is_ptr = is_ptr;
   var->is_tensor = is_tensor;
-  var->is_shared_memory = is_shared_mem;
-
-  if (var->is_shared_memory)
-  {
-    std::cout << var->name << " is shared memory" << __FILE__ << __LINE__ << std::endl;
-  }
+  var->gpuworkspace = gpuworkspace;
 
   return var;
 }
@@ -650,10 +645,6 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
   LoopKind kind, ParallelUnit parallel_unit, size_t unrollFactor, int vec_width) {
   For *loop = new For;
   loop->var = var;
-  if (var.as<Var>() && var.as<Var>()->name == "pprecomputed"){
-    std::cout << " vAr is named Pprecomputed " << std::endl;
-  }
-  
   loop->start = start;
   loop->end = end;
   loop->increment = increment;
@@ -763,13 +754,6 @@ Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_eleme
       "Can only allocate memory for a pointer-typed Var";
   taco_iassert(num_elements.type().isInt() || num_elements.type().isUInt()) <<
       "Can only allocate an integer-valued number of elements";
-
-  if (var.as<Var>() && var.as<Var>()->is_shared_memory){
-    std::cout << " vAr is Marked as shaRed memory, nice! " << std::endl;
-  }
-  if (var.as<Var>() && var.as<Var>()->name == "precomputed"){
-    std::cout << " vAr is named precomputed " << std::endl;
-  }
   Allocate* alloc = new Allocate;
   alloc->var = var;
   alloc->num_elements = num_elements;
