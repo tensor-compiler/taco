@@ -1819,6 +1819,7 @@ struct TensorVar::Content {
   Type type;
   Format format;
   Schedule schedule;
+  GPUWorkspace gpuworkspace;
 };
 
 TensorVar::TensorVar() : content(nullptr) {
@@ -1840,11 +1841,16 @@ TensorVar::TensorVar(const Type& type, const Format& format)
     : TensorVar(util::uniqueName('A'), type, format) {
 }
 
-TensorVar::TensorVar(const string& name, const Type& type, const Format& format)
+TensorVar::TensorVar(const string& name, const Type& type, const Format& format, GPUWorkspace gpuworkspace)
     : content(new Content) {
   content->name = name;
   content->type = type;
   content->format = format;
+  content->gpuworkspace = gpuworkspace;
+}
+
+GPUWorkspace TensorVar::getGPUWorkspace() {
+  return content->gpuworkspace;
 }
 
 std::string TensorVar::getName() const {

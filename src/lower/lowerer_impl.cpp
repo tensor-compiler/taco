@@ -126,9 +126,18 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
   // Create variables for temporaries
   // TODO Remove this
   for (auto& temp : temporaries) {
-    ir::Expr irVar = ir::Var::make(temp.getName(), temp.getType().getDataType(),
+    if (((TensorVar)(temp)).getGPUWorkspace() != GPUWorkspace::None){
+      ir::Expr irVar = ir::Var::make(temp.getName(), temp.getType().getDataType(),
+                                   true, true, ((TensorVar)(temp)).getGPUWorkspace());
+      tensorVars.insert({temp, irVar});
+    }
+    else{
+      ir::Expr irVar = ir::Var::make(temp.getName(), temp.getType().getDataType(),
                                    true, true);
-    tensorVars.insert({temp, irVar});
+      tensorVars.insert({temp, irVar});
+    }
+    
+    
   }
 
   // Create variables for keeping track of result values array capacity
@@ -1278,9 +1287,19 @@ Stmt LowererImpl::lowerWhere(Where where) {
   }
   else {
     if (generateComputeCode()) {
-      Expr values = ir::Var::make(temporary.getName(),
+      Expr values;
+      if (temporary.getGPUWorkspace() != GPUWorkspace::None){
+        values = ir::Var::make(temporary.getName(),
+                                  temporary.getType().getDataType(),
+                                  true, false, temporary.getGPUWorkspace());
+      }
+      else
+      {
+        values = ir::Var::make(temporary.getName(),
                                   temporary.getType().getDataType(),
                                   true, false);
+      }
+      
       taco_iassert(temporary.getType().getOrder() == 1); // TODO
       Dimension temporarySize = temporary.getType().getShape().getDimension(0);
       Expr size;
@@ -1305,6 +1324,9 @@ Stmt LowererImpl::lowerWhere(Where where) {
 
       Expr p = Var::make("p" + temporary.getName(), Int());
       Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
+
+      // TODO: Should this zero init loop even exist for precompute for dense shared
+      // memory workspaces on GPUs? 
       Stmt zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
 
       freeTemporary = Free::make(values);

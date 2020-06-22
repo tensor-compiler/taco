@@ -129,6 +129,24 @@ IndexStmt scheduleSpMVGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precompute
           .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
 }
 
+IndexStmt scheduleSpMVGPU_dsm(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int NNZ_PER_THREAD=8, int BLOCK_SIZE=256) {
+  int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
+  int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
+  IndexVar f("f"), fpos("fpos"), fpos1("fpos1"), fpos2("fpos2"), block("block"), warp("warp"), thread("thread"), thread_nz("thread_nz"), thread_nz_pre("thread_nz_pre");
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(thread_nz)}), taco::dense, GPUWorkspace::DenseSharedMemory);
+  return stmt.fuse(i, j, f)
+          .pos(f, fpos, A(i, j))
+          .split(fpos, block, fpos1, NNZ_PER_TB)
+          .split(fpos1, warp, fpos2, NNZ_PER_WARP)
+          .split(fpos2, thread, thread_nz, NNZ_PER_THREAD)
+          .reorder({block, warp, thread, thread_nz})
+          .precompute(precomputedExpr, thread_nz, thread_nz_pre, precomputed)
+          .unroll(thread_nz_pre, NNZ_PER_THREAD)
+          .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
+          .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::IgnoreRaces)
+          .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
+}
+
 IndexStmt scheduleSpMVRowsGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int ROWS_PER_WARP=1, int BLOCK_SIZE=256) {
   int ROWS_PER_TB = ROWS_PER_WARP * BLOCK_SIZE;
   IndexVar block("block"), warp("warp"), thread("thread"), thread_nz("thread_nz"), i1("i1"), jpos("jpos"), block_row("block_row"), warp_row("warp_row");
@@ -230,6 +248,25 @@ IndexStmt scheduleTTVGPU(IndexStmt stmt, Tensor<double> B, IndexExpr precomputed
   int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   IndexVar jk("jk"), f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), fpos2("fpos2"), thread("thread"), thread_nz("thread_nz"), thread_nz_pre("thread_nz_pre");
   TensorVar precomputed("precomputed", Type(Float64, {Dimension(thread_nz)}), taco::dense);
+
+  return stmt.fuse(j, k, jk)
+          .fuse(i, jk, f)
+          .pos(f, fpos, B(i,j,k))
+          .split(fpos, block, fpos1, NNZ_PER_TB)
+          .split(fpos1, warp, fpos2, NNZ_PER_WARP)
+          .split(fpos2, thread, thread_nz, NNZ_PER_WARP/WARP_SIZE)
+          .reorder({block, warp, thread, thread_nz})
+          .precompute(precomputedExpr, thread_nz, thread_nz_pre, precomputed)
+          .unroll(thread_nz_pre, NNZ_PER_WARP/WARP_SIZE)
+          .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
+          .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::IgnoreRaces)
+          .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
+}
+
+IndexStmt scheduleTTVGPU_dsm(IndexStmt stmt, Tensor<double> B, IndexExpr precomputedExpr, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256) {
+  int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
+  IndexVar jk("jk"), f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), fpos2("fpos2"), thread("thread"), thread_nz("thread_nz"), thread_nz_pre("thread_nz_pre");
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(thread_nz)}), taco::dense, GPUWorkspace::DenseSharedMemory);
 
   return stmt.fuse(j, k, jk)
           .fuse(i, jk, f)
@@ -797,6 +834,59 @@ TEST(scheduling_eval, spmvGPU) {
   ASSERT_TENSOR_EQ(expected, y);
 }
 
+TEST(scheduling_eval, spmvGPU_dsm) {
+  if (!should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 425;
+  int NUM_J = 425;
+  float SPARSITY = .19;
+  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<double> x("x", {NUM_J}, {Dense});
+  Tensor<double> y("y", {NUM_I}, {Dense});
+
+  srand(94353);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, (double) ((int) (rand_float * 3 / SPARSITY)));
+      }
+    }
+  }
+
+  for (int j = 0; j < NUM_J; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    x.insert({j}, (double)rand_float);
+  }
+
+  x.pack();
+  A.pack();
+  IndexExpr precomputed = A(i, j) * x(j);
+  y(i) = precomputed;
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = scheduleSpMVGPU_dsm(stmt, A, precomputed);
+  //printToFile("spmv_gpu", stmt);
+
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  // Example of using "recompile" to debug
+  // y.recompile("/tmp/taco_tmp_88888/xxxxxxx");
+  // y.reassemble();
+  // y.recompute();
+
+  Tensor<double> expected("expected", {NUM_I}, {Dense});
+  expected(i) = A(i, j) * x(j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
+}
+
 TEST(scheduling_eval, spmmGPU) {
   if (!should_use_CUDA_codegen()) {
     return;
@@ -1050,6 +1140,58 @@ TEST(scheduling_eval, ttvGPU) {
 
   IndexStmt stmt = A.getAssignment().concretize();
   stmt = scheduleTTVGPU(stmt, B, precomputedExpr);
+
+  //printToFile("ttv_gpu", stmt);
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {NUM_I, NUM_J}, {Dense, Dense});
+  expected(i,j) = B(i,j,k) * c(k);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
+}
+
+TEST(scheduling_eval, ttvGPU_dsm) {
+  if (!should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  int NUM_K = 1057/10;
+  float SPARSITY = .3;
+  Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense}); // TODO: change to sparse outputs
+  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
+  Tensor<double> c("c", {NUM_K}, {Dense});
+
+  srand(353252);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      for (int k = 0; k < NUM_K; k++) {
+        float rand_float = (float) rand() / (float) (RAND_MAX);
+        if (rand_float < SPARSITY) {
+          B.insert({i, j, k}, (double) ((int) (rand_float * 3 / SPARSITY)));
+        }
+      }
+    }
+  }
+
+  for (int k = 0; k < NUM_K; k++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    c.insert({k}, (double) ((int) (rand_float*3)));
+  }
+
+  B.pack();
+  c.pack();
+
+  IndexExpr precomputedExpr = B(i,j,k) * c(k);
+  A(i,j) = precomputedExpr;
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  stmt = scheduleTTVGPU_dsm(stmt, B, precomputedExpr);
 
   //printToFile("ttv_gpu", stmt);
 

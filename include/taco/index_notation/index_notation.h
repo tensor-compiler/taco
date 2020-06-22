@@ -850,7 +850,10 @@ public:
   TensorVar(const Type& type);
   TensorVar(const std::string& name, const Type& type);
   TensorVar(const Type& type, const Format& format);
-  TensorVar(const std::string& name, const Type& type, const Format& format);
+  TensorVar(const std::string& name, const Type& type, const Format& format, GPUWorkspace gpuworkspace=GPUWorkspace::None);
+
+  // Returns the type of GPU workspace this TensorVar is, which is None by default. 
+  GPUWorkspace getGPUWorkspace();
 
   /// Returns the name of the tensor variable.
   std::string getName() const;

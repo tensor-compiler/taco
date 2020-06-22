@@ -241,7 +241,7 @@ bool Literal::equalsScalar(double scalar) const {
   return false;
 }
 
-Expr Var::make(std::string name, Datatype type, bool is_ptr, bool is_tensor) {
+Expr Var::make(std::string name, Datatype type, bool is_ptr, bool is_tensor, GPUWorkspace gpuworkspace) {
   Var *var = new Var;
   var->type = type;
   var->name = name;
@@ -249,6 +249,7 @@ Expr Var::make(std::string name, Datatype type, bool is_ptr, bool is_tensor) {
   // TODO: is_ptr and is_tensor should be part of type
   var->is_ptr = is_ptr;
   var->is_tensor = is_tensor;
+  var->gpuworkspace = gpuworkspace;
 
   return var;
 }

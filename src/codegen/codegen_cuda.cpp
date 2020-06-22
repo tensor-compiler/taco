@@ -295,6 +295,8 @@ public:
   vector<pair<string, Expr>> warpIDVars;
   vector<Expr> numThreads;
   vector<Expr> numWarps;
+  vector<Expr> sizeSharedMemory;
+  std::string typeSharedMemory;
 
   CodeGen_CUDA *codeGen;
   // copy inputs and outputs into the map
@@ -359,6 +361,7 @@ protected:
 
       threadFors.push_back(op);
       threadIDVars.push_back(pair<string, Expr>(scopeMap[op->var], op->var));
+      
       Expr blockSize = ir::simplify(ir::Div::make(ir::Sub::make(op->end, op->start), op->increment));
       numThreads.push_back(blockSize);
     }
@@ -378,6 +381,16 @@ protected:
   }
 
   virtual void visit(const Var *op) {
+
+    if (isa<Var>(op)){
+        if (to<Var>(op)->gpuworkspace == GPUWorkspace::DenseSharedMemory)
+        {
+          string elementType = printCUDAType( op->type, false);
+          typeSharedMemory = elementType;
+          // sizeSharedMemory.push_back(Mul::make(to<Expr>()->num_elements, Literal::make(256)));
+        }
+      }
+
     if (scopeMap.count(op) == 0) {
       string name = codeGen->genUniqueName(op->name);
       if (!inDeviceFunction) {
@@ -580,7 +593,23 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
   gridSize.accept(this);
   stream << ", ";
   blockSize.accept(this);
-  stream << ">>>";
+
+  if (usesshared == false)
+  {
+    stream << ">>>";
+  }
+  else
+  {
+    // BIG TODO: no hard code 2048
+    // Should be num_threads * num_prec_elems * sizeof(prec_type)
+    stream << ", " ;
+    sizeofshared.accept(this);
+    stream << " * sizeof(" << typeofshared << ")>>>"; 
+    // 2048*sizeof(double)>>>";
+  }
+  
+
+  
   stream << "(";
 
   string delimiter = "";
@@ -627,6 +656,9 @@ void CodeGen_CUDA::compile(Stmt stmt, bool isFirst) {
   parentParallelUnits = {};
   parallelUnitSizes = {};
   parallelUnitIDVars = {};
+  sizeofshared = Expr();
+  typeofshared = "";
+  usesshared = false;
   emittedTimerStartCode = false;
   isHostFunction = true;
   if (isFirst) {
@@ -1021,51 +1053,103 @@ void CodeGen_CUDA::visit(const Max* op) {
 
 void CodeGen_CUDA::visit(const Allocate* op) {
   string elementType = printCUDAType(op->var.type(), false);
+
   if (!isHostFunction) {
-    if (parentParallelUnits.count(ParallelUnit::GPUThread)) {
-      // double w_GPUThread[num];
-      // for threads allocate thread local memory
+
+    if (to<Var>(op->var)->gpuworkspace == GPUWorkspace::DenseSharedMemory)
+    {
+      taco_iassert(!op->is_realloc);
       doIndent();
-      stream << elementType << " ";
+      stream << "__shared__ " << elementType << " ";
       op->var.accept(this);
+      if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
+        stream << "_ALL";
+      }
       stream << "[";
-      op->num_elements.accept(this);
+      if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
+        Expr numElements = Mul::make(op->num_elements, 
+              parallelUnitSizes[ParallelUnit::GPUBlock]);
+
+        sizeofshared = numElements;
+        typeofshared = elementType;
+        usesshared = true;
+
+        ir::simplify(numElements).accept(this);
+      }
+      else {
+        doIndent();
+        stream << elementType << " ";
+        op->var.accept(this);
+        stream << "[";
+        op->num_elements.accept(this);
+        stream << "];" << endl;
+        return;
+      }
       stream << "];" << endl;
+      if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
+        doIndent();
+        stream << elementType << " * ";
+        op->var.accept(this);
+
+        stream << " = ";
+        op->var.accept(this);
+        stream << "_ALL + threadIdx.x";
+        // parallelUnitIDVars[ParallelUnit::GPUWarp].accept(this);
+        stream << " * ";
+        op->num_elements.accept(this);
+        // parallelUnitSizes[ParallelUnit::GPUWarp].accept(this);
+        stream << ";" << endl;
+      }
       return;
     }
-    // __shared__ double w_GPUThread[32]; if no warps
-    // __shared__ double w_GPUThread_ALL[32 * # num warps]; if warps
-    // double * w_GPUThread = w_GPUThread_ALL + warp_id * 32;
-    taco_iassert(!op->is_realloc);
-    doIndent();
-    stream << "__shared__ " << elementType << " ";
-    op->var.accept(this);
-    if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
-      stream << "_ALL";
-    }
-    stream << "[";
-    if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
-      Expr numElements = Mul::make(op->num_elements, Div::make(parallelUnitSizes[ParallelUnit::GPUBlock], parallelUnitSizes[ParallelUnit::GPUWarp]));
-      ir::simplify(numElements).accept(this);
-    }
-    else {
-      op->num_elements.accept(this);
-    }
-    stream << "];" << endl;
-    if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
+    else
+    {
+      if (parentParallelUnits.count(ParallelUnit::GPUThread)) {
+        // double w_GPUThread[num];
+        // for threads allocate thread local memory
+        doIndent();
+        stream << elementType << " ";
+        op->var.accept(this);
+        stream << "[";
+        op->num_elements.accept(this);
+        stream << "];" << endl;
+        return;
+      }
+      // __shared__ double w_GPUThread[32]; if no warps
+      // __shared__ double w_GPUThread_ALL[32 * # num warps]; if warps
+      // double * w_GPUThread = w_GPUThread_ALL + warp_id * 32;
+      taco_iassert(!op->is_realloc);
       doIndent();
-      stream << elementType << " * ";
+      stream << "__shared__ " << elementType << " ";
       op->var.accept(this);
+      if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
+        stream << "_ALL";
+      }
+      stream << "[";
+      if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
+        Expr numElements = Mul::make(op->num_elements, Div::make(parallelUnitSizes[ParallelUnit::GPUBlock], parallelUnitSizes[ParallelUnit::GPUWarp]));
+        ir::simplify(numElements).accept(this);
+      }
+      else {
+        op->num_elements.accept(this);
+      }
+      stream << "];" << endl;
+      if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
+        doIndent();
+        stream << elementType << " * ";
+        op->var.accept(this);
 
-      stream << " = ";
-      op->var.accept(this);
-      stream << "_ALL + ";
-      parallelUnitIDVars[ParallelUnit::GPUWarp].accept(this);
-      stream << " * ";
-      parallelUnitSizes[ParallelUnit::GPUWarp].accept(this);
-      stream << ";" << endl;
+        stream << " = ";
+        op->var.accept(this);
+        stream << "_ALL + ";
+        parallelUnitIDVars[ParallelUnit::GPUWarp].accept(this);
+        stream << " * ";
+        parallelUnitSizes[ParallelUnit::GPUWarp].accept(this);
+        stream << ";" << endl;
+      }
+      return;
     }
-    return;
+    
   }
   string variable_name;
   if (op->is_realloc) {

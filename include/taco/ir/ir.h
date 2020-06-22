@@ -254,9 +254,10 @@ struct Var : public ExprNode<Var> {
   std::string name;
   bool is_ptr;
   bool is_tensor;
+  GPUWorkspace gpuworkspace;
 
   static Expr make(std::string name, Datatype type, bool is_ptr=false, 
-                   bool is_tensor=false);
+                   bool is_tensor=false, GPUWorkspace gpuworkspace=GPUWorkspace::None);
 
   static const IRNodeType _type_info = IRNodeType::Var;
 };
