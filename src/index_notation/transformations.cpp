@@ -133,19 +133,17 @@ struct Precompute::Content {
   IndexVar i;
   IndexVar iw;
   TensorVar workspace;
-  GPUWorkspace gpuworkspace = GPUWorkspace::None;
 };
 
 Precompute::Precompute() : content(nullptr) {
 }
 
 Precompute::Precompute(IndexExpr expr, IndexVar i, IndexVar iw,
-                     TensorVar workspace, GPUWorkspace gpuworkspace) : content(new Content) {
+                     TensorVar workspace) : content(new Content) {
   content->expr = expr;
   content->i = i;
   content->iw = iw;
   content->workspace = workspace;
-  content->gpuworkspace = gpuworkspace;
 }
 
 IndexExpr Precompute::getExpr() const {

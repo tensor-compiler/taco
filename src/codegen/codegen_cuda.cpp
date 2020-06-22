@@ -1150,21 +1150,6 @@ void CodeGen_CUDA::visit(const Allocate* op) {
       return;
     }
     
-
-    
-
-    // if (parentParallelUnits.count(ParallelUnit::GPUThread)) {
-    //   // double w_GPUThread[num];
-    //   // for threads allocate thread local memory
-    //   doIndent();
-    //   stream << elementType << " ";
-    //   op->var.accept(this);
-    //   stream << "[";
-    //   op->num_elements.accept(this);
-    //   stream << "];" << endl;
-    //   return;
-    // }
-    
   }
   string variable_name;
   if (op->is_realloc) {

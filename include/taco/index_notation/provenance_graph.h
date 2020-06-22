@@ -226,7 +226,6 @@ bool operator==(const BoundRelNode&, const BoundRelNode&);
 /// This allows precomputeVar to be scheduled separately from the parentVar
 struct PrecomputeRelNode : public IndexVarRelNode {
   PrecomputeRelNode(IndexVar parentVar, IndexVar precomputeVar);
-  PrecomputeRelNode(IndexVar parentVar, IndexVar precomputeVar, bool shared_mem);
 
   const IndexVar& getParentVar() const;
   const IndexVar& getPrecomputeVar() const;

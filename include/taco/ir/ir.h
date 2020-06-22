@@ -686,7 +686,6 @@ struct Allocate : public StmtNode<Allocate> {
   Expr num_elements;
   Expr old_elements; // used for realloc in CUDA
   bool is_realloc;
-  bool is_shared_memory;
   
   static Stmt make(Expr var, Expr num_elements, bool is_realloc=false,
                    Expr old_elements=Expr());

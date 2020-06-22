@@ -129,12 +129,12 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
     if (((TensorVar)(temp)).getGPUWorkspace() != GPUWorkspace::None){
       ir::Expr irVar = ir::Var::make(temp.getName(), temp.getType().getDataType(),
                                    true, true, ((TensorVar)(temp)).getGPUWorkspace());
-        tensorVars.insert({temp, irVar});
+      tensorVars.insert({temp, irVar});
     }
     else{
       ir::Expr irVar = ir::Var::make(temp.getName(), temp.getType().getDataType(),
                                    true, true);
-        tensorVars.insert({temp, irVar});
+      tensorVars.insert({temp, irVar});
     }
     
     
@@ -1300,12 +1300,11 @@ Stmt LowererImpl::lowerWhere(Where where) {
                                   true, false);
       }
       
-      
       taco_iassert(temporary.getType().getOrder() == 1); // TODO
       Dimension temporarySize = temporary.getType().getShape().getDimension(0);
       Expr size;
       if (temporarySize.isFixed()) {
-          size = ir::Literal::make(temporarySize.getSize());
+        size = ir::Literal::make(temporarySize.getSize());
       }
       else if (temporarySize.isIndexVarSized()) {
         IndexVar var = temporarySize.getIndexVarSize();
