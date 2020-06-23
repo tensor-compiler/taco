@@ -164,6 +164,9 @@ public:
   friend std::ostream& operator<<(std::ostream&, const IndexExpr&);
 };
 
+/// Check if two index expressions are isomorphic.
+bool isomorphic(IndexExpr, IndexExpr);
+
 /// Compare two index expressions by value.
 bool equals(IndexExpr, IndexExpr);
 
@@ -215,6 +218,7 @@ template <typename SubType> SubType to(IndexExpr);
 class Access : public IndexExpr {
 public:
   Access() = default;
+  Access(const Access&) = default;
   Access(const AccessNode*);
   Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={});
 
@@ -637,6 +641,9 @@ public:
   /// Preconditions: unrollFactor is a positive nonzero integer
   IndexStmt unroll(IndexVar i, size_t unrollFactor) const;
 };
+
+/// Check if two index statements are isomorphic.
+bool isomorphic(IndexStmt, IndexStmt);
 
 /// Compare two index statments by value.
 bool equals(IndexStmt, IndexStmt);

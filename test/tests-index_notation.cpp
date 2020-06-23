@@ -16,6 +16,10 @@ static TensorVar a("a", vectorType), b("b", vectorType), c("c", vectorType),
 static Type matrixType(Float64, {3,3});
 static TensorVar A("A", matrixType), B("B", matrixType), C("C", matrixType);
 
+static Type largeMatrixType(Float64, {4,4});
+static TensorVar D("D", largeMatrixType), E("E", largeMatrixType),
+                 F("F", largeMatrixType), G("G", largeMatrixType, CSR);
+
 static Type tensorType(Float64, {3,3,3});
 static TensorVar S("S", tensorType), T("T", tensorType);
 
@@ -129,6 +133,26 @@ TEST(notation, makeReductionNotation) {
                      makeReductionNotation(a(i)=B(i,j)*c(j)));
 }
 
+TEST(notation, isomorphic) {
+  ASSERT_TRUE(isomorphic(A(i,j) = B(i,j) + C(i,j), A(i,j) = B(i,j) + C(i,j)));
+  ASSERT_TRUE(isomorphic(A(i,j) = B(i,j) + C(i,j), B(i,j) = C(i,j) + A(i,j)));
+  ASSERT_TRUE(isomorphic(A(i,j) = B(i,j) + C(i,j), A(i,k) = B(i,k) + C(i,k)));
+  ASSERT_TRUE(isomorphic(A(i,j) = B(i,j) + C(i,j), A(j,i) = B(j,i) + C(j,i)));
+  ASSERT_FALSE(isomorphic(A(i,j) = B(i,j) + C(i,j), A(i,k) = B(i,k) + C(k,i)));
+  ASSERT_FALSE(isomorphic(A(i,j) = B(i,j) + C(i,j), A(i,k) = B(i,k) + C(i,j)));
+  ASSERT_FALSE(isomorphic(A(i,j) = B(i,j) + C(i,j), D(i,j) = E(i,j) + F(i,j)));
+  ASSERT_FALSE(isomorphic(D(i,j) = E(i,j) + F(i,j), D(i,j) = E(i,j) + G(i,j)));
+  ASSERT_TRUE(isomorphic(forall(i, forall(j, A(i,j) = B(i,j) + C(i,j))),
+                         forall(j, forall(i, A(j,i) = B(j,i) + C(j,i)))));
+  ASSERT_FALSE(isomorphic(forall(i, forall(j, A(i,j) = B(i,j) + C(i,j))),
+                          forall(i, forall(j, A(j,i) = B(j,i) + C(j,i)))));
+  ASSERT_FALSE(isomorphic(forall(i, forall(j, A(i,j) = B(i,j) + C(i,j),
+                                 ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)),
+                          forall(j, forall(i, A(j,i) = B(j,i) + C(j,i)))));
+  ASSERT_TRUE(isomorphic(sum(j, B(i,j) + C(i,j)), sum(i, B(j,i) + C(j,i))));
+  ASSERT_FALSE(isomorphic(sum(j, B(i,j) + C(i,j)), sum(j, B(j,i) + C(j,i))));
+}
+
 struct ConcreteTest {
   ConcreteTest(IndexStmt reduction, IndexStmt concrete)
       : reduction(reduction), concrete(concrete) {}
@@ -201,4 +225,3 @@ INSTANTIATE_TEST_CASE_P(separate_reductions, concrete,
                                   forall(k,
                                          tk += c(k))),
                             forall(j, tj += b(j))))));
-
