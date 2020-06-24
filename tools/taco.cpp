@@ -750,6 +750,10 @@ int main(int argc, char* argv[]) {
   vector<ir::Stmt> packs; 
   for (auto a : getArgumentAccesses(stmt)) {
     TensorVar tensor = a.getTensorVar();
+    if (tensor.getOrder() == 0) {
+      continue;
+    }
+
     std::string tensorName = tensor.getName();
     std::vector<IndexVar> indexVars = a.getIndexVars();
 
@@ -760,6 +764,10 @@ int main(int argc, char* argv[]) {
   ir::Stmt unpack;
   for (auto a : getResultAccesses(stmt).first) {
     TensorVar tensor = a.getTensorVar();
+    if (tensor.getOrder() == 0) {
+      continue;
+    }
+
     std::vector<IndexVar> indexVars = a.getIndexVars();
 
     IndexStmt unpackStmt = generatePackCOOStmt(tensor, indexVars, false);
@@ -834,8 +842,10 @@ int main(int argc, char* argv[]) {
       cout << endl << endl;
     }
 
-    cout << endl << packComment << endl;
-
+    if (unpack.defined()) {
+      cout << endl << packComment << endl;
+    }
+    
     for (auto pack : packs) {
       codegen->compile(pack, false);
       cout << endl << endl;
@@ -918,7 +928,9 @@ int main(int argc, char* argv[]) {
       hasPrinted = true;
     }
 
-    filestream << endl << packComment << endl;
+    if (unpack.defined() ) {
+      filestream << endl << packComment << endl;
+    }
     for (auto pack : packs) {
       codegenFile->compile(pack, !hasPrinted);
       hasPrinted = true;
