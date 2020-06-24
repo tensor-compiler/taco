@@ -130,7 +130,7 @@ const string cHeaders =
   "  free(t->mode_ordering);\n"
   "  free(t->mode_types);\n"
   "  free(t);\n"
-  "};\n"
+  "}\n"
   "#endif\n";
 } // anonymous namespace
 
