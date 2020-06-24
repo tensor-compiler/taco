@@ -153,6 +153,30 @@ TEST(notation, isomorphic) {
   ASSERT_FALSE(isomorphic(sum(j, B(i,j) + C(i,j)), sum(j, B(j,i) + C(j,i))));
 }
 
+TEST(notation, generatePackCOOStmt) {
+  TensorVar ac("a_COO", vectorType);
+  ASSERT_NOTATION_EQ(forall(i, a(i) = ac(i)), 
+                     generatePackCOOStmt(a, {i}, true));
+  ASSERT_NOTATION_EQ(forall(i, ac(i) = a(i)), 
+                     generatePackCOOStmt(a, {i}, false));
+
+  TensorVar AC("A_COO", matrixType);
+  ASSERT_NOTATION_EQ(forall(i, forall(j, A(i, j) = AC(i, j))), 
+                     generatePackCOOStmt(A, {i, j}, true));
+  ASSERT_NOTATION_EQ(forall(i, forall(j, AC(i, j) = A(i, j))), 
+                     generatePackCOOStmt(A, {i, j}, false));
+  ASSERT_NOTATION_EQ(forall(j, forall(i, A(j, i) = AC(j, i))), 
+                     generatePackCOOStmt(A, {j, i}, true));
+
+  TensorVar SC("S_COO", tensorType);
+  ASSERT_NOTATION_EQ(forall(i, forall(j, forall(k, S(i, j, k) = SC(i, j, k)))), 
+                     generatePackCOOStmt(S, {i, j, k}, true));
+  ASSERT_NOTATION_EQ(forall(i, forall(j, forall(k, SC(i, j, k) = S(i, j, k)))), 
+                     generatePackCOOStmt(S, {i, j, k}, false));
+  ASSERT_NOTATION_EQ(forall(j, forall(k, forall(i, S(j, k, i) = SC(j, k, i)))), 
+                     generatePackCOOStmt(S, {j, k, i}, true));
+}
+
 struct ConcreteTest {
   ConcreteTest(IndexStmt reduction, IndexStmt concrete)
       : reduction(reduction), concrete(concrete) {}

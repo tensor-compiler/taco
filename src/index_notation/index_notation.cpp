@@ -2766,4 +2766,37 @@ IndexStmt zero(IndexStmt stmt, const std::set<Access>& zeroed) {
   return Zero(zeroed).rewrite(stmt);
 }
 
+IndexStmt generatePackStmt(TensorVar tensor, 
+                           std::string otherName, Format otherFormat, 
+                           std::vector<IndexVar> indexVars, 
+                           bool otherIsOnRight) { 
+
+  const Type type = tensor.getType();
+  TensorVar other(otherName, type, otherFormat);
+
+  const Format format = tensor.getFormat();
+  IndexStmt packStmt = otherIsOnRight ? 
+                       (tensor(indexVars) = other(indexVars)) : 
+                       (other(indexVars) = tensor(indexVars));
+
+  for (int i = format.getOrder() - 1; i >= 0; --i) {
+    int mode = format.getModeOrdering()[i];
+    packStmt = forall(indexVars[mode], packStmt);
+  }
+
+  return packStmt; 
+}
+
+IndexStmt generatePackCOOStmt(TensorVar tensor, 
+                              std::vector<IndexVar> indexVars, bool otherIsOnRight) {
+
+  const std::string tensorName = tensor.getName();
+  const Format format = tensor.getFormat();
+
+  const Format bufferFormat = COO(format.getOrder(), false, true, false, 
+                                  format.getModeOrdering());
+
+  return generatePackStmt(tensor, tensorName + "_COO", bufferFormat, indexVars, otherIsOnRight);
+}
+
 }
