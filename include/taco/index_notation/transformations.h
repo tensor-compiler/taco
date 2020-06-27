@@ -196,6 +196,8 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt);
  */
 IndexStmt reorderLoopsTopologically(IndexStmt stmt);
 
+IndexStmt registerPromote(IndexStmt stmt);
+
 /**
  * Insert where statements with temporaries into the following statements kinds:
  * 1. The result is a is scattered into but does not support random insert.

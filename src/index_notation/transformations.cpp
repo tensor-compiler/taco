@@ -983,6 +983,75 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
   return rewriter.rewrite(stmt);
 }
 
+IndexStmt registerPromote(IndexStmt stmt) {
+  std::vector<Access> resultAccesses;
+  std::tie(resultAccesses, std::ignore) = getResultAccesses(stmt);
+
+  std::map<Access,IndexVar> hoistLevel;
+  struct FindHoistLevel : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+
+    const std::vector<Access>& resultAccesses;
+    std::map<Access,IndexVar>& hoistLevel;
+    std::set<IndexVar> indices;
+    
+    FindHoistLevel(const std::vector<Access>& resultAccesses,
+                   std::map<Access,IndexVar>& hoistLevel) : 
+        resultAccesses(resultAccesses), hoistLevel(hoistLevel) {}
+
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      IndexVar i = foralli.getIndexVar();
+
+      indices.insert(i);
+      for (const auto& resultAccess : resultAccesses) {
+        std::set<IndexVar> resultIndices(resultAccess.getIndexVars().begin(),
+                                         resultAccess.getIndexVars().end());
+        if (std::includes(indices.begin(), indices.end(), 
+                          resultIndices.begin(), resultIndices.end()) &&
+            !util::contains(hoistLevel, resultAccess)) {
+          hoistLevel[resultAccess] = i;
+        }
+      }
+      IndexNotationVisitor::visit(node);
+      indices.erase(i);
+    }
+  };
+  FindHoistLevel findHoistLevel(resultAccesses, hoistLevel);
+  stmt.accept(&findHoistLevel);
+  
+  struct HoistWrites : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    std::map<Access,IndexVar>& hoistLevel;
+
+    HoistWrites(std::map<Access,IndexVar>& hoistLevel) : 
+        hoistLevel(hoistLevel) {}
+
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      IndexVar i = foralli.getIndexVar();
+
+      for (auto& resultAccess : hoistLevel) {
+        if (resultAccess.second == i) {
+          TensorVar val(resultAccess.first.getTensorVar().getName() + "_val", Type(Float64, {}));
+          std::cout << val() << std::endl;
+          Access out(resultAccess.first);
+          IndexStmt consumer = (out = val()); 
+          IndexStmt producer = replace(foralli.getStmt(), {{resultAccess.first, val()}});
+          stmt = forall(i, where(consumer, producer)); // TODO: copy over tags
+          return;  // TODO: this will not work for statements with multiple results
+        }
+      }
+
+      IndexNotationRewriter::visit(node);
+    }
+
+  };
+  HoistWrites hoistWrites(hoistLevel);
+  return hoistWrites.rewrite(stmt);
+}
+
 static bool compare(std::vector<IndexVar> vars1, std::vector<IndexVar> vars2) {
   return vars1 == vars2;
 }
