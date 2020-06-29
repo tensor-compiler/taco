@@ -132,7 +132,7 @@ void IndexNotationRewriter::visit(const ReductionNode* op) {
 }
 
 void IndexNotationRewriter::visit(const AssignmentNode* op) {
-  // A design decission is to not visit the rhs access expressions or the op,
+  // A design decission is to not visit the lhs access expressions or the op,
   // as these are considered part of the assignment.  When visiting access
   // expressions, therefore, we only visit read access expressions.
   IndexExpr rhs = rewrite(op->rhs);
