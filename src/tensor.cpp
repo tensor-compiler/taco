@@ -554,7 +554,7 @@ void TensorBase::compile(taco::IndexStmt stmt, bool assembleWhileCompute) {
 
   IndexStmt concretizedAssign = stmt;
   IndexStmt stmtToCompile = stmt.concretize();
-  stmtToCompile = registerPromote(stmtToCompile);
+  stmtToCompile = scalarPromote(stmtToCompile);
 
   if (!std::getenv("CACHE_KERNELS") ||
       std::string(std::getenv("CACHE_KERNELS")) != "0") {

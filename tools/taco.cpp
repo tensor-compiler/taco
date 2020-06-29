@@ -643,7 +643,7 @@ int main(int argc, char* argv[]) {
   stmt = reorderLoopsTopologically(stmt);
   stmt = insertTemporaries(stmt);
   stmt = parallelizeOuterLoop(stmt);
-  stmt = registerPromote(stmt);
+  stmt = scalarPromote(stmt);
   if (printConcrete) {
     cout << stmt << endl;
   }

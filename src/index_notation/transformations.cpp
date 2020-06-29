@@ -983,7 +983,7 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
   return rewriter.rewrite(stmt);
 }
 
-IndexStmt registerPromote(IndexStmt stmt) {
+IndexStmt scalarPromote(IndexStmt stmt) {
   std::vector<Access> resultAccesses;
   std::tie(resultAccesses, std::ignore) = getResultAccesses(stmt);
 
