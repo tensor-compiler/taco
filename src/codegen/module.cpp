@@ -132,12 +132,12 @@ string Module::compile() {
     cc = util::getFromEnv(target.compiler_env, target.compiler);
     cflags = util::getFromEnv("TACO_CFLAGS",
     "-O3 -ffast-math -std=c99") + " -shared -fPIC";
+#if USE_OPENMP
+    cflags += " -fopenmp";
+#endif
     file_ending = ".c";
     shims_file = "";
   }
-#if USE_OPENMP
-  cflags += " -fopenmp";
-#endif
   
   string cmd = cc + " " + cflags + " " +
     prefix + file_ending + " " + shims_file + " " + 
