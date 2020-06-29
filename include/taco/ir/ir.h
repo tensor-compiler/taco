@@ -254,10 +254,10 @@ struct Var : public ExprNode<Var> {
   std::string name;
   bool is_ptr;
   bool is_tensor;
-  bool is_unfolded; 
+  bool is_parameter; 
 
   static Expr make(std::string name, Datatype type, bool is_ptr=false, 
-                   bool is_tensor=false, bool is_unfolded=false);
+                   bool is_tensor=false, bool is_parameter=false);
 
   static const IRNodeType _type_info = IRNodeType::Var;
 };

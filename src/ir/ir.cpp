@@ -242,7 +242,7 @@ bool Literal::equalsScalar(double scalar) const {
 }
 
 Expr Var::make(std::string name, Datatype type, 
-               bool is_ptr, bool is_tensor, bool is_unfolded) {
+               bool is_ptr, bool is_tensor, bool is_parameter) {
   Var *var = new Var;
   var->type = type;
   var->name = name;
@@ -250,7 +250,7 @@ Expr Var::make(std::string name, Datatype type,
   // TODO: is_ptr and is_tensor should be part of type
   var->is_ptr = is_ptr;
   var->is_tensor = is_tensor;
-  var->is_unfolded = is_unfolded;
+  var->is_parameter = is_parameter;
 
   return var;
 }

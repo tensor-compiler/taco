@@ -361,7 +361,7 @@ string CodeGen::printDecls(map<Expr, string, ExprCompare> varMap,
                               prop->tensor) != outputs.end());
     
     auto var = prop->tensor.as<Var>();
-    if (var->is_unfolded) {
+    if (var->is_parameter) {
       if (isOutputProp) {
         ret << "  " << printTensorProperty(varMap[prop], prop, false) << ";" << endl;
       } else {
@@ -412,7 +412,7 @@ string CodeGen::printPack(map<tuple<Expr, TensorProperty, int, int>,
 
   for (auto prop: sortedProps) {
     auto var = get<0>(prop).as<Var>();
-    if (var->is_unfolded) {
+    if (var->is_parameter) {
       ret << "  " << pointTensorProperty(outputProperties[prop]);
     } else {
       ret << packTensorProperty(outputProperties[prop], get<0>(prop),
@@ -528,7 +528,7 @@ string CodeGen::printFuncName(const Function *func,
     auto var = func->outputs[i].as<Var>();
     taco_iassert(var) << "Unable to convert output " << func->outputs[i]
                       << " to Var";
-    if (var->is_unfolded) {
+    if (var->is_parameter) {
       unfoldOutput = true;
       break;
     }
@@ -554,7 +554,7 @@ string CodeGen::printFuncName(const Function *func,
     auto var = func->inputs[i].as<Var>();
     taco_iassert(var) << "Unable to convert output " << func->inputs[i]
                       << " to Var";
-    if (var->is_unfolded) {
+    if (var->is_parameter) {
       unfoldInput = true;
       break;
     }

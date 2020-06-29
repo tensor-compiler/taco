@@ -2494,12 +2494,12 @@ std::vector<IndexVar> getReductionVars(IndexStmt stmt) {
 
 vector<ir::Expr> createVars(const vector<TensorVar>& tensorVars,
                             map<TensorVar, ir::Expr>* vars, 
-                            bool is_unfolded) {
+                            bool isParameter) {
   taco_iassert(vars != nullptr);
   vector<ir::Expr> irVars;
   for (auto& var : tensorVars) {
     ir::Expr irVar = ir::Var::make(var.getName(), var.getType().getDataType(),
-                                   true, true, is_unfolded);
+                                   true, true, isParameter);
     irVars.push_back(irVar);
     vars->insert({var, irVar});
   }
