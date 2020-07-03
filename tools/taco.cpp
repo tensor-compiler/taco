@@ -737,8 +737,9 @@ int main(int argc, char* argv[]) {
 
   string packComment = 
     "/*\n"
-    " * The `pack` functions convert coordinate and value arrays in COO format, \n"
-    " * with nonzeros stored in lexicographical order, to the specified input format.\n"
+    " * The `pack` functions convert coordinate and value arrays in COO format,\n"
+    " * with nonzeros sorted lexicographically by their coordinates, to the\n"
+    " * specified input format.\n"
     " *\n"
     " * The `unpack` function converts the specified output format to coordinate\n"
     " * and value arrays in COO format.\n"
