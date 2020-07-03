@@ -983,6 +983,103 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
   return rewriter.rewrite(stmt);
 }
 
+IndexStmt scalarPromote(IndexStmt stmt) {
+  std::vector<Access> resultAccesses;
+  std::tie(resultAccesses, std::ignore) = getResultAccesses(stmt);
+
+  std::map<Access,IndexVar> hoistLevel;
+  std::map<Access,IndexExpr> reduceOp;
+  struct FindHoistLevel : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+
+    const std::vector<Access>& resultAccesses;
+    std::map<Access,IndexVar>& hoistLevel;
+    std::map<Access,IndexExpr>& reduceOp;
+    std::map<Access,std::set<IndexVar>> hoistIndices;
+    std::set<IndexVar> indices;
+    
+    FindHoistLevel(const std::vector<Access>& resultAccesses,
+                   std::map<Access,IndexVar>& hoistLevel,
+                   std::map<Access,IndexExpr>& reduceOp) : 
+        resultAccesses(resultAccesses), 
+        hoistLevel(hoistLevel), 
+        reduceOp(reduceOp) {}
+
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      IndexVar i = foralli.getIndexVar();
+
+      indices.insert(i);
+      for (const auto& resultAccess : resultAccesses) {
+        std::set<IndexVar> resultIndices(resultAccess.getIndexVars().begin(),
+                                         resultAccess.getIndexVars().end());
+        if (std::includes(indices.begin(), indices.end(), 
+                          resultIndices.begin(), resultIndices.end()) &&
+            !util::contains(hoistLevel, resultAccess)) {
+          hoistLevel[resultAccess] = i;
+          hoistIndices[resultAccess] = indices;
+          if (resultIndices != indices) {
+            reduceOp[resultAccess] = IndexExpr();
+          }
+        }
+      }
+      IndexNotationVisitor::visit(node);
+      indices.erase(i);
+    }
+
+    void visit(const AssignmentNode* op) {
+      if (util::contains(hoistLevel, op->lhs) && 
+          hoistIndices[op->lhs] == indices) {
+        hoistLevel.erase(op->lhs);
+      }
+      if (util::contains(reduceOp, op->lhs)) {
+        reduceOp[op->lhs] = op->op;
+      }
+    }
+  };
+  FindHoistLevel findHoistLevel(resultAccesses, hoistLevel, reduceOp);
+  stmt.accept(&findHoistLevel);
+  
+  struct HoistWrites : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    const std::map<Access,IndexVar>& hoistLevel;
+    const std::map<Access,IndexExpr>& reduceOp;
+
+    HoistWrites(const std::map<Access,IndexVar>& hoistLevel,
+                const std::map<Access,IndexExpr>& reduceOp) : 
+        hoistLevel(hoistLevel), reduceOp(reduceOp) {}
+
+    void visit(const ForallNode* node) {
+      IndexNotationRewriter::visit(node);
+
+      Forall foralli(node);
+      IndexVar i = foralli.getIndexVar();
+      IndexStmt body = foralli.getStmt();
+
+      for (const auto& resultAccess : hoistLevel) {
+        if (resultAccess.second == i) {
+          // This assumes the index expression yields at most one result tensor; 
+          // will not work correctly if there are multiple results.
+          TensorVar resultVar = resultAccess.first.getTensorVar();
+          TensorVar val(resultVar.getName(), 
+                        Type(resultVar.getType().getDataType(), {}));
+          IndexExpr op = util::contains(reduceOp, resultAccess.first) 
+                       ? reduceOp.at(resultAccess.first) : IndexExpr();
+          IndexStmt consumer = Assignment(Access(resultAccess.first), val(), op);
+          IndexStmt producer = ReplaceReductionExpr(
+              map<Access,Access>({{resultAccess.first, val()}})).rewrite(body);
+          stmt = forall(i, where(consumer, producer), foralli.getParallelUnit(),
+                        foralli.getOutputRaceStrategy(),
+                        foralli.getUnrollFactor());
+        }
+      }
+    }
+  };
+  HoistWrites hoistWrites(hoistLevel, reduceOp);
+  return hoistWrites.rewrite(stmt);
+}
+
 static bool compare(std::vector<IndexVar> vars1, std::vector<IndexVar> vars2) {
   return vars1 == vars2;
 }
