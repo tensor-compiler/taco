@@ -970,7 +970,8 @@ std::vector<IndexVar> getReductionVars(IndexStmt stmt);
 
 /// Convert index notation tensor variables to IR pointer variables.
 std::vector<ir::Expr> createVars(const std::vector<TensorVar>& tensorVars,
-                               std::map<TensorVar, ir::Expr>* vars);
+                                 std::map<TensorVar, ir::Expr>* vars, 
+                                 bool isParameter=false);
 
 
 /// Simplify an index expression by setting the zeroed Access expressions to
@@ -980,6 +981,17 @@ IndexExpr zero(IndexExpr, const std::set<Access>& zeroed);
 /// Simplify an index expression by setting the zeroed Access expressions to
 /// zero and then propagating and removing zeroes.
 IndexStmt zero(IndexStmt, const std::set<Access>& zeroed);
+
+/// Create an `other` tensor with the given name and format, 
+/// and return tensor(indexVars) = other(indexVars) if otherIsOnRight,
+/// and otherwise returns other(indexVars) = tensor(indexVars).
+IndexStmt generatePackStmt(TensorVar tensor,
+                           std::string otherName, Format otherFormat, 
+                           std::vector<IndexVar> indexVars, bool otherIsOnRight);
+
+/// Same as generatePackStmt, where otherFormat is COO.
+IndexStmt generatePackCOOStmt(TensorVar tensor, 
+                              std::vector<IndexVar> indexVars, bool otherIsOnRight);
 
 }
 #endif
