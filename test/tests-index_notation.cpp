@@ -154,27 +154,30 @@ TEST(notation, isomorphic) {
 }
 
 TEST(notation, generatePackCOOStmt) {
-  TensorVar ac("a_COO", vectorType);
-  ASSERT_NOTATION_EQ(forall(i, a(i) = ac(i)), 
-                     generatePackCOOStmt(a, {i}, true));
-  ASSERT_NOTATION_EQ(forall(i, ac(i) = a(i)), 
-                     generatePackCOOStmt(a, {i}, false));
+  ModeFormat compressedNU = ModeFormat::Compressed(ModeFormat::NOT_UNIQUE);
+  ModeFormat singletonNU = ModeFormat::Singleton(ModeFormat::NOT_UNIQUE);
 
-  TensorVar AC("A_COO", matrixType);
-  ASSERT_NOTATION_EQ(forall(i, forall(j, A(i, j) = AC(i, j))), 
-                     generatePackCOOStmt(A, {i, j}, true));
-  ASSERT_NOTATION_EQ(forall(i, forall(j, AC(i, j) = A(i, j))), 
-                     generatePackCOOStmt(A, {i, j}, false));
-  ASSERT_NOTATION_EQ(forall(j, forall(i, A(j, i) = AC(j, i))), 
-                     generatePackCOOStmt(A, {j, i}, true));
+  TensorVar ac("a_COO", vectorType, Format({compressedNU}));
+  ASSERT_TRUE(isomorphic(forall(i, a(i) = ac(i)), 
+                         generatePackCOOStmt(a, {i}, true)));
+  ASSERT_TRUE(isomorphic(forall(i, ac(i) = a(i)), 
+                         generatePackCOOStmt(a, {i}, false)));
 
-  TensorVar SC("S_COO", tensorType);
-  ASSERT_NOTATION_EQ(forall(i, forall(j, forall(k, S(i, j, k) = SC(i, j, k)))), 
-                     generatePackCOOStmt(S, {i, j, k}, true));
-  ASSERT_NOTATION_EQ(forall(i, forall(j, forall(k, SC(i, j, k) = S(i, j, k)))), 
-                     generatePackCOOStmt(S, {i, j, k}, false));
-  ASSERT_NOTATION_EQ(forall(j, forall(k, forall(i, S(j, k, i) = SC(j, k, i)))), 
-                     generatePackCOOStmt(S, {j, k, i}, true));
+  TensorVar AC("A_COO", matrixType, Format({compressedNU, singletonNU}));
+  ASSERT_TRUE(isomorphic(forall(i, forall(j, A(i, j) = AC(i, j))), 
+                         generatePackCOOStmt(A, {i, j}, true)));
+  ASSERT_TRUE(isomorphic(forall(i, forall(j, AC(i, j) = A(i, j))), 
+                         generatePackCOOStmt(A, {i, j}, false)));
+  ASSERT_TRUE(isomorphic(forall(j, forall(i, A(j, i) = AC(j, i))), 
+                         generatePackCOOStmt(A, {j, i}, true)));
+
+  TensorVar SC("S_COO", tensorType, Format({compressedNU, singletonNU, singletonNU}));
+  ASSERT_TRUE(isomorphic(forall(i, forall(j, forall(k, S(i, j, k) = SC(i, j, k)))), 
+                         generatePackCOOStmt(S, {i, j, k}, true)));
+  ASSERT_TRUE(isomorphic(forall(i, forall(j, forall(k, SC(i, j, k) = S(i, j, k)))), 
+                         generatePackCOOStmt(S, {i, j, k}, false)));
+  ASSERT_TRUE(isomorphic(forall(j, forall(k, forall(i, S(j, k, i) = SC(j, k, i)))), 
+                         generatePackCOOStmt(S, {j, k, i}, true)));
 }
 
 struct ConcreteTest {

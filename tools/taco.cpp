@@ -737,8 +737,8 @@ int main(int argc, char* argv[]) {
 
   string packComment = 
     "/*\n"
-    " * The `pack` functions convert coordinate and value arrays in COO format to\n"
-    " * the specified input format.\n"
+    " * The `pack` functions convert coordinate and value arrays in COO format, \n"
+    " * with nonzeros stored in lexicographical order, to the specified input format.\n"
     " *\n"
     " * The `unpack` function converts the specified output format to coordinate\n"
     " * and value arrays in COO format.\n"
@@ -746,7 +746,7 @@ int main(int argc, char* argv[]) {
     " * For both, the `_COO_pos` arrays contain two elements, where the first is 0\n"
     " * and the second is the number of nonzeros in the tensor.\n"
     " */"; 
-  
+
   vector<ir::Stmt> packs; 
   for (auto a : getArgumentAccesses(stmt)) {
     TensorVar tensor = a.getTensorVar();
