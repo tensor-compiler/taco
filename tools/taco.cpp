@@ -201,6 +201,134 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   }
 }
 
+static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& parser, IndexStmt& stmt) {
+  map<string, IndexVar> addedVars; 
+  auto findVar = [&parser, &addedVars](string name) {
+    if (parser.hasIndexVar(name)) {
+      return parser.getIndexVar(name);
+    } else if (util::contains(addedVars, name)) {
+      return addedVars.at(name);
+    }
+
+    throw "Index variable not defined in statement.";
+  };
+
+  auto getInput = [&in, &out](string prompt, auto &var) {
+    out << prompt; 
+    in >> var; 
+  };
+
+  out << endl << "To exit, input 'q'." << endl << endl;
+  while (true) {
+    string command;
+    getInput("Enter a command: ", command); 
+
+    if (command == "split") {
+      string i, i1, i2; 
+      getInput("Enter the index variable to split: ", i);
+      getInput("Enter the split outer index variable: ", i1);
+      getInput("Enter the split inner index variable: ", i2);
+
+      size_t splitFactor; 
+      getInput("Enter the split factor: ", splitFactor);
+
+      try {
+        IndexVar split1(i1);
+        IndexVar split2(i2);
+        addedVars.insert({i1, split1});
+        addedVars.insert({i2, split2});
+        stmt = stmt.split(findVar(i), split1, split2, splitFactor);
+      } catch (const char* msg) {
+        out << msg << endl; 
+      }
+    } else if (command == "fuse") {
+      string i, j, f; 
+      getInput("Enter the outer index variable to fuse: ", i);
+      getInput("Enter the inner index variable to fuse: ", j);
+      getInput("Enter the fused index variable: ", f);  
+
+      try {
+        IndexVar fused(f); 
+        addedVars.insert({f, fused});
+        stmt = stmt.fuse(findVar(i), findVar(j), fused);
+      } catch (const char* msg) {
+        out << msg << endl; 
+      }  
+    } else if (command == "pos") {
+      string i, ipos; 
+      getInput("Enter the index variable to transform: ", i);
+      getInput("Enter the derived position index variable: ", ipos);
+
+      string tensor;
+      getInput("Enter the tensor to perform the position cut on: ", tensor);
+
+      for (auto a : getArgumentAccesses(stmt)) {
+        if (a.getTensorVar().getName() == tensor) {
+          try {
+            IndexVar derived(ipos);
+            addedVars.insert({ipos, derived});
+            stmt = stmt.pos(findVar(i), derived, a);
+            goto end;
+          } catch (const char* msg) {
+            out << msg << endl; 
+          } 
+        }
+      }
+      out << "Tensor access not defined in statement." << endl;
+    } else if (command == "parallelize") {
+      string i, unit, strategy; 
+      getInput("Enter the index variable to parallelize: ", i);
+      getInput("Enter the type of parallel hardware: ", unit);
+      getInput("Enter the race strategy: ", strategy);
+
+      ParallelUnit parallel_unit; 
+      if (unit == "NotParallel") { 
+        parallel_unit = ParallelUnit::NotParallel; 
+      } else if (unit == "DefaultUnit") { 
+        parallel_unit = ParallelUnit::DefaultUnit; 
+      } else if (unit == "CPUThread") {
+        parallel_unit = ParallelUnit::CPUThread; 
+      } else if (unit == "CPUVector") {
+        parallel_unit = ParallelUnit::CPUVector;
+      } else {
+        out << "Parallel hardware not defined." << endl;
+        goto end; 
+      }
+
+      OutputRaceStrategy output_race_strategy; 
+      if (strategy == "IgnoreRaces") {
+        output_race_strategy = OutputRaceStrategy::IgnoreRaces; 
+      } else if (strategy == "NoRaces") {
+        output_race_strategy = OutputRaceStrategy::NoRaces; 
+      } else if (strategy == "Atomics") { 
+        output_race_strategy = OutputRaceStrategy::Atomics; 
+      } else if (strategy == "Temporary") {
+        output_race_strategy = OutputRaceStrategy::Temporary;
+      } else if (strategy == "ParallelReduction") {
+        output_race_strategy = OutputRaceStrategy::ParallelReduction;
+      } else { 
+        out << "Race strategy not defined." << endl;
+        goto end; 
+      }
+
+      try {
+        stmt = stmt.parallelize(findVar(i), parallel_unit, output_race_strategy);
+      } catch (const char* msg) {
+        out << msg << endl; 
+      }
+    } else if (command == "q") {
+      break; 
+    } else {
+      out << "Not a valid command";
+      break; 
+    }
+
+    end: out << endl; 
+  }
+
+  out << endl << endl;
+}
+
 int main(int argc, char* argv[]) {
   if (argc < 2) {
     printUsageInfo();
@@ -227,6 +355,9 @@ int main(int argc, char* argv[]) {
   bool color               = true;
   bool readKernels         = false;
   bool cuda                = false;
+
+  bool setScheduleInteractive = false; 
+  bool setScheduleManual      = false; 
 
   ParallelSchedule sched = ParallelSchedule::Static;
   int chunkSize = 0;
@@ -255,6 +386,8 @@ int main(int argc, char* argv[]) {
   vector<string> declaredTensors;
 
   vector<string> kernelFilenames;
+
+  stringstream scheduleStream; 
 
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
@@ -542,6 +675,16 @@ int main(int argc, char* argv[]) {
     else if ("-print-kernels" == argName) {
       printKernels = true;
     }
+    else if ("-set-schedule" == argName) {
+      if (argValue.empty()) {
+        setScheduleInteractive = true; 
+      } else {
+        setScheduleManual = true; 
+        replace(argValue.begin(), argValue.end(), '-', ' ');
+        scheduleStream << argValue;
+        scheduleStream << " q";
+      }
+    }
     else {
       if (exprStr.size() != 0) {
         printUsageInfo();
@@ -644,6 +787,14 @@ int main(int argc, char* argv[]) {
   stmt = reorderLoopsTopologically(stmt);
   stmt = insertTemporaries(stmt);
   stmt = parallelizeOuterLoop(stmt);
+
+  if (setScheduleInteractive) {
+    setSchedulingCommands(cin, cout, parser, stmt);
+  } else if (setScheduleManual) {
+    stringstream throwaway;
+    setSchedulingCommands(scheduleStream, throwaway, parser, stmt);
+  }
+
   if (printConcrete) {
     cout << stmt << endl;
   }
@@ -747,7 +898,7 @@ int main(int argc, char* argv[]) {
     " * For both, the `_COO_pos` arrays contain two elements, where the first is 0\n"
     " * and the second is the number of nonzeros in the tensor.\n"
     " */"; 
-
+  
   vector<ir::Stmt> packs; 
   for (auto a : getArgumentAccesses(stmt)) {
     TensorVar tensor = a.getTensorVar();
