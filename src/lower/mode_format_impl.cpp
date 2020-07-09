@@ -58,11 +58,11 @@ ModeFormatImpl::ModeFormatImpl(const std::string name, bool isFull,
                                bool isOrdered, bool isUnique, bool isBranchless, 
                                bool isCompact, bool hasCoordValIter, 
                                bool hasCoordPosIter, bool hasLocate, 
-                               bool hasInsert, bool hasAppend) :
+                               bool hasInsert, bool hasAppend, bool isZeroless) :
     name(name), isFull(isFull), isOrdered(isOrdered), isUnique(isUnique),
     isBranchless(isBranchless), isCompact(isCompact),
     hasCoordValIter(hasCoordValIter), hasCoordPosIter(hasCoordPosIter),
-    hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend) {
+    hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend), isZeroless(isZeroless) {
 }
 
 ModeFormatImpl::~ModeFormatImpl() {

@@ -179,6 +179,13 @@ bool Iterator::isUnique() const {
   return getMode().defined() && getMode().getModeFormat().isUnique();
 }
 
+bool Iterator::isZeroless() const {
+  taco_iassert(defined());
+  if (isDimensionIterator()) return true;
+  return getMode().defined() && getMode().getModeFormat().isZeroless();
+}
+
+
 bool Iterator::isBranchless() const {
   taco_iassert(defined());
   if (isDimensionIterator()) return true;

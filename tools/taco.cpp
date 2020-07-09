@@ -285,6 +285,9 @@ int main(int argc, char* argv[]) {
           case 's':
             modeTypes.push_back(ModeFormat::Sparse);
             break;
+          case 'b':
+            modeTypes.push_back(ModeFormat::Sparse(ModeFormat::ZEROLESS));
+            break;
           case 'u':
             modeTypes.push_back(ModeFormat::Sparse(ModeFormat::NOT_UNIQUE));
             break;
@@ -339,7 +342,8 @@ int main(int argc, char* argv[]) {
       string tensorName = descriptor[0];
       string typesString = descriptor[1];
       Datatype dataType;
-      if (typesString == "uint8") dataType = UInt8;
+      if (typesString == "bool") dataType = Bool;
+      else if (typesString == "uint8") dataType = UInt8;
       else if(typesString == "uint16") dataType = UInt16;
       else if(typesString == "uint32") dataType = UInt32;
       else if(typesString == "uint64") dataType = UInt64;

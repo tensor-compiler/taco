@@ -16,7 +16,7 @@ CompressedModeFormat::CompressedModeFormat() :
 CompressedModeFormat::CompressedModeFormat(bool isFull, bool isOrdered,
                                        bool isUnique, long long allocSize) :
     ModeFormatImpl("compressed", isFull, isOrdered, isUnique, false, true,
-                   false, true, false, false, true), 
+                   false, true, false, false, true, isZeroless), 
     allocSize(allocSize) {
 }
 
@@ -25,6 +25,7 @@ ModeFormat CompressedModeFormat::copy(
   bool isFull = this->isFull;
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
+  bool isZeroless = this->isZeroless;
   for (const auto property : properties) {
     switch (property) {
       case ModeFormat::FULL:
@@ -44,6 +45,12 @@ ModeFormat CompressedModeFormat::copy(
         break;
       case ModeFormat::NOT_UNIQUE:
         isUnique = false;
+        break;
+      case ModeFormat::ZEROLESS:
+        isZeroless = true;
+        break;
+      case ModeFormat::NOT_ZEROLESS:
+        isZeroless = false;
         break;
       default:
         break;

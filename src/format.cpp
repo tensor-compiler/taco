@@ -172,6 +172,11 @@ bool ModeFormat::hasProperties(const std::vector<Property>& properties) const {
           return false;
         }
         break;
+      case ZEROLESS:
+        if (!isZeroless()) {
+          return false;
+        }
+        break;
       case BRANCHLESS:
         if (!isBranchless()) {
           return false;
@@ -194,6 +199,11 @@ bool ModeFormat::hasProperties(const std::vector<Property>& properties) const {
         break;
       case NOT_UNIQUE:
         if (isUnique()) {
+          return false;
+        }
+        break;
+      case NOT_ZEROLESS:
+        if (isZeroless()) {
           return false;
         }
         break;
@@ -226,6 +236,12 @@ bool ModeFormat::isUnique() const {
   taco_iassert(defined());
   return impl->isUnique;
 }
+
+bool ModeFormat::isZeroless() const {
+  taco_iassert(defined());
+  return impl->isZeroless;
+}
+
 
 bool ModeFormat::isBranchless() const {
   taco_iassert(defined());
@@ -352,6 +368,7 @@ const Format CSR({Dense, Sparse}, {0,1});
 const Format CSC({Dense, Sparse}, {1,0});
 const Format DCSR({Sparse, Sparse}, {0,1});
 const Format DCSC({Sparse, Sparse}, {1,0});
+
 
 const Format COO(int order, bool isUnique, bool isOrdered, bool isAoS, 
                  const std::vector<int>& modeOrdering) {
