@@ -984,30 +984,26 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
 }
 
 IndexStmt scalarPromote(IndexStmt stmt) {
-  std::vector<Access> resultAccesses;
-  std::tie(resultAccesses, std::ignore) = getResultAccesses(stmt);
-
-  std::map<Access,IndexVar> hoistLevel;
+  std::map<Access,const ForallNode*> hoistLevel;
   std::map<Access,IndexExpr> reduceOp;
   struct FindHoistLevel : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
 
-    const std::vector<Access>& resultAccesses;
-    std::map<Access,IndexVar>& hoistLevel;
+    std::map<Access,const ForallNode*>& hoistLevel;
     std::map<Access,IndexExpr>& reduceOp;
     std::map<Access,std::set<IndexVar>> hoistIndices;
     std::set<IndexVar> indices;
     
-    FindHoistLevel(const std::vector<Access>& resultAccesses,
-                   std::map<Access,IndexVar>& hoistLevel,
+    FindHoistLevel(std::map<Access,const ForallNode*>& hoistLevel,
                    std::map<Access,IndexExpr>& reduceOp) : 
-        resultAccesses(resultAccesses), 
-        hoistLevel(hoistLevel), 
-        reduceOp(reduceOp) {}
+        hoistLevel(hoistLevel), reduceOp(reduceOp) {}
 
     void visit(const ForallNode* node) {
       Forall foralli(node);
       IndexVar i = foralli.getIndexVar();
+
+      std::vector<Access> resultAccesses;
+      std::tie(resultAccesses, std::ignore) = getResultAccesses(foralli);
 
       indices.insert(i);
       for (const auto& resultAccess : resultAccesses) {
@@ -1016,7 +1012,7 @@ IndexStmt scalarPromote(IndexStmt stmt) {
         if (std::includes(indices.begin(), indices.end(), 
                           resultIndices.begin(), resultIndices.end()) &&
             !util::contains(hoistLevel, resultAccess)) {
-          hoistLevel[resultAccess] = i;
+          hoistLevel[resultAccess] = node;
           hoistIndices[resultAccess] = indices;
           if (resultIndices != indices) {
             reduceOp[resultAccess] = IndexExpr();
@@ -1037,16 +1033,16 @@ IndexStmt scalarPromote(IndexStmt stmt) {
       }
     }
   };
-  FindHoistLevel findHoistLevel(resultAccesses, hoistLevel, reduceOp);
+  FindHoistLevel findHoistLevel(hoistLevel, reduceOp);
   stmt.accept(&findHoistLevel);
   
   struct HoistWrites : public IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
-    const std::map<Access,IndexVar>& hoistLevel;
+    const std::map<Access,const ForallNode*>& hoistLevel;
     const std::map<Access,IndexExpr>& reduceOp;
 
-    HoistWrites(const std::map<Access,IndexVar>& hoistLevel,
+    HoistWrites(const std::map<Access,const ForallNode*>& hoistLevel,
                 const std::map<Access,IndexExpr>& reduceOp) : 
         hoistLevel(hoistLevel), reduceOp(reduceOp) {}
 
@@ -1058,7 +1054,7 @@ IndexStmt scalarPromote(IndexStmt stmt) {
       IndexStmt body = foralli.getStmt();
 
       for (const auto& resultAccess : hoistLevel) {
-        if (resultAccess.second == i) {
+        if (resultAccess.second == node) {
           // This assumes the index expression yields at most one result tensor; 
           // will not work correctly if there are multiple results.
           TensorVar resultVar = resultAccess.first.getTensorVar();
