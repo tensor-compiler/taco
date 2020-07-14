@@ -210,7 +210,7 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
       return addedVars.at(name);
     }
 
-    throw "Index variable not defined in statement.";
+    taco_uerror << "Index variable not defined in statement.";
   };
 
   auto getInput = [&in, &out](string prompt, auto &var) {
@@ -232,28 +232,44 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
       size_t splitFactor; 
       getInput("Enter the split factor: ", splitFactor);
 
-      try {
-        IndexVar split1(i1);
-        IndexVar split2(i2);
-        addedVars.insert({i1, split1});
-        addedVars.insert({i2, split2});
-        stmt = stmt.split(findVar(i), split1, split2, splitFactor);
-      } catch (const char* msg) {
-        out << msg << endl; 
-      }
+      IndexVar split1(i1);
+      IndexVar split2(i2);
+      addedVars.insert({i1, split1});
+      addedVars.insert({i2, split2});
+      stmt = stmt.split(findVar(i), split1, split2, splitFactor);
+
+    } else if (command == "divide") {
+      string i, i1, i2; 
+      getInput("Enter the index variable to divide: ", i);
+      getInput("Enter the divided outer index variable: ", i1);
+      getInput("Enter the divided inner index variable: ", i2);
+
+      size_t divideFactor; 
+      getInput("Enter the divide factor: ", divideFactor);
+
+      IndexVar divide1(i1);
+      IndexVar divide2(i2);
+      addedVars.insert({i1, divide1});
+      addedVars.insert({i2, divide2});
+      stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
+
+    } else if (command == "reorder") {
+      string i, j; 
+      getInput("Enter an index variable to reorder: ", i);
+      getInput("Enter an index variable to reorder: ", j);
+
+      stmt = stmt.reorder(findVar(i), findVar(j));
+
     } else if (command == "fuse") {
       string i, j, f; 
       getInput("Enter the outer index variable to fuse: ", i);
       getInput("Enter the inner index variable to fuse: ", j);
       getInput("Enter the fused index variable: ", f);  
 
-      try {
-        IndexVar fused(f); 
-        addedVars.insert({f, fused});
-        stmt = stmt.fuse(findVar(i), findVar(j), fused);
-      } catch (const char* msg) {
-        out << msg << endl; 
-      }  
+      IndexVar fused(f); 
+      addedVars.insert({f, fused});
+      stmt = stmt.fuse(findVar(i), findVar(j), fused); 
+
     } else if (command == "pos") {
       string i, ipos; 
       getInput("Enter the index variable to transform: ", i);
@@ -264,17 +280,14 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
 
       for (auto a : getArgumentAccesses(stmt)) {
         if (a.getTensorVar().getName() == tensor) {
-          try {
-            IndexVar derived(ipos);
-            addedVars.insert({ipos, derived});
-            stmt = stmt.pos(findVar(i), derived, a);
-            goto end;
-          } catch (const char* msg) {
-            out << msg << endl; 
-          } 
+          IndexVar derived(ipos);
+          addedVars.insert({ipos, derived});
+          stmt = stmt.pos(findVar(i), derived, a);
+          goto end;
         }
       }
       out << "Tensor access not defined in statement." << endl;
+
     } else if (command == "parallelize") {
       string i, unit, strategy; 
       getInput("Enter the index variable to parallelize: ", i);
@@ -311,11 +324,46 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
         goto end; 
       }
 
-      try {
-        stmt = stmt.parallelize(findVar(i), parallel_unit, output_race_strategy);
-      } catch (const char* msg) {
-        out << msg << endl; 
+      stmt = stmt.parallelize(findVar(i), parallel_unit, output_race_strategy);
+
+    } else if (command == "bound") {
+      string i, i1; 
+      getInput("Enter the index variable to bound: ", i);
+      getInput("Enter the bounded index variable: ", i1);
+
+      size_t bound;
+      getInput("Enter the value to bound by: ", bound);
+
+      string type; 
+      getInput("Enter the bound type: ", type);
+
+      BoundType bound_type; 
+      if (type == "MinExact") { 
+        bound_type = BoundType::MinExact; 
+      } else if (type == "MinConstraint") { 
+        bound_type = BoundType::MinConstraint; 
+      } else if (type == "MaxExact") {
+        bound_type = BoundType::MaxExact; 
+      } else if (type == "MaxConstraint") {
+        bound_type = BoundType::MaxConstraint; 
+      } else {
+        out << "Bound type not defined." << endl;
+        goto end; 
       }
+
+      IndexVar bound1(i1);
+      addedVars.insert({i1, bound1});
+      stmt = stmt.bound(findVar(i), bound1, bound, bound_type);
+
+    } else if (command == "unroll") {
+      string i; 
+      getInput("Enter the index variable to unroll: ", i);
+
+      size_t unrollFactor; 
+      getInput("Enter the unroll factor: ", unrollFactor);
+
+      stmt = stmt.unroll(findVar(i), unrollFactor);
+      
     } else if (command == "q") {
       break; 
     } else {
@@ -790,9 +838,15 @@ int main(int argc, char* argv[]) {
 
   if (setScheduleInteractive) {
     setSchedulingCommands(cin, cout, parser, stmt);
-  } else if (setScheduleManual) {
+  } else if (setScheduleManual) { // TEMPORARY FIX TODO
     stringstream throwaway;
-    setSchedulingCommands(scheduleStream, throwaway, parser, stmt);
+    try {
+      setSchedulingCommands(scheduleStream, throwaway, parser, stmt);
+    } catch (TacoException e) {
+      string msg = string(e.what());
+      msg = msg.insert(msg.find(":\n") + 3, "Cannot implement schedule: "); 
+      throw TacoException(msg);
+    }
   }
 
   if (printConcrete) {
