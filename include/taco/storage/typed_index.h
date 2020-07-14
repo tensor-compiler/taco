@@ -164,6 +164,10 @@ public:
     dType = t;
   }
 
+  TypedIndexRef(const TypedIndexRef& other) {
+    set(other);
+  }
+
   /// Dereferences to a TypedIndexPtr
   TypedIndexPtr operator&() const;
   /// Gets a reference to the stored IndexTypeUnion
