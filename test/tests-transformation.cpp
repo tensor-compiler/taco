@@ -333,7 +333,6 @@ INSTANTIATE_TEST_CASE_P(spmm, insertTemporaries, Values(
                                           w(j) += B(i,k) * C(k,j))))))
 ));
 
-/*
 TEST(schedule, workspace_spmspm) {
   TensorBase A("A", Float(64), {3,3}, Format({dense,compressed}));
   TensorBase B = d33a("B", Format({dense,compressed}));
@@ -347,13 +346,11 @@ TEST(schedule, workspace_spmspm) {
 
   A.evaluate();
 
-  std::cout << A << std::endl;
   Tensor<double> E("e", {3,3}, Format({dense,compressed}));
   E.insert({2,0}, 30.0);
   E.insert({2,1}, 180.0);
   E.pack();
   ASSERT_TENSOR_EQ(E,A);
 }
-*/
 
 }

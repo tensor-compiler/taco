@@ -161,6 +161,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
   map<TensorVar, Expr> scalars;
 
   // Define and initialize dimension variables
+  set<TensorVar> temporariesSet(temporaries.begin(), temporaries.end());
   vector<IndexVar> indexVars = getIndexVars(stmt);
   for (auto& indexVar : indexVars) {
     Expr dimension;
@@ -172,8 +173,10 @@ LowererImpl::lower(IndexStmt stmt, string name,
           auto ivars = n->lhs.getIndexVars();
           int loc = (int)distance(ivars.begin(),
                                   find(ivars.begin(),ivars.end(), indexVar));
-          dimension = GetProperty::make(tensorVars.at(n->lhs.getTensorVar()),
-                                        TensorProperty::Dimension, loc);
+          if(!util::contains(temporariesSet, n->lhs.getTensorVar())) {
+            dimension = GetProperty::make(tensorVars.at(n->lhs.getTensorVar()),
+                                          TensorProperty::Dimension, loc);
+          }
         }
       }),
       function<void(const AccessNode*)>([&](const AccessNode* n) {
@@ -182,8 +185,10 @@ LowererImpl::lower(IndexStmt stmt, string name,
           int loc = (int)distance(indexVars.begin(),
                                   find(indexVars.begin(),indexVars.end(),
                                        indexVar));
-          dimension = GetProperty::make(tensorVars.at(n->tensorVar),
-                                        TensorProperty::Dimension, loc);
+          if(!util::contains(temporariesSet, n->tensorVar)) {
+            dimension = GetProperty::make(tensorVars.at(n->tensorVar),
+                                          TensorProperty::Dimension, loc);
+          }
         }
       })
     );
@@ -1282,7 +1287,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
       Expr values = ir::Var::make(temporary.getName(),
                                   temporary.getType().getDataType(),
                                   true, false);
-      taco_iassert(temporary.getType().getOrder() == 1); // TODO
+      taco_iassert(temporary.getType().getOrder() == 1) << " Temporary order was " << temporary.getType().getOrder();  // TODO
       Dimension temporarySize = temporary.getType().getShape().getDimension(0);
       Expr size;
       if (temporarySize.isFixed()) {

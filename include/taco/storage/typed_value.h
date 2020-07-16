@@ -164,6 +164,8 @@ public:
     dType = t;
   }
 
+  TypedComponentRef(const TypedComponentRef& other) = default;
+
   /// Dereferences to a TypedComponentPtr
   TypedComponentPtr operator&() const;
   /// Gets a reference to the stored ValueTypeUnion
