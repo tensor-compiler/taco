@@ -164,9 +164,7 @@ public:
     dType = t;
   }
 
-  TypedIndexRef(const TypedIndexRef& other) {
-    set(other);
-  }
+  TypedIndexRef(const TypedIndexRef& other) = default;
 
   /// Dereferences to a TypedIndexPtr
   TypedIndexPtr operator&() const;

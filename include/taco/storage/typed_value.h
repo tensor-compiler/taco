@@ -164,9 +164,7 @@ public:
     dType = t;
   }
 
-  TypedComponentRef(const TypedComponentRef& other) {
-    set(other);
-  }
+  TypedComponentRef(const TypedComponentRef& other) = default;
 
   /// Dereferences to a TypedComponentPtr
   TypedComponentPtr operator&() const;
