@@ -27,7 +27,8 @@
 #include "taco/util/env.h"
 #include "taco/util/collections.h"
 #include "taco/cuda.h"
-#include <taco/index_notation/transformations.h>
+#include "taco/index_notation/transformations.h"
+#include "taco/index_notation/index_notation_visitor.h"
 
 using namespace std;
 using namespace taco;
@@ -223,7 +224,35 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
     string command;
     getInput("Enter a command: ", command); 
 
-    if (command == "split") {
+    if (command == "pos") {
+      string i, ipos; 
+      getInput("Enter the index variable to transform: ", i);
+      getInput("Enter the derived position index variable: ", ipos);
+
+      string tensor;
+      getInput("Enter the tensor to perform the position cut on: ", tensor);
+
+      for (auto a : getArgumentAccesses(stmt)) {
+        if (a.getTensorVar().getName() == tensor) {
+          IndexVar derived(ipos);
+          addedVars.insert({ipos, derived});
+          stmt = stmt.pos(findVar(i), derived, a);
+          goto end;
+        }
+      }
+      out << "Tensor access not defined in statement." << endl;
+
+    } else if (command == "fuse") {
+      string i, j, f; 
+      getInput("Enter the outer index variable to fuse: ", i);
+      getInput("Enter the inner index variable to fuse: ", j);
+      getInput("Enter the fused index variable: ", f);  
+
+      IndexVar fused(f); 
+      addedVars.insert({f, fused});
+      stmt = stmt.fuse(findVar(i), findVar(j), fused); 
+
+    } else if (command == "split") {
       string i, i1, i2; 
       getInput("Enter the index variable to split: ", i);
       getInput("Enter the split outer index variable: ", i1);
@@ -253,78 +282,48 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
       addedVars.insert({i2, divide2});
       stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
 
+    } else if (command == "precompute") {
+      string i, iw; 
+      getInput("Enter the index variable to precompute over: ", i);
+      getInput("Enter the index variable to precompute with: ", iw); // FIX TODO? 
+
+      IndexVar orig = findVar(i);
+      IndexVar pre; 
+      try {
+        pre = findVar(iw);
+      } catch (exception& e) {
+        pre = IndexVar(iw);
+        addedVars.insert({iw, pre});
+      }
+
+      struct GetRhs : public IndexNotationVisitor {
+        using IndexNotationVisitor::visit;
+        IndexExpr rhs;
+
+        void visit(const AssignmentNode* node) {
+          rhs = Assignment(node).getRhs();
+        } 
+      };
+
+      GetRhs visitor;
+      stmt.accept(&visitor);
+      IndexExpr rhs = visitor.rhs; 
+
+      TensorVar workspace("workspacce", Type(Float64, {Dimension(42)}), Dense);
+      stmt = stmt.precompute(rhs, orig, pre, workspace);
+
     } else if (command == "reorder") {
-      string i, j; 
-      getInput("Enter an index variable to reorder: ", i);
-      getInput("Enter an index variable to reorder: ", j);
+      int n; 
+      getInput("Enter the number of index variables to reorder: ", n);
 
-      stmt = stmt.reorder(findVar(i), findVar(j));
-
-    } else if (command == "fuse") {
-      string i, j, f; 
-      getInput("Enter the outer index variable to fuse: ", i);
-      getInput("Enter the inner index variable to fuse: ", j);
-      getInput("Enter the fused index variable: ", f);  
-
-      IndexVar fused(f); 
-      addedVars.insert({f, fused});
-      stmt = stmt.fuse(findVar(i), findVar(j), fused); 
-
-    } else if (command == "pos") {
-      string i, ipos; 
-      getInput("Enter the index variable to transform: ", i);
-      getInput("Enter the derived position index variable: ", ipos);
-
-      string tensor;
-      getInput("Enter the tensor to perform the position cut on: ", tensor);
-
-      for (auto a : getArgumentAccesses(stmt)) {
-        if (a.getTensorVar().getName() == tensor) {
-          IndexVar derived(ipos);
-          addedVars.insert({ipos, derived});
-          stmt = stmt.pos(findVar(i), derived, a);
-          goto end;
-        }
-      }
-      out << "Tensor access not defined in statement." << endl;
-
-    } else if (command == "parallelize") {
-      string i, unit, strategy; 
-      getInput("Enter the index variable to parallelize: ", i);
-      getInput("Enter the type of parallel hardware: ", unit);
-      getInput("Enter the race strategy: ", strategy);
-
-      ParallelUnit parallel_unit; 
-      if (unit == "NotParallel") { 
-        parallel_unit = ParallelUnit::NotParallel; 
-      } else if (unit == "DefaultUnit") { 
-        parallel_unit = ParallelUnit::DefaultUnit; 
-      } else if (unit == "CPUThread") {
-        parallel_unit = ParallelUnit::CPUThread; 
-      } else if (unit == "CPUVector") {
-        parallel_unit = ParallelUnit::CPUVector;
-      } else {
-        out << "Parallel hardware not defined." << endl;
-        goto end; 
+      vector<IndexVar> reorderedVars; 
+      for (int i = 0; i < n; i++) {
+        string var;
+        getInput("Enter an index variable to reorder: ", var);
+        reorderedVars.push_back(findVar(var));
       }
 
-      OutputRaceStrategy output_race_strategy; 
-      if (strategy == "IgnoreRaces") {
-        output_race_strategy = OutputRaceStrategy::IgnoreRaces; 
-      } else if (strategy == "NoRaces") {
-        output_race_strategy = OutputRaceStrategy::NoRaces; 
-      } else if (strategy == "Atomics") { 
-        output_race_strategy = OutputRaceStrategy::Atomics; 
-      } else if (strategy == "Temporary") {
-        output_race_strategy = OutputRaceStrategy::Temporary;
-      } else if (strategy == "ParallelReduction") {
-        output_race_strategy = OutputRaceStrategy::ParallelReduction;
-      } else { 
-        out << "Race strategy not defined." << endl;
-        goto end; 
-      }
-
-      stmt = stmt.parallelize(findVar(i), parallel_unit, output_race_strategy);
+      stmt = stmt.reorder(reorderedVars);
 
     } else if (command == "bound") {
       string i, i1; 
@@ -364,6 +363,44 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
 
       stmt = stmt.unroll(findVar(i), unrollFactor);
       
+    } else if (command == "parallelize") {
+      string i, unit, strategy; 
+      getInput("Enter the index variable to parallelize: ", i);
+      getInput("Enter the type of parallel hardware: ", unit);
+      getInput("Enter the race strategy: ", strategy);
+
+      ParallelUnit parallel_unit; 
+      if (unit == "NotParallel") { 
+        parallel_unit = ParallelUnit::NotParallel; 
+      } else if (unit == "DefaultUnit") { 
+        parallel_unit = ParallelUnit::DefaultUnit; 
+      } else if (unit == "CPUThread") {
+        parallel_unit = ParallelUnit::CPUThread; 
+      } else if (unit == "CPUVector") {
+        parallel_unit = ParallelUnit::CPUVector;
+      } else {
+        out << "Parallel hardware not defined." << endl;
+        goto end; 
+      }
+
+      OutputRaceStrategy output_race_strategy; 
+      if (strategy == "IgnoreRaces") {
+        output_race_strategy = OutputRaceStrategy::IgnoreRaces; 
+      } else if (strategy == "NoRaces") {
+        output_race_strategy = OutputRaceStrategy::NoRaces; 
+      } else if (strategy == "Atomics") { 
+        output_race_strategy = OutputRaceStrategy::Atomics; 
+      } else if (strategy == "Temporary") {
+        output_race_strategy = OutputRaceStrategy::Temporary;
+      } else if (strategy == "ParallelReduction") {
+        output_race_strategy = OutputRaceStrategy::ParallelReduction;
+      } else { 
+        out << "Race strategy not defined." << endl;
+        goto end; 
+      }
+
+      stmt = stmt.parallelize(findVar(i), parallel_unit, output_race_strategy);
+
     } else if (command == "q") {
       break; 
     } else {
@@ -844,7 +881,7 @@ int main(int argc, char* argv[]) {
       setSchedulingCommands(scheduleStream, throwaway, parser, stmt);
     } catch (TacoException e) {
       string msg = string(e.what());
-      msg = msg.insert(msg.find(":\n") + 3, "Cannot implement schedule: "); 
+      msg = msg.insert(msg.find(":\n") + 3, "Error with provided schedule: "); 
       throw TacoException(msg);
     }
   }
