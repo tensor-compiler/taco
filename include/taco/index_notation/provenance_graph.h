@@ -1,6 +1,8 @@
 #ifndef TACO_PROVENANCE_GRAPH_H
 #define TACO_PROVENANCE_GRAPH_H
 
+#include "taco/lower/iterator.h"
+
 namespace taco {
 struct IndexVarRelNode;
 enum IndexVarRelType {UNDEFINED, SPLIT, POS, FUSE, BOUND, PRECOMPUTE};

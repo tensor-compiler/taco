@@ -41,7 +41,7 @@ ModeFormat DenseModeFormat::copy(
 ModeFunction DenseModeFormat::locate(ir::Expr parentPos,
                                    std::vector<ir::Expr> coords,
                                    Mode mode) const {
-  Expr pos = Add::make(Mul::make(parentPos, getWidth(mode)), coords.back());
+  Expr pos = ir::Add::make(ir::Mul::make(parentPos, getWidth(mode)), coords.back());
   return ModeFunction(Stmt(), {pos, true});
 }
 

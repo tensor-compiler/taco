@@ -643,6 +643,7 @@ int main(int argc, char* argv[]) {
       makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
   stmt = reorderLoopsTopologically(stmt);
   stmt = insertTemporaries(stmt);
+  stmt = insertAttributeQueries(stmt);
   stmt = parallelizeOuterLoop(stmt);
   stmt = scalarPromote(stmt);
   if (printConcrete) {

@@ -19,7 +19,6 @@
 #include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/ir_tags.h"
-#include "taco/lower/iterator.h"
 #include "taco/index_notation/provenance_graph.h"
 
 namespace taco {

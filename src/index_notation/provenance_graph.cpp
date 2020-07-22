@@ -13,6 +13,7 @@
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_printer.h"
 #include "taco/lower/lower.h"
+#include "taco/lower/mode_format_impl.h"
 
 #include "taco/util/name_generator.h"
 #include "taco/util/scopedmap.h"

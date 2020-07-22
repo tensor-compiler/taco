@@ -10,7 +10,6 @@
 
 #include "taco/ir/ir.h"
 #include "taco/util/comparable.h"
-#include "taco/lower/mode_format_impl.h"
 
 namespace taco {
 class Type;
@@ -20,6 +19,9 @@ class IndexVar;
 class ProvenanceGraph;
 class TensorVar;
 class Access;
+class ModeFunction;
+class Mode;
+class Format;
 
 namespace ir {
 class Stmt;

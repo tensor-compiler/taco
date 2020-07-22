@@ -12,6 +12,74 @@ using namespace taco::ir;
 
 namespace taco {
 
+// class AttrQuery
+struct AttrQuery::Content {
+  std::vector<IndexVar> groupBy;
+  std::vector<Attr> attrs;
+};
+
+AttrQuery::Attr::Attr(
+    std::tuple<std::string,Aggregation,std::vector<IndexVar>> attr) :
+        label(std::get<0>(attr)), aggr(std::get<1>(attr)), 
+        params(std::get<2>(attr)) {
+}
+
+AttrQuery::AttrQuery(const std::vector<IndexVar>& groupBy, const Attr& attr) : 
+    AttrQuery(groupBy, std::vector<Attr>{attr}) {
+}
+
+AttrQuery::AttrQuery(const std::vector<IndexVar>& groupBy,
+                     const std::vector<Attr>& attrs) 
+    : content(new Content) {
+  taco_iassert(!attrs.empty());
+  content->groupBy = groupBy;
+  content->attrs = attrs;
+}
+
+AttrQuery::AttrQuery() : content(nullptr) {
+}
+
+const std::vector<IndexVar>& AttrQuery::getGroupBy() const {
+  return content->groupBy;
+}
+
+const std::vector<AttrQuery::Attr>& AttrQuery::getAttrs() const {
+  return content->attrs;
+}
+
+std::ostream& operator<<(std::ostream& os, const AttrQuery::Attr& attr) {
+  switch (attr.aggr) {
+    case AttrQuery::IDENTITY:
+      os << "id";
+      break;
+    case AttrQuery::COUNT:
+      os << "count";
+      break;
+    case AttrQuery::MIN:
+      os << "min";
+      break;
+    case AttrQuery::MAX:
+      os << "max";
+      break;
+    default:
+      taco_iassert(false);
+      break;
+  }
+  os << "(";
+  if (attr.aggr != AttrQuery::IDENTITY) {
+    os << util::join(attr.params);
+  }
+  os << ") as " << attr.label;
+  return os;
+}
+
+std::ostream& operator<<(std::ostream&os, const AttrQuery& query) {
+  os << "select [" << util::join(query.getGroupBy()) << "] -> "
+     << util::join(query.getAttrs());
+  return os;
+}
+
+
 // class ModeFunction
 struct ModeFunction::Content {
   Stmt body;
@@ -67,6 +135,12 @@ ModeFormatImpl::ModeFormatImpl(const std::string name, bool isFull,
 
 ModeFormatImpl::~ModeFormatImpl() {
 }
+
+std::vector<AttrQuery> ModeFormatImpl::attrQueries(
+    vector<IndexVar> parentCoords, vector<IndexVar> childCoords) const {
+  return std::vector<AttrQuery>();
+}
+                                                  
 
 ModeFunction ModeFormatImpl::coordIterBounds(vector<Expr> coords,
                                            Mode mode) const {

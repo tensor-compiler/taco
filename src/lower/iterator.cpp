@@ -7,6 +7,7 @@
 #include "taco/storage/storage.h"
 #include "taco/storage/array.h"
 #include "taco/util/strings.h"
+#include "taco/lower/mode_format_impl.h"
 
 using namespace std;
 using namespace taco::ir;

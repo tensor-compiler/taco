@@ -202,6 +202,8 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt);
  */
 IndexStmt scalarPromote(IndexStmt stmt);
 
+IndexStmt insertAttributeQueries(IndexStmt stmt);
+
 /**
  * Insert where statements with temporaries into the following statements kinds:
  * 1. The result is a is scattered into but does not support random insert.

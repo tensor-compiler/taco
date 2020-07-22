@@ -262,6 +262,13 @@ bool ModeFormat::hasAppend() const {
   return impl->hasAppend;
 }
 
+std::vector<AttrQuery> ModeFormat::getAttrQueries(
+    std::vector<IndexVar> parentCoords, 
+    std::vector<IndexVar> childCoords) const {
+  taco_iassert(defined());
+  return impl->attrQueries(parentCoords, childCoords);
+}
+
 bool ModeFormat::defined() const {
   return impl != nullptr;
 }

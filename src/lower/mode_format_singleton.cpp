@@ -56,7 +56,7 @@ ModeFormat SingletonModeFormat::copy(
 
 ModeFunction SingletonModeFormat::posIterBounds(Expr parentPos, 
                                                 Mode mode) const {
-  return ModeFunction(Stmt(), {parentPos, Add::make(parentPos, 1)});
+  return ModeFunction(Stmt(), {parentPos, ir::Add::make(parentPos, 1)});
 }
 
 ModeFunction SingletonModeFormat::posIterAccess(ir::Expr pos,
@@ -65,7 +65,7 @@ ModeFunction SingletonModeFormat::posIterAccess(ir::Expr pos,
   Expr idxArray = getCoordArray(mode.getModePack());
   Expr stride = (int)mode.getModePack().getNumModes();
   Expr offset = (int)mode.getPackLocation();
-  Expr loc = Add::make(Mul::make(pos, stride), offset);
+  Expr loc = ir::Add::make(ir::Mul::make(pos, stride), offset);
   Expr idx = Load::make(idxArray, loc);
   return ModeFunction(Stmt(), {idx, true});
 }
@@ -75,7 +75,7 @@ Stmt SingletonModeFormat::getAppendCoord(Expr pos, Expr coord,
   Expr idxArray = getCoordArray(mode.getModePack());
   Expr stride = (int)mode.getModePack().getNumModes();
   Expr offset = (int)mode.getPackLocation();
-  Expr loc = Add::make(Mul::make(pos, stride), offset);
+  Expr loc = ir::Add::make(ir::Mul::make(pos, stride), offset);
   Stmt storeIdx = Store::make(idxArray, loc, coord);
 
   if (mode.getPackLocation() != (mode.getModePack().getNumModes() - 1)) {
@@ -97,7 +97,7 @@ Stmt SingletonModeFormat::getAppendInitLevel(Expr parentSize, Expr size,
     return Stmt();
   }
 
-  Expr defaultCapacity = Literal::make(allocSize, Datatype::Int32); 
+  Expr defaultCapacity = ir::Literal::make(allocSize, Datatype::Int32); 
   Expr crdCapacity = getCoordCapacity(mode);
   Expr crdArray = getCoordArray(mode.getModePack());
   Stmt initCrdCapacity = VarDecl::make(crdCapacity, defaultCapacity);

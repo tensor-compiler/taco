@@ -15,6 +15,10 @@ public:
 
   ModeFormat copy(std::vector<ModeFormat::Property> properties) const override;
   
+  std::vector<AttrQuery>
+  attrQueries(std::vector<IndexVar> parentCoords, 
+              std::vector<IndexVar> childCoords) const override;
+
   ModeFunction posIterBounds(ir::Expr parentPos, Mode mode) const override;
   ModeFunction posIterAccess(ir::Expr pos, std::vector<ir::Expr> coords,
                                      Mode mode) const override;

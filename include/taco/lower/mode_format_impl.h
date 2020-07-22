@@ -6,16 +6,49 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <tuple>
 
 #include "taco/format.h"
 #include "taco/ir/ir.h"
 #include "taco/lower/mode.h"
+#include "taco/index_notation/index_notation.h"
 
 namespace taco {
 
 class ModeFormatImpl;
 class ModeFormatPack;
 class ModePack;
+
+class AttrQuery {
+public:
+  enum Aggregation { IDENTITY, COUNT, MIN, MAX };
+  struct Attr {
+    Attr(std::tuple<std::string,Aggregation,std::vector<IndexVar>> attr); 
+
+    std::string label;
+    Aggregation aggr;
+    std::vector<IndexVar> params;
+  };
+
+  AttrQuery();
+
+  AttrQuery(const std::vector<IndexVar>& groupBy, const Attr& attr);
+
+  AttrQuery(const std::vector<IndexVar>& groupBy, 
+            const std::vector<Attr>& attrs);
+
+  const std::vector<IndexVar>& getGroupBy() const;
+
+  const std::vector<Attr>& getAttrs() const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+std::ostream& operator<<(std::ostream&, const AttrQuery::Attr&);
+std::ostream& operator<<(std::ostream&, const AttrQuery&);
+
 
 /// Mode functions implement parts of mode capabilities, such as position
 /// iteration and locate.  The lower machinery requests mode functions from
@@ -68,6 +101,11 @@ public:
   /// Create a copy of the mode type with different properties.
   virtual ModeFormat copy(
       std::vector<ModeFormat::Property> properties) const = 0;
+
+
+  virtual std::vector<AttrQuery> attrQueries(
+      std::vector<IndexVar> parentCoords, 
+      std::vector<IndexVar> childCoords) const;
 
 
   /// The coordinate iteration capability's iterator function computes a range
