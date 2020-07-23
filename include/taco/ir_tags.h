@@ -8,8 +8,10 @@ namespace taco {
 /// ParallelUnit::GPUBlock must be used with GPUThread to create blocks of GPU threads
 /// ParallelUnit::GPUWarp can be optionally used to allow for GPU warp-level primitives
 /// ParallelUnit::GPUThread causes for every iteration to be executed on a separate GPU thread
+/// ParallelUnit::Spatial signifies a spatial, vectorized architecture
+/// ParallelUnit::SpatialBlock must be used with Spatial to create blocks in the spatial architecture
 enum class ParallelUnit {
-  NotParallel, DefaultUnit, GPUBlock, GPUWarp, GPUThread, CPUThread, CPUVector, CPUThreadGroupReduction, GPUBlockReduction, GPUWarpReduction
+  NotParallel, DefaultUnit, GPUBlock, GPUWarp, GPUThread, CPUThread, CPUVector, CPUThreadGroupReduction, GPUBlockReduction, GPUWarpReduction, Spatial
 };
 extern const char *ParallelUnit_NAMES[];
 

@@ -1,6 +1,8 @@
 #include "codegen.h"
 #include "taco/cuda.h"
 #include "codegen_cuda.h"
+#include "taco/spatial.h"
+#include "codegen_spatial.h"
 #include "codegen_c.h"
 #include <algorithm>
 #include <unordered_set>
@@ -25,6 +27,9 @@ const std::string labelPrefix = "resume_";
 shared_ptr<CodeGen> CodeGen::init_default(std::ostream &dest, OutputKind outputKind) {
   if (should_use_CUDA_codegen()) {
     return make_shared<CodeGen_CUDA>(dest, outputKind);
+  }
+  else if (should_use_Spatial_codegen()) {
+    return make_shared<CodeGen_Spatial>(dest, outputKind);
   }
   else {
     return make_shared<CodeGen_C>(dest, outputKind);

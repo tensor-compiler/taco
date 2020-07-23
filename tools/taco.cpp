@@ -21,6 +21,7 @@
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
 #include "codegen/codegen_cuda.h"
+#include "codegen/codegen_spatial.h"
 #include "codegen/codegen.h"
 #include "taco/util/strings.h"
 #include "taco/util/files.h"
@@ -33,6 +34,7 @@
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/version.h"
+#include "taco/spatial.h"
 
 using namespace std;
 using namespace taco;
@@ -194,6 +196,8 @@ static void printUsageInfo() {
   printFlag("print-nocolor", "Print without colors.");
   cout << endl;
   printFlag("cuda", "Generate CUDA code for NVIDIA GPUs");
+  cout << endl;
+  printFlag("spatial", "Generate Spatial DSL code for FPGAs or Plasticine");
   cout << endl;
   printFlag("schedule", "Specify parallel execution schedule");
   cout << endl;
@@ -646,6 +650,7 @@ int main(int argc, char* argv[]) {
   bool color               = true;
   bool readKernels         = false;
   bool cuda                = false;
+  bool spatial             = false;
 
   bool setSchedule         = false;
 
@@ -965,6 +970,9 @@ int main(int argc, char* argv[]) {
     else if ("-cuda" == argName) {
       cuda = true;
     }
+    else if ("-spatial" == argName) {
+      spatial = true;
+    }
     else if ("-schedule" == argName) {
       vector<string> descriptor = util::split(argValue, ",");
       if (descriptor.size() > 2 || descriptor.empty()) {
@@ -1150,6 +1158,8 @@ int main(int argc, char* argv[]) {
   else {
     set_CUDA_codegen_enabled(false);
   }
+
+  set_Spatial_codegen_enabled(spatial);
 
   stmt = scalarPromote(stmt);
   if (printConcrete) {

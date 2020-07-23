@@ -14,7 +14,9 @@
 #include "taco/util/env.h"
 #include "codegen/codegen_c.h"
 #include "codegen/codegen_cuda.h"
+#include "codegen/codegen_spatial.h"
 #include "taco/cuda.h"
+#include "taco/spatial.h"
 
 using namespace std;
 
@@ -66,7 +68,7 @@ void Module::compileToSource(string path, string prefix) {
   }
 
   ofstream source_file;
-  string file_ending = should_use_CUDA_codegen() ? ".cu" : ".c";
+  string file_ending = should_use_CUDA_codegen() ? ".cu" : should_use_Spatial_codegen() ? ".scala" : ".c";
   source_file.open(path+prefix+file_ending);
   source_file << source.str();
   source_file.close();
@@ -88,7 +90,10 @@ void writeShims(vector<Stmt> funcs, string path, string prefix) {
   for (auto func: funcs) {
     if (should_use_CUDA_codegen()) {
       CodeGen_CUDA::generateShim(func, shims);
-    }
+    } 
+    else if (should_use_Spatial_codegen()) {
+      CodeGen_Spatial::generateShim(func, shims);
+    } 
     else {
       CodeGen_C::generateShim(func, shims);
     }
@@ -97,7 +102,7 @@ void writeShims(vector<Stmt> funcs, string path, string prefix) {
   ofstream shims_file;
   if (should_use_CUDA_codegen()) {
     shims_file.open(path+prefix+"_shims.cpp");
-  }
+  } 
   else {
     shims_file.open(path+prefix+".c", ios::app);
   }
