@@ -1424,7 +1424,8 @@ static IndexStmt optimizeSpMM(IndexStmt stmt) {
 
   // It's an SpMM statement so return an optimized SpMM statement
   TensorVar w("w",
-              Type(Float64, {A.getType().getShape().getDimension(1)}),
+              Type(A.getType().getDataType(), 
+              {A.getType().getShape().getDimension(1)}),
               taco::dense);
   return forall(i,
                 where(forall(j,
