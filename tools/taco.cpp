@@ -29,6 +29,7 @@
 #include "taco/cuda.h"
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/index_notation_visitor.h"
+#include "taco/index_notation/index_notation_nodes.h"
 
 using namespace std;
 using namespace taco;
@@ -283,9 +284,9 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
       stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
 
     } else if (command == "precompute") {
-      string i, iw; 
+      string i, iw, exprStr; 
       getInput("Enter the index variable to precompute over: ", i);
-      getInput("Enter the index variable to precompute with: ", iw); // FIX TODO? 
+      getInput("Enter the index variable to precompute with: ", iw); 
 
       IndexVar orig = findVar(i);
       IndexVar pre; 
@@ -296,21 +297,67 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
         addedVars.insert({iw, pre});
       }
 
-      struct GetRhs : public IndexNotationVisitor {
-        using IndexNotationVisitor::visit;
-        IndexExpr rhs;
+      out << "Enter the expression to precompute: "; 
+      in.ignore(); 
+      getline(in, exprStr);
 
-        void visit(const AssignmentNode* node) {
-          rhs = Assignment(node).getRhs();
-        } 
+      struct GetExpr : public IndexNotationVisitor {
+        using IndexNotationVisitor::visit;
+        
+        string exprStr; 
+        IndexExpr expr; 
+
+        void setExprStr(string input) {
+          exprStr = input; 
+          exprStr.erase(remove(exprStr.begin(), exprStr.end(), ' ')); 
+        }
+
+        string toString(IndexExpr e) {
+          stringstream tempStream; 
+          tempStream << e; 
+          string tempStr = tempStream.str();
+          tempStr.erase(remove(tempStr.begin(), tempStr.end(), ' '));
+          return tempStr;
+        }
+        
+        void visit(const AccessNode* node) {
+          IndexExpr currentExpr(node); 
+          if (toString(currentExpr) == exprStr) {
+            expr = currentExpr; 
+          }
+          else {
+            IndexNotationVisitor::visit(node);
+          }
+        }
+
+        void visit(const UnaryExprNode* node) {
+          IndexExpr currentExpr(node); 
+          if (toString(currentExpr) == exprStr) {
+            expr = currentExpr; 
+          }
+          else {
+            IndexNotationVisitor::visit(node);
+          }
+        }
+
+        void visit(const BinaryExprNode* node) {
+          IndexExpr currentExpr(node); 
+          if (toString(currentExpr) == exprStr) {
+            expr = currentExpr; 
+          }
+          else {
+            IndexNotationVisitor::visit(node);
+          }
+        }
       };
 
-      GetRhs visitor;
+      GetExpr visitor;
+      visitor.setExprStr(exprStr); 
       stmt.accept(&visitor);
-      IndexExpr rhs = visitor.rhs; 
 
-      TensorVar workspace("workspacce", Type(Float64, {Dimension(42)}), Dense);
-      stmt = stmt.precompute(rhs, orig, pre, workspace);
+      Dimension dim = stmt.getIndexVarDomains().at(orig); 
+      TensorVar workspace("workspace", Type(Float64, {dim}), Dense);
+      stmt = stmt.precompute(visitor.expr, orig, pre, workspace);
 
     } else if (command == "reorder") {
       int n; 
