@@ -287,6 +287,7 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
       string i, iw, exprStr; 
       getInput("Enter the index variable to precompute over: ", i);
       getInput("Enter the index variable to precompute with: ", iw); 
+      getInput("Enter (without spaces) the expression to precompute: ", exprStr); 
 
       IndexVar orig = findVar(i);
       IndexVar pre; 
@@ -297,10 +298,6 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
         addedVars.insert({iw, pre});
       }
 
-      out << "Enter the expression to precompute: "; 
-      in.ignore(); 
-      getline(in, exprStr);
-
       struct GetExpr : public IndexNotationVisitor {
         using IndexNotationVisitor::visit;
         
@@ -309,14 +306,14 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
 
         void setExprStr(string input) {
           exprStr = input; 
-          exprStr.erase(remove(exprStr.begin(), exprStr.end(), ' ')); 
+          exprStr.erase(remove(exprStr.begin(), exprStr.end(), ' '), exprStr.end()); 
         }
 
         string toString(IndexExpr e) {
           stringstream tempStream; 
           tempStream << e; 
           string tempStr = tempStream.str();
-          tempStr.erase(remove(tempStr.begin(), tempStr.end(), ' '));
+          tempStr.erase(remove(tempStr.begin(), tempStr.end(), ' '), tempStr.end());
           return tempStr;
         }
         
@@ -341,7 +338,7 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
         }
 
         void visit(const BinaryExprNode* node) {
-          IndexExpr currentExpr(node); 
+          IndexExpr currentExpr(node);
           if (toString(currentExpr) == exprStr) {
             expr = currentExpr; 
           }
