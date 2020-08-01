@@ -928,6 +928,15 @@ IndexStmt scalarPromote(IndexStmt stmt, ProvenanceGraph provGraph,
       Forall foralli(node);
       IndexVar i = foralli.getIndexVar();
 
+      // Don't allow hoisting out of forall's for GPU warp and block reduction
+      if (foralli.getParallelUnit() == ParallelUnit::GPUWarpReduction || 
+          foralli.getParallelUnit() == ParallelUnit::GPUBlockReduction) {
+        FindHoistLevel findHoistLevel(hoistLevel, reduceOp, provGraph, false, 
+                                      promoteScalar);
+        foralli.getStmt().accept(&findHoistLevel);
+        return;
+      }
+
       std::vector<Access> resultAccesses;
       std::tie(resultAccesses, std::ignore) = getResultAccesses(foralli);
       for (const auto& resultAccess : resultAccesses) {
