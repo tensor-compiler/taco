@@ -592,9 +592,13 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
         }
 
         if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
-          // want to avoid extra atomics by accumulating variable and then reducing at end
-          //stmt = forall(i, IntroduceScalarTemp().introduceScalarTemp(foralli.getStmt(), provGraph), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
-          stmt = forall(i, scalarPromote(foralli.getStmt(), provGraph, false, true), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
+          // want to avoid extra atomics by accumulating variable and then 
+          // reducing at end
+          IndexStmt body = scalarPromote(foralli.getStmt(), provGraph, 
+                                         false, true);
+          stmt = forall(i, body, parallelize.getParallelUnit(), 
+                        parallelize.getOutputRaceStrategy(), 
+                        foralli.getUnrollFactor());
           return;
         }
 
