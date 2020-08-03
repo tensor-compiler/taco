@@ -813,9 +813,24 @@ int main(int argc, char* argv[]) {
         setScheduleInteractive = true; 
       } else {
         setScheduleManual = true; 
-        std::replace_if(argValue.begin(), argValue.end(), [](char c) {
-          if (c == '(' || c == ')' || c == ',') {
-            return true; 
+        
+        bool insideCall = false; 
+        bool parsingExpr = false; 
+
+        std::replace_if(argValue.begin(), argValue.end(), [&insideCall, &parsingExpr](char c) {
+          if (c == '(') {
+            if (insideCall) {
+              parsingExpr = true; // need to handle precompute case specially
+            } else {
+              insideCall = true; 
+              return true; 
+            }
+          } else if (c == ',') {
+            return !parsingExpr; 
+          } else if (c == ')') {
+            bool previous = parsingExpr; 
+            parsingExpr = false; 
+            return !previous; 
           }
           return false; 
         }, ' '); 
