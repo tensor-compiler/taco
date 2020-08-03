@@ -57,11 +57,11 @@ struct ErrorReport {
     if (condition) {
       return;
     }
-#ifdef PYTHON
+// #ifdef PYTHON
     explodeWithException();
-#else
-    explode();
-#endif
+// #else
+//     explode();
+// #endif
   }
 
   void explode();

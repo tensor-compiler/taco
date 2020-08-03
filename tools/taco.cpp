@@ -203,13 +203,13 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   }
 }
 
-static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& parser, IndexStmt& stmt) {
-  map<string, IndexVar> addedVars; 
-  auto findVar = [&parser, &addedVars](string name) {
-    if (parser.hasIndexVar(name)) {
-      return parser.getIndexVar(name);
-    } else if (util::contains(addedVars, name)) {
-      return addedVars.at(name);
+static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& parser, IndexStmt& stmt) {  
+  auto findVar = [&stmt](string name) {
+    ProvenanceGraph graph(stmt); 
+    for (auto v : graph.getAllIndexVars()) {
+      if (v.getName() == name) {
+        return v;
+      }
     }
 
     taco_uerror << "Index variable not defined in statement.";
@@ -236,7 +236,6 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
       for (auto a : getArgumentAccesses(stmt)) {
         if (a.getTensorVar().getName() == tensor) {
           IndexVar derived(ipos);
-          addedVars.insert({ipos, derived});
           stmt = stmt.pos(findVar(i), derived, a);
           goto end;
         }
@@ -250,7 +249,6 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
       getInput("Enter the fused index variable: ", f);  
 
       IndexVar fused(f); 
-      addedVars.insert({f, fused});
       stmt = stmt.fuse(findVar(i), findVar(j), fused); 
 
     } else if (command == "split") {
@@ -264,8 +262,6 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
 
       IndexVar split1(i1);
       IndexVar split2(i2);
-      addedVars.insert({i1, split1});
-      addedVars.insert({i2, split2});
       stmt = stmt.split(findVar(i), split1, split2, splitFactor);
 
     } else if (command == "divide") {
@@ -279,8 +275,6 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
 
       IndexVar divide1(i1);
       IndexVar divide2(i2);
-      addedVars.insert({i1, divide1});
-      addedVars.insert({i2, divide2});
       stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
 
     } else if (command == "precompute") {
@@ -295,7 +289,6 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
         pre = findVar(iw);
       } catch (exception& e) {
         pre = IndexVar(iw);
-        addedVars.insert({iw, pre});
       }
 
       struct GetExpr : public IndexNotationVisitor {
@@ -395,7 +388,6 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
       }
 
       IndexVar bound1(i1);
-      addedVars.insert({i1, bound1});
       stmt = stmt.bound(findVar(i), bound1, bound, bound_type);
 
     } else if (command == "unroll") {
@@ -418,10 +410,22 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
         parallel_unit = ParallelUnit::NotParallel; 
       } else if (unit == "DefaultUnit") { 
         parallel_unit = ParallelUnit::DefaultUnit; 
+      } else if (unit == "GPUBlock") {
+        parallel_unit = ParallelUnit::GPUBlock;
+      } else if (unit == "GPUWarp") {
+        parallel_unit = ParallelUnit::GPUWarp;
+      } else if (unit == "GPUThread") {
+        parallel_unit = ParallelUnit::GPUThread;
       } else if (unit == "CPUThread") {
         parallel_unit = ParallelUnit::CPUThread; 
       } else if (unit == "CPUVector") {
         parallel_unit = ParallelUnit::CPUVector;
+      } else if (unit == "CPUThreadGroupReduction") {
+        parallel_unit = ParallelUnit::CPUThreadGroupReduction;
+      } else if (unit == "CPUThreadGroupReduction") {
+        parallel_unit = ParallelUnit::CPUThreadGroupReduction; 
+      } else if (unit == "GPUWarpReduction") {
+        parallel_unit = ParallelUnit::GPUWarpReduction; 
       } else {
         out << "Parallel hardware not defined." << endl;
         goto end; 
@@ -516,7 +520,7 @@ int main(int argc, char* argv[]) {
 
   vector<string> kernelFilenames;
 
-  stringstream scheduleStream; 
+  vector<string> scheduleCommands; 
 
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
@@ -804,14 +808,18 @@ int main(int argc, char* argv[]) {
     else if ("-print-kernels" == argName) {
       printKernels = true;
     }
-    else if ("-set-schedule" == argName) {
+    else if ("-s" == argName) {
       if (argValue.empty()) {
         setScheduleInteractive = true; 
       } else {
         setScheduleManual = true; 
-        replace(argValue.begin(), argValue.end(), '-', ' ');
-        scheduleStream << argValue;
-        scheduleStream << " q";
+        std::replace_if(argValue.begin(), argValue.end(), [](char c) {
+          if (c == '(' || c == ')' || c == ',') {
+            return true; 
+          }
+          return false; 
+        }, ' '); 
+        scheduleCommands.push_back(argValue); 
       }
     }
     else {
@@ -919,7 +927,12 @@ int main(int argc, char* argv[]) {
 
   if (setScheduleInteractive) {
     setSchedulingCommands(cin, cout, parser, stmt);
-  } else if (setScheduleManual) { // TEMPORARY FIX TODO
+  } else if (setScheduleManual) {
+    stringstream scheduleStream; 
+    for (string command : scheduleCommands) {
+      scheduleStream << command; 
+    }
+
     stringstream throwaway;
     try {
       setSchedulingCommands(scheduleStream, throwaway, parser, stmt);
