@@ -53,6 +53,14 @@ IndexStmt scheduleSpMMCPU(IndexStmt stmt, Tensor<double> A, int CHUNK_SIZE=16, i
           .parallelize(k, ParallelUnit::CPUVector, OutputRaceStrategy::IgnoreRaces);
 }
 
+IndexStmt scheduleSpMSpVCPU(IndexStmt stmt, Tensor<double> x, int CHUNK_SIZE=16) {
+  IndexVar jpos("jpos"), jpos0("jpos0"), jpos1("jpos1");
+  return stmt.reorder({j,i})
+          .pos(j, jpos, x(j))
+          .split(jpos, jpos0, jpos1, CHUNK_SIZE)
+          .parallelize(jpos0, ParallelUnit::CPUThread, OutputRaceStrategy::Atomics);
+}
+
 IndexStmt scheduleSDDMMCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
   IndexVar i0("i0"), i1("i1"), kpos("kpos"), kpos0("kpos0"), kpos1("kpos1");
   return stmt.split(i, i0, i1, CHUNK_SIZE)
@@ -1132,26 +1140,18 @@ TEST(generate_evaluation_files, cpu) {
   if (should_use_CUDA_codegen()) {
     return;
   }
-  vector<vector<int>> spmv_parameters = {{8}, {16}, {32}};
+  vector<vector<int>> spmv_parameters = {{32}};
 
   // 4 to 512 and 4, 8, 16
   vector<vector<int>> spmm_dcsr_parameters = {{16, 8}};
-  vector<vector<int>> spmm_parameters = {};
-
-  for (int i = 4; i <= 512; i *= 2) {
-    for (int j = 4; j <= 16; j *= 2) {
-      spmm_parameters.push_back({i,j});
-    }
-  }
+  vector<vector<int>> spmm_parameters = {{8,8}};
 
   vector<vector<int>> mttkrp_parameters = {};
-  for (int i = 1; i <= 64; i *= 2) {
-    mttkrp_parameters.push_back({i,0});
+  mttkrp_parameters.push_back({64,0});
 
-  }
-  vector<vector<int>> sddmm_parameters = {{16, 8}, {8, 8}};
-  vector<vector<int>> ttv_parameters = {{16}, {8}, {32}};
-  vector<vector<int>> ttm_parameters = {{16, 8}, {8, 8}};
+  vector<vector<int>> sddmm_parameters = {{16, 8}};
+  vector<vector<int>> ttv_parameters = {{32}};
+  vector<vector<int>> ttm_parameters = {{8, 8}};
 
   int NUM_I = 100;
   int NUM_J = 100;
@@ -1173,15 +1173,33 @@ TEST(generate_evaluation_files, cpu) {
     Tensor<double> y("y", {NUM_I}, {Dense});
     y(i) = A(i, j) * x(j);
     IndexStmt stmt = y.getAssignment().concretize();
-    bool isFirst = true;
     for (auto paramSet : spmv_parameters) {
       IndexStmt scheduled = scheduleSpMVCPU(stmt, paramSet[0]);
-      ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
-      codegen->compile(compute, isFirst);
-      isFirst = false;
+      ir::Stmt compute = lower(scheduled, "spmv_csr_cpu_taco",  false, true);
+      codegen->compile(compute, false);
     }
     ofstream source_file;
-    source_file.open(file_path + "spmv_cpu" + file_ending);
+    source_file.open(file_path + "spmv_csr_cpu_taco.h");
+    source_file << source.str();
+    source_file.close();
+  }
+
+  // spmspv
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> A("A", {NUM_I, NUM_J}, Format({Dense, Sparse}, {1, 0}));
+    Tensor<double> x("x", {NUM_J}, {Sparse});
+    Tensor<double> y("y", {NUM_I}, {Dense});
+    y(i) = A(i, j) * x(j);
+    IndexStmt stmt = y.getAssignment().concretize();
+    for (auto paramSet : spmv_parameters) {
+      IndexStmt scheduled = scheduleSpMSpVCPU(stmt, x, paramSet[0]);
+      ir::Stmt compute = lower(scheduled, "spmspv_csr_cpu_taco",  false, true);
+      codegen->compile(compute, false);
+    }
+    ofstream source_file;
+    source_file.open(file_path + "spmspv_csr_cpu_taco.h");
     source_file << source.str();
     source_file.close();
   }
@@ -1195,15 +1213,13 @@ TEST(generate_evaluation_files, cpu) {
     Tensor<double> C("C", {NUM_I, NUM_K}, {Dense, Dense});
     C(i, k) = A(i, j) * B(j, k);
     IndexStmt stmt = C.getAssignment().concretize();
-    bool isFirst = true;
     for (auto paramSet : spmm_parameters) {
       IndexStmt scheduled = scheduleSpMMCPU(stmt, A, paramSet[0], paramSet[1]);
-      ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
-      codegen->compile(compute, isFirst);
-      isFirst = false;
+      ir::Stmt compute = lower(scheduled, "spmm_csr_cpu_taco",  false, true);
+      codegen->compile(compute, false);
     }
     ofstream source_file;
-    source_file.open(file_path + "spmm_cpu" + file_ending);
+    source_file.open(file_path + "spmm_csr_cpu_taco.h");
     source_file << source.str();
     source_file.close();
   }
@@ -1218,15 +1234,13 @@ TEST(generate_evaluation_files, cpu) {
     Tensor<double> D("D", {NUM_J, NUM_K}, {Dense, Dense});
     A(i,k) = B(i,k) * C(i,j) * D(j,k);
     IndexStmt stmt = A.getAssignment().concretize();
-    bool isFirst = true;
     for (auto paramSet : sddmm_parameters) {
       IndexStmt scheduled = scheduleSDDMMCPU(stmt, B, paramSet[0], paramSet[1]);
-      ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
-      codegen->compile(compute, isFirst);
-      isFirst = false;
+      ir::Stmt compute = lower(scheduled, "sddmm_csr_cpu_taco",  false, true);
+      codegen->compile(compute, false);
     }
     ofstream source_file;
-    source_file.open(file_path + "sddmm_cpu" + file_ending);
+    source_file.open(file_path + "sddmm_csr_cpu_taco.h");
     source_file << source.str();
     source_file.close();
   }
@@ -1240,15 +1254,13 @@ TEST(generate_evaluation_files, cpu) {
     Tensor<double> c("c", {NUM_K}, {Dense});
     A(i,j) = B(i,j,k) * c(k);
     IndexStmt stmt = A.getAssignment().concretize();
-    bool isFirst = true;
     for (auto paramSet : ttv_parameters) {
       IndexStmt scheduled = scheduleTTVCPU(stmt, B, paramSet[0]);
-      ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
-      codegen->compile(compute, isFirst);
-      isFirst = false;
+      ir::Stmt compute = lower(scheduled, "ttv_csf_cpu_taco",  false, true);
+      codegen->compile(compute, false);
     }
     ofstream source_file;
-    source_file.open(file_path + "ttv_cpu" + file_ending);
+    source_file.open(file_path + "ttv_csf_cpu_taco.h");
     source_file << source.str();
     source_file.close();
   }
@@ -1262,15 +1274,13 @@ TEST(generate_evaluation_files, cpu) {
     Tensor<double> C("C", {NUM_K, NUM_L}, {Dense, Dense});
     A(i,j,l) = B(i,j,k) * C(k,l);
     IndexStmt stmt = A.getAssignment().concretize();
-    bool isFirst = true;
     for (auto paramSet : ttm_parameters) {
       IndexStmt scheduled = scheduleTTMCPU(stmt, B, paramSet[0], paramSet[1]);
-      ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
-      codegen->compile(compute, isFirst);
-      isFirst = false;
+      ir::Stmt compute = lower(scheduled, "ttm_csf_cpu_taco",  false, true);
+      codegen->compile(compute, false);
     }
     ofstream source_file;
-    source_file.open(file_path + "ttm_cpu" + file_ending);
+    source_file.open(file_path + "ttv_csf_cpu_taco.h");
     source_file << source.str();
     source_file.close();
   }
@@ -1285,15 +1295,13 @@ TEST(generate_evaluation_files, cpu) {
     Tensor<double> D("D", {NUM_L, NUM_J}, {Dense, Dense});
     A(i,j) = B(i,k,l) * C(k,j) * D(l,j);
     IndexStmt stmt = A.getAssignment().concretize();
-    bool isFirst = true;
     for (auto paramSet : mttkrp_parameters) {
       IndexStmt scheduled = scheduleMTTKRPCPU(stmt, B, paramSet[0], paramSet[1]);
-      ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
-      codegen->compile(compute, isFirst);
-      isFirst = false;
+      ir::Stmt compute = lower(scheduled, "mttkrp3_csf_cpu_taco",  false, true);
+      codegen->compile(compute, false);
     }
     ofstream source_file;
-    source_file.open(file_path + "mttkrp3_cpu" + file_ending);
+    source_file.open(file_path + "mttkrp3_csf_cpu_taco.h");
     source_file << source.str();
     source_file.close();
   }
@@ -1315,11 +1323,11 @@ TEST(generate_evaluation_files, cpu) {
                       where(forall(j, A(i,j) += precomputed(j) * C(k,j)),
                             forall(l, forall(j, precomputed(j) += B(i,k,l) * D(l,j))))));
     IndexStmt scheduled = scheduleMTTKRPPrecomputedCPU(precomputed_stmt, B, 64);
-    ir::Stmt compute = lower(scheduled, string("mttkrp3_workspace"),  false, true);
-    codegen->compile(compute, true);
+    ir::Stmt compute = lower(scheduled, "mttkrp3_csf_cpu_taco_workspace",  false, true);
+    codegen->compile(compute, false);
 
     ofstream source_file;
-    source_file.open(file_path + "mttkrp3_cpu_workspace" + file_ending);
+    source_file.open(file_path + "mttkrp3_csf_cpu_taco_workspace.h");
     source_file << source.str();
     source_file.close();
   }
@@ -1335,15 +1343,13 @@ TEST(generate_evaluation_files, cpu) {
     Tensor<double> E("E", {NUM_M, NUM_J}, {Dense, Dense});
     A(i,j) = B(i,k,l,m) * C(k,j) * D(l,j) * E(m,j);
     IndexStmt stmt = A.getAssignment().concretize();
-    bool isFirst = true;
     for (auto paramSet : mttkrp_parameters) {
       IndexStmt scheduled = scheduleMTTKRP4CPU(stmt, B, paramSet[0], paramSet[1]);
-      ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
-      codegen->compile(compute, isFirst);
-      isFirst = false;
+      ir::Stmt compute = lower(scheduled, "mttkrp4_csf_cpu_taco",  false, true);
+      codegen->compile(compute, false);
     }
     ofstream source_file;
-    source_file.open(file_path + "mttkrp4_cpu" + file_ending);
+    source_file.open(file_path + "mttkrp4_csf_cpu_taco.h");
     source_file << source.str();
     source_file.close();
   }
@@ -1372,11 +1378,11 @@ TEST(generate_evaluation_files, cpu) {
                   forall(m, forall(j, BE_workspace(j) += B(i,k,l,m) * E(m,j))))))));
 
     IndexStmt scheduled = scheduleMTTKRPPrecomputedCPU(precomputed_stmt, B, 64);
-    ir::Stmt compute = lower(scheduled, string("mttkrp4_workspace"),  false, true);
-    codegen->compile(compute, true);
+    ir::Stmt compute = lower(scheduled, "mttkrp4_csf_cpu_taco_workspace",  false, true);
+    codegen->compile(compute, false);
 
     ofstream source_file;
-    source_file.open(file_path + "mttkrp4_cpu_workspace" + file_ending);
+    source_file.open(file_path + "mttkrp4_csf_cpu_taco_workspace.h");
     source_file << source.str();
     source_file.close();
   }
@@ -1393,15 +1399,13 @@ TEST(generate_evaluation_files, cpu) {
     Tensor<double> F("F", {NUM_N, NUM_J}, {Dense, Dense});
     A(i,j) = B(i,k,l,m,n) * C(k,j) * D(l,j) * E(m,j) * F(n,j);
     IndexStmt stmt = A.getAssignment().concretize();
-    bool isFirst = true;
     for (auto paramSet : mttkrp_parameters) {
       IndexStmt scheduled = scheduleMTTKRP5CPU(stmt, B, paramSet[0], paramSet[1]);
-      ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
-      codegen->compile(compute, isFirst);
-      isFirst = false;
+      ir::Stmt compute = lower(scheduled, "mttkrp5_csf_cpu_taco",  false, true);
+      codegen->compile(compute, false);
     }
     ofstream source_file;
-    source_file.open(file_path + "mttkrp5_cpu" + file_ending);
+    source_file.open(file_path + "mttkrp5_csf_cpu_taco.h");
     source_file << source.str();
     source_file.close();
   }
@@ -1434,21 +1438,17 @@ TEST(generate_evaluation_files, cpu) {
                    forall(n, forall(j, BF_workspace(j) += B(i,k,l,m,n)*F(n,j))))))))));
 
     IndexStmt scheduled = scheduleMTTKRPPrecomputedCPU(precomputed_stmt, B, 64);
-    ir::Stmt compute = lower(scheduled, string("mttkrp5_workspace"),  false, true);
-    codegen->compile(compute, true);
+    ir::Stmt compute = lower(scheduled, "mttkrp5_csf_cpu_taco_workspace",  false, true);
+    codegen->compile(compute, false);
 
     ofstream source_file;
-    source_file.open(file_path + "mttkrp5_cpu_workspace" + file_ending);
+    source_file.open(file_path + "mttkrp5_csf_cpu_taco_workspace.h");
     source_file << source.str();
     source_file.close();
   }
 }
 
 TEST(generate_evaluation_files, gpu) {
-  if (!should_use_CUDA_codegen()) {
-    return;
-  }
-
   vector<vector<int>> spmv_parameters = {}; // {NNZ_PER_THREAD, BLOCK_SIZE}
   for (int i = 3; i <= 20; i++) {
     spmv_parameters.push_back({i, 512});
@@ -1472,14 +1472,14 @@ TEST(generate_evaluation_files, gpu) {
   int NUM_K = 100;
   int NUM_L = 100;
 
-  string file_ending = should_use_CUDA_codegen() ? ".cu" : ".c";
+  string file_ending = ".cu";
   string file_path = "eval_prepared_gpu/";
   mkdir(file_path.c_str(), 0777);
 
   // spmv load-balance
   {
     stringstream source;
-    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    std::shared_ptr<ir::CodeGen> codegen = make_shared<ir::CodeGen_CUDA>(source, ir::CodeGen::ImplementationGen);
     Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
     Tensor<double> x("x", {NUM_J}, {Dense});
     Tensor<double> y("y", {NUM_I}, {Dense});
@@ -1507,7 +1507,7 @@ TEST(generate_evaluation_files, gpu) {
   // spmv
   {
     stringstream source;
-    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    std::shared_ptr<ir::CodeGen> codegen = make_shared<ir::CodeGen_CUDA>(source, ir::CodeGen::ImplementationGen);
     Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
     Tensor<double> x("x", {NUM_J}, {Dense});
     Tensor<double> y("y", {NUM_I}, {Dense});
@@ -1530,7 +1530,7 @@ TEST(generate_evaluation_files, gpu) {
   // spmm
   {
     stringstream source;
-    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    std::shared_ptr<ir::CodeGen> codegen = make_shared<ir::CodeGen_CUDA>(source, ir::CodeGen::ImplementationGen);
     Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
     bool isFirst = true;
     for (auto paramSet : spmm_parameters) {
@@ -1559,7 +1559,7 @@ TEST(generate_evaluation_files, gpu) {
     bool isFirst = true;
     for (auto paramSet : sddmm_parameters) {
       int NUM_K = paramSet[2] * WARP_SIZE;
-      std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+      std::shared_ptr<ir::CodeGen> codegen = make_shared<ir::CodeGen_CUDA>(source, ir::CodeGen::ImplementationGen);
       Tensor<double> A("A", {NUM_I, NUM_K}, CSR);
       Tensor<double> B("B", {NUM_I, NUM_K}, CSR);
       Tensor<double> D("D", {NUM_J, NUM_K}, {Dense, Dense});
@@ -1579,7 +1579,7 @@ TEST(generate_evaluation_files, gpu) {
   // ttv
   {
     stringstream source;
-    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    std::shared_ptr<ir::CodeGen> codegen = make_shared<ir::CodeGen_CUDA>(source, ir::CodeGen::ImplementationGen);
     Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Sparse}); // TODO: change to sparse outputs
     Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Dense, Sparse, Sparse});
     Tensor<double> c("c", {NUM_K}, {Dense});
@@ -1602,7 +1602,7 @@ TEST(generate_evaluation_files, gpu) {
   // ttm
   {
     stringstream source;
-    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    std::shared_ptr<ir::CodeGen> codegen = make_shared<ir::CodeGen_CUDA>(source, ir::CodeGen::ImplementationGen);
     Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Sparse, Sparse, Dense}); // TODO: change to sparse outputs
     bool isFirst = true;
     for (auto paramSet : ttm_parameters) {
@@ -1625,7 +1625,7 @@ TEST(generate_evaluation_files, gpu) {
   // mttkrp
   {
     stringstream source;
-    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    std::shared_ptr<ir::CodeGen> codegen = make_shared<ir::CodeGen_CUDA>(source, ir::CodeGen::ImplementationGen);
     Tensor<double> B("B", {NUM_I, NUM_K, NUM_L}, {Sparse, Sparse, Sparse});
 
     bool isFirst = true;
