@@ -196,6 +196,22 @@ IndexStmt scheduleSpMMGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precompute
           .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
 }
 
+IndexStmt scheduleSpMSpVGPU(IndexStmt stmt, Tensor<double> x, Tensor<double> A) {
+  IndexVar jpos("jpos"), jpos_bound("jpos_bound"),
+    block("block"), thread("thread"), f("f"), fpos("fpos"), fpos_block("fpos_block"),
+    fpos_thread("fpos_thread");
+  int BLOCK_SIZE = 512;
+  int NNZ_PER_TB = 8 * BLOCK_SIZE;
+  return stmt.reorder({j,i})
+            .fuse(j, i, f)
+            .pos(f, fpos, A(i,j))
+            .split(fpos, block, fpos_block, NNZ_PER_TB)
+            .split(fpos_block, fpos_thread, thread, BLOCK_SIZE)
+            .reorder({block, thread, fpos_thread})
+            .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
+            .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
+}
+
 IndexStmt scheduleSDDMMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256, int CO_FACTOR=4) {
   int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   IndexVar f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), nnz("nnz");
@@ -1514,6 +1530,26 @@ TEST(generate_evaluation_files, gpu) {
     }
     ofstream source_file;
     source_file.open(file_path + "spmv_csr_gpu_taco.h");
+    source_file << source.str();
+    source_file.close();
+  }
+
+  // spmspv
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = make_shared<ir::CodeGen_CUDA>(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> A("A", {NUM_I, NUM_J}, Format({Sparse, Sparse}, {1, 0}));
+    Tensor<double> x("x", {NUM_J}, {Sparse});
+    Tensor<double> y("y", {NUM_I}, {Dense});
+    y(i) = A(i, j) * x(j);
+    IndexStmt stmt = y.getAssignment().concretize();
+    for (auto paramSet : spmv_parameters) {
+      IndexStmt scheduled = scheduleSpMSpVGPU(stmt, x, A);
+      ir::Stmt compute = lower(scheduled, "spmspv_csr_gpu_taco",  false, true);
+      codegen->compile(compute, false);
+    }
+    ofstream source_file;
+    source_file.open(file_path + "spmspv_csr_gpu_taco.h");
     source_file << source.str();
     source_file.close();
   }
