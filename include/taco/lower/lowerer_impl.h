@@ -358,6 +358,7 @@ protected:
 private:
   bool assemble;
   bool compute;
+  bool uses_gpu;
 
   int markAssignsAtomicDepth = 0;
   ParallelUnit atomicParallelUnit;

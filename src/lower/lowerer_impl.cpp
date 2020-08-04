@@ -131,6 +131,18 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
     tensorVars.insert({temp, irVar});
   }
 
+  uses_gpu = false;
+  match(stmt,
+    function<void(const ForallNode*, Matcher*)>([&](
+        const ForallNode* n, Matcher* m) {
+      if (n->parallel_unit == ParallelUnit::GPUBlock) {
+        uses_gpu = true;
+        return;
+      }
+      m->match(n->stmt);
+    })
+  );
+
   // Create variables for keeping track of result values array capacity
   createCapacityVars(resultVars, &capacityVars);
 
@@ -1909,7 +1921,8 @@ Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
   LoopKind parallel = (isa<ir::Literal>(size) && 
                        to<ir::Literal>(size)->getIntValue() < (1 << 10))
                       ? LoopKind::Serial : LoopKind::Static_Chunked;
-  if (should_use_CUDA_codegen() && util::contains(parallelUnitSizes, ParallelUnit::GPUBlock)) {
+  
+  if (uses_gpu) {
     return ir::VarDecl::make(ir::Var::make("status", Int()),
                                     ir::Call::make("cudaMemset", {values, ir::Literal::make(0, Int()), ir::Mul::make(ir::Sub::make(upper, lower), ir::Literal::make(values.type().getNumBytes()))}, Int()));
   }
