@@ -1296,7 +1296,7 @@ TEST(generate_evaluation_files, cpu) {
       codegen->compile(compute, false);
     }
     ofstream source_file;
-    source_file.open(file_path + "ttv_csf_cpu_taco.h");
+    source_file.open(file_path + "ttm_csf_cpu_taco.h");
     source_file << source.str();
     source_file.close();
   }
