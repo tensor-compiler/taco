@@ -1167,7 +1167,6 @@ TEST(generate_evaluation_files, cpu) {
 
   vector<vector<int>> sddmm_parameters = {{16, 8}};
   vector<vector<int>> ttv_parameters = {{32}};
-  vector<vector<int>> ttm_parameters = {{8, 8}};
 
   int NUM_I = 100;
   int NUM_J = 100;
@@ -1277,26 +1276,6 @@ TEST(generate_evaluation_files, cpu) {
     }
     ofstream source_file;
     source_file.open(file_path + "ttv_csf_cpu_taco.h");
-    source_file << source.str();
-    source_file.close();
-  }
-
-  // ttm
-  {
-    stringstream source;
-    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-    Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Dense, Sparse, Dense}); // TODO: change to sparse outputs
-    Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
-    Tensor<double> C("C", {NUM_K, NUM_L}, {Dense, Dense});
-    A(i,j,l) = B(i,j,k) * C(k,l);
-    IndexStmt stmt = A.getAssignment().concretize();
-    for (auto paramSet : ttm_parameters) {
-      IndexStmt scheduled = scheduleTTMCPU(stmt, B, paramSet[0], paramSet[1]);
-      ir::Stmt compute = lower(scheduled, "ttm_csf_cpu_taco",  false, true);
-      codegen->compile(compute, false);
-    }
-    ofstream source_file;
-    source_file.open(file_path + "ttm_csf_cpu_taco.h");
     source_file << source.str();
     source_file.close();
   }
@@ -1476,7 +1455,6 @@ TEST(generate_evaluation_files, gpu) {
   vector<vector<int>> spmm_dcsr_parameters = {{4, 256, 4}}; // {NNZ_PER_WARP, BLOCK_SIZE, CO_FACTOR}
   vector<vector<int>> sddmm_parameters = {{8*32, 256, 4}}; // {NNZ_PER_WARP, BLOCK_SIZE, CO_FACTOR}
   vector<vector<int>> ttv_parameters = {{8*32, 256}}; // {NNZ_PER_WARP, BLOCK_SIZE}
-  vector<vector<int>> ttm_parameters = {{8*32, 256, 4}}; // {NNZ_PER_WARP, BLOCK_SIZE, CO_FACTOR}
 
   int NUM_I = 100;
   int NUM_J = 100;
@@ -1616,27 +1594,6 @@ TEST(generate_evaluation_files, gpu) {
     }
     ofstream source_file;
     source_file.open(file_path + "ttv_csf_gpu_taco.h");
-    source_file << source.str();
-    source_file.close();
-  }
-
-  // ttm
-  {
-    stringstream source;
-    std::shared_ptr<ir::CodeGen> codegen = make_shared<ir::CodeGen_CUDA>(source, ir::CodeGen::ImplementationGen);
-    Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Sparse, Sparse, Dense}); // TODO: change to sparse outputs
-    for (auto paramSet : ttm_parameters) {
-      int NUM_K = paramSet[2] * WARP_SIZE;
-      Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Dense, Sparse, Sparse});
-      Tensor<double> C("C", {NUM_K, NUM_L}, {Dense, Dense});
-      A(i,j,l) = B(i,j,k) * C(k,l);
-      IndexStmt stmt = A.getAssignment().concretize();
-      IndexStmt scheduled = scheduleTTMGPU(stmt, B, paramSet[0], paramSet[1], paramSet[2]);
-      ir::Stmt compute = lower(scheduled, "ttm_csf_gpu_taco.h",  false, true);
-      codegen->compile(compute, false);
-    }
-    ofstream source_file;
-    source_file.open(file_path + "ttm_csf_gpu_taco.h");
     source_file << source.str();
     source_file.close();
   }
