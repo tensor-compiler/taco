@@ -64,11 +64,7 @@ IndexStmt scheduleSpMSpVCPU(IndexStmt stmt, Tensor<double> x, int CHUNK_SIZE=16)
 IndexStmt scheduleSDDMMCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
   IndexVar i0("i0"), i1("i1"), kpos("kpos"), kpos0("kpos0"), kpos1("kpos1");
   return stmt.split(i, i0, i1, CHUNK_SIZE)
-          .pos(k, kpos, B(i,k))
-          .split(kpos, kpos0, kpos1, UNROLL_FACTOR)
-          .reorder({i0, i1, kpos0, j, kpos1})
-          .parallelize(i0, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces)
-          .parallelize(kpos1, ParallelUnit::CPUVector, OutputRaceStrategy::ParallelReduction);
+          .parallelize(i0, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }
 
 IndexStmt scheduleTTVCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16) {
@@ -200,16 +196,13 @@ IndexStmt scheduleSpMSpVGPU(IndexStmt stmt, Tensor<double> x, Tensor<double> A) 
   IndexVar jpos("jpos"), jpos_bound("jpos_bound"),
     block("block"), thread("thread"), f("f"), fpos("fpos"), fpos_block("fpos_block"),
     fpos_thread("fpos_thread");
-  int BLOCK_SIZE = 512;
-  int NNZ_PER_TB = 8 * BLOCK_SIZE;
-  return stmt.reorder({j,i})
-            .fuse(j, i, f)
-            .pos(f, fpos, A(i,j))
-            .split(fpos, block, fpos_block, NNZ_PER_TB)
-            .split(fpos_block, fpos_thread, thread, BLOCK_SIZE)
-            .reorder({block, thread, fpos_thread})
-            .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
-            .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
+ return stmt.reorder({j,i})
+         .pos(j, jpos, x(j))
+         .bound(jpos, jpos_bound, 0, BoundType::MinExact)
+         .split(jpos_bound, block, thread, 512)
+         .reorder({block, thread, i})
+         .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
+         .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
 }
 
 IndexStmt scheduleSDDMMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256, int CO_FACTOR=4) {
@@ -250,7 +243,7 @@ IndexStmt scheduleTTMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*32
           .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
 }
 
-IndexStmt scheduleTTVGPU(IndexStmt stmt, Tensor<double> B, IndexExpr precomputedExpr, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256) {
+IndexStmt scheduleTTVGPU(IndexStmt stmt, Tensor<float> B, IndexExpr precomputedExpr, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256) {
   int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   IndexVar jk("jk"), f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), fpos2("fpos2"), thread("thread"), thread_nz("thread_nz"), thread_nz_pre("thread_nz_pre");
   TensorVar precomputed("precomputed", Type(Float64, {Dimension(thread_nz)}), taco::dense);
@@ -1045,9 +1038,9 @@ TEST(scheduling_eval, ttvGPU) {
   int NUM_J = 1039/10;
   int NUM_K = 1057/10;
   float SPARSITY = .3;
-  Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Sparse}); // TODO: change to sparse outputs
-  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Dense, Sparse, Sparse});
-  Tensor<double> c("c", {NUM_K}, {Dense});
+  Tensor<float> A("A", {NUM_I, NUM_J}, {Dense, Sparse}); // TODO: change to sparse outputs
+  Tensor<float> B("B", {NUM_I, NUM_J, NUM_K}, {Dense, Sparse, Sparse});
+  Tensor<float> c("c", {NUM_K}, {Dense});
 
   srand(35325);
   for (int i = 0; i < NUM_I; i++) {
@@ -1157,15 +1150,16 @@ TEST(generate_evaluation_files, cpu) {
     return;
   }
   vector<vector<int>> spmv_parameters = {{32}};
+  vector<vector<int>> spmspv_parameters = {{8}};
 
   // 4 to 512 and 4, 8, 16
   vector<vector<int>> spmm_dcsr_parameters = {{16, 8}};
-  vector<vector<int>> spmm_parameters = {{8,8}};
+  vector<vector<int>> spmm_parameters = {{16,4}};
 
   vector<vector<int>> mttkrp_parameters = {};
   mttkrp_parameters.push_back({64,0});
 
-  vector<vector<int>> sddmm_parameters = {{16, 8}};
+  vector<vector<int>> sddmm_parameters = {{8, 8}};
   vector<vector<int>> ttv_parameters = {{32}};
 
   int NUM_I = 100;
@@ -1208,7 +1202,7 @@ TEST(generate_evaluation_files, cpu) {
     Tensor<double> y("y", {NUM_I}, {Dense});
     y(i) = A(i, j) * x(j);
     IndexStmt stmt = y.getAssignment().concretize();
-    for (auto paramSet : spmv_parameters) {
+    for (auto paramSet : spmspv_parameters) {
       IndexStmt scheduled = scheduleSpMSpVCPU(stmt, x, paramSet[0]);
       ir::Stmt compute = lower(scheduled, "spmspv_csr_cpu_taco",  false, true);
       codegen->compile(compute, false);
@@ -1453,8 +1447,8 @@ TEST(generate_evaluation_files, gpu) {
   vector<vector<int>> mttkrp_parameters = {{4,512}}; // {NNZ_PER_WARP, BLOCK_SIZE, CO_FACTOR}
 
   vector<vector<int>> spmm_dcsr_parameters = {{4, 256, 4}}; // {NNZ_PER_WARP, BLOCK_SIZE, CO_FACTOR}
-  vector<vector<int>> sddmm_parameters = {{8*32, 256, 4}}; // {NNZ_PER_WARP, BLOCK_SIZE, CO_FACTOR}
-  vector<vector<int>> ttv_parameters = {{8*32, 256}}; // {NNZ_PER_WARP, BLOCK_SIZE}
+  vector<vector<int>> sddmm_parameters = {{4*32, 512, 4}}; // {NNZ_PER_WARP, BLOCK_SIZE, CO_FACTOR}
+  vector<vector<int>> ttv_parameters = {{128, 512}}; // {NNZ_PER_WARP, BLOCK_SIZE}
 
   int NUM_I = 100;
   int NUM_J = 100;
@@ -1581,9 +1575,9 @@ TEST(generate_evaluation_files, gpu) {
   {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = make_shared<ir::CodeGen_CUDA>(source, ir::CodeGen::ImplementationGen);
-    Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Sparse}); // TODO: change to sparse outputs
-    Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Dense, Sparse, Sparse});
-    Tensor<double> c("c", {NUM_K}, {Dense});
+    Tensor<float> A("A", {NUM_I, NUM_J}, {Dense, Sparse}); // TODO: change to sparse outputs
+    Tensor<float> B("B", {NUM_I, NUM_J, NUM_K}, {Dense, Sparse, Sparse});
+    Tensor<float> c("c", {NUM_K}, {Dense});
     IndexExpr precomputedExpr = B(i,j,k) * c(k);
     A(i,j) = precomputedExpr;
     IndexStmt stmt = A.getAssignment().concretize();

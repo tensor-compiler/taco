@@ -645,6 +645,9 @@ std::vector<ir::Expr> BoundRelNode::deriveIterBounds(taco::IndexVar indexVar,
   if (getBoundType() == BoundType::MaxExact) {
     return {parentCoordBound[0], ir::Literal::make(getBound(), parentCoordBound[1].type())};
   }
+  else if (getBoundType() == BoundType::MinExact) {
+    return {ir::Literal::make(getBound(), parentCoordBound[0].type()), parentCoordBound[1]};
+  }
   else {
     taco_not_supported_yet;
   }
@@ -1136,7 +1139,8 @@ bool ProvenanceGraph::hasExactBound(IndexVar indexVar) const {
   IndexVarRel rel = parentRelMap.at(indexVar);
   if(rel.getRelType() == BOUND)
   {
-    return rel.getNode<BoundRelNode>()->getBoundType() == BoundType::MaxExact;
+    return rel.getNode<BoundRelNode>()->getBoundType() == BoundType::MaxExact ||
+            rel.getNode<BoundRelNode>()->getBoundType() == BoundType::MinExact;
   }
   // TODO: include non-irregular variables
   return false;
