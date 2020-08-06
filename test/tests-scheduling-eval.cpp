@@ -246,7 +246,7 @@ IndexStmt scheduleTTMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*32
 IndexStmt scheduleTTVGPU(IndexStmt stmt, Tensor<float> B, IndexExpr precomputedExpr, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256) {
   int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   IndexVar jk("jk"), f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), fpos2("fpos2"), thread("thread"), thread_nz("thread_nz"), thread_nz_pre("thread_nz_pre");
-  TensorVar precomputed("precomputed", Type(Float64, {Dimension(thread_nz)}), taco::dense);
+  TensorVar precomputed("precomputed", Type(Float32, {Dimension(thread_nz)}), taco::dense);
 
   return stmt.fuse(j, k, jk)
           .fuse(i, jk, f)
