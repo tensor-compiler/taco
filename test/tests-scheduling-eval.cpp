@@ -1558,7 +1558,7 @@ TEST(generate_evaluation_files, gpu) {
       std::shared_ptr<ir::CodeGen> codegen = make_shared<ir::CodeGen_CUDA>(source, ir::CodeGen::ImplementationGen);
       Tensor<double> A("A", {NUM_I, NUM_K}, CSR);
       Tensor<double> B("B", {NUM_I, NUM_K}, CSR);
-      Tensor<double> D("D", {NUM_J, NUM_K}, {Dense, Dense});
+      Tensor<double> D("D", {NUM_J, NUM_K}, Format({{Dense, Dense}, {1, 0}}));
       A(i,k) = B(i,k) * C(i,j) * D(j,k);
       IndexStmt stmt = A.getAssignment().concretize();
       IndexStmt scheduled = scheduleSDDMMGPU(stmt, B, paramSet[0], paramSet[1], paramSet[2]);
