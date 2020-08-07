@@ -1435,6 +1435,112 @@ TEST(generate_evaluation_files, cpu) {
     source_file << source.str();
     source_file.close();
   }
+
+  // fig 2b
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> B("B", {NUM_I, NUM_J}, {Dense, Dense});
+    Tensor<double> a("a", {NUM_J}, {Dense});
+    Tensor<double> c("c", {NUM_I}, {Dense});
+    a(i) = B(i, j) * c(j);
+    IndexStmt stmt = a.getAssignment().concretize();
+    for (auto paramSet : spmv_parameters) {
+      IndexStmt scheduled = stmt;
+      ir::Stmt compute = lower(scheduled, "fig2b",  false, true);
+      codegen->compile(compute, false);
+    }
+    ofstream source_file;
+    source_file.open(file_path + "fig2b.h");
+    source_file << source.str();
+    source_file.close();
+  }
+
+  // fig 2c
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> B("B", {NUM_I, NUM_J}, CSR);
+    Tensor<double> a("a", {NUM_J}, {Dense});
+    Tensor<double> c("c", {NUM_I}, {Dense});
+    a(i) = B(i, j) * c(j);
+    IndexStmt stmt = a.getAssignment().concretize();
+    for (auto paramSet : spmv_parameters) {
+      IndexStmt scheduled = stmt;
+      ir::Stmt compute = lower(scheduled, "fig2c",  false, true);
+      codegen->compile(compute, false);
+    }
+    ofstream source_file;
+    source_file.open(file_path + "fig2c.h");
+    source_file << source.str();
+    source_file.close();
+  }
+
+  // fig 2d
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> B("B", {NUM_I, NUM_J}, CSR);
+    Tensor<double> a("a", {NUM_J}, {Dense});
+    Tensor<double> c("c", {NUM_I}, {Dense});
+    a(i) = B(i, j) * c(j);
+    IndexStmt stmt = a.getAssignment().concretize();
+    for (auto paramSet : spmv_parameters) {
+      IndexVar f("f"), p("p");
+      IndexStmt scheduled = stmt.fuse(i, j, f).pos(f, p, B(i, j));
+      ir::Stmt compute = lower(scheduled, "fig2d",  false, true);
+      codegen->compile(compute, false);
+    }
+    ofstream source_file;
+    source_file.open(file_path + "fig2d.h");
+    source_file << source.str();
+    source_file.close();
+  }
+
+  // fig 2e
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> B("B", {NUM_I, NUM_J}, CSR);
+    Tensor<double> a("a", {NUM_J}, {Dense});
+    Tensor<double> c("c", {NUM_I}, {Dense});
+    a(i) = B(i, j) * c(j);
+    IndexStmt stmt = a.getAssignment().concretize();
+    for (auto paramSet : spmv_parameters) {
+      IndexVar i1("i1"), i2("i2");
+      IndexStmt scheduled = stmt.split(i, i1, i2, 4);
+      ir::Stmt compute = lower(scheduled, "fig2e",  false, true);
+      codegen->compile(compute, false);
+    }
+    ofstream source_file;
+    source_file.open(file_path + "fig2e.h");
+    source_file << source.str();
+    source_file.close();
+  }
+
+  // fig 13
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> B("B", {NUM_I, NUM_J}, CSR);
+    Tensor<double> a("a", {NUM_J}, {Dense});
+    Tensor<double> c("c", {NUM_I}, {Dense});
+    a(i) = B(i, j) * c(j);
+    IndexStmt stmt = a.getAssignment().concretize();
+    for (auto paramSet : spmv_parameters) {
+      IndexVar f("f"), p("p"), p0("p0"), p1("p1");
+      IndexStmt scheduled = stmt.fuse(i, j, f)
+                                .pos(f, p, B(i, j))
+                                .split(p, p0, p1, 16)
+                                .parallelize(p0, ParallelUnit::CPUThread, OutputRaceStrategy::Atomics);
+      ir::Stmt compute = lower(scheduled, "fig13",  false, true);
+      codegen->compile(compute, false);
+    }
+    ofstream source_file;
+    source_file.open(file_path + "fig13.h");
+    source_file << source.str();
+    source_file.close();
+  }
 }
 
 TEST(generate_evaluation_files, gpu) {
