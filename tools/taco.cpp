@@ -203,7 +203,7 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   }
 }
 
-static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& parser, IndexStmt& stmt) {  
+static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt& stmt) {  
   auto findVar = [&stmt](string name) {
     ProvenanceGraph graph(stmt); 
     for (auto v : graph.getAllIndexVars()) {
@@ -213,25 +213,22 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
     }
 
     taco_uerror << "Index variable not defined in statement.";
+    return IndexVar();
   };
 
-  auto getInput = [&in, &out](string prompt, auto &var) {
-    out << prompt; 
-    in >> var; 
-  };
+  bool isGPU = false;  
 
-  out << endl << "To exit, input 'q'." << endl << endl;
   while (true) {
     string command;
-    getInput("Enter a command: ", command); 
+    in >> command; 
 
     if (command == "pos") {
       string i, ipos; 
-      getInput("Enter the index variable to transform: ", i);
-      getInput("Enter the derived position index variable: ", ipos);
+      in >> i; 
+      in >> ipos; 
 
       string tensor;
-      getInput("Enter the tensor to perform the position cut on: ", tensor);
+      in >> tensor; 
 
       for (auto a : getArgumentAccesses(stmt)) {
         if (a.getTensorVar().getName() == tensor) {
@@ -240,25 +237,24 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
           goto end;
         }
       }
-      out << "Tensor access not defined in statement." << endl;
 
     } else if (command == "fuse") {
       string i, j, f; 
-      getInput("Enter the outer index variable to fuse: ", i);
-      getInput("Enter the inner index variable to fuse: ", j);
-      getInput("Enter the fused index variable: ", f);  
+      in >> i; 
+      in >> j; 
+      in >> f; 
 
       IndexVar fused(f); 
       stmt = stmt.fuse(findVar(i), findVar(j), fused); 
 
     } else if (command == "split") {
       string i, i1, i2; 
-      getInput("Enter the index variable to split: ", i);
-      getInput("Enter the split outer index variable: ", i1);
-      getInput("Enter the split inner index variable: ", i2);
+      in >> i; 
+      in >> i1; 
+      in >> i2; 
 
       size_t splitFactor; 
-      getInput("Enter the split factor: ", splitFactor);
+      in >> splitFactor; 
 
       IndexVar split1(i1);
       IndexVar split2(i2);
@@ -266,12 +262,12 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
 
     } else if (command == "divide") {
       string i, i1, i2; 
-      getInput("Enter the index variable to divide: ", i);
-      getInput("Enter the divided outer index variable: ", i1);
-      getInput("Enter the divided inner index variable: ", i2);
+      in >> i; 
+      in >> i1; 
+      in >> i2; 
 
       size_t divideFactor; 
-      getInput("Enter the divide factor: ", divideFactor);
+      in >> divideFactor; 
 
       IndexVar divide1(i1);
       IndexVar divide2(i2);
@@ -279,9 +275,9 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
 
     } else if (command == "precompute") {
       string i, iw, exprStr; 
-      getInput("Enter the index variable to precompute over: ", i);
-      getInput("Enter the index variable to precompute with: ", iw); 
-      getInput("Enter (without spaces) the expression to precompute: ", exprStr); 
+      in >> i; 
+      in >> iw; 
+      in >> exprStr; 
 
       IndexVar orig = findVar(i);
       IndexVar pre; 
@@ -345,18 +341,26 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
       visitor.setExprStr(exprStr); 
       stmt.accept(&visitor);
 
-      Dimension dim = stmt.getIndexVarDomains().at(orig); 
+      Dimension dim; 
+      auto domains = stmt.getIndexVarDomains();
+      auto it = domains.find(orig);
+      if (it != domains.end()) {
+        dim = it->second; 
+      } else {
+        dim = Dimension(orig);
+      }
+
       TensorVar workspace("workspace", Type(Float64, {dim}), Dense);
       stmt = stmt.precompute(visitor.expr, orig, pre, workspace);
 
     } else if (command == "reorder") {
       int n; 
-      getInput("Enter the number of index variables to reorder: ", n);
+      in >> n; 
 
       vector<IndexVar> reorderedVars; 
       for (int i = 0; i < n; i++) {
         string var;
-        getInput("Enter an index variable to reorder: ", var);
+        in >> var; 
         reorderedVars.push_back(findVar(var));
       }
 
@@ -364,14 +368,14 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
 
     } else if (command == "bound") {
       string i, i1; 
-      getInput("Enter the index variable to bound: ", i);
-      getInput("Enter the bounded index variable: ", i1);
+      in >> i; 
+      in >> i1; 
 
       size_t bound;
-      getInput("Enter the value to bound by: ", bound);
+      in >> bound; 
 
       string type; 
-      getInput("Enter the bound type: ", type);
+      in >> type; 
 
       BoundType bound_type; 
       if (type == "MinExact") { 
@@ -383,7 +387,7 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
       } else if (type == "MaxConstraint") {
         bound_type = BoundType::MaxConstraint; 
       } else {
-        out << "Bound type not defined." << endl;
+        taco_uerror << "Bound type not defined.";
         goto end; 
       }
 
@@ -392,42 +396,37 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
 
     } else if (command == "unroll") {
       string i; 
-      getInput("Enter the index variable to unroll: ", i);
+      in >> i; 
 
       size_t unrollFactor; 
-      getInput("Enter the unroll factor: ", unrollFactor);
+      in >> unrollFactor; 
 
       stmt = stmt.unroll(findVar(i), unrollFactor);
       
     } else if (command == "parallelize") {
       string i, unit, strategy; 
-      getInput("Enter the index variable to parallelize: ", i);
-      getInput("Enter the type of parallel hardware: ", unit);
-      getInput("Enter the race strategy: ", strategy);
+      in >> i; 
+      in >> unit; 
+      in >> strategy; 
 
       ParallelUnit parallel_unit; 
       if (unit == "NotParallel") { 
         parallel_unit = ParallelUnit::NotParallel; 
-      } else if (unit == "DefaultUnit") { 
-        parallel_unit = ParallelUnit::DefaultUnit; 
       } else if (unit == "GPUBlock") {
         parallel_unit = ParallelUnit::GPUBlock;
+        isGPU = true; 
       } else if (unit == "GPUWarp") {
         parallel_unit = ParallelUnit::GPUWarp;
+        isGPU = true; 
       } else if (unit == "GPUThread") {
         parallel_unit = ParallelUnit::GPUThread;
+        isGPU = true; 
       } else if (unit == "CPUThread") {
         parallel_unit = ParallelUnit::CPUThread; 
       } else if (unit == "CPUVector") {
         parallel_unit = ParallelUnit::CPUVector;
-      } else if (unit == "CPUThreadGroupReduction") {
-        parallel_unit = ParallelUnit::CPUThreadGroupReduction;
-      } else if (unit == "CPUThreadGroupReduction") {
-        parallel_unit = ParallelUnit::CPUThreadGroupReduction; 
-      } else if (unit == "GPUWarpReduction") {
-        parallel_unit = ParallelUnit::GPUWarpReduction; 
       } else {
-        out << "Parallel hardware not defined." << endl;
+        taco_uerror << "Parallel hardware not defined.";
         goto end; 
       }
 
@@ -443,23 +442,20 @@ static void setSchedulingCommands(istream& in, ostream& out, parser::Parser& par
       } else if (strategy == "ParallelReduction") {
         output_race_strategy = OutputRaceStrategy::ParallelReduction;
       } else { 
-        out << "Race strategy not defined." << endl;
+        taco_uerror << "Race strategy not defined."; 
         goto end; 
       }
 
       stmt = stmt.parallelize(findVar(i), parallel_unit, output_race_strategy);
 
-    } else if (command == "q") {
-      break; 
     } else {
-      out << "Not a valid command";
       break; 
     }
 
-    end: out << endl; 
+    end:; 
   }
 
-  out << endl << endl;
+  return isGPU; 
 }
 
 int main(int argc, char* argv[]) {
@@ -489,8 +485,7 @@ int main(int argc, char* argv[]) {
   bool readKernels         = false;
   bool cuda                = false;
 
-  bool setScheduleInteractive = false; 
-  bool setScheduleManual      = false; 
+  bool setSchedule         = false; 
 
   ParallelSchedule sched = ParallelSchedule::Static;
   int chunkSize = 0;
@@ -808,34 +803,29 @@ int main(int argc, char* argv[]) {
     else if ("-print-kernels" == argName) {
       printKernels = true;
     }
-    else if ("-s" == argName) {
-      if (argValue.empty()) {
-        setScheduleInteractive = true; 
-      } else {
-        setScheduleManual = true; 
-        
-        bool insideCall = false; 
-        bool parsingExpr = false; 
+    else if ("-s" == argName) {  
+      setSchedule = true;       
+      bool insideCall = false; 
+      bool parsingExpr = false; 
 
-        std::replace_if(argValue.begin(), argValue.end(), [&insideCall, &parsingExpr](char c) {
-          if (c == '(') {
-            if (insideCall) {
-              parsingExpr = true; // need to handle precompute case specially
-            } else {
-              insideCall = true; 
-              return true; 
-            }
-          } else if (c == ',') {
-            return !parsingExpr; 
-          } else if (c == ')') {
-            bool previous = parsingExpr; 
-            parsingExpr = false; 
-            return !previous; 
+      std::replace_if(argValue.begin(), argValue.end(), [&insideCall, &parsingExpr](char c) {
+        if (c == '(') {
+          if (insideCall) {
+            parsingExpr = true; // need to handle precompute case specially
+          } else {
+            insideCall = true; 
+            return true; 
           }
-          return false; 
-        }, ' '); 
-        scheduleCommands.push_back(argValue); 
-      }
+        } else if (c == ',') {
+          return !parsingExpr; 
+        } else if (c == ')') {
+          bool previous = parsingExpr; 
+          parsingExpr = false; 
+          return !previous; 
+        }
+        return false; 
+      }, ' '); 
+      scheduleCommands.push_back(argValue); 
     }
     else {
       if (exprStr.size() != 0) {
@@ -917,16 +907,6 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  if (cuda) {
-    if (!CUDA_BUILT && benchmark) {
-      return reportError("TACO must be built for CUDA (cmake -DCUDA=ON ..) to benchmark", 2);
-    }
-    set_CUDA_codegen_enabled(true);
-  }
-  else {
-    set_CUDA_codegen_enabled(false);
-  }
-
   ir::Stmt assemble;
   ir::Stmt compute;
   ir::Stmt evaluate;
@@ -940,22 +920,29 @@ int main(int argc, char* argv[]) {
   stmt = insertTemporaries(stmt);
   stmt = parallelizeOuterLoop(stmt);
 
-  if (setScheduleInteractive) {
-    setSchedulingCommands(cin, cout, parser, stmt);
-  } else if (setScheduleManual) {
+  if (setSchedule) {
     stringstream scheduleStream; 
     for (string command : scheduleCommands) {
       scheduleStream << command; 
     }
 
-    stringstream throwaway;
     try {
-      setSchedulingCommands(scheduleStream, throwaway, parser, stmt);
+      cuda |= setSchedulingCommands(scheduleStream, parser, stmt);
     } catch (TacoException e) {
       string msg = string(e.what());
       msg = msg.insert(msg.find(":\n") + 3, "Error with provided schedule: "); 
       throw TacoException(msg);
     }
+  }
+
+  if (cuda) {
+    if (!CUDA_BUILT && benchmark) {
+      return reportError("TACO must be built for CUDA (cmake -DCUDA=ON ..) to benchmark", 2);
+    }
+    set_CUDA_codegen_enabled(true);
+  }
+  else {
+    set_CUDA_codegen_enabled(false);
   }
 
   if (printConcrete) {
