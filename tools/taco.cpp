@@ -114,6 +114,11 @@ static void printUsageInfo() {
             "float, double, complexfloat, complexdouble"
             "Examples: A:uint16, b:long and D:complexfloat.");
   cout << endl;
+  printFlag("s=\"<command>(<params>)\"",
+            "Specify a scheduling command to apply to the generated code. "
+            "Parameters take the form of a comma-delimited list. "
+            "Examples: split(i,i0,i1,16), precompute(A(i,j)*x(j),i,i).");
+  cout << endl;
   printFlag("c",
             "Generate compute kernel that simultaneously does assembly.");
   cout << endl;
@@ -274,10 +279,11 @@ static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt
       stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
 
     } else if (command == "precompute") {
-      string i, iw, exprStr; 
+      string exprStr, i, iw; 
+      in >> exprStr; 
       in >> i; 
       in >> iw; 
-      in >> exprStr; 
+      
 
       IndexVar orig = findVar(i);
       IndexVar pre; 
@@ -354,13 +360,14 @@ static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt
       stmt = stmt.precompute(visitor.expr, orig, pre, workspace);
 
     } else if (command == "reorder") {
-      int n; 
-      in >> n; 
+      string line;
+      getline(in, line);
+      stringstream temp; 
+      temp << line; 
 
       vector<IndexVar> reorderedVars; 
-      for (int i = 0; i < n; i++) {
-        string var;
-        in >> var; 
+      string var; 
+      while (temp >> var) {
         reorderedVars.push_back(findVar(var));
       }
 
@@ -923,7 +930,7 @@ int main(int argc, char* argv[]) {
   if (setSchedule) {
     stringstream scheduleStream; 
     for (string command : scheduleCommands) {
-      scheduleStream << command; 
+      scheduleStream << command << endl;    
     }
 
     try {
