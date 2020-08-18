@@ -934,13 +934,7 @@ int main(int argc, char* argv[]) {
       scheduleStream << command << endl;    
     }
 
-    try {
-      cuda |= setSchedulingCommands(scheduleStream, parser, stmt);
-    } catch (TacoException e) {
-      string msg = string(e.what());
-      msg = msg.insert(msg.find(":\n") + 3, "Error with provided schedule: "); 
-      throw TacoException(msg);
-    }
+    cuda |= setSchedulingCommands(scheduleStream, parser, stmt);
   }
 
   if (cuda) {
