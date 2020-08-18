@@ -265,25 +265,24 @@ static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt
       IndexVar split2(i2);
       stmt = stmt.split(findVar(i), split1, split2, splitFactor);
 
-    } else if (command == "divide") {
-      string i, i1, i2; 
-      in >> i; 
-      in >> i1; 
-      in >> i2; 
+    // } else if (command == "divide") {
+    //   string i, i1, i2; 
+    //   in >> i; 
+    //   in >> i1; 
+    //   in >> i2; 
 
-      size_t divideFactor; 
-      in >> divideFactor; 
+    //   size_t divideFactor; 
+    //   in >> divideFactor; 
 
-      IndexVar divide1(i1);
-      IndexVar divide2(i2);
-      stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
+    //   IndexVar divide1(i1);
+    //   IndexVar divide2(i2);
+    //   stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
 
     } else if (command == "precompute") {
       string exprStr, i, iw; 
       in >> exprStr; 
       in >> i; 
       in >> iw; 
-      
 
       IndexVar orig = findVar(i);
       IndexVar pre; 
