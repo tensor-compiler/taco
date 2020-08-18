@@ -223,7 +223,6 @@ string CodeGen::printTensorProperty(string varname, const GetProperty* op, bool 
   } else {
     taco_iassert(op->property == TensorProperty::Indices);
     tp = "int*" + star;
-    auto nm = op->index;
     ret << tp << " " << varname;
   }
 
@@ -479,7 +478,7 @@ string CodeGen::genUniqueName(string name) {
   return os.str();
 }
 
-vector<const GetProperty*> sortProps(std::map<Expr, std::string, ExprCompare> map) {
+static vector<const GetProperty*> sortProps(std::map<Expr, std::string, ExprCompare> map) {
   vector<const GetProperty*> sortedProps;
 
   for (auto const& p: map) {

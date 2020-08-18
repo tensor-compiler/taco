@@ -26,3 +26,6 @@ set(PY_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/lib/pytaco)
 install(FILES ${PYTACO_FILES} DESTINATION ${PY_INSTALL_PATH})
 install(FILES ${PYTENSOR_FILES} DESTINATION ${PY_INSTALL_PATH}/pytensor)
 install(TARGETS core_modules DESTINATION ${PY_INSTALL_PATH}/core)
+
+configure_file("unit_tests.py" "unit_tests.py" @ONLY)
+add_test(NAME pytaco COMMAND python3 unit_tests.py)

@@ -11225,6 +11225,7 @@ template <typename T1>
 class ValueArray1 {
  public:
   explicit ValueArray1(T1 v1) : v1_(v1) {}
+  ValueArray1(const ValueArray1& other) = default;
 
   template <typename T>
   operator ParamGenerator<T>() const { return ValuesIn(&v1_, &v1_ + 1); }
@@ -11240,6 +11241,7 @@ template <typename T1, typename T2>
 class ValueArray2 {
  public:
   ValueArray2(T1 v1, T2 v2) : v1_(v1), v2_(v2) {}
+  ValueArray2(const ValueArray2& other) = default;
 
   template <typename T>
   operator ParamGenerator<T>() const {
@@ -11259,6 +11261,7 @@ template <typename T1, typename T2, typename T3>
 class ValueArray3 {
  public:
   ValueArray3(T1 v1, T2 v2, T3 v3) : v1_(v1), v2_(v2), v3_(v3) {}
+  ValueArray3(const ValueArray3& other) = default;
 
   template <typename T>
   operator ParamGenerator<T>() const {
@@ -11281,6 +11284,7 @@ class ValueArray4 {
  public:
   ValueArray4(T1 v1, T2 v2, T3 v3, T4 v4) : v1_(v1), v2_(v2), v3_(v3),
       v4_(v4) {}
+  ValueArray4(const ValueArray4& other) = default;
 
   template <typename T>
   operator ParamGenerator<T>() const {
@@ -11304,6 +11308,7 @@ class ValueArray5 {
  public:
   ValueArray5(T1 v1, T2 v2, T3 v3, T4 v4, T5 v5) : v1_(v1), v2_(v2), v3_(v3),
       v4_(v4), v5_(v5) {}
+  ValueArray5(const ValueArray5& other) = default;
 
   template <typename T>
   operator ParamGenerator<T>() const {
@@ -11385,6 +11390,8 @@ class ValueArray8 {
   ValueArray8(T1 v1, T2 v2, T3 v3, T4 v4, T5 v5, T6 v6, T7 v7,
       T8 v8) : v1_(v1), v2_(v2), v3_(v3), v4_(v4), v5_(v5), v6_(v6), v7_(v7),
       v8_(v8) {}
+
+  ValueArray8(const ValueArray8& other) = default;
 
   template <typename T>
   operator ParamGenerator<T>() const {
@@ -11677,6 +11684,8 @@ class ValueArray16 {
       v2_(v2), v3_(v3), v4_(v4), v5_(v5), v6_(v6), v7_(v7), v8_(v8), v9_(v9),
       v10_(v10), v11_(v11), v12_(v12), v13_(v13), v14_(v14), v15_(v15),
       v16_(v16) {}
+
+  ValueArray16(const ValueArray16& other) = default;
 
   template <typename T>
   operator ParamGenerator<T>() const {

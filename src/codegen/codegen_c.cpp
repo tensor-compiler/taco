@@ -519,7 +519,9 @@ void CodeGen_C::visit(const Allocate* op) {
   }
   stream << "sizeof(" << elementType << ")";
   stream << " * ";
+  parentPrecedence = MUL;
   op->num_elements.accept(this);
+  parentPrecedence = TOP;
   stream << ");";
     stream << endl;
 }
