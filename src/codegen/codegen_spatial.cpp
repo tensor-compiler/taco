@@ -631,7 +631,14 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
       
     } else {
       // for the values, it's in the last slot
-      ret << "val " << varname << " = DRAM[T]()" << endl; 
+      ret << "val " << varname << " = DRAM[T](";
+      for (int i = 0; i < op->mode; i++) {
+        ret << tensor->name << i + 1 << "_dimension";
+
+        if (i < op->mode - 1)
+          ret << ",";
+      }
+      ret << ")" << endl; 
     }
     return ret.str();
   } else if (op->property == TensorProperty::ValuesSize) {
@@ -645,7 +652,7 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
   // for a Fixed level, ptr is an int
   // all others are int*
   if (op->property == TensorProperty::Dimension) {
-    ret << varname << ")" << endl;
+    ret << "int " << varname << " = " << op->index << endl;
   } else {
     taco_iassert(op->property == TensorProperty::Indices);
     tp = "int*";

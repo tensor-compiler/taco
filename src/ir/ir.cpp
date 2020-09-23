@@ -5,6 +5,7 @@
 #include "taco/error.h"
 #include "taco/util/strings.h"
 #include "taco/type.h"
+#include "taco/spatial.h"
 
 namespace taco {
 namespace ir {
@@ -854,6 +855,11 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
       break;
     case TensorProperty::Dimension:
       gp->name = tensorVar->name + util::toString(mode + 1) + "_dimension";
+
+      // Assign dimension value for spatial code
+      if (should_use_Spatial_codegen())
+        gp->index = get_Spatial_dimension();
+ 
       break;
     case TensorProperty::ComponentSize:
       gp->name = tensorVar->name + "_csize";

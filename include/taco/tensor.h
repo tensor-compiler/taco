@@ -105,7 +105,7 @@ public:
   const Format& getFormat() const;
 
   /// Get the format the tensor is packed into
-  const MemoryLocation getMemoryLocation() const;
+  MemoryLocation getMemoryLocation() const;
 
   /// Set the tensor's storage
   void setStorage(TensorStorage storage);

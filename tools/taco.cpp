@@ -199,6 +199,9 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("spatial", "Generate Spatial DSL code for FPGAs or Plasticine");
   cout << endl;
+  printFlag("sd=<value>",
+            "Specify the default dimension size for a tensor defined in spatial");
+  cout << endl;
   printFlag("schedule", "Specify parallel execution schedule");
   cout << endl;
   printFlag("nthreads", "Specify number of threads for parallel execution");
@@ -652,7 +655,8 @@ int main(int argc, char* argv[]) {
   bool cuda                = false;
   bool spatial             = false;
 
-  bool setSchedule         = false;
+  bool setSchedule         = false; 
+  int  spatialDefaultDimension = 16;
 
   ParallelSchedule sched = ParallelSchedule::Static;
   int chunkSize = 0;
@@ -973,6 +977,23 @@ int main(int argc, char* argv[]) {
     else if ("-spatial" == argName) {
       spatial = true;
     }
+    else if ("-sd" == argName) {
+      vector<string> descriptor = util::split(argValue, ":");
+      if (descriptor.size() < 1 || descriptor.size() > 2) {
+        return reportError("Incorrect format descriptor", 4);
+      }
+      string spatialDimension = descriptor[0];
+      char* p;
+      long converted = strtol(spatialDimension.c_str(), &p, 10);
+      if (*p) {
+        // conversion failed because the input wasn't a number
+        return reportError("Incorrect -sd usage", 3); 
+      }
+      else {
+        // use converted
+        spatialDefaultDimension = int(converted); 
+      }
+    }
     else if ("-schedule" == argName) {
       vector<string> descriptor = util::split(argValue, ",");
       if (descriptor.size() > 2 || descriptor.empty()) {
@@ -1160,6 +1181,9 @@ int main(int argc, char* argv[]) {
   }
 
   set_Spatial_codegen_enabled(spatial);
+
+  if(spatial)
+    set_Spatial_dimension(spatialDefaultDimension);
 
   stmt = scalarPromote(stmt);
   if (printConcrete) {
