@@ -258,7 +258,7 @@ string CodeGen_Spatial::printFuncName(const Function *func,
 
   // Parameters here
 
-  ret << ") extends SpatialTest {" << endl;
+  ret << ") extends SpatialTest" << endl;
 
   return ret.str();
 }
@@ -292,7 +292,7 @@ void CodeGen_Spatial::visit(const Function* func) {
     return;
   }
 
-  out << " {\n";
+  out << "{\n";
 
   indent++;
 
@@ -303,6 +303,10 @@ void CodeGen_Spatial::visit(const Function* func) {
   varMap = varFinder.varMap;
   localVars = varFinder.localVars;
 
+  // [Spatial] Print T datatype
+  doIndent();
+  out << "type T = Int\n\n";
+
   // Print variable declarations
   out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << endl;
 
@@ -310,7 +314,13 @@ void CodeGen_Spatial::visit(const Function* func) {
     out << printContextDeclAndInit(varMap, localVars, numYields, func->name)
         << endl;
   }
+  
+  doIndent();
+  out << "Accel {\n";
 
+  out << printDeclsAccel(varFinder.varDecls, func->inputs, func->outputs) << endl;
+
+  doIndent();
   // output body
   print(func->body);
 
@@ -322,13 +332,14 @@ void CodeGen_Spatial::visit(const Function* func) {
     out << printCoroutineFinish(numYields, funcName);
   }
 
-  doIndent();
-  out << "return 0;\n";
+  out << "}\n";
   indent--;
 
-  doIndent();
+  out << "\n";
+  //out << "return 0;\n";
   out << "}\n";
 }
+
 
 void CodeGen_Spatial::visit(const VarDecl* op) {
   if (emittingCoroutine) {
@@ -432,6 +443,8 @@ void CodeGen_Spatial::visit(const For* op) {
       break;
   }
   */
+
+  // FIXME: [Spatial] See if this is the correct location
   doIndent();
   stream << keywordString("Foreach") << " (";
   
@@ -440,7 +453,6 @@ void CodeGen_Spatial::visit(const For* op) {
     stream << keywordString(util::toString(op->var.type())) << " ";
   } */
 
-  //op->var.accept(this);
   //stream << " = ";
   auto start_lit = op->start.as<Literal>();
   if (start_lit != nullptr && !((start_lit->type.isInt() && 
@@ -472,7 +484,9 @@ void CodeGen_Spatial::visit(const For* op) {
     stream << " par " << op->unrollFactor;
   }
 
-  stream << ") {\n";
+  stream << ") {";
+  op->var.accept(this);
+  stream << " =>\n";
 
   op->contents.accept(this);
   doIndent();
@@ -619,6 +633,63 @@ void CodeGen_Spatial::generateShim(const Stmt& func, stringstream &ret) {
   ret << "}\n";
 }
 
+string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetProperty* op,
+                          bool is_output_prop) {
+  stringstream ret;
+  string indentation = "    ";
+  ret << indentation;
+
+  auto tensor = op->tensor.as<Var>();
+  if (op->property == TensorProperty::Values) {
+    // for the values, it's in the last slot
+    ret << "val " << varname << "_sram = SRAM[T](";
+    for (int i = 0; i < op->mode+1; i++) {
+      ret << tensor->name << i + 1 << "_dimension_sram";
+
+      if (i < op->mode)
+        ret << ",";
+    }
+    ret << ")" << endl; 
+
+    // Load from DRAM into SRAM
+    ret << indentation << varname << "_sram load " << varname << endl;
+
+    stringstream newVarname;
+    newVarname << varname << "_sram";
+    varMap[op] = newVarname.str();
+
+    return ret.str();
+  } else if (op->property == TensorProperty::ValuesSize) {
+    ret << "int " << varname << " = " << tensor->name << "->vals_size;\n";
+
+    return ret.str();
+  }
+
+  string tp;
+
+  // for a Dense level, nnz is an int
+  // for a Fixed level, ptr is an int
+  // all others are int*
+  if (op->property == TensorProperty::Dimension) {
+    ret << "val " << varname << "_sram = " << op->index << endl;
+
+    stringstream newVarname;
+    newVarname << varname << "_sram";
+    varMap[op] = newVarname.str();
+
+  } else {
+    taco_iassert(op->property == TensorProperty::Indices);
+    tp = "int*";
+    auto nm = op->index;
+    ret << tp << " " << restrictKeyword() << " " << varname << " = ";
+    ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
+    ret << "][" << nm << "]);\n";
+  }
+
+  return ret.str();
+  
+}
+
 string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* op,
                             bool is_output_prop) {
   stringstream ret;
@@ -626,20 +697,21 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
 
   auto tensor = op->tensor.as<Var>();
   if (op->property == TensorProperty::Values) {
-    if (is_output_prop) {
-      ret << "val " << varname << " = ArgOut[T]()" << endl;
-      
-    } else {
+// FIXME: [Spatial] add this in for scalar outputs. 
+//    if (is_output_prop) {
+//      ret << "val " << varname << " = ArgOut[T]()" << endl;
+//      
+//    } else {
       // for the values, it's in the last slot
       ret << "val " << varname << " = DRAM[T](";
-      for (int i = 0; i < op->mode; i++) {
+      for (int i = 0; i < op->mode+1; i++) {
         ret << tensor->name << i + 1 << "_dimension";
 
-        if (i < op->mode - 1)
+        if (i < op->mode)
           ret << ",";
       }
       ret << ")" << endl; 
-    }
+//    }
     return ret.str();
   } else if (op->property == TensorProperty::ValuesSize) {
     ret << "int " << varname << " = " << tensor->name << "->vals_size;\n";
@@ -652,7 +724,7 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
   // for a Fixed level, ptr is an int
   // all others are int*
   if (op->property == TensorProperty::Dimension) {
-    ret << "int " << varname << " = " << op->index << endl;
+    ret << "val " << varname << " = " << op->index << endl;
   } else {
     taco_iassert(op->property == TensorProperty::Indices);
     tp = "int*";
@@ -660,6 +732,63 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
     ret << tp << " " << restrictKeyword() << " " << varname << " = ";
     ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
     ret << "][" << nm << "]);\n";
+  }
+
+  return ret.str();
+}
+// helper to print declarations
+string CodeGen_Spatial::printDeclsAccel(map<Expr, string, ExprCompare> varMap,
+                           vector<Expr> inputs, vector<Expr> outputs) {
+  stringstream ret;
+  unordered_set<string> propsAlreadyGenerated;
+
+  vector<const GetProperty*> sortedProps;
+
+  for (auto const& p: varMap) {
+    if (p.first.as<GetProperty>())
+      sortedProps.push_back(p.first.as<GetProperty>());
+  }
+  // sort the properties in order to generate them in a canonical order
+  sort(sortedProps.begin(), sortedProps.end(),
+       [&](const GetProperty *a,
+           const GetProperty *b) -> bool {
+         // first, use a total order of outputs,inputs
+         auto a_it = find(outputs.begin(), outputs.end(), a->tensor);
+         auto b_it = find(outputs.begin(), outputs.end(), b->tensor);
+         auto a_pos = distance(outputs.begin(), a_it);
+         auto b_pos = distance(outputs.begin(), b_it);
+         if (a_it == outputs.end())
+           a_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
+                                                  a->tensor));
+         if (b_it == outputs.end())
+           b_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
+                                                  b->tensor));
+
+         // if total order is same, have to do more, otherwise we know
+         // our answer
+         if (a_pos != b_pos)
+           return a_pos < b_pos;
+
+         // if they're different properties, sort by property
+         if (a->property != b->property)
+           return a->property < b->property;
+
+         // now either the mode gives order, or index #
+         if (a->mode != b->mode)
+           return a->mode < b->mode;
+
+         return a->index < b->index;
+       });
+
+  for (auto prop: sortedProps) {
+    bool isOutputProp = (find(outputs.begin(), outputs.end(),
+                              prop->tensor) != outputs.end());
+    
+    auto var = prop->tensor.as<Var>();
+    if (!var->is_parameter) {
+      ret << unpackTensorPropertyAccel(varMap[prop], prop, isOutputProp);
+    }
+    propsAlreadyGenerated.insert(varMap[prop]);
   }
 
   return ret.str();

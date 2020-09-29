@@ -131,11 +131,7 @@ void IRPrinter::visit(const Var* op) {
 }
 
 void IRPrinter::visit(const Neg* op) {
-  if(op->type.isBool()) {
-    stream << "!";
-  } else {
-    stream << "-";
-  }
+  stream << "-";
   parentPrecedence = Precedence::NEG;
   op->a.accept(this);
 }
@@ -343,10 +339,10 @@ void IRPrinter::visit(const Switch* op) {
 void IRPrinter::visit(const Load* op) {
   parentPrecedence = Precedence::LOAD;
   op->arr.accept(this);
-  stream << "(";
+  stream << "[";
   parentPrecedence = Precedence::LOAD;
   op->loc.accept(this);
-  stream << ")";
+  stream << "]";
 }
 
 void IRPrinter::visit(const Malloc* op) {
@@ -365,13 +361,13 @@ void IRPrinter::visit(const Sizeof* op) {
 void IRPrinter::visit(const Store* op) {
   doIndent();
   op->arr.accept(this);
-  stream << "(";
+  stream << "[";
   parentPrecedence = Precedence::TOP;
   op->loc.accept(this);
-  stream << ") = ";
+  stream << "] = ";
   parentPrecedence = Precedence::TOP;
   op->data.accept(this);
-  //stream << ";";
+  stream << ";";
   stream << endl;
 }
 
@@ -464,7 +460,7 @@ void IRPrinter::visit(const VarDecl* op) {
   parentPrecedence = Precedence::TOP;
   stream << " = ";
   op->rhs.accept(this);
-  //stream << ";";
+  stream << ";";
   stream << endl;
 }
 
@@ -511,7 +507,7 @@ void IRPrinter::visit(const Assign* op) {
     op->rhs.accept(this);
   }
 
-  //stream << ";";
+  stream << ";";
   stream << endl;
 }
 
@@ -533,9 +529,9 @@ void IRPrinter::visit(const Allocate* op) {
   else
     stream << "allocate ";
   op->var.accept(this);
-  stream << "(";
+  stream << "[";
   op->num_elements.accept(this);
-  stream << ")";
+  stream << "]";
   stream << endl;
 }
 
@@ -558,14 +554,9 @@ void IRPrinter::visit(const BlankLine*) {
   stream << endl;
 }
 
-void IRPrinter::visit(const Continue*) {
-  doIndent();
-  stream << "continue;" << endl;
-}
-
 void IRPrinter::visit(const Break*) {
   doIndent();
-  stream << "break;" << endl;
+  stream << "continue;" << endl; // TODO: add continue statement
 }
 
 void IRPrinter::visit(const Print* op) {
@@ -583,16 +574,6 @@ void IRPrinter::visit(const Print* op) {
 void IRPrinter::visit(const GetProperty* op) {
   stream << op->name;
 }
-
-void IRPrinter::visit(const Sort* op) {
-  doIndent();
-  stream << "qsort(";
-  parentPrecedence = Precedence::CALL;
-  acceptJoin(this, stream, op->args, ", ");
-  stream << ", cmp);";
-  stream << endl;
-}
-
 
 void IRPrinter::resetNameCounters() {
   // seed the unique names with all C99 keywords
@@ -644,7 +625,11 @@ void IRPrinter::doIndent() {
 }
 
 void IRPrinter::printBinOp(Expr a, Expr b, string op, Precedence precedence) {
-  bool parenthesize = needsParentheses(precedence);
+  // Add parentheses if required by C operator precedence or for Boolean 
+  // expressions of form `a || (b && c)` (to avoid C compiler warnings)
+  bool parenthesize = (precedence >= parentPrecedence ||
+                       (precedence == Precedence::LAND && 
+                        parentPrecedence == Precedence::LOR));
   if (parenthesize) {
     stream << "(";
   }
@@ -656,14 +641,6 @@ void IRPrinter::printBinOp(Expr a, Expr b, string op, Precedence precedence) {
   if (parenthesize) {
     stream << ")";
   }
-}
-
-bool IRPrinter::needsParentheses(Precedence precedence) {
-  // Add parentheses if required by C operator precedence or for Boolean
-  // expressions of form `a || (b && c)` (to avoid C compiler warnings)
-  return (precedence >= parentPrecedence ||
-            (precedence == Precedence::LAND &&
-              parentPrecedence == Precedence::LOR));
 }
 
 

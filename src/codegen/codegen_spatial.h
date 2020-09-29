@@ -61,8 +61,12 @@ protected:
 
 private:
   std::string restrictKeyword() const { return "restrict"; }
+  std::string printDeclsAccel(std::map<Expr, std::string, ExprCompare> varMap,
+                         std::vector<Expr> inputs, std::vector<Expr> outputs);
 
   std::string unpackTensorProperty(std::string varname, const GetProperty* op,
+                              bool is_output_prop);
+  std::string unpackTensorPropertyAccel(std::string varname, const GetProperty* op,
                               bool is_output_prop);
 };
 
