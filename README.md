@@ -23,13 +23,13 @@ email list where we post announcements, RFCs, and notifications of API
 changes, or the [taco-discuss](https://lists.csail.mit.edu/mailman/listinfo/taco-discuss)
 email list for open discussions and questions.
 
-TL;DR build taco using CMake. Run `taco-test` in the `bin` directory.
+TL;DR build taco using CMake. Run `make test`.
 
 
 # Build and test
 ![Build and Test](https://github.com/RSenApps/taco/workflows/Build%20and%20Test/badge.svg?branch=master)
 
-Build taco using CMake 2.8.3 or greater:
+Build taco using CMake 2.8.12 or greater:
 
     cd <taco-directory>
     mkdir build
@@ -44,7 +44,7 @@ To build taco with the Python API (pytaco), add `-DPYTHON=ON` to the cmake line 
 
 You will then need to add the pytaco module to PYTHONPATH:
 
-    export PYTHONPATH=<taco-build-directory>/lib:$PYTHONPATH
+    export PYTHONPATH=<taco-directory>/build/lib:$PYTHONPATH
 
 pytaco requires NumPy and SciPy to be installed.
 
@@ -82,7 +82,7 @@ To run the C++ test suite individually:
 To run the Python test suite individually:
 
     cd <taco-directory>
-    python3 python_bindings/unit_tests.py
+    python3 build/python_bindings/unit_tests.py
 
 
 # Library example
