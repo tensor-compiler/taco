@@ -10,12 +10,12 @@ using namespace taco::ir;
 namespace taco {
 
 SingletonModeFormat::SingletonModeFormat() : 
-    SingletonModeFormat(false, true, true) {
+    SingletonModeFormat(false, true, true, false) {
 }
 
 SingletonModeFormat::SingletonModeFormat(bool isFull, bool isOrdered,
                                          bool isUnique, long long allocSize) :
-    ModeFormatImpl("singleton", isFull, isOrdered, isUnique, true, true,
+    ModeFormatImpl("singleton", isFull, isOrdered, isUnique, true, true, isZeroless,
                    false, true, false, false, true), 
     allocSize(allocSize) {
 }
@@ -25,6 +25,7 @@ ModeFormat SingletonModeFormat::copy(
   bool isFull = this->isFull;
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
+  bool isZeroless = this->isZeroless;
   for (const auto property : properties) {
     switch (property) {
       case ModeFormat::FULL:
@@ -45,12 +46,18 @@ ModeFormat SingletonModeFormat::copy(
       case ModeFormat::NOT_UNIQUE:
         isUnique = false;
         break;
+      case ModeFormat::ZEROLESS:
+        isZeroless = true;
+        break;
+      case ModeFormat::NOT_ZEROLESS:
+        isZeroless = false;
+        break;	
       default:
         break;
     }
   }
   const auto singletonVariant = 
-      std::make_shared<SingletonModeFormat>(isFull, isOrdered, isUnique);
+      std::make_shared<SingletonModeFormat>(isFull, isOrdered, isUnique, isZeroless);
   return ModeFormat(singletonVariant);
 }
 

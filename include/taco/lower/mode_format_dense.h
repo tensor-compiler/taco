@@ -8,7 +8,7 @@ namespace taco {
 class DenseModeFormat : public ModeFormatImpl {
 public:
   DenseModeFormat();
-  DenseModeFormat(const bool isOrdered, const bool isUnique);
+  DenseModeFormat(const bool isOrdered, const bool isUnique, const bool isZeroless);
 
   ~DenseModeFormat() override {}
 
