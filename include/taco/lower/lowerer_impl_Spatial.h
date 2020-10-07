@@ -13,19 +13,13 @@
 #include "taco/ir_tags.h"
 
 namespace taco {
-namespace ir {
-class LowererImplSpatial : public LowererImpl {
+class LowererImplSpatial : public util::Uncopyable {
 public:
   LowererImplSpatial();
   virtual ~LowererImplSpatial() = default;
+private:
+  class Visitor;
+};
 
-  /// Lower an index statement to an IR function for 
-  /// Spatial code generation. This should override LowererImpl's ir::visit
-  ir::Stmt lower(IndexStmt stmt, std::string name, 
-                 bool assemble, bool compute, bool pack, bool unpack);
-protected:
-
-}
-
-} // namespace ir
 } // namespace taco
+#endif 

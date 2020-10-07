@@ -68,8 +68,23 @@ private:
                               bool is_output_prop);
   std::string unpackTensorPropertyAccel(std::string varname, const GetProperty* op,
                               bool is_output_prop);
-};
 
+  std::string printInitMem(std::map<Expr, std::string, ExprCompare> varMap,
+                         std::vector<Expr> inputs, std::vector<Expr> outputs);
+  std::string outputInitMemArgs(std::string varname, const GetProperty* op,
+                              bool is_output_prop, bool last);
+
+  std::string printOutputCheck(std::map<std::tuple<Expr, TensorProperty, int, int>,
+          std::string> outputProperties, std::vector<Expr> outputs);
+  std::string outputCheckOutputArgs(std::string varname, Expr tnsr, TensorProperty property,
+                            int mode, int index, bool last);
+
+  // Used for printing out output store
+  std::string printOutputStore(std::map<std::tuple<Expr, TensorProperty, int, int>,
+          std::string> outputProperties, std::vector<Expr> outputs);
+  std::string outputTensorProperty(std::string varname, Expr tnsr, TensorProperty property,
+                            int mode, int index);
+};
 } // namespace ir
 } // namespace taco
 #endif

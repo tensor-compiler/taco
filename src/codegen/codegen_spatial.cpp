@@ -253,13 +253,20 @@ string CodeGen_Spatial::printFuncName(const Function *func,
                               std::map<Expr, std::string, ExprCompare> inputMap, 
                               std::map<Expr, std::string, ExprCompare> outputMap) {
   stringstream ret;
-  
+
+  ret << "import spatial.dsl._" << endl;
+  ret << "\n";
+  ret << "class Compute_0 extends Compute" << endl;  
+  ret << "\n";
+
   ret << "@spatial abstract class " << func->name << "(" << endl;
 
   // Parameters here
 
-  ret << ") extends SpatialTest" << endl;
-
+  ret << ") extends SpatialTest with ComputeCheck {" << endl;
+  ret << "  type T = Int" << endl;  // FIXME: make type changeable
+  ret << "\n";
+  ret << "def main(args: Array[String]): Unit =" << endl;
   return ret.str();
 }
 
@@ -305,7 +312,6 @@ void CodeGen_Spatial::visit(const Function* func) {
 
   // [Spatial] Print T datatype
   doIndent();
-  out << "type T = Int\n\n";
 
   // Print variable declarations
   out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << endl;
@@ -314,6 +320,8 @@ void CodeGen_Spatial::visit(const Function* func) {
     out << printContextDeclAndInit(varMap, localVars, numYields, func->name)
         << endl;
   }
+
+  out << printInitMem(varFinder.varDecls, func->inputs, func->outputs) << endl;
   
   doIndent();
   out << "Accel {\n";
@@ -332,12 +340,21 @@ void CodeGen_Spatial::visit(const Function* func) {
     out << printCoroutineFinish(numYields, funcName);
   }
 
-  out << "}\n";
+  // Reformat output (store back into DRAM)
+  out << printOutputStore(varFinder.outputProperties, func->outputs);
+
+  out << "  }\n"; // end Accel
   indent--;
 
   out << "\n";
+  
+  indent++;
+  out << printOutputCheck(varFinder.outputProperties, func->outputs);
+  //out << "assert(true)\n";
+
+  out << "}\n";   // end main
+  out << "}\n";   // end SpatialTest
   //out << "return 0;\n";
-  out << "}\n";
 }
 
 
@@ -652,7 +669,8 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
     ret << ")" << endl; 
 
     // Load from DRAM into SRAM
-    ret << indentation << varname << "_sram load " << varname << endl;
+    if (!is_output_prop)
+      ret << indentation << varname << "_sram load " << varname << endl;
 
     stringstream newVarname;
     newVarname << varname << "_sram";
@@ -793,6 +811,216 @@ string CodeGen_Spatial::printDeclsAccel(map<Expr, string, ExprCompare> varMap,
 
   return ret.str();
 }
+
+// helper to print declarations
+string CodeGen_Spatial::printInitMem(map<Expr, string, ExprCompare> varMap,
+                           vector<Expr> inputs, vector<Expr> outputs) {
+  stringstream ret;
+  unordered_set<string> propsAlreadyGenerated;
+
+  vector<const GetProperty*> sortedProps;
+
+  for (auto const& p: varMap) {
+    if (p.first.as<GetProperty>())
+      sortedProps.push_back(p.first.as<GetProperty>());
+  }
+  // sort the properties in order to generate them in a canonical order
+  sort(sortedProps.begin(), sortedProps.end(),
+       [&](const GetProperty *a,
+           const GetProperty *b) -> bool {
+         // first, use a total order of outputs,inputs
+         auto a_it = find(outputs.begin(), outputs.end(), a->tensor);
+         auto b_it = find(outputs.begin(), outputs.end(), b->tensor);
+         auto a_pos = distance(outputs.begin(), a_it);
+         auto b_pos = distance(outputs.begin(), b_it);
+         if (a_it == outputs.end())
+           a_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
+                                                  a->tensor));
+         if (b_it == outputs.end())
+           b_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
+                                                  b->tensor));
+
+         // if total order is same, have to do more, otherwise we know
+         // our answer
+         if (a_pos != b_pos)
+           return a_pos < b_pos;
+
+         // if they're different properties, sort by property
+         if (a->property != b->property)
+           return a->property < b->property;
+
+         // now either the mode gives order, or index #
+         if (a->mode != b->mode)
+           return a->mode < b->mode;
+
+         return a->index < b->index;
+       });
+
+  // Output initMem(...) function for Spatial App  
+  ret << "  initMem[T](";
+  for (int i = 0; i < (int)sortedProps.size(); i++) {
+    auto prop = sortedProps[i];
+    bool isOutputProp = (find(outputs.begin(), outputs.end(),
+                              prop->tensor) != outputs.end());
+    
+    auto var = prop->tensor.as<Var>();
+    if (!var->is_parameter) {
+      ret << outputInitMemArgs(varMap[prop], prop, isOutputProp, i == (int)sortedProps.size() - 1);
+    }
+    propsAlreadyGenerated.insert(varMap[prop]);
+  }
+  ret << ")" << endl;
+
+  return ret.str();
+}
+
+string CodeGen_Spatial::outputInitMemArgs(string varname, const GetProperty* op,
+                          bool is_output_prop, bool last) {
+  stringstream ret;
+  string indentation = "";
+  ret << indentation;
+
+  //auto tensor = op->tensor.as<Var>();
+  if (op->property == TensorProperty::Values) {
+    ret << varname;
+  } else if (op->property == TensorProperty::Dimension) {
+    ret << varname;
+  }
+
+  if (!last)
+    ret << ", ";
+
+  return ret.str();
+  
+}
+
+// helper to print output store
+string CodeGen_Spatial::printOutputCheck(map<tuple<Expr, TensorProperty, int, int>,
+        string> outputProperties, vector<Expr> outputs) {
+  stringstream ret;
+  vector<tuple<Expr, TensorProperty, int, int>> sortedProps;
+
+  for (auto &prop: outputProperties) {
+    sortedProps.push_back(prop.first);
+  }
+  sort(sortedProps.begin(), sortedProps.end(),
+       [&](const tuple<Expr, TensorProperty, int, int> &a,
+           const tuple<Expr, TensorProperty, int, int> &b) -> bool {
+         // first, use a total order of outputs,inputs
+         auto a_it = find(outputs.begin(), outputs.end(), get<0>(a));
+         auto b_it = find(outputs.begin(), outputs.end(), get<0>(b));
+         auto a_pos = distance(outputs.begin(), a_it);
+         auto b_pos = distance(outputs.begin(), b_it);
+
+         // if total order is same, have to do more, otherwise we know
+         // our answer
+         if (a_pos != b_pos)
+           return a_pos < b_pos;
+
+         // if they're different properties, sort by property
+         if (get<1>(a) != get<1>(b))
+           return get<1>(a) < get<1>(b);
+
+         // now either the mode gives order, or index #
+         if (get<2>(a) != get<2>(b))
+           return get<2>(a) < get<2>(b);
+
+         return get<3>(a) < get<3>(b);
+       });
+
+  ret << "  checkOutput[T](";
+
+  for (int i = 0; i < (int)sortedProps.size(); i++) {
+    auto prop = sortedProps[i];
+    auto var = get<0>(prop).as<Var>();
+    if (!var->is_parameter) {
+      ret << outputCheckOutputArgs(outputProperties[prop], get<0>(prop),
+                              get<1>(prop), get<2>(prop), get<3>(prop), i == (int)sortedProps.size() - 1);
+    }
+  }
+  ret << ")" << endl;
+  return ret.str();
+}
+
+string CodeGen_Spatial::outputCheckOutputArgs(string varname, Expr tnsr,
+                                   TensorProperty property,
+                                   int mode, int index, bool last) {
+  stringstream ret;
+  ret << "";
+
+  //auto tensor = tnsr.as<Var>();
+  if (property == TensorProperty::Values) {
+    ret << varname;  
+  } else if (property == TensorProperty::Dimension) {
+    ret << varname;  
+  } 
+
+  if (!last) 
+    ret << ", ";
+
+  return ret.str();
+}
+
+// helper to print output store
+string CodeGen_Spatial::printOutputStore(map<tuple<Expr, TensorProperty, int, int>,
+        string> outputProperties, vector<Expr> outputs) {
+  stringstream ret;
+  vector<tuple<Expr, TensorProperty, int, int>> sortedProps;
+
+  for (auto &prop: outputProperties) {
+    sortedProps.push_back(prop.first);
+  }
+  sort(sortedProps.begin(), sortedProps.end(),
+       [&](const tuple<Expr, TensorProperty, int, int> &a,
+           const tuple<Expr, TensorProperty, int, int> &b) -> bool {
+         // first, use a total order of outputs,inputs
+         auto a_it = find(outputs.begin(), outputs.end(), get<0>(a));
+         auto b_it = find(outputs.begin(), outputs.end(), get<0>(b));
+         auto a_pos = distance(outputs.begin(), a_it);
+         auto b_pos = distance(outputs.begin(), b_it);
+
+         // if total order is same, have to do more, otherwise we know
+         // our answer
+         if (a_pos != b_pos)
+           return a_pos < b_pos;
+
+         // if they're different properties, sort by property
+         if (get<1>(a) != get<1>(b))
+           return get<1>(a) < get<1>(b);
+
+         // now either the mode gives order, or index #
+         if (get<2>(a) != get<2>(b))
+           return get<2>(a) < get<2>(b);
+
+         return get<3>(a) < get<3>(b);
+       });
+
+  for (auto prop: sortedProps) {
+    auto var = get<0>(prop).as<Var>();
+    if (!var->is_parameter) {
+      ret << outputTensorProperty(outputProperties[prop], get<0>(prop),
+                              get<1>(prop), get<2>(prop), get<3>(prop));
+    }
+  }
+  return ret.str();
+}
+
+string CodeGen_Spatial::outputTensorProperty(string varname, Expr tnsr,
+                                   TensorProperty property,
+                                   int mode, int index) {
+  stringstream ret;
+  ret << "  ";
+
+  auto tensor = tnsr.as<Var>();
+  if (property == TensorProperty::Values) {
+    ret << varname << " store " << varname << "_sram" << endl; 
+    return ret.str();
+  } else if (property == TensorProperty::Dimension) {
+    return "";
+  } 
+  return ret.str();
+}
+
 
 } // namespace ir
 } // namespace taco
