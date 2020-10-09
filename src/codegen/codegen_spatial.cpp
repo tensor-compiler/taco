@@ -368,7 +368,21 @@ void CodeGen_Spatial::visit(const VarDecl* op) {
     stream << ";";
     stream << endl;
   } else {
-    IRPrinter::visit(op);
+    doIndent();
+    stream << keywordString(util::toString(op->var.type()));
+    taco_iassert(isa<Var>(op->var));
+    if (to<Var>(op->var)->is_ptr) {
+      stream << "* restrict";
+    }
+    stream << " ";
+    string varName = varNameGenerator.getUniqueName(util::toString(op->var));
+    varNames.insert({op->var, varName});
+    op->var.accept(this);
+    parentPrecedence = Precedence::TOP;
+    stream << " = ";
+    op->rhs.accept(this);
+    //stream << ";";
+    stream << endl;
   }
 }
 
@@ -388,6 +402,13 @@ void CodeGen_Spatial::visit(const Var* op) {
   if (emittingCoroutine) {
 //    out << ")";
   }
+}
+
+void CodeGen_Spatial::visit(const Malloc* op) {
+  stream << "SRAM[T](";
+  parentPrecedence = Precedence::TOP;
+  op->size.accept(this);
+  stream << ")";
 }
 
 static string genVectorizePragma(int width) {
@@ -566,24 +587,21 @@ void CodeGen_Spatial::visit(const Allocate* op) {
   string elementType = printCType(op->var.type(), false);
 
   doIndent();
+  stream << "val ";
   op->var.accept(this);
-  stream << " = (";
-  stream << elementType << "*";
-  stream << ")";
+  stream << " = ";
   if (op->is_realloc) {
     stream << "realloc(";
     op->var.accept(this);
     stream << ", ";
   }
   else {
-    stream << "malloc(";
+    stream << "SRAM[T](";
   }
-  stream << "sizeof(" << elementType << ")";
-  stream << " * ";
   parentPrecedence = MUL;
   op->num_elements.accept(this);
   parentPrecedence = TOP;
-  stream << ");";
+  stream << ")";
     stream << endl;
 }
 
@@ -600,7 +618,51 @@ void CodeGen_Spatial::visit(const Assign* op) {
     doIndent();
     stream << getAtomicPragma() << endl;
   }
-  IRPrinter::visit(op);
+
+  doIndent();
+  op->lhs.accept(this);
+  parentPrecedence = Precedence::TOP;
+  bool printed = false;
+  if (simplify) {
+    if (isa<ir::Add>(op->rhs)) {
+      auto add = to<Add>(op->rhs);
+      if (add->a == op->lhs) {
+        const Literal* lit = add->b.as<Literal>();
+        if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
+                               (lit->type.isUInt() && lit->equalsScalar(1)))) {
+          stream << "++";
+        }
+        else {
+          stream << " += ";
+          add->b.accept(this);
+        }
+        printed = true;
+      }
+    }
+    else if (isa<Mul>(op->rhs)) {
+      auto mul = to<Mul>(op->rhs);
+      if (mul->a == op->lhs) {
+        stream << " *= ";
+        mul->b.accept(this);
+        printed = true;
+      }
+    }
+    else if (isa<BitOr>(op->rhs)) {
+      auto bitOr = to<BitOr>(op->rhs);
+      if (bitOr->a == op->lhs) {
+        stream << " |= ";
+        bitOr->b.accept(this);
+        printed = true;
+      }
+    }
+  }
+  if (!printed) {
+    stream << " = ";
+    op->rhs.accept(this);
+  }
+
+  //stream << ";";
+  stream << endl;
 }
 
 void CodeGen_Spatial::visit(const Store* op) {
@@ -608,7 +670,30 @@ void CodeGen_Spatial::visit(const Store* op) {
     doIndent();
     stream << getAtomicPragma() << endl;
   }
-  IRPrinter::visit(op);
+
+  doIndent();
+  op->arr.accept(this);
+  stream << "(";
+  parentPrecedence = Precedence::TOP;
+  op->loc.accept(this);
+  stream << ") = ";
+  parentPrecedence = Precedence::TOP;
+  op->data.accept(this);
+  //stream << ";";
+  stream << endl;
+}
+
+void CodeGen_Spatial::visit(const Load* op) {
+  parentPrecedence = Precedence::LOAD;
+  op->arr.accept(this);
+  stream << "(";
+  parentPrecedence = Precedence::LOAD;
+  op->loc.accept(this);
+  stream << ")";
+}
+
+void CodeGen_Spatial::visit(const Free* op) {
+  parentPrecedence = Precedence::TOP;
 }
 
 void CodeGen_Spatial::generateShim(const Stmt& func, stringstream &ret) {
