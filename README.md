@@ -23,13 +23,13 @@ email list where we post announcements, RFCs, and notifications of API
 changes, or the [taco-discuss](https://lists.csail.mit.edu/mailman/listinfo/taco-discuss)
 email list for open discussions and questions.
 
-TL;DR build taco using CMake. Run `taco-test` in the `bin` directory.
+TL;DR build taco using CMake. Run `make test`.
 
 
-# Build and test 
+# Build and test
 ![Build and Test](https://github.com/RSenApps/taco/workflows/Build%20and%20Test/badge.svg?branch=master)
 
-Build taco using CMake 2.8.3 or greater:
+Build taco using CMake 2.8.12 or greater:
 
     cd <taco-directory>
     mkdir build
@@ -44,7 +44,7 @@ To build taco with the Python API (pytaco), add `-DPYTHON=ON` to the cmake line 
 
 You will then need to add the pytaco module to PYTHONPATH:
 
-    export PYTHONPATH=<taco-directory>/python_bindings/:$PYTHONPATH
+    export PYTHONPATH=<taco-directory>/build/lib:$PYTHONPATH
 
 pytaco requires NumPy and SciPy to be installed.
 
@@ -59,11 +59,11 @@ To build taco for NVIDIA CUDA, add `-DCUDA=ON` to the cmake line above. For exam
     cmake -DCMAKE_BUILD_TYPE=Release -DCUDA=ON ..
 
 Please also make sure that you have CUDA installed properly and that the following environment variables are set correctly:
-    
+
     export PATH=/usr/local/cuda/bin:$PATH
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/cuda/lib64:$LIBRARY_PATH
-    
+
 If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag.
 
 ## Running tests
@@ -82,7 +82,7 @@ To run the C++ test suite individually:
 To run the Python test suite individually:
 
     cd <taco-directory>
-    python3 python_bindings/unit_tests.py
+    python3 build/python_bindings/unit_tests.py
 
 
 # Library example
@@ -137,7 +137,7 @@ the same effect:
     cd <taco-directory>
     ./build/bin/taco
     Usage: taco [options] <index expression>
-    
+
     Examples:
       taco "a(i) = b(i) + c(i)"                            # Dense vector add
       taco "a(i) = b(i) + c(i)" -f=b:s -f=c:s -f=a:s       # Sparse vector add
