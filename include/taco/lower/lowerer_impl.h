@@ -333,17 +333,19 @@ protected:
   ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coord, IndexVar coordinateVar);
   ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar);
 
+  /// Initializes a temporary workspace
+  std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
 
   /// Recovers a derived indexvar from an underived variable.
   ir::Stmt codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar indexVar, bool emitVarDecl);
 
-    /// Conditionally increment iterator position variables.
+  /// Conditionally increment iterator position variables.
   ir::Stmt codeToIncIteratorVars(ir::Expr coordinate, IndexVar coordinateVar,
           std::vector<Iterator> iterators, std::vector<Iterator> mergers);
 
   ir::Stmt codeToLoadCoordinatesFromPosIterators(std::vector<Iterator> iterators, bool declVars);
 
-    /// Create statements to append coordinate to result modes.
+  /// Create statements to append coordinate to result modes.
   ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
 
   /// Create statements to append positions to result modes.
@@ -362,6 +364,9 @@ private:
 
   int markAssignsAtomicDepth = 0;
   ParallelUnit atomicParallelUnit;
+
+  /// Map used to hoist temporary workspace initialization
+  std::map<Forall, Where> temporaryInitialization;
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;

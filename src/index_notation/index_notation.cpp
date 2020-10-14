@@ -2332,6 +2332,22 @@ vector<TensorVar> getArguments(IndexStmt stmt) {
   return result;
 }
 
+std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt) {
+  map<Forall, Where> temporaryLocs;
+  Forall f = Forall();
+  match(stmt,
+        function<void(const ForallNode*, Matcher*)>([&](const ForallNode* op, Matcher* ctx) {
+          f = op;
+          ctx->match(op->stmt);
+        }),
+          function<void(const WhereNode*, Matcher*)>([&](const WhereNode* w, Matcher* ctx) {
+            if (!(f == IndexStmt()))
+              temporaryLocs.insert({f, Where(w)});
+          })
+        );
+  return temporaryLocs;
+}
+
 std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
   vector<TensorVar> temporaries;
   bool firstAssignment = true;

@@ -118,6 +118,9 @@ LowererImpl::lower(IndexStmt stmt, string name,
   vector<TensorVar> arguments = getArguments(stmt);
   vector<TensorVar> temporaries = getTemporaries(stmt);
 
+  // Create datastructure needed for temporary workspace hoisting/reuse
+  temporaryInitialization = getTemporaryLocations(stmt);
+
   // Convert tensor results and arguments IR variables
   map<TensorVar, Expr> resultVars;
   vector<Expr> resultsIR = createVars(results, &resultVars, unpack);
@@ -382,11 +385,29 @@ Stmt LowererImpl::lowerForall(Forall forall)
     taco_iassert(indexVarToExprMap.count(varToRecover));
     recoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
     // place underived guard
+    std::vector<ir::Expr> iterBounds = provGraph.deriveIterBounds(varToRecover, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
     if (forallNeedsUnderivedGuards && underivedBounds.count(varToRecover) &&
         !provGraph.hasPosDescendant(varToRecover)) {
-      Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]),
-                                    Break::make());
-      recoverySteps.push_back(guard);
+
+      // FIXME: [Olivia] Check this with someone
+      // Removed underived guard if indexVar is bounded is divisible by its split child indexVar
+      vector<IndexVar> children = provGraph.getChildren(varToRecover);
+      bool hasDirectDivBound = false;
+      std::vector<ir::Expr> iterBoundsInner = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+
+        for (auto& c: children) {
+          if (provGraph.hasExactBound(c) && provGraph.derivationPath(varToRecover, c).size() == 2) {
+              std::vector<ir::Expr> iterBoundsUnderivedChild = provGraph.deriveIterBounds(c, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+              if (iterBoundsUnderivedChild[1].as<ir::Literal>()->getValue<int>() % iterBoundsInner[1].as<ir::Literal>()->getValue<int>() == 0)
+              hasDirectDivBound = true;
+              break;
+          }
+      }
+      if (!hasDirectDivBound) {
+          Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]),
+                                        Break::make());
+          recoverySteps.push_back(guard);
+      }
     }
   }
   Stmt recoveryStmt = Block::make(recoverySteps);
@@ -413,6 +434,12 @@ Stmt LowererImpl::lowerForall(Forall forall)
   Stmt preInitValues = initResultArrays(forall.getIndexVar(), resultAccesses,
                                         getArgumentAccesses(forall), 
                                         reducedAccesses);
+
+  // Emit temporary initialization if forall is sequential and leads to a where statement
+  vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
+  auto temp = temporaryInitialization.find(forall);
+  if (temp != temporaryInitialization.end() && forall.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temp->second.getTemporary().getType()))
+    temporaryValuesInitFree = codeToInitializeTemporary(temp->second);
 
   Stmt loops;
   // Emit a loop that iterates over over a single iterator (optimization)
@@ -491,7 +518,9 @@ Stmt LowererImpl::lowerForall(Forall forall)
     parallelUnitSizes.erase(forall.getParallelUnit());
   }
   return Block::blanks(preInitValues,
-                       loops);
+                       temporaryValuesInitFree[0],
+                       loops,
+                       temporaryValuesInitFree[1]);
 }
 
 Stmt LowererImpl::lowerForallCloned(Forall forall) {
@@ -1272,39 +1301,36 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
                      appendCoords);
 }
 
-
-Stmt LowererImpl::lowerWhere(Where where) {
+vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
   TensorVar temporary = where.getTemporary();
 
-  // Declare and initialize the where statement's temporary
-  Stmt initializeTemporary = Stmt();
   Stmt freeTemporary = Stmt();
+  Stmt initializeTemporary = Stmt();
   if (isScalar(temporary.getType())) {
     initializeTemporary = defineScalarVariable(temporary, true);
-  }
-  else {
+  } else {
     if (generateComputeCode()) {
       Expr values = ir::Var::make(temporary.getName(),
                                   temporary.getType().getDataType(),
                                   true, false);
-      taco_iassert(temporary.getType().getOrder() == 1) << " Temporary order was " << temporary.getType().getOrder();  // TODO
+      taco_iassert(temporary.getType().getOrder() == 1) << " Temporary order was "
+                                                        << temporary.getType().getOrder();  // TODO
       Dimension temporarySize = temporary.getType().getShape().getDimension(0);
       Expr size;
       if (temporarySize.isFixed()) {
         size = ir::Literal::make(temporarySize.getSize());
-      }
-      else if (temporarySize.isIndexVarSized()) {
+      } else if (temporarySize.isIndexVarSized()) {
         IndexVar var = temporarySize.getIndexVarSize();
-        vector<Expr> bounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+        vector<Expr> bounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds,
+                                                         indexVarToExprMap, iterators);
         size = ir::Sub::make(bounds[1], bounds[0]);
-      }
-      else {
+      } else {
         taco_ierror; // TODO
       }
 
       // no decl needed for shared memory
       Stmt decl = Stmt();
-      if((isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) || !should_use_CUDA_codegen()) {
+      if ((isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) || !should_use_CUDA_codegen()) {
         decl = VarDecl::make(values, ir::Literal::make(0));
       }
       Stmt allocate = Allocate::make(values, size);
@@ -1313,17 +1339,36 @@ Stmt LowererImpl::lowerWhere(Where where) {
       Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
       Stmt zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
 
-      freeTemporary = Free::make(values);
-
       /// Make a struct object that lowerAssignment and lowerAccess can read
       /// temporary value arrays from.
       TemporaryArrays arrays;
       arrays.values = values;
       this->temporaryArrays.insert({temporary, arrays});
 
+      freeTemporary = Free::make(values);
       initializeTemporary = Block::make(decl, allocate, zeroInitLoop);
     }
   }
+  return {initializeTemporary, freeTemporary};
+}
+
+Stmt LowererImpl::lowerWhere(Where where) {
+  TensorVar temporary = where.getTemporary();
+
+  // Declare and initialize the where statement's temporary
+  vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
+  bool temporaryHoisted = false;
+  for (auto it = temporaryInitialization.begin(); it != temporaryInitialization.end(); ++it) {
+    if (it->second == where && it->first.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temporary.getType())) {
+      temporaryHoisted = true;
+    }
+  }
+
+  if (!temporaryHoisted)
+    temporaryValuesInitFree = codeToInitializeTemporary(where);
+
+  Stmt initializeTemporary = temporaryValuesInitFree[0];
+  Stmt freeTemporary = temporaryValuesInitFree[1];
 
   match(where.getConsumer(),
         std::function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
@@ -1354,7 +1399,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
   whereConsumers.pop_back();
   whereTemps.pop_back();
   whereTempsToResult.erase(where.getTemporary());
-  return Block::make(initializeTemporary, producer, markAssignsAtomicDepth > 0 ? capturedLocatePos : ir::Stmt(), consumer, freeTemporary);
+  return Block::make(initializeTemporary, producer, markAssignsAtomicDepth > 0 ? capturedLocatePos : ir::Stmt(), consumer,  freeTemporary);
 }
 
 
