@@ -1436,26 +1436,6 @@ TEST(generate_evaluation_files, cpu) {
     source_file.close();
   }
 
-  // fig 2b
-  {
-    stringstream source;
-    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-    Tensor<double> B("B", {NUM_I, NUM_J}, {Dense, Dense});
-    Tensor<double> a("a", {NUM_J}, {Dense});
-    Tensor<double> c("c", {NUM_I}, {Dense});
-    a(i) = B(i, j) * c(j);
-    IndexStmt stmt = a.getAssignment().concretize();
-    for (auto paramSet : spmv_parameters) {
-      IndexStmt scheduled = stmt;
-      ir::Stmt compute = lower(scheduled, "fig2b",  false, true);
-      codegen->compile(compute, false);
-    }
-    ofstream source_file;
-    source_file.open(file_path + "fig2b.h");
-    source_file << source.str();
-    source_file.close();
-  }
-
   // fig 2c
   {
     stringstream source;
@@ -1486,8 +1466,8 @@ TEST(generate_evaluation_files, cpu) {
     a(i) = B(i, j) * c(j);
     IndexStmt stmt = a.getAssignment().concretize();
     for (auto paramSet : spmv_parameters) {
-      IndexVar f("f"), p("p");
-      IndexStmt scheduled = stmt.fuse(i, j, f).pos(f, p, B(i, j));
+      IndexVar i1("i1"), i2("i2");
+      IndexStmt scheduled = stmt.split(i, i1, i2, 32).parallelize(i1, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
       ir::Stmt compute = lower(scheduled, "fig2d",  false, true);
       codegen->compile(compute, false);
     }
@@ -1497,28 +1477,7 @@ TEST(generate_evaluation_files, cpu) {
     source_file.close();
   }
 
-  // fig 2e
-  {
-    stringstream source;
-    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-    Tensor<double> B("B", {NUM_I, NUM_J}, CSR);
-    Tensor<double> a("a", {NUM_J}, {Dense});
-    Tensor<double> c("c", {NUM_I}, {Dense});
-    a(i) = B(i, j) * c(j);
-    IndexStmt stmt = a.getAssignment().concretize();
-    for (auto paramSet : spmv_parameters) {
-      IndexVar i1("i1"), i2("i2");
-      IndexStmt scheduled = stmt.split(i, i1, i2, 4);
-      ir::Stmt compute = lower(scheduled, "fig2e",  false, true);
-      codegen->compile(compute, false);
-    }
-    ofstream source_file;
-    source_file.open(file_path + "fig2e.h");
-    source_file << source.str();
-    source_file.close();
-  }
-
-  // fig 13
+  // fig 4b
   {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
@@ -1533,11 +1492,11 @@ TEST(generate_evaluation_files, cpu) {
                                 .pos(f, p, B(i, j))
                                 .split(p, p0, p1, 16)
                                 .parallelize(p0, ParallelUnit::CPUThread, OutputRaceStrategy::Atomics);
-      ir::Stmt compute = lower(scheduled, "fig13",  false, true);
+      ir::Stmt compute = lower(scheduled, "fig4b",  false, true);
       codegen->compile(compute, false);
     }
     ofstream source_file;
-    source_file.open(file_path + "fig13.h");
+    source_file.open(file_path + "fig4b.h");
     source_file << source.str();
     source_file.close();
   }
