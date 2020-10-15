@@ -32,11 +32,13 @@ TEST(workspaces, tile_vecElemMul_NoTail) {
 
   IndexStmt stmt = A.getAssignment().concretize();
   TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
-  stmt = stmt.bound(i, i_bounded, 17, BoundType::MaxExact)
+  stmt = stmt.bound(i, i_bounded, 16, BoundType::MaxExact)
              .split(i_bounded, i0, i1, 4)
              .precompute(precomputedExpr, i1, i1, precomputed);
    
-  A.compile(stmt.concretize());
+    cout << stmt << endl;
+
+  A.compile(stmt);
   A.assemble();
   A.compute();
 
