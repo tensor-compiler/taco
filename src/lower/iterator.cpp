@@ -193,7 +193,7 @@ bool Iterator::isCompact() const {
 
 bool Iterator::isZeroless() const {
   taco_iassert(defined());
-  if (isDimensionIterator()) return true;
+  if (isDimensionIterator()) return false;
   return getMode().defined() && getMode().getModeFormat().isZeroless();
 }
 
