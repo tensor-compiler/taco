@@ -242,7 +242,8 @@ bool Literal::equalsScalar(double scalar) const {
 }
 
 Expr Var::make(std::string name, Datatype type, 
-               bool is_ptr, bool is_tensor, bool is_parameter) {
+               bool is_ptr, bool is_tensor,
+               bool is_parameter, MemoryLocation memoryLocation) {
   Var *var = new Var;
   var->type = type;
   var->name = name;
@@ -251,6 +252,8 @@ Expr Var::make(std::string name, Datatype type,
   var->is_ptr = is_ptr;
   var->is_tensor = is_tensor;
   var->is_parameter = is_parameter;
+
+  var->memoryLocation = memoryLocation;
 
   return var;
 }

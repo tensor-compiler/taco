@@ -1847,6 +1847,15 @@ TensorVar::TensorVar(const string& name, const Type& type, const Format& format)
   content->format = format;
 }
 
+TensorVar::TensorVar(const string& name, const Type& type, const Format& format,
+                      const MemoryLocation memoryLocation=MemoryLocation::Default)
+    : content(new Content) {
+  content->name = name;
+  content->type = type;
+  content->format = format;
+  content->memoryLocation = memoryLocation;
+}
+
 std::string TensorVar::getName() const {
   return content->name;
 }
