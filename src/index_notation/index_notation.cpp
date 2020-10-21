@@ -2099,17 +2099,23 @@ TensorVar::TensorVar(const string& name, const Type& type, const Format& format)
     : TensorVar(-1, name, type, format) {
 }
 
-TensorVar::TensorVar(const int& id, const string& name, const Type& type, const Format& format)
+TensorVar::TensorVar(const string& name, const Type& type, const Format& format
+                      const MemoryLocation memoryLocation=MemoryLocation::Default)
+    : TensorVar(-1, name, type, format, memoryLocation) {
+}
+
+TensorVar::TensorVar(const int& id, const string& name, const Type& type, const Format& format
+                      const MemoryLocation memoryLocation=MemoryLocation::Default)
     : content(new Content) {
   content->id = id;
   content->name = name;
   content->type = type;
   content->format = format;
+  content->memoryLocation = memoryLocation;
 }
 
 int TensorVar::getId() const {
   return content->id;
-}
 
 std::string TensorVar::getName() const {
   return content->name;

@@ -788,6 +788,7 @@ public:
   IndexStmt getStmt() const;
 
   ParallelUnit getParallelUnit() const;
+  
   OutputRaceStrategy getOutputRaceStrategy() const;
 
   size_t getUnrollFactor() const;
@@ -1045,6 +1046,10 @@ public:
   TensorVar(const std::string& name, const Type& type, const Format& format);
   TensorVar(const int &id, const std::string& name, const Type& type, const Format& format);
 
+  /// TODO: Should the memory location be const?
+  TensorVar(const std::string& name, const Type& type, const Format& format, const MemoryLocation memoryLocation=MemoryLocation::Default);
+  TensorVar(const int &id, const std::string& name, const Type& type, const Format& format, const MemoryLocation memoryLocation=MemoryLocation::Default);
+
   /// Returns the ID of the tensor variable.
   int getId() const;
 
@@ -1063,6 +1068,9 @@ public:
   /// Returns the schedule of the tensor var, which describes how to compile
   /// and execute it's expression.
   const Schedule& getSchedule() const;
+
+  /// Returns the memory location of the tensor variable
+  const MemoryLocation getMemoryLocation() const;
 
   /// Set the name of the tensor variable.
   void setName(std::string name);

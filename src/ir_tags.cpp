@@ -6,5 +6,5 @@ const char *ParallelUnit_NAMES[] = {"NotParallel", "DefaultUnit", "GPUBlock", "G
 const char *OutputRaceStrategy_NAMES[] = {"IgnoreRaces", "NoRaces", "Atomics", "Temporary", "ParallelReduction"};
 const char *BoundType_NAMES[] = {"MinExact", "MinConstraint", "MaxExact", "MaxConstraint"};
 const char *AssembleStrategy_NAMES[] = {"Append", "Insert"};
-
+const char *MemoryLocation_NAMES[] = {"Default", "GPUSharedMemory", "Spatial"}
 }

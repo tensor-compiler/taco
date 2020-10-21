@@ -13,6 +13,14 @@ enum class ParallelUnit {
 };
 extern const char *ParallelUnit_NAMES[];
 
+
+/// 
+enum class MemoryLocation {
+  Default, GPUSharedMemory, Spatial                    
+};
+
+extern const char *MemoryLocation_NAMES[];
+
 /// OutputRaceStrategy::NoRaces raises a compile-time error if an output race exists
 /// OutputRaceStrategy::Atomics replace racing instructions with atomics
 /// OutputRaceStrategy::Temporary uses a temporary array for outputs that is serially reduced

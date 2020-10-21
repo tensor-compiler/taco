@@ -241,6 +241,9 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   // Create variables for temporaries
   // TODO Remove this
+
+
+  // TODO: Make diff node based on whether it is set?
   for (auto& temp : temporaries) {
     ir::Expr irVar = ir::Var::make(temp.getName(), temp.getType().getDataType(),
                                    true, true);
@@ -717,7 +720,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     vector<Iterator> appenders;
     vector<Iterator> inserters;
     tie(appenders, inserters) = splitAppenderAndInserters(point.results());
-
+    
     std::vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(iterator.getIndexVar());
     IndexVar posDescendant;
     bool hasPosDescendant = false;
@@ -1982,7 +1985,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
   for (auto it = temporaryInitialization.begin(); it != temporaryInitialization.end(); ++it) {
     if (it->second == where && it->first.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temporary.getType())) {
       temporaryHoisted = true;
-    }
+    }  
   }
 
   if (!temporaryHoisted) {
