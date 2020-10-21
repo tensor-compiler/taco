@@ -186,3 +186,55 @@ TEST(workspaces, tile_denseMatMul) {
 //  codegen->compile(compute, false);
   
 }
+
+TEST(workspaces, boundmap) {
+  
+  Tensor<double> A("A", {8}, {Dense});
+  Tensor<double> B("B", {8}, {Dense});
+  Tensor<double> C("C", {8}, {Dense});
+
+  for (int i = 0; i < 16; i++) {
+      A.insert({i}, (double) i);
+      B.insert({i}, (double) i);
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i");
+  IndexVar i_bounded("i_bounded");
+  IndexVar i0("i0"), i1("i1"), i0_bounded("i0_bounded"), i0_bounded1("i0_bounded1");
+  IndexExpr precomputedExpr = B(i) * C(i);
+  A(i) = precomputedExpr;
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
+  stmt = stmt.bound(i, i_bounded, 16, BoundType::MaxExact)
+             .split(i_bounded, i0, i1, 4)
+             .bound(i0, i0_bounded, 3, BoundType::MaxExact)
+             .bound(i0_bounded, i0_bounded1, 2, BoundType::MaxExact)
+             .precompute(precomputedExpr, i1, i1, precomputed);
+   
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {8}, {Dense});
+  expected(i) = B(i) * C(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+
+//  ir::IRPrinter irp = ir::IRPrinter(cout);
+//  cout << stmt << endl;
+//
+//  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  
+//  irp.print(compute);
+//  cout << endl;
+//  codegen->compile(compute, false);
+  
+}
+
