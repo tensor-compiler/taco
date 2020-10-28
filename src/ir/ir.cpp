@@ -834,6 +834,56 @@ Stmt Sort::make(std::vector<Expr> args) {
   return sort;
 }
 
+Expr GetProperty::make(Expr tensor, TensorProperty property, int mode, int index) {
+  GetProperty* gp = new GetProperty;
+  gp->tensor = tensor;
+  gp->property = property;
+  gp->mode = mode;
+
+  //TODO: deal with the fact that these are pointers.
+  if (property == TensorProperty::Values)
+    gp->type = tensor.type();
+  else
+    gp->type = Int();
+
+  const Var* tensorVar = tensor.as<Var>();
+  switch (property) {
+    case TensorProperty::Order:
+      gp->name = tensorVar->name + "_order";
+      break;
+    case TensorProperty::Dimension:
+      gp->name = tensorVar->name + util::toString(mode + 1) + "_dimension";
+
+      // Assign dimension value for spatial code
+      if (should_use_Spatial_codegen())
+        gp->index = index;
+
+      break;
+    case TensorProperty::ComponentSize:
+      gp->name = tensorVar->name + "_csize";
+      break;
+    case TensorProperty::ModeOrdering:
+      gp->name = tensorVar->name  + util::toString(mode + 1) + "_mode_ordering";
+      break;
+    case TensorProperty::ModeTypes:
+      gp->name = tensorVar->name  + util::toString(mode + 1) + "_mode_type";
+      break;
+    case TensorProperty::Indices:
+      taco_ierror << "Must provide both mode and index for the Indices property";
+      break;
+    case TensorProperty::Values:
+      gp->name = tensorVar->name + "_vals";
+      // Assign dimension value for spatial code
+      if (should_use_Spatial_codegen())
+        gp->index = index;
+      break;
+    case TensorProperty::ValuesSize:
+      gp->name = tensorVar->name + "_vals_size";
+      break;
+  }
+
+  return gp;
+}
 
 // GetProperty
 Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {

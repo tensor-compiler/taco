@@ -768,6 +768,7 @@ struct GetProperty : public ExprNode<GetProperty> {
   std::string name;
 
   static Expr make(Expr tensor, TensorProperty property, int mode=0);
+  static Expr make(Expr tensor, TensorProperty property, int mode, int index);
   static Expr make(Expr tensor, TensorProperty property, int mode,
                    int index, std::string name);
   

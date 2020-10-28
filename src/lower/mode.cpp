@@ -119,4 +119,8 @@ ir::Expr ModePack::getArray(size_t i) const {
   return content->arrays[i];
 }
 
+void ModePack::setArray(size_t i, ir::Expr val) {
+  content->arrays[i] = val;
+}
+
 }

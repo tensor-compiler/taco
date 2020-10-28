@@ -14,7 +14,7 @@
 using namespace taco;
 const IndexVar i("i"), j("j"), k("k");
 
-TEST(spatial, vecMul) {
+TEST(spatial, vecElemMul) {
   // Enable spatial codegen
   //should_use_Spatial_codegen();
   
@@ -50,7 +50,7 @@ TEST(spatial, vecMul) {
   codegen->compile(compute, false);
 }
 
-TEST(spatial, tilingVecMul) {
+TEST(spatial, tile_vecElemMul) {
   // Enable spatial codegen
   //should_use_Spatial_codegen();
   
@@ -94,6 +94,61 @@ TEST(spatial, tilingVecMul) {
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt compute = lower(stmt, "compute",  false, true);
   codegen->compile(compute, false);
+}
 
-  
+TEST(spatial, tile_matElemMul) {
+
+  Tensor<double> A("A", {16, 16}, {Dense});
+  Tensor<double> B("B", {16, 16}, {Dense});
+  Tensor<double> C("C", {16, 16}, {Dense});
+
+  for (int i = 0; i < 16; i++) {
+    for (int j = 0; j < 16; j++) {
+      C.insert({i, j}, (double) i+j);
+      B.insert({i, j}, (double) i+j);
+    }
+  }
+
+  B.pack();
+  C.pack();
+
+  IndexVar i("i");
+  IndexVar i_bounded("i_bounded");
+  IndexVar i0("i0"), i1("i1"), i0_bounded("i0_bounded"), i0_bounded1("i0_bounded1");
+
+  IndexVar j("j"), j_bounded("j_bounded");
+  IndexVar j0("j0"), j1("j1"), j0_bounded("j0_bounded"), j0_bounded1("j0_bounded1");
+
+  IndexExpr precomputedExpr = B(i, j) * C(i, j);
+  A(i, j) = precomputedExpr;
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1), Dimension(j1)}), taco::dense);
+  stmt = stmt.bound(i, i_bounded, 16, BoundType::MaxExact)
+          .split(i_bounded, i0, i1, 4)
+          .bound(j, j_bounded, 16, BoundType::MaxExact)
+          .split(j_bounded, j0, j1, 4);
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {16, 16}, {Dense});
+  expected(i, j) = B(i, j) * C(i, j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+
+  set_Spatial_codegen_enabled(true);
+//  ir::IRPrinter irp = ir::IRPrinter(cout);
+//  cout << stmt << endl;
+//
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "Compute",  false, true);
+//
+//  irp.print(compute);
+//  cout << endl;
+  codegen->compile(compute, false);
+
 }

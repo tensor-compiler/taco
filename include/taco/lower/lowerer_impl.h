@@ -48,13 +48,17 @@ class Stmt;
 class Expr;
 }
 
+  struct TemporaryArrays {
+    ir::Expr values;
+  };
+
 class LowererImpl : public util::Uncopyable {
 public:
   LowererImpl();
   virtual ~LowererImpl() = default;
 
   /// Lower an index statement to an IR function.
-  ir::Stmt lower(IndexStmt stmt, std::string name, 
+  ir::Stmt lower(IndexStmt stmt, std::string name,
                  bool assemble, bool compute, bool pack, bool unpack);
 
 protected:
@@ -248,7 +252,7 @@ protected:
   ir::Expr getCapacityVar(ir::Expr) const;
 
   /// Retrieve the values array of the tensor var.
-  ir::Expr getValuesArray(TensorVar) const;
+  virtual ir::Expr getValuesArray(TensorVar) const;
 
   /// Retrieve the dimension of an index variable (the values it iterates over),
   /// which is encoded as the interval [0, result).
@@ -427,6 +431,11 @@ protected:
   /// loop iterator variable should be incremented when the guard is fired.
   ir::Stmt strideBoundsGuard(Iterator iterator, ir::Expr access, bool incrementPosVar);
 
+  /// Accessor method for private attribute accessibleIterators
+  util::ScopedSet<Iterator> getAccessibleIterators() const;
+
+  std::map<TensorVar, TemporaryArrays> getTemporaryArrays() const;
+
 private:
   bool assemble;
   bool compute;
@@ -444,9 +453,6 @@ private:
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
 
-  struct TemporaryArrays {
-    ir::Expr values;
-  };
   std::map<TensorVar, TemporaryArrays> temporaryArrays;
 
   /// Map form temporary to indexList var if accelerating dense workspace

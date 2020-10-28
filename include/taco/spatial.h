@@ -16,6 +16,9 @@ void set_Spatial_dimension(int dim);
 
 int get_Spatial_dimension();
 
+/// Check if should use Spatial multi-dimensional memories
+bool should_use_Spatial_multi_dim();
+
 }
 
 #endif

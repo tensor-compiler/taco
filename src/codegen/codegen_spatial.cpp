@@ -10,6 +10,7 @@
 #include "taco/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
+#include "taco/spatial.h"
 
 using namespace std;
 
@@ -256,8 +257,9 @@ string CodeGen_Spatial::printFuncName(const Function *func,
 
   ret << "import spatial.dsl._" << endl;
   ret << "\n";
-  ret << "class Compute_0 extends Compute" << endl;  
+  ret << "class " << func->name << "_0 extends " << func->name << "()" << endl;
   ret << "\n";
+
 
   ret << "@spatial abstract class " << func->name << "(" << endl;
 
@@ -310,9 +312,6 @@ void CodeGen_Spatial::visit(const Function* func) {
   varMap = varFinder.varMap;
   localVars = varFinder.localVars;
 
-  // [Spatial] Print T datatype
-  doIndent();
-
   // Print variable declarations
   out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << endl;
 
@@ -325,10 +324,9 @@ void CodeGen_Spatial::visit(const Function* func) {
   
   doIndent();
   out << "Accel {\n";
-
+  indent++;
   out << printDeclsAccel(varFinder.varDecls, func->inputs, func->outputs) << endl;
 
-  doIndent();
   // output body
   print(func->body);
 
@@ -369,11 +367,8 @@ void CodeGen_Spatial::visit(const VarDecl* op) {
     stream << endl;
   } else {
     doIndent();
-    stream << keywordString(util::toString(op->var.type()));
+    stream << "val";
     taco_iassert(isa<Var>(op->var));
-    if (to<Var>(op->var)->is_ptr) {
-      stream << "* restrict";
-    }
     stream << " ";
     string varName = varNameGenerator.getUniqueName(util::toString(op->var));
     varNames.insert({op->var, varName});
@@ -745,11 +740,15 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << "val " << varname << "_sram = SRAM[T](";
-    for (int i = 0; i < op->mode+1; i++) {
-      ret << tensor->name << i + 1 << "_dimension_sram";
+    for (int i = 1; i < op->index+1; i++) {
+      ret << tensor->name << i << "_dimension_sram";
 
-      if (i < op->mode)
-        ret << ",";
+      if (i < op->index) {
+        if (should_use_Spatial_multi_dim())
+          ret << ", ";
+        else
+          ret << " * ";
+      }
     }
     ret << ")" << endl; 
 
@@ -807,11 +806,15 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
 //    } else {
       // for the values, it's in the last slot
       ret << "val " << varname << " = DRAM[T](";
-      for (int i = 0; i < op->mode+1; i++) {
-        ret << tensor->name << i + 1 << "_dimension";
+      for (int i = 1; i < op->index+1; i++) {
+        ret << tensor->name << i << "_dimension";
 
-        if (i < op->mode)
-          ret << ",";
+        if (i < op->index) {
+          if (should_use_Spatial_multi_dim())
+            ret << ", ";
+          else
+            ret << " * ";
+        }
       }
       ret << ")" << endl; 
 //    }
@@ -1094,7 +1097,7 @@ string CodeGen_Spatial::outputTensorProperty(string varname, Expr tnsr,
                                    TensorProperty property,
                                    int mode, int index) {
   stringstream ret;
-  ret << "  ";
+  ret << "    ";
 
   auto tensor = tnsr.as<Var>();
   if (property == TensorProperty::Values) {

@@ -82,6 +82,9 @@ public:
   /// Returns arrays shared by tensor modes.
   ir::Expr getArray(size_t i) const;
 
+  /// Changes arrays shared by tensor modes
+  void setArray(size_t i, ir::Expr val);
+
 private:
   struct Content;
   std::shared_ptr<Content> content;

@@ -14,6 +14,7 @@
 #include "taco/lower/merge_lattice.h"
 #include "mode_access.h"
 #include "taco/util/collections.h"
+#include "taco/spatial.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -306,13 +307,45 @@ LowererImpl::lower(IndexStmt stmt, string name,
       function<void(const AssignmentNode*, Matcher*)>([&](
           const AssignmentNode* n, Matcher* m) {
         m->match(n->rhs);
+
         if (!dimension.defined()) {
           auto ivars = n->lhs.getIndexVars();
           auto tv = n->lhs.getTensorVar();
           int loc = (int)distance(ivars.begin(),
                                   find(ivars.begin(),ivars.end(), indexVar));
-          if(!util::contains(temporariesSet, tv)) {
-            dimension = getDimension(tv, n->lhs, loc);
+
+          if(!util::contains(temporariesSet, n->lhs.getTensorVar())) {
+            // Set exact bounds if bounded (for Spatial)
+            if (provGraph.hasBoundedDescendant(indexVar)) {
+              // FIXME: bounded descendants cannot currently handle tensor slicing or index sets
+              dimension = GetProperty::make(tensorVars.at(n->lhs.getTensorVar()),
+                                            TensorProperty::Dimension, loc, provGraph.getVarBound(indexVar));
+
+              // FIXME: [Olivia] Temporary workaround for how GP::make(TensorProperty::Dimension) is called
+              ModeAccess ma = {Access(n->lhs), loc+1};
+              auto iter = iterators.levelIterator(ma);
+              auto prevDimGP = iter.getMode().getModePack().getArray(0).as<GetProperty>();
+              iter.getMode().getModePack().setArray(0, GetProperty::make(prevDimGP->tensor, prevDimGP->property,
+                                                                         prevDimGP->mode, provGraph.getVarBound(indexVar)));
+
+            } else {
+              dimension = getDimension(tv, n->lhs, loc);
+            }
+          }
+        } else {
+          if(!util::contains(temporariesSet, n->lhs.getTensorVar())) {
+            if (provGraph.hasBoundedDescendant(indexVar)) {
+              auto ivars = n->lhs.getIndexVars();
+              int loc = (int) distance(ivars.begin(),
+                                       find(ivars.begin(), ivars.end(), indexVar));
+              // FIXME: [Olivia] Temporary workaround for how GP::make(TensorProperty::Dimension) is called
+              ModeAccess ma = {Access(n->lhs), loc + 1};
+              auto iter = iterators.levelIterator(ma);
+              auto prevDimGP = iter.getMode().getModePack().getArray(0).as<GetProperty>();
+              iter.getMode().getModePack().setArray(0, GetProperty::make(prevDimGP->tensor, prevDimGP->property,
+                                                                         prevDimGP->mode,
+                                                                         provGraph.getVarBound(indexVar)));
+            }
           }
         }
       }),
@@ -323,7 +356,21 @@ LowererImpl::lower(IndexStmt stmt, string name,
                                   find(indexVars.begin(),indexVars.end(),
                                        indexVar));
           if(!util::contains(temporariesSet, n->tensorVar)) {
-            dimension = getDimension(n->tensorVar, Access(n), loc);
+            // Set exact bounds if bounded (for Spatial)
+            if (provGraph.hasBoundedDescendant(indexVar)) {
+              // FIXME: bounded descendants cannot currently handle tensor slicing or index sets
+              dimension = GetProperty::make(tensorVars.at(n->tensorVar),
+                                            TensorProperty::Dimension, loc, provGraph.getVarBound(indexVar));
+
+              // FIXME: [Olivia] Temporary workaround for how GP::make(TensorProperty::Dimension) is called
+              ModeAccess ma = {Access(n), loc+1};
+              auto iter = iterators.levelIterator(ma);
+              auto prevDimGP = iter.getMode().getModePack().getArray(0).as<GetProperty>();
+              iter.getMode().getModePack().setArray(0, GetProperty::make(prevDimGP->tensor, prevDimGP->property,
+                                                                         prevDimGP->mode, provGraph.getVarBound(indexVar)));
+            } else {
+              dimension = getDimension(n->tensorVar, Access(n), loc);
+            }
           }
         }
       })
@@ -2383,6 +2430,12 @@ Expr LowererImpl::getCapacityVar(Expr tensor) const {
 
 ir::Expr LowererImpl::getValuesArray(TensorVar var) const
 {
+  if (should_use_Spatial_codegen()) {
+    return (util::contains(temporaryArrays, var))
+           ? temporaryArrays.at(var).values
+           : GetProperty::make(getTensorVar(var), TensorProperty::Values, 0, var.getOrder());
+  }
+
   return (util::contains(temporaryArrays, var))
          ? temporaryArrays.at(var).values
          : GetProperty::make(getTensorVar(var), TensorProperty::Values);
@@ -2641,8 +2694,7 @@ vector<Iterator> getIteratorsFrom(IndexVar var,
   return result;
 }
 
-
-Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
+Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes, 
                                    vector<Access> reads,
                                    set<Access> reducedAccesses) {
   if (!generateAssembleCode()) {
@@ -3278,7 +3330,6 @@ Expr LowererImpl::checkThatNoneAreExhausted(std::vector<Iterator> iterators)
          : Lt::make(iterators[0].getIteratorVar(), iterators[0].getEndVar());
 }
 
-
 Expr LowererImpl::generateAssembleGuard(IndexExpr expr) {
   class GenerateGuard : public IndexExprVisitorStrict {
   public:
@@ -3483,4 +3534,11 @@ Expr LowererImpl::projectCanonicalSpaceToWindowedPosition(Iterator iterator, ir:
   return ir::Add::make(ir::Mul::make(expr, iterator.getStride()), iterator.getWindowLowerBound());
 }
 
+util::ScopedSet<Iterator> LowererImpl::getAccessibleIterators() const {
+  return accessibleIterators;
+}
+
+map<TensorVar, TemporaryArrays> LowererImpl::getTemporaryArrays() const {
+  return temporaryArrays;
+}
 }

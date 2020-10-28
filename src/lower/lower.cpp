@@ -26,6 +26,9 @@
 
 #include "taco/ir/ir_verifier.h"
 
+#include "taco/spatial.h"
+#include "taco/lower/lowerer_impl_Spatial.h"
+
 using namespace std;
 using namespace taco::ir;
 
@@ -49,7 +52,15 @@ ir::Stmt lower(IndexStmt stmt, std::string name,
   string reason;
   taco_iassert(isLowerable(stmt, &reason))
       << "Not lowerable, because " << reason << ": " << stmt;
-  ir::Stmt lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute, pack, unpack);
+
+  ir::Stmt lowered;
+  if (should_use_Spatial_codegen()) {
+    Lowerer spatial_lowerer = Lowerer(new LowererImplSpatial());
+    lowered = spatial_lowerer.getLowererImpl()->lower(stmt, name, assemble, compute, pack, unpack);
+  } else {
+    lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute, pack, unpack);
+  }
+
 
   // TODO: re-enable this
   // std::string messages;

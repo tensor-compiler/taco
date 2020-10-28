@@ -11,15 +11,24 @@
 #include "taco/util/scopedset.h"
 #include "taco/util/uncopyable.h"
 #include "taco/ir_tags.h"
+#include "taco/lower/lowerer_impl.h"
 
 namespace taco {
-class LowererImplSpatial : public util::Uncopyable {
+class LowererImplSpatial : public LowererImpl {
 public:
   LowererImplSpatial();
   virtual ~LowererImplSpatial() = default;
+
+protected:
+  /// Retrieve the values array of the tensor var.
+  ir::Expr getValuesArray(TensorVar) const;
+
 private:
   class Visitor;
+  friend class Visitor;
+  std::shared_ptr<Visitor> visitor;
 };
+
 
 } // namespace taco
 #endif 

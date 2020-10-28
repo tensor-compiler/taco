@@ -937,7 +937,50 @@ ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
       parentsMap[child] = parents;
     }
   }
+
+  createBoundMap();
 }
+
+
+  void ProvenanceGraph::createBoundMap() {
+    for (auto &node : getLeafNodes()) {
+      createBoundMapHelper(node);
+    }
+  }
+
+  void ProvenanceGraph::createBoundMapHelper(IndexVar indexVar) {
+    // Only traverse outer split branches
+    if (parentRelMap.find(indexVar) != parentRelMap.end()) {
+      IndexVarRel prel = parentRelMap.at(indexVar);
+      if (prel.getRelType() == SPLIT && prel.getNode<SplitRelNode>()->getInnerVar() == indexVar)
+        return;
+    }
+
+    if (childRelMap.find(indexVar) == childRelMap.end()) {
+      if (hasExactBound(indexVar)) {
+        IndexVarRel prel = parentRelMap.at(indexVar);
+        boundsMap[indexVar] = prel.getNode<BoundRelNode>()->getBound();
+      }
+    } else {
+      IndexVarRel crel = childRelMap.at(indexVar);
+      if (crel.getRelType() == BOUND && crel.getNode<BoundRelNode>()->getBoundType() == BoundType::MaxExact) {
+        if (boundsMap.find(crel.getNode<BoundRelNode>()->getBoundVar()) != boundsMap.end()) {
+          boundsMap[indexVar] = boundsMap[crel.getNode<BoundRelNode>()->getBoundVar()];
+        } else {
+          boundsMap[indexVar] = crel.getNode<BoundRelNode>()->getBound();
+        }
+      } else if (crel.getRelType() == SPLIT && boundsMap.find(crel.getNode<SplitRelNode>()->getOuterVar()) != boundsMap.end()) {
+        boundsMap[indexVar] = boundsMap[crel.getNode<SplitRelNode>()->getOuterVar()] * crel.getNode<SplitRelNode>()->getSplitFactor();
+      } else if (hasExactBound(indexVar)) {
+        IndexVarRel prel = parentRelMap.at(indexVar);
+        boundsMap[indexVar] = prel.getNode<BoundRelNode>()->getBound();
+      }
+    }
+
+    for (IndexVar p : getParents(indexVar)) {
+      createBoundMapHelper(p);
+    }
+  }
 
 std::vector<IndexVar> ProvenanceGraph::getChildren(IndexVar indexVar) const {
   if (childrenMap.count(indexVar)) {
@@ -1016,6 +1059,23 @@ bool ProvenanceGraph::getPosIteratorAncestor(IndexVar indexVar, IndexVar *irregu
     }
   }
   return false;
+}
+
+bool ProvenanceGraph::hasBoundedDescendant(IndexVar indexVar) const {
+  return boundsMap.find(indexVar) != boundsMap.end();
+}
+
+vector<IndexVar> ProvenanceGraph::getLeafNodes() const {
+  vector<IndexVar> result;
+  for (auto &node : getAllIndexVars()) {
+    if (getChildren(node).empty())
+      result.push_back(node);
+  }
+  return result;
+}
+
+size_t ProvenanceGraph::getVarBound(IndexVar indexVar) const {
+  return boundsMap.at(indexVar);
 }
 
 // A pos Iterator Descendant is first innermost variable that is pos
@@ -1386,6 +1446,10 @@ bool ProvenanceGraph::isDivided(IndexVar indexVar) const {
     }
   }
   return false;
+}
+
+std::map<IndexVar, size_t> ProvenanceGraph::getAllBounds() const {
+  return boundsMap;
 }
 
 }
