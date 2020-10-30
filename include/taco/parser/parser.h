@@ -20,11 +20,19 @@ class Access;
 namespace parser {
 enum class Token;
 
+class AbstractParser : public util::Uncopyable {
+public:
+  virtual void parse() = 0;
+  virtual const TensorBase& getResultTensor() const = 0;
+  virtual const std::map<std::string,TensorBase>& getTensors() const = 0;
+  virtual const TensorBase& getTensor(std::string name) const = 0;
+};
+
 /// A simple index expression parser. The parser can parse an index expression
 /// string, where tensor access expressions are in the form (e.g.) `A(i,j)`,
 /// A_{i,j} or A_i. A variable is taken to be free if it is used to index the
 /// lhs, and taken to be a summation variable otherwise.
-class Parser : public util::Uncopyable {
+class Parser : public AbstractParser {
 public:
   Parser(std::string expression, const std::map<std::string,Format>& formats,
          const std::map<std::string, Datatype>& dataTypes,
@@ -34,10 +42,10 @@ public:
 
   /// Parse the expression.
   /// @throws ParseError if there's a parser error
-  void parse();
+  void parse() override;
 
   /// Returns the result (lhs) tensor of the index expression.
-  const TensorBase& getResultTensor() const;
+  const TensorBase& getResultTensor() const override;
 
   /// Returns true if the index variable appeared in the expression
   bool hasIndexVar(std::string name) const;
@@ -49,10 +57,10 @@ public:
   bool hasTensor(std::string name) const;
 
   /// Retrieve the tensor with the given name
-  const TensorBase& getTensor(std::string name) const;
+  const TensorBase& getTensor(std::string name) const override;
 
   /// Retrieve a map from tensor names to tensors.
-  const std::map<std::string,TensorBase>& getTensors() const;
+  const std::map<std::string,TensorBase>& getTensors() const override;
 
   /// Retrieve a list of names in the order they occurred in the expression
   const std::vector<std::string> getNames() const;

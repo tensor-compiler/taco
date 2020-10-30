@@ -90,6 +90,13 @@ Token Lexer::getToken() {
     case EOF:
       token = Token::eot;
       break;
+    case '^':
+      lastChar = getNextChar();
+      if (lastChar == 'T')
+        token = Token::caretT;
+      else
+        token = Token::error;
+      break;
     default:
       token = Token::error;
       break;
@@ -160,6 +167,9 @@ std::string Lexer::tokenString(const Token& token) {
       break;
     case Token::error:
       str = "error";
+      break;
+    case Token::caretT:
+      str = "^T";
       break;
     case Token::eot:
     default:

@@ -10,6 +10,7 @@
 
 #include "taco/error.h"
 #include "taco/parser/parser.h"
+#include "taco/parser/linalg_parser.h"
 #include "taco/storage/storage.h"
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_printer.h"
@@ -189,6 +190,8 @@ static void printUsageInfo() {
   printFlag("schedule", "Specify parallel execution schedule");
   cout << endl;
   printFlag("nthreads", "Specify number of threads for parallel execution");
+  cout << endl;
+  printFlag("linalg", "Specify if the input should be in Linear Algebra (not index) Notation");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -208,7 +211,7 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   }
 }
 
-static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt& stmt) {  
+static bool setSchedulingCommands(istream& in, parser::AbstractParser& parser, IndexStmt& stmt) {
   auto findVar = [&stmt](string name) {
     ProvenanceGraph graph(stmt); 
     for (auto v : graph.getAllIndexVars()) {
@@ -490,7 +493,8 @@ int main(int argc, char* argv[]) {
   bool readKernels         = false;
   bool cuda                = false;
 
-  bool setSchedule         = false; 
+  bool setSchedule         = false;
+  bool linalg              = false;
 
   ParallelSchedule sched = ParallelSchedule::Static;
   int chunkSize = 0;
@@ -833,6 +837,9 @@ int main(int argc, char* argv[]) {
       }, ' '); 
       scheduleCommands.push_back(argValue); 
     }
+    else if ("-linalg" == argName) {
+      linalg = true;
+    }
     else {
       if (exprStr.size() != 0) {
         printUsageInfo();
@@ -882,17 +889,23 @@ int main(int argc, char* argv[]) {
   }
 
   TensorBase tensor;
-  parser::Parser parser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, 42);
+  parser::AbstractParser *parser;
+  if (linalg)
+    parser = new parser::LinalgParser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, 42);
+  else
+    parser = new parser::Parser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, 42);
+
   try {
-    parser.parse();
-    tensor = parser.getResultTensor();
+    parser->parse();
+    tensor = parser->getResultTensor();
+    cout << tensor;
   } catch (parser::ParseError& e) {
     return reportError(e.getMessage(), 6);
   }
 
   // Generate tensors
   for (auto& fills : tensorsFill) {
-    TensorBase tensor = parser.getTensor(fills.first);
+    TensorBase tensor = parser->getTensor(fills.first);
     util::fillTensor(tensor,fills.second);
 
     loadedTensors.insert({fills.first, tensor});
@@ -904,8 +917,8 @@ int main(int argc, char* argv[]) {
 
   // If all input tensors have been initialized then we should evaluate
   bool benchmark = true;
-  for (auto& tensor : parser.getTensors()) {
-    if (tensor.second == parser.getResultTensor()) {
+  for (auto& tensor : parser->getTensors()) {
+    if (tensor.second == parser->getResultTensor()) {
       continue;
     }
     if (!util::contains(loadedTensors, tensor.second.getName())) {
@@ -932,7 +945,7 @@ int main(int argc, char* argv[]) {
       scheduleStream << command << endl;    
     }
 
-    cuda |= setSchedulingCommands(scheduleStream, parser, stmt);
+    cuda |= setSchedulingCommands(scheduleStream, *parser, stmt);
   }
 
   if (cuda) {
@@ -993,8 +1006,8 @@ int main(int argc, char* argv[]) {
 
       // TODO: Replace this redundant parsing with just a call to set the expr
       try {
-        auto operands = parser.getTensors();
-        operands.erase(parser.getResultTensor().getName());
+        auto operands = parser->getTensors();
+        operands.erase(parser->getResultTensor().getName());
         parser::Parser parser2(exprStr, formats, dataTypes, tensorsDimensions,
                                operands, 42);
         parser2.parse();
@@ -1265,7 +1278,7 @@ int main(int argc, char* argv[]) {
     write(outputFileName, FileType::tns, tensor);
     TensorBase paramTensor;
     for (const auto &fills : tensorsFill ) {
-      paramTensor = parser.getTensor(fills.first);
+      paramTensor = parser->getTensor(fills.first);
       outputFileName = outputDirectory + "/" + paramTensor.getName() + ".tns";
       write(outputFileName, FileType::tns, paramTensor);
     }
