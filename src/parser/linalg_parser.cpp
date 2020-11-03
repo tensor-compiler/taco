@@ -73,12 +73,15 @@ TensorBase LinalgParser::parseAssign() {
   content->parsingLhs = true;
   cout << "parsing lhs" << endl;
   Access lhs = parseVar();
+  cout << "Result of parsing LHS" << endl;
   cout << lhs << endl;
   content->parsingLhs = false;
 
   cout << "parsing rhs" << endl;
   consume(Token::eq);
   IndexExpr rhs = parseExpr();
+  cout << "Result of parsing RHS" << endl;
+  cout << rhs << endl;
 
   // Collect all index var dimensions
   struct Visitor : IndexNotationVisitor {
@@ -333,6 +336,7 @@ Access LinalgParser::parseVar() {
 
   cout << order << endl;
   vector<IndexVar> idxlist = getUniqueIndices(order);
+  cout << "Idxlist";
   for (auto i : idxlist)
     cout << i << ", ";
 
