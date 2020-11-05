@@ -9,4 +9,9 @@ namespace taco {
 void LinalgExprVisitorStrict::visit(const LinalgExpr &expr) {
   expr.accept(this);
 }
+
+void LinalgStmtVisitorStrict::visit(const LinalgStmt& stmt) {
+  stmt.accept(this);
+}
+
 }

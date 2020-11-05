@@ -34,6 +34,20 @@ private:
   Datatype dataType;
 };
 
+struct LinalgStmtNode : public util::Manageable<LinalgStmtNode>,
+                       private util::Uncopyable {
+public:
+  LinalgStmtNode() = default;
+  LinalgStmtNode(Type type);
+  virtual ~LinalgStmtNode() = default;
+  virtual void accept(LinalgStmtVisitorStrict*) const = 0;
+
+  Type getType() const;
+
+private:
+  Type type;
+};
+
 }
 
 #endif //TACO_LINALG_NOTATION_NODES_ABSTRACT_H

@@ -9,11 +9,18 @@ namespace taco {
 /*   : LinalgBase(/1* get a unique name *1/, ctype) { */
 /* } */
 
-LinalgBase::LinalgBase(string name, Datatype ctype) : name(name), ctype(ctype), LinalgExpr(TensorVar(name, Type(ctype, {42,42}))) {
-
+LinalgBase::LinalgBase(string name, Type tensorType) : name(name), tensorType(tensorType),
+  LinalgExpr(TensorVar(name, tensorType)) {
+}
+LinalgBase::LinalgBase(string name, Type tensorType, Format format) : name(name), tensorType(tensorType),
+  LinalgExpr(TensorVar(name, tensorType, format)) {
 }
 
-
-
+LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
+  taco_iassert(isa<VarNode>(this->ptr));
+  LinalgAssignment assignment = LinalgAssignment(dynamic_cast<const VarNode*>(this->ptr)->tensorVar, expr);
+  this->assignment = assignment;
+  return assignment;
+}
 
 }

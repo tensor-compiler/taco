@@ -109,4 +109,34 @@ LinalgExpr operator*(const LinalgExpr &lhs, const LinalgExpr &rhs) {
 LinalgExpr operator/(const LinalgExpr &lhs, const LinalgExpr &rhs) {
   return new DivNode(lhs, rhs);
 }
+
+// class LinalgStmt
+LinalgStmt::LinalgStmt() : util::IntrusivePtr<const LinalgStmtNode>(nullptr) {
+}
+
+LinalgStmt::LinalgStmt(const LinalgStmtNode* n)
+  : util::IntrusivePtr<const LinalgStmtNode>(n) {
+}
+
+void LinalgStmt::accept(LinalgStmtVisitorStrict *v) const {
+  ptr->accept(v);
+}
+
+
+// class LinalgAssignment
+LinalgAssignment::LinalgAssignment(const LinalgAssignmentNode* n) : LinalgStmt(n) {
+}
+
+LinalgAssignment::LinalgAssignment(TensorVar lhs, LinalgExpr rhs)
+  : LinalgAssignment(new LinalgAssignmentNode(lhs, rhs)) {
+}
+
+TensorVar LinalgAssignment::getLhs() const {
+  return getNode(*this)->lhs;
+}
+
+LinalgExpr LinalgAssignment::getRhs() const {
+  return getNode(*this)->rhs;
+}
+
 }   // namespace taco

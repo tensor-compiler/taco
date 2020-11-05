@@ -40,7 +40,7 @@ class TensorVar;
 
 class LinalgExpr;
 
-class Assignment;
+class LinalgAssignment;
 
 class Access;
 
@@ -139,6 +139,34 @@ LinalgExpr operator*(const LinalgExpr&, const LinalgExpr&);
 
 /// Divide a linear expression by another.
 LinalgExpr operator/(const LinalgExpr&, const LinalgExpr&);
+
+/// A an index statement computes a tensor.  The index statements are
+/// assignment, forall, where, multi, and sequence.
+class LinalgStmt : public util::IntrusivePtr<const LinalgStmtNode> {
+public:
+  LinalgStmt();
+  LinalgStmt(const LinalgStmtNode* n);
+
+  /// Visit the tensor expression
+  void accept(LinalgStmtVisitorStrict *) const;
+};
+
+class LinalgAssignment : public LinalgStmt {
+public:
+  LinalgAssignment() = default;
+  LinalgAssignment(const LinalgAssignmentNode*);
+
+  /// Create an assignment.
+  LinalgAssignment(TensorVar lhs, LinalgExpr rhs);
+
+  /// Return the assignment's left-hand side.
+  TensorVar getLhs() const;
+
+  /// Return the assignment's right-hand side.
+  LinalgExpr getRhs() const;
+
+  typedef LinalgAssignmentNode Node;
+};
 
 }
 

@@ -22,6 +22,8 @@
 #include "taco/lower/iterator.h"
 #include "taco/index_notation/provenance_graph.h"
 
+#include "taco/linalg_notation/linalg_notation_nodes_abstract.h"
+
 namespace taco {
 
 class Type;
@@ -58,6 +60,9 @@ struct SuchThatNode;
 
 class IndexExprVisitorStrict;
 class IndexStmtVisitorStrict;
+
+struct VarNode;
+class LinalgAssignment;
 
 /// A tensor index expression describes a tensor computation as a scalar
 /// expression where tensors are indexed by index variables (`IndexVar`).  The

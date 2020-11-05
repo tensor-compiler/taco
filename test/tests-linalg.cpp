@@ -5,7 +5,7 @@
 using namespace taco;
 
 TEST(linalg, simplest) {
-  Matrix<double> B("B");
+  Matrix<double> B("B", 2, 2, dense, dense);
   Matrix<double> C("C");
   Matrix<double> A("A");
 
@@ -30,9 +30,9 @@ TEST(linalg, simplest) {
 
   /* A = B*C; */
 
-  B * C;
+  A = B * C;
 
-  /* cout << a << endl; */
+  cout << A << endl;
 
   ASSERT_TRUE(1);
 }

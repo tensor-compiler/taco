@@ -13,6 +13,11 @@ void LinalgNotationPrinter::print(const LinalgExpr& expr) {
   expr.accept(this);
 }
 
+void LinalgNotationPrinter::print(const LinalgStmt& expr) {
+  parentPrecedence = Precedence::TOP;
+  expr.accept(this);
+}
+
 void LinalgNotationPrinter::visit(const VarNode* op) {
   os << op->tensorVar.getName();
 }
@@ -144,6 +149,11 @@ static inline void acceptJoin(LinalgNotationPrinter* printer,
     stream << sep;
     nodes[i].accept(printer);
   }
+}
+
+void LinalgNotationPrinter::visit(const LinalgAssignmentNode* op) {
+  os << op->lhs.getName() << " " << "= ";
+  op->rhs.accept(this);
 }
 
 }

@@ -6,11 +6,12 @@
 
 namespace taco {
 
-class LinalgNotationPrinter : public LinalgExprVisitorStrict {
+class LinalgNotationPrinter : public LinalgNotationVisitorStrict {
 public:
-  LinalgNotationPrinter(std::ostream& os);
+  explicit LinalgNotationPrinter(std::ostream& os);
 
   void print(const LinalgExpr& expr);
+  void print(const LinalgStmt& expr);
 
   using LinalgExprVisitorStrict::visit;
 
@@ -24,6 +25,8 @@ public:
   void visit(const ElemMulNode*);
   void visit(const DivNode*);
   void visit(const TransposeNode*);
+
+  void visit(const LinalgAssignmentNode*);
 
 private:
   std::ostream& os;

@@ -25,7 +25,7 @@ namespace taco {
       v->visit(this);
     }
 
-    virtual void setAssignment(const Assignment& assignment) {}
+    virtual void setAssignment(const LinalgAssignment& assignment) {}
 
     TensorVar tensorVar;
   };
@@ -145,32 +145,50 @@ struct ElemMulNode : public BinaryExprNode {
   }
 };
 
-  struct DivNode : public BinaryExprNode {
-    DivNode() : BinaryExprNode() {}
-    DivNode(LinalgExpr a, LinalgExpr b) : BinaryExprNode(a, b) {}
+struct DivNode : public BinaryExprNode {
+  DivNode() : BinaryExprNode() {}
+  DivNode(LinalgExpr a, LinalgExpr b) : BinaryExprNode(a, b) {}
 
-    std::string getOperatorString() const override{
-      return "/";
-    }
+  std::string getOperatorString() const override{
+    return "/";
+  }
 
-    void accept(LinalgExprVisitorStrict* v) const override{
-      v->visit(this);
-    }
-  };
+  void accept(LinalgExprVisitorStrict* v) const override{
+    v->visit(this);
+  }
+};
+
+// Linalg Statements
+struct LinalgAssignmentNode : public LinalgStmtNode {
+  LinalgAssignmentNode(const TensorVar& lhs, const LinalgExpr& rhs)
+    : lhs(lhs), rhs(rhs) {}
+
+  void accept(LinalgStmtVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  TensorVar  lhs;
+  LinalgExpr rhs;
+};
 
 /// Returns true if expression e is of type E.
-  template <typename E>
-  inline bool isa(const LinalgExprNode* e) {
-    return e != nullptr && dynamic_cast<const E*>(e) != nullptr;
-  }
+template <typename E>
+inline bool isa(const LinalgExprNode* e) {
+  return e != nullptr && dynamic_cast<const E*>(e) != nullptr;
+}
 
 /// Casts the expression e to type E.
-  template <typename E>
-  inline const E* to(const LinalgExprNode* e) {
-    taco_iassert(isa<E>(e)) <<
-                            "Cannot convert " << typeid(e).name() << " to " << typeid(E).name();
-    return static_cast<const E*>(e);
-  }
+template <typename E>
+inline const E* to(const LinalgExprNode* e) {
+  taco_iassert(isa<E>(e)) <<
+                          "Cannot convert " << typeid(e).name() << " to " << typeid(E).name();
+  return static_cast<const E*>(e);
+}
 
+template <typename I>
+inline const typename I::Node* getNode(const I& stmt) {
+  taco_iassert(isa<typename I::Node>(stmt.ptr));
+  return static_cast<const typename I::Node*>(stmt.ptr);
+}
 }
 #endif //TACO_LINALG_NOTATION_NODES_H
