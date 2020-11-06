@@ -44,17 +44,17 @@ class LinalgAssignment;
 
 class Access;
 
-struct VarNode;
-struct LiteralNode;
-struct NegNode;
-struct TransposeNode;
-struct AddNode;
-struct SubNode;
-struct MatMulNode;
-struct ElemMulNode;
-struct DivNode;
-struct UnaryExprNode;
-struct BinaryExprNode;
+struct LinalgVarNode;
+struct LinalgLiteralNode;
+struct LinalgNegNode;
+struct LinalgTransposeNode;
+struct LinalgAddNode;
+struct LinalgSubNode;
+struct LinalgMatMulNode;
+struct LinalgElemMulNode;
+struct LinalgDivNode;
+struct LinalgUnaryExprNode;
+struct LinalgBinaryExprNode;
 
 class LinalgExprVisitorStrict;
 

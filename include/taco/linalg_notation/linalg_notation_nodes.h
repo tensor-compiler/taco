@@ -17,8 +17,8 @@
 namespace taco {
 
 
-  struct VarNode : public LinalgExprNode {
-    VarNode(TensorVar tensorVar)
+  struct LinalgVarNode : public LinalgExprNode {
+    LinalgVarNode(TensorVar tensorVar)
       : LinalgExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar) {}
 
     void accept(LinalgExprVisitorStrict* v) const override {
@@ -30,13 +30,13 @@ namespace taco {
     TensorVar tensorVar;
   };
 
-  struct LiteralNode : public LinalgExprNode {
-    template <typename T> LiteralNode(T val) : LinalgExprNode(type<T>()) {
+  struct LinalgLiteralNode : public LinalgExprNode {
+    template <typename T> LinalgLiteralNode(T val) : LinalgExprNode(type<T>()) {
       this->val = malloc(sizeof(T));
       *static_cast<T*>(this->val) = val;
     }
 
-    ~LiteralNode() {
+    ~LinalgLiteralNode() {
       free(val);
     }
 
@@ -54,46 +54,46 @@ namespace taco {
   };
 
 
-  struct UnaryExprNode : public LinalgExprNode {
+  struct LinalgUnaryExprNode : public LinalgExprNode {
     LinalgExpr a;
 
   protected:
-    UnaryExprNode(LinalgExpr a) : LinalgExprNode(a.getDataType()), a(a) {}
+    LinalgUnaryExprNode(LinalgExpr a) : LinalgExprNode(a.getDataType()), a(a) {}
   };
 
 
-  struct NegNode : public UnaryExprNode {
-    NegNode(LinalgExpr operand) : UnaryExprNode(operand) {}
+  struct LinalgNegNode : public LinalgUnaryExprNode {
+    LinalgNegNode(LinalgExpr operand) : LinalgUnaryExprNode(operand) {}
 
     void accept(LinalgExprVisitorStrict* v) const override{
       v->visit(this);
     }
   };
 
-  struct TransposeNode : public UnaryExprNode {
-    TransposeNode(LinalgExpr operand) : UnaryExprNode(operand) {}
+  struct LinalgTransposeNode : public LinalgUnaryExprNode {
+    LinalgTransposeNode(LinalgExpr operand) : LinalgUnaryExprNode(operand) {}
 
     void accept (LinalgExprVisitorStrict* v) const override{
       v->visit(this);
     }
   };
 
-  struct BinaryExprNode : public LinalgExprNode {
+  struct LinalgBinaryExprNode : public LinalgExprNode {
     virtual std::string getOperatorString() const = 0;
 
     LinalgExpr a;
     LinalgExpr b;
 
   protected:
-    BinaryExprNode() : LinalgExprNode() {}
-    BinaryExprNode(LinalgExpr a, LinalgExpr b)
+    LinalgBinaryExprNode() : LinalgExprNode() {}
+    LinalgBinaryExprNode(LinalgExpr a, LinalgExpr b)
       : LinalgExprNode(max_type(a.getDataType(), b.getDataType())), a(a), b(b) {}
   };
 
 
-  struct AddNode : public BinaryExprNode {
-    AddNode() : BinaryExprNode() {}
-    AddNode(LinalgExpr a, LinalgExpr b) : BinaryExprNode(a, b) {}
+  struct LinalgAddNode : public LinalgBinaryExprNode {
+    LinalgAddNode() : LinalgBinaryExprNode() {}
+    LinalgAddNode(LinalgExpr a, LinalgExpr b) : LinalgBinaryExprNode(a, b) {}
 
     std::string getOperatorString() const override{
       return "+";
@@ -105,9 +105,9 @@ namespace taco {
   };
 
 
-  struct SubNode : public BinaryExprNode {
-    SubNode() : BinaryExprNode() {}
-    SubNode(LinalgExpr a, LinalgExpr b) : BinaryExprNode(a, b) {}
+  struct LinalgSubNode : public LinalgBinaryExprNode {
+    LinalgSubNode() : LinalgBinaryExprNode() {}
+    LinalgSubNode(LinalgExpr a, LinalgExpr b) : LinalgBinaryExprNode(a, b) {}
 
     std::string getOperatorString() const override{
       return "-";
@@ -119,9 +119,9 @@ namespace taco {
   };
 
 
-  struct MatMulNode : public BinaryExprNode {
-    MatMulNode() : BinaryExprNode() {}
-    MatMulNode(LinalgExpr a, LinalgExpr b) : BinaryExprNode(a, b) {}
+  struct LinalgMatMulNode : public LinalgBinaryExprNode {
+    LinalgMatMulNode() : LinalgBinaryExprNode() {}
+    LinalgMatMulNode(LinalgExpr a, LinalgExpr b) : LinalgBinaryExprNode(a, b) {}
 
     std::string getOperatorString() const override{
       return "*";
@@ -132,9 +132,9 @@ namespace taco {
     }
   };
 
-struct ElemMulNode : public BinaryExprNode {
-  ElemMulNode() : BinaryExprNode() {}
-  ElemMulNode(LinalgExpr a, LinalgExpr b) : BinaryExprNode(a, b) {}
+struct LinalgElemMulNode : public LinalgBinaryExprNode {
+  LinalgElemMulNode() : LinalgBinaryExprNode() {}
+  LinalgElemMulNode(LinalgExpr a, LinalgExpr b) : LinalgBinaryExprNode(a, b) {}
 
   std::string getOperatorString() const override{
     return "elemMul";
@@ -145,9 +145,9 @@ struct ElemMulNode : public BinaryExprNode {
   }
 };
 
-struct DivNode : public BinaryExprNode {
-  DivNode() : BinaryExprNode() {}
-  DivNode(LinalgExpr a, LinalgExpr b) : BinaryExprNode(a, b) {}
+struct LinalgDivNode : public LinalgBinaryExprNode {
+  LinalgDivNode() : LinalgBinaryExprNode() {}
+  LinalgDivNode(LinalgExpr a, LinalgExpr b) : LinalgBinaryExprNode(a, b) {}
 
   std::string getOperatorString() const override{
     return "/";
@@ -185,10 +185,16 @@ inline const E* to(const LinalgExprNode* e) {
   return static_cast<const E*>(e);
 }
 
-template <typename I>
-inline const typename I::Node* getNode(const I& stmt) {
-  taco_iassert(isa<typename I::Node>(stmt.ptr));
-  return static_cast<const typename I::Node*>(stmt.ptr);
+/// Returns true if statement e is of type S.
+template <typename S>
+inline bool isa(const LinalgStmtNode* s) {
+  return s != nullptr && dynamic_cast<const S*>(s) != nullptr;
 }
+
+//template <typename I>
+//inline const typename I::Node* getNode(const I& stmt) {
+//  taco_iassert(isa<typename I::Node>(stmt.ptr));
+//  return static_cast<const typename I::Node*>(stmt.ptr);
+//}
 }
 #endif //TACO_LINALG_NOTATION_NODES_H
