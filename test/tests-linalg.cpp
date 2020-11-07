@@ -30,7 +30,11 @@ TEST(linalg, simplest) {
 
   /* A = B*C; */
 
+  B.ping();
+
   A = B * C;
+
+  cout << "A(0,0): " << A.at(0,0) << endl;
 
   cout << A << endl;
 

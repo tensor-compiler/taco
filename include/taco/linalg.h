@@ -14,6 +14,9 @@ class LinalgBase : public LinalgExpr {
   std::string name;
   Type tensorType;
 
+  // The associated tensor
+  TensorBase tbase;
+
   LinalgAssignment assignment;
 
   typedef VarNode Node;
@@ -23,10 +26,9 @@ public:
   /// [LINALG NOTATION]
   LinalgAssignment operator=(const LinalgExpr& expr);
 
-
-  /* LinalgBase operator=(LinalgExpr) { */
-  /*   return (LinalgBase)LinalgExpr; */
-  /* } */
+  void ping() {
+    std::cout << "ping" << std::endl;
+  }
 
 };
 
@@ -38,16 +40,19 @@ template <typename CType>
 class Matrix : public LinalgBase {
 public:
   explicit Matrix(std::string name);
-  Matrix(std::string name, int dim1, int dim2);
-  Matrix(std::string name, std::vector<int> dimensions);
-  Matrix(std::string name, int dim1, int dim2, Format format);
-  Matrix(std::string name, std::vector<int> dimensions, Format format);
-  Matrix(std::string name, int dim1, int dim2, ModeFormat format1, ModeFormat format2);
+  Matrix(std::string name, size_t dim1, size_t dim2);
+  Matrix(std::string name, std::vector<size_t> dimensions);
+  Matrix(std::string name, size_t dim1, size_t dim2, Format format);
+  Matrix(std::string name, std::vector<size_t> dimensions, Format format);
+  Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat format1, ModeFormat format2);
   Matrix(std::string name, Type tensorType);
   Matrix(std::string name, Type tensorType, Format format);
   LinalgAssignment operator=(const LinalgExpr& expr) {
     return LinalgBase::operator=(expr);
   }
+
+  // Support some Read methods
+  CType at(const size_t coord_x, const size_t coord_y);
 
 };
 
@@ -58,22 +63,28 @@ public:
 template <typename CType>
 Matrix<CType>::Matrix(std::string name) : LinalgBase(name, Type(type<CType>(), {42, 42})) {}
 template <typename CType>
-Matrix<CType>::Matrix(std::string name, std::vector<int> dimensions) : LinalgBase(name, Type(type<CType>(), dimensions)) {}
+Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions) : LinalgBase(name, Type(type<CType>(), dimensions)) {}
 template <typename CType>
-Matrix<CType>::Matrix(std::string name, int dim1, int dim2) : LinalgBase(name, Type(type<CType>(), {dim1, dim2})) {}
+Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2) : LinalgBase(name, Type(type<CType>(), {dim1, dim2})) {}
 template <typename CType>
-Matrix<CType>::Matrix(std::string name, int dim1, int dim2, Format format) :
+Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2, Format format) :
   LinalgBase(name, Type(type<CType>(), {dim1, dim2}), format) {}
 template <typename CType>
-Matrix<CType>::Matrix(std::string name, std::vector<int> dimensions, Format format) :
+Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions, Format format) :
   LinalgBase(name, Type(type<CType>(), dimensions), format) {}
 template <typename CType>
-Matrix<CType>::Matrix(std::string name, int dim1, int dim2, ModeFormat format1, ModeFormat format2) :
+Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat format1, ModeFormat format2) :
   LinalgBase(name, Type(type<CType>(), {dim1, dim2}), Format({format1, format2})) {}
 template <typename CType>
 Matrix<CType>::Matrix(std::string name, Type tensorType) : LinalgBase(name, tensorType) {}
 template <typename CType>
 Matrix<CType>::Matrix(std::string name, Type tensorType, Format format) : LinalgBase(name, tensorType, format) {}
+
+// Definition of Read methods
+template <typename CType>
+CType Matrix<CType>::at(const size_t coord_x, const size_t coord_y) {
+  return 0;
+}
 // ------------------------------------------------------------
 // Vector class
 // ------------------------------------------------------------
@@ -84,9 +95,9 @@ class Vector : public LinalgBase {
   Datatype ctype;
 public:
   explicit Vector(std::string name);
-  Vector(std::string name, int dim);
-  Vector(std::string name, int dim, Format format);
-  Vector(std::string name, int dim, ModeFormat format);
+  Vector(std::string name, size_t dim);
+  Vector(std::string name, size_t dim, Format format);
+  Vector(std::string name, size_t dim, ModeFormat format);
   Vector(std::string name, Type type, Format format);
   Vector(std::string name, Type type, ModeFormat format);
   LinalgAssignment operator=(const LinalgExpr& expr) {
@@ -101,11 +112,11 @@ public:
 template <typename CType>
 Vector<CType>::Vector(std::string name) : LinalgBase(name, Type(type<CType>(), {42})) {}
 template <typename CType>
-Vector<CType>::Vector(std::string name, int dim) : LinalgBase(name, Type(type<CType>(), {dim})) {}
+Vector<CType>::Vector(std::string name, size_t dim) : LinalgBase(name, Type(type<CType>(), {dim})) {}
 template <typename CType>
-Vector<CType>::Vector(std::string name, int dim, Format format) : LinalgBase(name, Type(type<CType>(), {dim}), format) {}
+Vector<CType>::Vector(std::string name, size_t dim, Format format) : LinalgBase(name, Type(type<CType>(), {dim}), format) {}
 template <typename CType>
-Vector<CType>::Vector(std::string name, int dim, ModeFormat format) :
+Vector<CType>::Vector(std::string name, size_t dim, ModeFormat format) :
   LinalgBase(name, Type(type<CType>(), {dim}), Format(format)) {}
 template <typename CType>
 Vector<CType>::Vector(std::string name, Type type, Format format) :
