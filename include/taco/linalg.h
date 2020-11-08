@@ -11,11 +11,12 @@
 namespace taco {
 
 class LinalgBase : public LinalgExpr {
+protected:
   std::string name;
   Type tensorType;
 
   // The associated tensor
-  TensorBase tbase;
+  TensorBase *tbase;
 
   LinalgAssignment assignment;
 
@@ -27,7 +28,7 @@ public:
   LinalgAssignment operator=(const LinalgExpr& expr);
 
   void ping() {
-    std::cout << "ping" << std::endl;
+    std::cout << name << ".ping()" << std::endl;
   }
 
 };
@@ -52,7 +53,7 @@ public:
   }
 
   // Support some Read methods
-  CType at(const size_t coord_x, const size_t coord_y);
+  CType at(int coord_x, int coord_y);
 
 };
 
@@ -82,8 +83,19 @@ Matrix<CType>::Matrix(std::string name, Type tensorType, Format format) : Linalg
 
 // Definition of Read methods
 template <typename CType>
-CType Matrix<CType>::at(const size_t coord_x, const size_t coord_y) {
-  return 0;
+CType Matrix<CType>::at(int coord_x, int coord_y) {
+  std::cout << "Name: " << name << std::endl;
+  std::cout << tbase << std::endl;
+  std::cout << "Matrix found a TBase " << tbase->getName() << std::endl;
+  std::cout << "Will print a coordinate" << std::endl;
+
+
+  // Check if this LinalgBase holds an assignment
+  if (this->assignment.ptr != NULL) {
+    std::cout << "This matrix is the result of an assignment" << std::endl;
+  }
+
+  return tbase->at<CType>({coord_x, coord_y});
 }
 // ------------------------------------------------------------
 // Vector class

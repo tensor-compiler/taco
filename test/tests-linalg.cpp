@@ -6,8 +6,8 @@ using namespace taco;
 
 TEST(linalg, simplest) {
   Matrix<double> B("B", 2, 2, dense, dense);
-  Matrix<double> C("C");
-  Matrix<double> A("A");
+  Matrix<double> C("C", 2, 2, dense, dense);
+  Matrix<double> A("A", 2, 2, dense, dense);
 
   /* Vector<double> c("c"); */
 
@@ -34,7 +34,7 @@ TEST(linalg, simplest) {
 
   A = B * C;
 
-  cout << "A(0,0): " << A.at(0,0) << endl;
+  cout << "B(0,0): " << B.at(0,0) << endl;
 
   cout << A << endl;
 
