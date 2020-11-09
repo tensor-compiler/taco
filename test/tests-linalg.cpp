@@ -41,3 +41,40 @@ TEST(linalg, simplest) {
   ASSERT_TRUE(1);
 }
 
+TEST(linalg, tensorapi) {
+  cout << "--- Beginning of TensorAPI test ---" << endl;
+  Tensor<double> a({2,2}, dense);
+  Tensor<double> b({2,3}, dense);
+  Tensor<double> c({3,2}, dense);
+
+  cout << "--- Initialized Tensors ---" << endl;
+
+  b(0,0) = 2;
+  b(1,1) = 1;
+  b(0,1) = 2;
+
+  cout << "--- Initializing c ---" << endl;
+
+  c(0,0) = 2;
+  c(1,1) = 2;
+
+  cout << "--- Declaring IndexVars ---" << endl;
+
+  IndexVar i,j,k;
+
+  // The original
+  /* a(i,j) = b(i,k) * c(k,j); */
+
+  // The broken-up version
+  cout << "--- Creating operand IndexExprs ---" << endl;
+
+  IndexExpr tc = c(k,j);
+  IndexExpr tb = b(i,k);
+
+  cout << "Pre-assignment" << endl;
+  a(i,j) = tb * tc;
+  cout << "Post-assignment" << endl;
+
+  /* cout << a << endl; */
+}
+

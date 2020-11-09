@@ -769,6 +769,7 @@ static void check(Assignment assignment) {
 }
 
 Assignment Access::operator=(const IndexExpr& expr) {
+  cout << "Main Access::operator= called" << endl;
   TensorVar result = getTensorVar();
   Assignment assignment = Assignment(*this, expr);
   check(assignment);
@@ -777,10 +778,12 @@ Assignment Access::operator=(const IndexExpr& expr) {
 }
 
 Assignment Access::operator=(const Access& expr) {
+  cout << "accessexpr Access::operator= called" << endl;
   return operator=(static_cast<IndexExpr>(expr));
 }
 
 Assignment Access::operator=(const TensorVar& var) {
+  cout << "tensorvaraccess Access::operator= called" << endl;
   return operator=(Access(var));
 }
 
