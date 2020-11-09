@@ -38,6 +38,9 @@ TEST(linalg, simplest) {
 
   cout << A << endl;
 
+  A.rewrite();
+  cout << A.getIndexAssignment();
+
   ASSERT_TRUE(1);
 }
 

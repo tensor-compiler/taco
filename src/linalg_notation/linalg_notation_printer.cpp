@@ -18,11 +18,11 @@ void LinalgNotationPrinter::print(const LinalgStmt& expr) {
   expr.accept(this);
 }
 
-void LinalgNotationPrinter::visit(const VarNode* op) {
+void LinalgNotationPrinter::visit(const LinalgVarNode* op) {
   os << op->tensorVar.getName();
 }
 
-void LinalgNotationPrinter::visit(const LiteralNode* op) {
+void LinalgNotationPrinter::visit(const LinalgLiteralNode* op) {
   switch (op->getDataType().getKind()) {
     case Datatype::Bool:
       os << op->getVal<bool>();
@@ -74,7 +74,7 @@ void LinalgNotationPrinter::visit(const LiteralNode* op) {
   }
 }
 
-void LinalgNotationPrinter::visit(const NegNode* op) {
+void LinalgNotationPrinter::visit(const LinalgNegNode* op) {
   Precedence precedence = Precedence::NEG;
   bool parenthesize =  precedence > parentPrecedence;
   parentPrecedence = precedence;
@@ -88,7 +88,7 @@ void LinalgNotationPrinter::visit(const NegNode* op) {
   }
 }
 
-void LinalgNotationPrinter::visit(const TransposeNode* op) {
+void LinalgNotationPrinter::visit(const LinalgTransposeNode* op) {
   Precedence precedence = Precedence::TRANSPOSE;
   bool parenthesize =  precedence > parentPrecedence;
   parentPrecedence = precedence;
@@ -118,23 +118,23 @@ void LinalgNotationPrinter::visitBinary(Node op, Precedence precedence) {
   }
 }
 
-void LinalgNotationPrinter::visit(const AddNode* op) {
+void LinalgNotationPrinter::visit(const LinalgAddNode* op) {
   visitBinary(op, Precedence::ADD);
 }
 
-void LinalgNotationPrinter::visit(const SubNode* op) {
+void LinalgNotationPrinter::visit(const LinalgSubNode* op) {
   visitBinary(op, Precedence::SUB);
 }
 
-void LinalgNotationPrinter::visit(const MatMulNode* op) {
+void LinalgNotationPrinter::visit(const LinalgMatMulNode* op) {
   visitBinary(op, Precedence::MATMUL);
 }
 
-void LinalgNotationPrinter::visit(const ElemMulNode* op) {
+void LinalgNotationPrinter::visit(const LinalgElemMulNode* op) {
   visitBinary(op, Precedence::ELEMMUL);
 }
 
-void LinalgNotationPrinter::visit(const DivNode* op) {
+void LinalgNotationPrinter::visit(const LinalgDivNode* op) {
   visitBinary(op, Precedence::DIV);
 }
 

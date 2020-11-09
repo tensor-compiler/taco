@@ -7,6 +7,8 @@
 
 #include "taco/linalg_notation/linalg_notation.h"
 #include "taco/linalg_notation/linalg_notation_nodes.h"
+#include "taco/linalg_notation/linalg_notation_printer.h"
+
 
 namespace taco {
 
@@ -19,19 +21,36 @@ protected:
   TensorBase *tbase;
 
   LinalgAssignment assignment;
+  IndexStmt indexAssignment;
 
-  typedef VarNode Node;
+  int idxcount;
+
+  IndexExpr rewrite(LinalgExpr linalg, std::vector<IndexVar> indices);
+  IndexVar getUniqueIndex();
+  std::vector<IndexVar> getUniqueIndices(size_t order);
 public:
   LinalgBase(std::string name, Type tensorType);
   LinalgBase(std::string name, Type tensorType, Format format);
   /// [LINALG NOTATION]
   LinalgAssignment operator=(const LinalgExpr& expr);
+  const LinalgAssignment getAssignment() const;
+  const IndexStmt getIndexAssignment() const;
 
+  // TODO: remove
   void ping() {
     std::cout << name << ".ping()" << std::endl;
   }
+  IndexStmt rewrite();
 
+  typedef LinalgVarNode Node;
+  /* LinalgBase operator=(LinalgExpr) { */
+  /*   return (LinalgBase)LinalgExpr; */
+  /* } */
 };
+
+std::ostream& operator<<(std::ostream& os, const LinalgBase& linalg);
+IndexExpr rewrite(LinalgExpr linalg, std::vector<IndexVar>);
+IndexStmt rewrite(LinalgStmt linalg);
 
 // ------------------------------------------------------------
 // Matrix class

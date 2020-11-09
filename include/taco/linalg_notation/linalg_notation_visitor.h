@@ -7,17 +7,17 @@ class LinalgStmt;
 
 class TensorVar;
 
-struct VarNode;
-struct LiteralNode;
-struct NegNode;
-struct TransposeNode;
-struct AddNode;
-struct SubNode;
-struct MatMulNode;
-struct ElemMulNode;
-struct DivNode;
-struct UnaryExprNode;
-struct BinaryExprNode;
+struct LinalgVarNode;
+struct LinalgLiteralNode;
+struct LinalgNegNode;
+struct LinalgTransposeNode;
+struct LinalgAddNode;
+struct LinalgSubNode;
+struct LinalgMatMulNode;
+struct LinalgElemMulNode;
+struct LinalgDivNode;
+struct LinalgUnaryExprNode;
+struct LinalgBinaryExprNode;
 
 struct LinalgAssignmentNode;
 
@@ -29,23 +29,23 @@ public:
 
   void visit(const LinalgExpr &);
 
-  virtual void visit(const VarNode *) = 0;
+  virtual void visit(const LinalgVarNode *) = 0;
 
-  virtual void visit(const LiteralNode *) = 0;
+  virtual void visit(const LinalgLiteralNode *) = 0;
 
-  virtual void visit(const NegNode *) = 0;
+  virtual void visit(const LinalgNegNode *) = 0;
 
-  virtual void visit(const AddNode *) = 0;
+  virtual void visit(const LinalgAddNode *) = 0;
 
-  virtual void visit(const SubNode *) = 0;
+  virtual void visit(const LinalgSubNode *) = 0;
 
-  virtual void visit(const MatMulNode *) = 0;
+  virtual void visit(const LinalgMatMulNode *) = 0;
 
-  virtual void visit(const ElemMulNode *) = 0;
+  virtual void visit(const LinalgElemMulNode *) = 0;
 
-  virtual void visit(const DivNode *) = 0;
+  virtual void visit(const LinalgDivNode *) = 0;
 
-  virtual void visit(const TransposeNode *) = 0;
+  virtual void visit(const LinalgTransposeNode *) = 0;
 };
 
 class LinalgStmtVisitorStrict {
@@ -75,17 +75,17 @@ public:
   using LinalgNotationVisitorStrict::visit;
 
   // Index Expressions
-  virtual void visit(const VarNode* node);
-  virtual void visit(const LiteralNode* node);
-  virtual void visit(const NegNode* node);
-  virtual void visit(const AddNode* node);
-  virtual void visit(const SubNode* node);
-  virtual void visit(const MatMulNode* node);
-  virtual void visit(const ElemMulNode* node);
-  virtual void visit(const DivNode* node);
-  virtual void visit(const UnaryExprNode* node);
-  virtual void visit(const BinaryExprNode* node);
-  virtual void visit(const TransposeNode* node);
+  virtual void visit(const LinalgVarNode* node);
+  virtual void visit(const LinalgLiteralNode* node);
+  virtual void visit(const LinalgNegNode* node);
+  virtual void visit(const LinalgAddNode* node);
+  virtual void visit(const LinalgSubNode* node);
+  virtual void visit(const LinalgMatMulNode* node);
+  virtual void visit(const LinalgElemMulNode* node);
+  virtual void visit(const LinalgDivNode* node);
+  virtual void visit(const LinalgUnaryExprNode* node);
+  virtual void visit(const LinalgBinaryExprNode* node);
+  virtual void visit(const LinalgTransposeNode* node);
 
   // Index Statments
   virtual void visit(const LinalgAssignmentNode* node);

@@ -16,15 +16,15 @@ public:
   using LinalgExprVisitorStrict::visit;
 
   // Scalar Expressions
-  void visit(const VarNode*);
-  void visit(const LiteralNode*);
-  void visit(const NegNode*);
-  void visit(const AddNode*);
-  void visit(const SubNode*);
-  void visit(const MatMulNode*);
-  void visit(const ElemMulNode*);
-  void visit(const DivNode*);
-  void visit(const TransposeNode*);
+  void visit(const LinalgVarNode*);
+  void visit(const LinalgLiteralNode*);
+  void visit(const LinalgNegNode*);
+  void visit(const LinalgAddNode*);
+  void visit(const LinalgSubNode*);
+  void visit(const LinalgMatMulNode*);
+  void visit(const LinalgElemMulNode*);
+  void visit(const LinalgDivNode*);
+  void visit(const LinalgTransposeNode*);
 
   void visit(const LinalgAssignmentNode*);
 
