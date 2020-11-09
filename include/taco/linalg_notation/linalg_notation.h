@@ -26,6 +26,8 @@
 
 #include "taco/linalg_notation/linalg_notation_nodes_abstract.h"
 
+#include "taco/tensor.h"
+
 namespace taco {
 
 class Type;
@@ -70,6 +72,8 @@ public:
   /// A(i,j) = b;
   /// ```
   LinalgExpr(TensorVar);
+
+  LinalgExpr(TensorVar, TensorBase* tensorBase);
 
   /// Consturct an integer literal.
   /// ```

@@ -31,6 +31,7 @@ protected:
 public:
   LinalgBase(std::string name, Type tensorType);
   LinalgBase(std::string name, Type tensorType, Format format);
+  LinalgBase(std::string name, Type tensorType, Datatype dtype, std::vector<size_t> dims, Format format);
   /// [LINALG NOTATION]
   LinalgAssignment operator=(const LinalgExpr& expr);
   const LinalgAssignment getAssignment() const;

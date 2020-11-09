@@ -16,6 +16,10 @@ namespace taco {
 LinalgBase::LinalgBase(string name, Type tensorType) : name(name), tensorType(tensorType), idxcount(0),
   LinalgExpr(TensorVar(name, tensorType)) {
 }
+
+LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<size_t> dims, Format format) : LinalgExpr(TensorVar(name, tensorType, format)), name(name), tensorType(tensorType) {
+
+}
 LinalgBase::LinalgBase(string name, Type tensorType, Format format) : LinalgExpr(TensorVar(name, tensorType, format)), name(name), tensorType(tensorType) {
     // Unpack the type and shape
     Datatype type = tensorType.getDataType();
@@ -31,6 +35,11 @@ LinalgBase::LinalgBase(string name, Type tensorType, Format format) : LinalgExpr
 
     cout << "Created TensorBase " << tbase->getName() << endl;
     cout << tbase << endl;
+
+    // Attach this TensorBase to the node
+    /* dynamic_cast<LinalgVarNode*>(this->ptr)->setTensorBase(tbase); */
+    /* dynamic_cast<const VarNode*>(this->ptr)->setTensorBase(tbase); */
+    /* to<LinalgVarNode>(this->get())->setTensorBase(tbase); */
 }
 
 

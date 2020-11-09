@@ -14,6 +14,8 @@
 #include "taco/linalg_notation/linalg_notation_nodes_abstract.h"
 #include "taco/linalg_notation/linalg_notation_visitor.h"
 
+#include "taco/tensor.h"
+
 namespace taco {
 
 
@@ -28,6 +30,20 @@ namespace taco {
     virtual void setAssignment(const LinalgAssignment& assignment) {}
 
     TensorVar tensorVar;
+  };
+
+  struct LinalgTensorBaseNode : public LinalgExprNode {
+    LinalgTensorBaseNode(TensorVar tensorVar, TensorBase *tensorBase)
+      : LinalgExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), tensorBase(tensorBase) {}
+
+    void accept(LinalgExprVisitorStrict* v) const override {
+      v->visit(this);
+    }
+
+    virtual void setAssignment(const LinalgAssignment& assignment) {}
+
+    TensorVar tensorVar;
+    TensorBase* tensorBase;
   };
 
   struct LinalgLiteralNode : public LinalgExprNode {
