@@ -31,7 +31,7 @@ protected:
 public:
   LinalgBase(std::string name, Type tensorType);
   LinalgBase(std::string name, Type tensorType, Format format);
-  LinalgBase(std::string name, Type tensorType, Datatype dtype, std::vector<size_t> dims, Format format);
+  LinalgBase(std::string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format);
   /// [LINALG NOTATION]
   LinalgAssignment operator=(const LinalgExpr& expr);
   const LinalgAssignment getAssignment() const;
@@ -95,7 +95,7 @@ Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions, Format f
   LinalgBase(name, Type(type<CType>(), dimensions), format) {}
 template <typename CType>
 Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat format1, ModeFormat format2) :
-  LinalgBase(name, Type(type<CType>(), {dim1, dim2}), Format({format1, format2})) {}
+  LinalgBase(name, Type(type<CType>(), {dim1, dim2}), type<CType>(), {(int)dim1, (int)dim2}, Format({format1, format2})) {}
 template <typename CType>
 Matrix<CType>::Matrix(std::string name, Type tensorType) : LinalgBase(name, tensorType) {}
 template <typename CType>

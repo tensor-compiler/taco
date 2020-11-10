@@ -37,7 +37,8 @@ namespace taco {
 LinalgExpr::LinalgExpr(TensorVar var) : LinalgExpr(new LinalgVarNode(var)) {
 }
 
-LinalgExpr::LinalgExpr(TensorVar var, TensorBase* tensorBase) : LinalgExpr(new LinalgTensorBaseNode(var, tensorBase)) {
+LinalgExpr::LinalgExpr(TensorVar var, TensorBase* _tensorBase) : LinalgExpr(new LinalgTensorBaseNode(var, _tensorBase)) {
+  tensorBase = _tensorBase;
 }
 
 LinalgExpr::LinalgExpr(char val) : LinalgExpr(new LinalgLiteralNode(val)) {

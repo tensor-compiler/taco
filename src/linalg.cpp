@@ -17,7 +17,20 @@ LinalgBase::LinalgBase(string name, Type tensorType) : name(name), tensorType(te
   LinalgExpr(TensorVar(name, tensorType)) {
 }
 
-LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<size_t> dims, Format format) : LinalgExpr(TensorVar(name, tensorType, format)), name(name), tensorType(tensorType) {
+LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format) : LinalgExpr(TensorVar(name, tensorType, format), new TensorBase(name, dtype, dims, format)), name(name), tensorType(tensorType) {
+
+  cout << "Called constructor that uses dims dims" << endl;
+
+
+  if(isa<LinalgTensorBaseNode>(ptr)) {
+    cout << "LinalgBase constructor - LinalgTensorBaseNode" << endl;
+    // This is problematic because of const correctness
+    /* LinalgTensorBaseNode* tnode = to<LinalgTensorBaseNode>(ptr); */
+    cout << this->tensorBase->getName() << endl;
+  }
+  else {
+    cout << "LinalgBase constructor - Not a LinalgVarNode" << endl;
+  }
 
 }
 LinalgBase::LinalgBase(string name, Type tensorType, Format format) : LinalgExpr(TensorVar(name, tensorType, format)), name(name), tensorType(tensorType) {

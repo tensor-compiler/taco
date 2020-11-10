@@ -30,16 +30,22 @@ TEST(linalg, simplest) {
 
   /* A = B*C; */
 
+  cout << "--- Before Ping ---" << endl;
   B.ping();
+  cout << "--- Post-Ping ---" << endl;
 
+  cout << "--- Before Expression ---" << endl;
   A = B * C;
+  cout << "--- After Expression ---" << endl;
 
+  cout << "--- Before At ---" << endl;
   cout << "B(0,0): " << B.at(0,0) << endl;
+  cout << "--- After At ---" << endl;
 
   cout << A << endl;
 
   A.rewrite();
-  cout << A.getIndexAssignment();
+  cout << A.getIndexAssignment() << endl;
 
   ASSERT_TRUE(1);
 }

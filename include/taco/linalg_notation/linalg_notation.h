@@ -124,6 +124,8 @@ public:
 
   /// Print the index expression.
   friend std::ostream &operator<<(std::ostream &, const LinalgExpr &);
+
+  TensorBase *tensorBase;
 };
 
 /// Compare two index expressions by value.
