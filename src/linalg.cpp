@@ -17,7 +17,7 @@ LinalgBase::LinalgBase(string name, Type tensorType) : name(name), tensorType(te
   LinalgExpr(TensorVar(name, tensorType)) {
 }
 
-LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format) : LinalgExpr(TensorVar(name, tensorType, format), new TensorBase(name, dtype, dims, format)), name(name), tensorType(tensorType) {
+LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format) : LinalgExpr(TensorVar(name, tensorType, format), new TensorBase(name, dtype, dims, format)), name(name), tensorType(tensorType), idxcount(0) {
 
   cout << "Called constructor that uses dims dims" << endl;
 
@@ -33,7 +33,7 @@ LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector
   }
 
 }
-LinalgBase::LinalgBase(string name, Type tensorType, Format format) : LinalgExpr(TensorVar(name, tensorType, format)), name(name), tensorType(tensorType) {
+LinalgBase::LinalgBase(string name, Type tensorType, Format format) : LinalgExpr(TensorVar(name, tensorType, format)), name(name), tensorType(tensorType), idxcount(0) {
     // Unpack the type and shape
     Datatype type = tensorType.getDataType();
     Shape shape = tensorType.getShape();
@@ -61,11 +61,9 @@ LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
   cout << "LinalgBase operator= on " << name << endl;
   LinalgAssignment assignment = LinalgAssignment(to<LinalgVarNode>(this->get())->tensorVar, expr);
   this->assignment = assignment;
-  /* cout << "this assignment ptr: " << this->assignment.ptr << endl; */
-  
-  // Now that the assignment is made we should run the index-assignment algorithm
-  
-  // Start by trying to print out the whole expression tree
+
+  // TODO: May need to invoke the rewrite at this point to get the interleaving of inserts and
+  // expressions correct
 
   return assignment;
 }
@@ -140,12 +138,11 @@ IndexStmt LinalgBase::rewrite() {
     Access lhs = Access(tensor, indices);
     IndexExpr rhs = rewrite(this->assignment.getRhs(), indices);
 
-    // TODO: instead of doing it here, do it at the point of read-method
-    // by grabbing the RHS from the indexAssignment (need state to know if assigned before)
-
-    cout << "--- Going to use the Tensor API to assign the RHS ---" << endl;
-    this->tensorBase->operator()(indices) = rhs;
-    cout << "--- Done assigning RHS to Tensor API ---" << endl;
+    if(this->tensorBase != NULL) {
+      cout << "--- Going to use the Tensor API to assign the RHS ---" << endl;
+      this->tensorBase->operator()(indices) = rhs;
+      cout << "--- Done assigning RHS to Tensor API ---" << endl;
+    }
 
     Assignment indexAssign = Assignment(lhs, rhs);
     this->indexAssignment = indexAssign;
@@ -154,10 +151,14 @@ IndexStmt LinalgBase::rewrite() {
   return IndexStmt();
 }
 
-
-
 std::ostream& operator<<(std::ostream& os, const LinalgBase& linalg) {
   LinalgAssignment assignment = linalg.getAssignment();
+
+  // If TensorBase exists, print the storage
+  if (linalg.tensorBase != NULL) {
+    return os << *(linalg.tensorBase) << endl;
+  }
+
   if (!assignment.defined()) return os << getNode(linalg)->tensorVar.getName();
   LinalgNotationPrinter printer(os);
   printer.print(assignment);

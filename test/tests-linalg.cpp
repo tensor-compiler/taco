@@ -30,10 +30,6 @@ TEST(linalg, simplest) {
 
   /* A = B*C; */
 
-  cout << "--- Before Ping ---" << endl;
-  B.ping();
-  cout << "--- Post-Ping ---" << endl;
-
   cout << "--- Before Expression ---" << endl;
   A = B * C;
   cout << "--- After Expression ---" << endl;
@@ -44,17 +40,21 @@ TEST(linalg, simplest) {
   cout << "--- After At ---" << endl;
 
 
-  cout << "--- Before cout of A ---" << endl;
-  /* cout << A << endl; */
-  cout << "--- After cout of A ---" << endl;
+  /* cout << "--- before cout of a ---" << endl; */
+  /* cout << a << endl; */
+  /* cout << "--- after cout of a ---" << endl; */
 
   cout << "--- Before Rewrite of A ---" << endl;
   A.rewrite();
   cout << "--- After Rewrite of A ---" << endl;
 
   cout << "--- Before At (A) ---" << endl;
-  /* cout << "A(0,0): " << A.at(0,0) << endl; */
+  cout << "A(0,0): " << A.at(0,0) << endl;
   cout << "--- After At (A) ---" << endl;
+
+  cout << "--- before cout of a ---" << endl;
+  cout << A << endl;
+  cout << "--- after cout of a ---" << endl;
 
   cout << "--- Before getIndexAssignment on A ---" << endl;
   cout << A.getIndexAssignment() << endl;
