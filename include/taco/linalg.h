@@ -105,8 +105,8 @@ Matrix<CType>::Matrix(std::string name, Type tensorType, Format format) : Linalg
 template <typename CType>
 CType Matrix<CType>::at(int coord_x, int coord_y) {
   std::cout << "Name: " << name << std::endl;
-  std::cout << tbase << std::endl;
-  std::cout << "Matrix found a TBase " << tbase->getName() << std::endl;
+  std::cout << tensorBase << std::endl;
+  std::cout << "Matrix found a TBase " << tensorBase->getName() << std::endl;
   std::cout << "Will print a coordinate" << std::endl;
 
 
@@ -115,7 +115,7 @@ CType Matrix<CType>::at(int coord_x, int coord_y) {
     std::cout << "This matrix is the result of an assignment" << std::endl;
   }
 
-  return tbase->at<CType>({coord_x, coord_y});
+  return tensorBase->at<CType>({coord_x, coord_y});
 }
 // ------------------------------------------------------------
 // Vector class
