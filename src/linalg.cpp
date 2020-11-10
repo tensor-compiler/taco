@@ -115,8 +115,7 @@ IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
     const LinalgVarNode* var = to<LinalgVarNode>(linalg.get());
     return new AccessNode(var->tensorVar, indices);
   } else if (isa<LinalgTensorBaseNode>(linalg.get())) {
-    cout << "LinalgBase::rewrite -- got a tensorbasenode" << endl;
-    cout << "Eet ees " << linalg.tensorBase->getName() << endl;
+    cout << "LinalgBase::rewrite -- got a tensorbasenode " << linalg.tensorBase->getName() << endl;
     return linalg.tensorBase->operator()(indices);
   }
   return IndexExpr();
@@ -140,6 +139,13 @@ IndexStmt LinalgBase::rewrite() {
     }
     Access lhs = Access(tensor, indices);
     IndexExpr rhs = rewrite(this->assignment.getRhs(), indices);
+
+    // TODO: instead of doing it here, do it at the point of read-method
+    // by grabbing the RHS from the indexAssignment (need state to know if assigned before)
+
+    cout << "--- Going to use the Tensor API to assign the RHS ---" << endl;
+    this->tensorBase->operator()(indices) = rhs;
+    cout << "--- Done assigning RHS to Tensor API ---" << endl;
 
     Assignment indexAssign = Assignment(lhs, rhs);
     this->indexAssignment = indexAssign;

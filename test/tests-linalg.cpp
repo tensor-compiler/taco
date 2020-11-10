@@ -40,6 +40,7 @@ TEST(linalg, simplest) {
 
   cout << "--- Before At ---" << endl;
   cout << "B(0,0): " << B.at(0,0) << endl;
+  cout << "A(0,0): " << A.at(0,0) << endl;
   cout << "--- After At ---" << endl;
 
 
@@ -50,6 +51,10 @@ TEST(linalg, simplest) {
   cout << "--- Before Rewrite of A ---" << endl;
   A.rewrite();
   cout << "--- After Rewrite of A ---" << endl;
+
+  cout << "--- Before At (A) ---" << endl;
+  /* cout << "A(0,0): " << A.at(0,0) << endl; */
+  cout << "--- After At (A) ---" << endl;
 
   cout << "--- Before getIndexAssignment on A ---" << endl;
   cout << A.getIndexAssignment() << endl;
