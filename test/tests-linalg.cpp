@@ -6,31 +6,13 @@ using namespace taco;
 
 TEST(linalg, simplest) {
   Matrix<double> B("B", 2, 2, dense, dense);
-  Matrix<double> C("C");
-  Matrix<double> A("A");
+  Matrix<double> C("C", 2, 2, dense, dense);
+  Matrix<double> A("A", 2, 2, dense, dense);
 
-  /* Vector<double> c("c"); */
-
-  /* Vector<double> a("a"); */
-
-  /* for(int i=0;i<42;i++) { */
-  /*   B.insert({i,i}, 1.0); */
-  /* } */
-
-  /* for(int i=0;i<42;i++) { */
-  /*   c.insert({i}, (double) i); */
-  /* } */
-
-  /* B.pack(); */
-  /* c.pack(); */
-
-  /* IndexVar i("i"), j("j"); */
-
-  /* a(i) = B(i,j) * c(j); */
-
-  /* A = B*C; */
-
-  A = B * C;
+  cout << C.getOrder() << endl;
+  cout << B.getOrder()  << endl;
+  cout << A.getOrder() << endl;
+  A = B + C;
 
   cout << A << endl;
 
@@ -40,3 +22,62 @@ TEST(linalg, simplest) {
   ASSERT_TRUE(1);
 }
 
+TEST(linalg, matvec_mul) {
+  Vector<double> x("x", 2, dense);
+  Vector<double> b("b", 2, dense);
+  Matrix<double> A("A", 2, 2, dense, dense);
+
+  x = A*b;
+
+  cout << x << endl;
+
+  x.rewrite();
+  cout << x.getIndexAssignment();
+
+  ASSERT_TRUE(1);
+}
+
+TEST(linalg, vecmat_mul) {
+  Vector<double> x("x", 2, dense, false);
+  Vector<double> b("b", 2, dense, false);
+  Matrix<double> A("A", 2, 2, dense, dense);
+
+  x = b * A;
+
+  cout << x << endl;
+
+  x.rewrite();
+  cout << x.getIndexAssignment();
+
+  ASSERT_TRUE(1);
+}
+
+TEST(linalg, inner_mul) {
+  Scalar<double> x("x");
+  Vector<double> b("b", 2, dense, false);
+  Vector<double> a("a", 2, dense, true);
+
+  x = b * a;
+
+  cout << x << endl;
+
+  x.rewrite();
+  cout << x.getIndexAssignment();
+
+  ASSERT_TRUE(1);
+}
+
+TEST(linalg, outer_mul) {
+  Matrix<double> X("X", 2, 2, dense, dense);
+  Vector<double> b("b", 2, dense, false);
+  Vector<double> a("a", 2, dense, true);
+
+  X = a * b;
+
+  cout << X << endl;
+
+  X.rewrite();
+  cout << X.getIndexAssignment();
+
+  ASSERT_TRUE(1);
+}

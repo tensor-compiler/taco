@@ -25,6 +25,7 @@
 #include "taco/index_notation/provenance_graph.h"
 
 #include "taco/linalg_notation/linalg_notation_nodes_abstract.h"
+#include "taco/linalg.h"
 
 namespace taco {
 
@@ -37,6 +38,8 @@ class Format;
 class Schedule;
 
 class TensorVar;
+
+class LinalgBase;
 
 class LinalgExpr;
 
@@ -70,7 +73,7 @@ public:
   /// A(i,j) = b;
   /// ```
   LinalgExpr(TensorVar);
-
+  LinalgExpr(TensorVar var, bool isColVec);
   /// Consturct an integer literal.
   /// ```
   /// A(i,j) = 1;
@@ -114,6 +117,8 @@ public:
   LinalgExpr(std::complex<double>);
 
   Datatype getDataType() const;
+  int getOrder() const;
+  bool isColVector() const;
 
   /// Visit the linalg expression's sub-expressions.
   void accept(LinalgExprVisitorStrict *) const;
@@ -149,6 +154,10 @@ LinalgExpr elemMul(const LinalgExpr& lhs, const LinalgExpr& rhs);
 LinalgExpr transpose(const LinalgExpr& lhs);
 //LinalgExpr operator^(const LinalgExpr&, const T);
 
+/// Check to make sure operators are legal (shape-wise)
+int getMatMulOrder(const LinalgExpr &lhs, const LinalgExpr &rhs);
+
+void checkCompatibleShape(const LinalgExpr &lhs, const LinalgExpr &rhs);
 /// A an index statement computes a tensor.  The index statements are
 /// assignment, forall, where, multi, and sequence.
 class LinalgStmt : public util::IntrusivePtr<const LinalgStmtNode> {

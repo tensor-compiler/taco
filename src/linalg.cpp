@@ -13,16 +13,22 @@ namespace taco {
 /*   : LinalgBase(/1* get a unique name *1/, ctype) { */
 /* } */
 
-LinalgBase::LinalgBase(string name, Type tensorType) : name(name), tensorType(tensorType), idxcount(0),
-  LinalgExpr(TensorVar(name, tensorType)) {
+LinalgBase::LinalgBase(string name, Type tensorType, bool isColVec) : name(name), tensorType(tensorType), idxcount(0),
+  isColVec(isColVec), LinalgExpr(TensorVar(name, tensorType), isColVec) {
 }
-LinalgBase::LinalgBase(string name, Type tensorType, Format format) : name(name), tensorType(tensorType), idxcount(0),
-  LinalgExpr(TensorVar(name, tensorType, format)) {
+LinalgBase::LinalgBase(string name, Type tensorType, Format format, bool isColVec) : name(name), tensorType(tensorType),
+  idxcount(0), isColVec(isColVec), LinalgExpr(TensorVar(name, tensorType, format), isColVec) {
 }
 
 LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
-  taco_iassert(isa<VarNode>(this->ptr));
-  LinalgAssignment assignment = LinalgAssignment(to<LinalgVarNode>(this->get())->tensorVar, expr);
+  taco_iassert(isa<LinalgVarNode>(this->ptr));
+  TensorVar var = to<LinalgVarNode>(this->get())->tensorVar;
+
+  taco_uassert(var.getOrder() == expr.getOrder()) << "RHS and LHS of linalg assignment must match order";
+  if (var.getOrder() == 1)
+    taco_uassert(this->isColVector() == expr.isColVector()) << "RHS and LHS of linalg assignment must match vector type";
+
+  LinalgAssignment assignment = LinalgAssignment(var, expr);
   this->assignment = assignment;
   return assignment;
 }
@@ -75,8 +81,29 @@ IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
   } else if (isa<LinalgMatMulNode>(linalg.get())) {
     auto mul = to<LinalgMatMulNode>(linalg.get());
     IndexVar index = getUniqueIndex();
-    IndexExpr indexA = rewrite(mul->a, {indices[0], index});
-    IndexExpr indexB = rewrite(mul->b, {index, indices[1]});
+    vector<IndexVar> indicesA;
+    vector<IndexVar> indicesB;
+    if (mul->a.getOrder() == 2 && mul->b.getOrder() == 2) {
+      indicesA = {indices[0], index};
+      indicesB = {index, indices[1]};
+    }
+    else if (mul->a.getOrder() == 1 && mul->b.getOrder() == 2) {
+      indicesA = {index};
+      indicesB = {index, indices[0]};
+    }
+    else if (mul->a.getOrder() == 2 && mul->b.getOrder() == 1) {
+      indicesA = {indices[0], index};
+      indicesB = {index};
+    }
+    else if (mul->a.getOrder() == 1 && mul->a.isColVector() && mul->b.getOrder() == 1) {
+      indicesA = {indices[0], index};
+      indicesB = {index};
+    } else {
+      indicesA = {index};
+      indicesB = {index};
+    }
+    IndexExpr indexA = rewrite(mul->a, indicesA);
+    IndexExpr indexB = rewrite(mul->b, indicesB);
     return new MulNode(indexA, indexB);
   } else if (isa<LinalgDivNode>(linalg.get())) {
     auto div = to<LinalgDivNode>(linalg.get());
@@ -141,6 +168,7 @@ IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
         value = new LiteralNode(lit->getVal<std::complex<double>>());
         break;
       case Datatype::Undefined:
+        taco_uerror << "unsupported Datatype";
         break;
     }
     return value;
@@ -177,7 +205,9 @@ IndexStmt LinalgBase::rewrite() {
   return IndexStmt();
 }
 
-
+bool LinalgBase::isColVector() const {
+  return this->isColVec;
+}
 
 std::ostream& operator<<(std::ostream& os, const LinalgBase& linalg) {
   LinalgAssignment assignment = linalg.getAssignment();

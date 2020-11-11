@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <memory>
+#include <taco/linalg.h>
 
 #include "taco/type.h"
 #include "taco/index_notation/index_notation.h"
@@ -19,7 +20,9 @@ namespace taco {
 
   struct LinalgVarNode : public LinalgExprNode {
     LinalgVarNode(TensorVar tensorVar)
-      : LinalgExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar) {}
+      : LinalgExprNode(tensorVar.getType().getDataType(), tensorVar.getOrder()), tensorVar(tensorVar) {}
+    LinalgVarNode(TensorVar tensorVar, bool isColVec)
+      : LinalgExprNode(tensorVar.getType().getDataType(), tensorVar.getOrder(), isColVec), tensorVar(tensorVar) {}
 
     void accept(LinalgExprVisitorStrict* v) const override {
       v->visit(this);
@@ -58,7 +61,7 @@ namespace taco {
     LinalgExpr a;
 
   protected:
-    LinalgUnaryExprNode(LinalgExpr a) : LinalgExprNode(a.getDataType()), a(a) {}
+    LinalgUnaryExprNode(LinalgExpr a) : LinalgExprNode(a.getDataType(), a.getOrder(), a.isColVector()), a(a) {}
   };
 
 
@@ -86,14 +89,17 @@ namespace taco {
 
   protected:
     LinalgBinaryExprNode() : LinalgExprNode() {}
-    LinalgBinaryExprNode(LinalgExpr a, LinalgExpr b)
-      : LinalgExprNode(max_type(a.getDataType(), b.getDataType())), a(a), b(b) {}
+    LinalgBinaryExprNode(LinalgExpr a, LinalgExpr b, int order)
+      : LinalgExprNode(max_type(a.getDataType(), b.getDataType()), order), a(a), b(b) {}
+    LinalgBinaryExprNode(LinalgExpr a, LinalgExpr b, int order, bool isColVec)
+      : LinalgExprNode(max_type(a.getDataType(), b.getDataType()), order, isColVec), a(a), b(b) {}
   };
 
 
   struct LinalgAddNode : public LinalgBinaryExprNode {
     LinalgAddNode() : LinalgBinaryExprNode() {}
-    LinalgAddNode(LinalgExpr a, LinalgExpr b) : LinalgBinaryExprNode(a, b) {}
+    LinalgAddNode(LinalgExpr a, LinalgExpr b, int order) : LinalgBinaryExprNode(a, b, order) {}
+    LinalgAddNode(LinalgExpr a, LinalgExpr b, int order, bool isColVec) : LinalgBinaryExprNode(a, b, order, isColVec) {}
 
     std::string getOperatorString() const override{
       return "+";
@@ -107,7 +113,8 @@ namespace taco {
 
   struct LinalgSubNode : public LinalgBinaryExprNode {
     LinalgSubNode() : LinalgBinaryExprNode() {}
-    LinalgSubNode(LinalgExpr a, LinalgExpr b) : LinalgBinaryExprNode(a, b) {}
+    LinalgSubNode(LinalgExpr a, LinalgExpr b, int order) : LinalgBinaryExprNode(a, b, order) {}
+    LinalgSubNode(LinalgExpr a, LinalgExpr b, int order, bool isColVec) : LinalgBinaryExprNode(a, b, order, isColVec) {}
 
     std::string getOperatorString() const override{
       return "-";
@@ -121,7 +128,8 @@ namespace taco {
 
   struct LinalgMatMulNode : public LinalgBinaryExprNode {
     LinalgMatMulNode() : LinalgBinaryExprNode() {}
-    LinalgMatMulNode(LinalgExpr a, LinalgExpr b) : LinalgBinaryExprNode(a, b) {}
+    LinalgMatMulNode(LinalgExpr a, LinalgExpr b, int order) : LinalgBinaryExprNode(a, b, order) {}
+    LinalgMatMulNode(LinalgExpr a, LinalgExpr b, int order, bool isColVec) : LinalgBinaryExprNode(a, b, order, isColVec) {}
 
     std::string getOperatorString() const override{
       return "*";
@@ -134,7 +142,8 @@ namespace taco {
 
 struct LinalgElemMulNode : public LinalgBinaryExprNode {
   LinalgElemMulNode() : LinalgBinaryExprNode() {}
-  LinalgElemMulNode(LinalgExpr a, LinalgExpr b) : LinalgBinaryExprNode(a, b) {}
+  LinalgElemMulNode(LinalgExpr a, LinalgExpr b, int order) : LinalgBinaryExprNode(a, b, order) {}
+  LinalgElemMulNode(LinalgExpr a, LinalgExpr b, int order, bool isColVec) : LinalgBinaryExprNode(a, b, order, isColVec) {}
 
   std::string getOperatorString() const override{
     return "elemMul";
@@ -147,7 +156,8 @@ struct LinalgElemMulNode : public LinalgBinaryExprNode {
 
 struct LinalgDivNode : public LinalgBinaryExprNode {
   LinalgDivNode() : LinalgBinaryExprNode() {}
-  LinalgDivNode(LinalgExpr a, LinalgExpr b) : LinalgBinaryExprNode(a, b) {}
+  LinalgDivNode(LinalgExpr a, LinalgExpr b, int order) : LinalgBinaryExprNode(a, b, order) {}
+  LinalgDivNode(LinalgExpr a, LinalgExpr b, int order, bool isColVec) : LinalgBinaryExprNode(a, b, order, isColVec) {}
 
   std::string getOperatorString() const override{
     return "/";
@@ -161,7 +171,10 @@ struct LinalgDivNode : public LinalgBinaryExprNode {
 // Linalg Statements
 struct LinalgAssignmentNode : public LinalgStmtNode {
   LinalgAssignmentNode(const TensorVar& lhs, const LinalgExpr& rhs)
-    : lhs(lhs), rhs(rhs) {}
+    : lhs(lhs), rhs(rhs) { isColVec = false;}
+
+  LinalgAssignmentNode(const TensorVar& lhs, bool isColVec, const LinalgExpr& rhs)
+    : lhs(lhs), rhs(rhs), isColVec(isColVec) {}
 
   void accept(LinalgStmtVisitorStrict* v) const {
     v->visit(this);
@@ -169,6 +182,7 @@ struct LinalgAssignmentNode : public LinalgStmtNode {
 
   TensorVar  lhs;
   LinalgExpr rhs;
+  bool isColVec;
 };
 
 /// Returns true if expression e is of type E.
