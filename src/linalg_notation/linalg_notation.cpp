@@ -111,6 +111,14 @@ LinalgExpr operator/(const LinalgExpr &lhs, const LinalgExpr &rhs) {
   return new LinalgDivNode(lhs, rhs);
 }
 
+LinalgExpr elemMul(const LinalgExpr &lhs, const LinalgExpr &rhs) {
+  return new LinalgElemMulNode(lhs, rhs);
+}
+
+LinalgExpr transpose(const LinalgExpr &lhs) {
+  return new LinalgTransposeNode(lhs);
+}
+
 // class LinalgStmt
 LinalgStmt::LinalgStmt() : util::IntrusivePtr<const LinalgStmtNode>(nullptr) {
 }

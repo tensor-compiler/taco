@@ -134,11 +134,20 @@ LinalgExpr operator+(const LinalgExpr&, const LinalgExpr&);
 /// Subtract a linear algebra expressions from another.
 LinalgExpr operator-(const LinalgExpr&, const LinalgExpr&);
 
-/// Multiply two linear algebra expressions.
+/// Matrix Multiply two linear algebra expressions.
 LinalgExpr operator*(const LinalgExpr&, const LinalgExpr&);
 
 /// Divide a linear expression by another.
 LinalgExpr operator/(const LinalgExpr&, const LinalgExpr&);
+
+/// Element-wise multiply two linear algebra expressions
+// FIXME: May want to be consistent with eigen library in c++ and change to cmul
+LinalgExpr elemMul(const LinalgExpr& lhs, const LinalgExpr& rhs);
+
+/// Construct and returns an expression that transposes this expression
+// FIXME: May want to change this with '^T' in the future
+LinalgExpr transpose(const LinalgExpr& lhs);
+//LinalgExpr operator^(const LinalgExpr&, const T);
 
 /// A an index statement computes a tensor.  The index statements are
 /// assignment, forall, where, multi, and sequence.

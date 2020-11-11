@@ -58,18 +58,35 @@ IndexVar LinalgBase::getUniqueIndex() {
 
 IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
   if (isa<LinalgSubNode>(linalg.get())) {
-    const LinalgSubNode* sub = to<LinalgSubNode>(linalg.get());
+    auto sub = to<LinalgSubNode>(linalg.get());
     IndexExpr indexA = rewrite(sub->a, indices);
     IndexExpr indexB = rewrite(sub->b, indices);
     return new SubNode(indexA, indexB);
+  } else if (isa<LinalgAddNode>(linalg.get())) {
+    auto add = to<LinalgAddNode>(linalg.get());
+    IndexExpr indexA = rewrite(add->a, indices);
+    IndexExpr indexB = rewrite(add->b, indices);
+    return new AddNode(indexA, indexB);
+  } else if (isa<LinalgElemMulNode>(linalg.get())) {
+    auto mul = to<LinalgElemMulNode>(linalg.get());
+    IndexExpr indexA = rewrite(mul->a, indices);
+    IndexExpr indexB = rewrite(mul->b, indices);
+    return new MulNode(indexA, indexB);
   } else if (isa<LinalgMatMulNode>(linalg.get())) {
-    const LinalgMatMulNode* mul = to<LinalgMatMulNode>(linalg.get());
+    auto mul = to<LinalgMatMulNode>(linalg.get());
     IndexVar index = getUniqueIndex();
     IndexExpr indexA = rewrite(mul->a, {indices[0], index});
     IndexExpr indexB = rewrite(mul->b, {index, indices[1]});
     return new MulNode(indexA, indexB);
+  } else if (isa<LinalgNegNode>(linalg.get())) {
+    auto neg = to<LinalgNegNode>(linalg.get());
+    IndexExpr index = rewrite(neg->a, indices);
+    return new NegNode(index);
+  } else if (isa<LinalgTransposeNode>(linalg.get())) {
+    auto transpose = to<LinalgTransposeNode>(linalg.get());
+    return rewrite(transpose->a, {indices[1], indices[0]});
   } else if (isa<LinalgVarNode>(linalg.get())) {
-    const LinalgVarNode* var = to<LinalgVarNode>(linalg.get());
+    auto var = to<LinalgVarNode>(linalg.get());
     return new AccessNode(var->tensorVar, indices);
   }
   return IndexExpr();
