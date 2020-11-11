@@ -78,6 +78,11 @@ IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
     IndexExpr indexA = rewrite(mul->a, {indices[0], index});
     IndexExpr indexB = rewrite(mul->b, {index, indices[1]});
     return new MulNode(indexA, indexB);
+  } else if (isa<LinalgDivNode>(linalg.get())) {
+    auto div = to<LinalgDivNode>(linalg.get());
+    IndexExpr indexA = rewrite(div->a, indices);
+    IndexExpr indexB = rewrite(div->b, indices);
+    return new DivNode(indexA, indexB);
   } else if (isa<LinalgNegNode>(linalg.get())) {
     auto neg = to<LinalgNegNode>(linalg.get());
     IndexExpr index = rewrite(neg->a, indices);
@@ -85,6 +90,60 @@ IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
   } else if (isa<LinalgTransposeNode>(linalg.get())) {
     auto transpose = to<LinalgTransposeNode>(linalg.get());
     return rewrite(transpose->a, {indices[1], indices[0]});
+  } else if (isa<LinalgLiteralNode>(linalg.get())) {
+    auto lit = to<LinalgLiteralNode>(linalg.get());
+
+    LiteralNode* value;
+    switch (lit->getDataType().getKind()) {
+      case Datatype::Bool:
+        value = new LiteralNode(lit->getVal<bool>());
+        break;
+      case Datatype::UInt8:
+        value = new LiteralNode(lit->getVal<uint8_t>());
+        break;
+      case Datatype::UInt16:
+        value = new LiteralNode(lit->getVal<uint16_t>());
+        break;
+      case Datatype::UInt32:
+        value = new LiteralNode(lit->getVal<uint32_t>());
+        break;
+      case Datatype::UInt64:
+        value = new LiteralNode(lit->getVal<uint64_t>());
+        break;
+      case Datatype::UInt128:
+        taco_not_supported_yet;
+        break;
+      case Datatype::Int8:
+        value = new LiteralNode(lit->getVal<int8_t>());
+        break;
+      case Datatype::Int16:
+        value = new LiteralNode(lit->getVal<int16_t>());
+        break;
+      case Datatype::Int32:
+        value = new LiteralNode(lit->getVal<int32_t>());
+        break;
+      case Datatype::Int64:
+        value = new LiteralNode(lit->getVal<int64_t>());
+        break;
+      case Datatype::Int128:
+        taco_not_supported_yet;
+        break;
+      case Datatype::Float32:
+        value = new LiteralNode(lit->getVal<float>());
+        break;
+      case Datatype::Float64:
+        value = new LiteralNode(lit->getVal<double>());
+        break;
+      case Datatype::Complex64:
+        value = new LiteralNode(lit->getVal<std::complex<float>>());
+        break;
+      case Datatype::Complex128:
+        value = new LiteralNode(lit->getVal<std::complex<double>>());
+        break;
+      case Datatype::Undefined:
+        break;
+    }
+    return value;
   } else if (isa<LinalgVarNode>(linalg.get())) {
     auto var = to<LinalgVarNode>(linalg.get());
     return new AccessNode(var->tensorVar, indices);
