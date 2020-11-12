@@ -30,6 +30,15 @@ TEST(linalg, simplest) {
 
   /* A = B*C; */
 
+  cout << "--- Before inserting ---" << endl;
+  B.insert(0,0,2);
+  B.insert(1,1,1);
+  B.insert(0,1,2);
+
+  C.insert(0,0,2);
+  C.insert(1,1,2);
+  cout << "--- After inserting ---" << endl;
+
   cout << "--- Before Expression ---" << endl;
   A = B * C;
   cout << "--- After Expression ---" << endl;

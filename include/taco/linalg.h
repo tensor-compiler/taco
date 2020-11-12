@@ -75,6 +75,10 @@ public:
   // Support some Read methods
   CType at(int coord_x, int coord_y);
 
+  // And a Write method
+  void insert(int coord_x, int coord_y, CType value);
+
+
 };
 
 // ------------------------------------------------------------
@@ -117,6 +121,13 @@ CType Matrix<CType>::at(int coord_x, int coord_y) {
 
   return tensorBase->at<CType>({coord_x, coord_y});
 }
+
+// Definition of Write methods
+template <typename CType>
+void Matrix<CType>::insert(int coord_x, int coord_y, CType value) {
+  tensorBase->insert({coord_x, coord_y}, value);
+}
+
 // ------------------------------------------------------------
 // Vector class
 // ------------------------------------------------------------
