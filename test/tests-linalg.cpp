@@ -4,7 +4,7 @@
 
 using namespace taco;
 
-TEST(linalg, simplest) {
+TEST(linalg, tensorbase) {
   Matrix<double> B("B", 2, 2, dense, dense);
   Matrix<double> C("C", 2, 2, dense, dense);
   Matrix<double> A("A", 2, 2, dense, dense);
