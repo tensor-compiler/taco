@@ -49,9 +49,6 @@ TEST(linalg, tensorbase) {
   Matrix<double> C("C", 2, 2, dense, dense);
   Matrix<double> A("A", 2, 2, dense, dense);
 
-  cout << C.getOrder() << endl;
-  cout << B.getOrder()  << endl;
-  cout << A.getOrder() << endl;
   A = B + C;
 
   cout << A << endl;
@@ -155,6 +152,21 @@ TEST(linalg, outer_mul) {
 
   X.rewrite();
   cout << X.getIndexAssignment();
+
+  ASSERT_TRUE(1);
+}
+
+TEST(linalg, rowvec_transpose) {
+  Vector<double> b("b", 2, dense, false);
+  Matrix<double> A("A", 2, 2, dense, dense);
+  Scalar<double> a("a");
+
+  a = transpose(transpose(b) * A * b);
+
+  cout << a << endl;
+
+  a.rewrite();
+  cout << a.getIndexAssignment();
 
   ASSERT_TRUE(1);
 }

@@ -8,61 +8,24 @@ using namespace std;
 
 namespace taco {
 
-// Just trying this out. Need to accept dimensions and format too.
-/* LinalgBase::LinalgBase(Datatype ctype) */
-/*   : LinalgBase(/1* get a unique name *1/, ctype) { */
-/* } */
-
 LinalgBase::LinalgBase(string name, Type tensorType, bool isColVec) : name(name), tensorType(tensorType), idxcount(0),
-  isColVec(isColVec), LinalgExpr(TensorVar(name, tensorType), isColVec) {
+  LinalgExpr(TensorVar(name, tensorType), isColVec) {
 }
 
-LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, bool isColVec) : LinalgExpr(TensorVar(name, tensorType, format), isColVec, new TensorBase(name, dtype, dims, format)), name(name), tensorType(tensorType), idxcount(0), isColVec(isColVec) {
-
-  cout << "Called constructor that uses dims dims" << endl;
-
-
+LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, bool isColVec) : LinalgExpr(TensorVar(name, tensorType, format), isColVec, new TensorBase(name, dtype, dims, format)), name(name), tensorType(tensorType), idxcount(0) {
   if(isa<LinalgTensorBaseNode>(ptr)) {
-    cout << "LinalgBase constructor - LinalgTensorBaseNode" << endl;
-    // This is problematic because of const correctness
-    /* LinalgTensorBaseNode* tnode = to<LinalgTensorBaseNode>(ptr); */
+    /* cout << "LinalgBase constructor - LinalgTensorBaseNode" << endl; */
     cout << this->tensorBase->getName() << endl;
   }
-  else {
-    cout << "LinalgBase constructor - Not a LinalgVarNode" << endl;
-  }
-
 }
 
-/* LinalgBase::LinalgBase(string name, Type tensorType, Format format, bool isColVec) : LinalgExpr(TensorVar(name, tensorType, format)), name(name), tensorType(tensorType), idxcount(0), isColVec(isColVec) { */
-/*     // Unpack the type and shape */
-/*     Datatype type = tensorType.getDataType(); */
-/*     Shape shape = tensorType.getShape(); */
-/*     vector<Dimension> dimensions(shape.begin(), shape.end()); */
-/*     vector<int> dims; */
-/*     for(const Dimension& d : dimensions) { */
-/*       dims.push_back((int)d.getSize()); */
-/*     } */
-
-/*     // Init a TensorBase */
-/*     tbase = new TensorBase(name, type, dims, format); */
-
-/*     cout << "Created TensorBase " << tbase->getName() << endl; */
-/*     cout << tbase << endl; */
-
-/*     // Attach this TensorBase to the node */
-/*     /1* dynamic_cast<LinalgVarNode*>(this->ptr)->setTensorBase(tbase); *1/ */
-/*     /1* dynamic_cast<const VarNode*>(this->ptr)->setTensorBase(tbase); *1/ */
-/*     /1* to<LinalgVarNode>(this->get())->setTensorBase(tbase); *1/ */
-/* } */
-
 LinalgBase::LinalgBase(string name, Type tensorType, Format format, bool isColVec) : name(name), tensorType(tensorType),
-  idxcount(0), isColVec(isColVec), LinalgExpr(TensorVar(name, tensorType, format)) {
+  idxcount(0), LinalgExpr(TensorVar(name, tensorType, format), isColVec) {
 }
 
 
 LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
-  cout << "LinalgBase operator= on " << name << endl;
+  /* cout << "LinalgBase operator= on " << name << endl; */
   taco_iassert(isa<LinalgVarNode>(this->ptr));
   TensorVar var = to<LinalgVarNode>(this->get())->tensorVar;
 
@@ -73,7 +36,7 @@ LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
   LinalgAssignment assignment = LinalgAssignment(var, expr);
   this->assignment = assignment;
 
-  // TODO: invoke the rewrite at this point to get the interleaving of inserts and expressions correct
+  // invoke the rewrite at this point to get the interleaving of inserts and expressions correct?
 
   return assignment;
 }
@@ -161,7 +124,13 @@ IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
     return new NegNode(index);
   } else if (isa<LinalgTransposeNode>(linalg.get())) {
     auto transpose = to<LinalgTransposeNode>(linalg.get());
-    return rewrite(transpose->a, {indices[1], indices[0]});
+    if (transpose->a.getOrder() == 2) {
+      return rewrite(transpose->a, {indices[1], indices[0]});
+    }
+    else if (transpose->a.getOrder() == 1) {
+      return rewrite(transpose->a, {indices[0]});
+    }
+    return rewrite(transpose->a, {});
   } else if (isa<LinalgLiteralNode>(linalg.get())) {
     auto lit = to<LinalgLiteralNode>(linalg.get());
 
@@ -221,7 +190,7 @@ IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
     auto var = to<LinalgVarNode>(linalg.get());
     return new AccessNode(var->tensorVar, indices);
   } else if (isa<LinalgTensorBaseNode>(linalg.get())) {
-    cout << "LinalgBase::rewrite -- got a tensorbasenode " << linalg.tensorBase->getName() << endl;
+    /* cout << "LinalgBase::rewrite -- got a tensorbasenode " << linalg.tensorBase->getName() << endl; */
     return linalg.tensorBase->operator()(indices);
   }
   return IndexExpr();
@@ -247,9 +216,9 @@ IndexStmt LinalgBase::rewrite() {
     IndexExpr rhs = rewrite(this->assignment.getRhs(), indices);
 
     if(this->tensorBase != NULL) {
-      cout << "--- Going to use the Tensor API to assign the RHS ---" << endl;
+      /* cout << "--- Going to use the Tensor API to assign the RHS ---" << endl; */
       this->tensorBase->operator()(indices) = rhs;
-      cout << "--- Done assigning RHS to Tensor API ---" << endl;
+      /* cout << "--- Done assigning RHS to Tensor API ---" << endl; */
     }
 
     Assignment indexAssign = Assignment(lhs, rhs);
@@ -257,10 +226,6 @@ IndexStmt LinalgBase::rewrite() {
     return indexAssign;
   }
   return IndexStmt();
-}
-
-bool LinalgBase::isColVector() const {
-  return this->isColVec;
 }
 
 std::ostream& operator<<(std::ostream& os, const LinalgBase& linalg) {

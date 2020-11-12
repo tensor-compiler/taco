@@ -78,6 +78,7 @@ namespace taco {
 
   protected:
     LinalgUnaryExprNode(LinalgExpr a) : LinalgExprNode(a.getDataType(), a.getOrder(), a.isColVector()), a(a) {}
+    LinalgUnaryExprNode(LinalgExpr a, bool isColVec) : LinalgExprNode(a.getDataType(), a.getOrder(), isColVec), a(a) {}
   };
 
 
@@ -91,6 +92,7 @@ namespace taco {
 
   struct LinalgTransposeNode : public LinalgUnaryExprNode {
     LinalgTransposeNode(LinalgExpr operand) : LinalgUnaryExprNode(operand) {}
+    LinalgTransposeNode(LinalgExpr operand, bool isColVec) : LinalgUnaryExprNode(operand, isColVec) {}
 
     void accept (LinalgExprVisitorStrict* v) const override{
       v->visit(this);

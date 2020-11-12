@@ -124,6 +124,7 @@ public:
   Datatype getDataType() const;
   int getOrder() const;
   bool isColVector() const;
+  void setColVector(bool) const;
 
   /// Visit the linalg expression's sub-expressions.
   void accept(LinalgExprVisitorStrict *) const;

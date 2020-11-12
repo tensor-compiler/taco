@@ -24,7 +24,6 @@ protected:
   IndexStmt indexAssignment;
 
   int idxcount;
-  bool isColVec;
 
   IndexExpr rewrite(LinalgExpr linalg, std::vector<IndexVar> indices);
 
@@ -44,7 +43,6 @@ public:
 
   const IndexStmt getIndexAssignment() const;
 
-  bool isColVector() const;
 
   IndexStmt rewrite();
 
@@ -65,13 +63,6 @@ template<typename CType>
 class Matrix : public LinalgBase {
 public:
   explicit Matrix(std::string name);
-/* <<<<<<< HEAD */
-/*   Matrix(std::string name, size_t dim1, size_t dim2); */
-/*   Matrix(std::string name, std::vector<size_t> dimensions); */
-/*   Matrix(std::string name, size_t dim1, size_t dim2, Format format); */
-/*   Matrix(std::string name, std::vector<size_t> dimensions, Format format); */
-/*   Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat format1, ModeFormat format2); */
-/* ======= */
 
   Matrix(std::string name, size_t dim1, size_t dim2);
 
@@ -83,7 +74,6 @@ public:
 
   Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat format1, ModeFormat format2);
 
-/* >>>>>>> master */
   Matrix(std::string name, Type tensorType);
 
   Matrix(std::string name, Type tensorType, Format format);
@@ -107,22 +97,6 @@ public:
 
 template<typename CType>
 Matrix<CType>::Matrix(std::string name) : LinalgBase(name, Type(type<CType>(), {42, 42})) {}
-/* <<<<<<< HEAD */
-/* template <typename CType> */
-/* Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions) : LinalgBase(name, Type(type<CType>(), dimensions)) {} */
-/* template <typename CType> */
-/* Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2) : LinalgBase(name, Type(type<CType>(), {dim1, dim2})) {} */
-/* template <typename CType> */
-/* Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2, Format format) : */
-/*   LinalgBase(name, Type(type<CType>(), {dim1, dim2}), format) {} */
-/* template <typename CType> */
-/* Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions, Format format) : */
-/*   LinalgBase(name, Type(type<CType>(), dimensions), format) {} */
-/* template <typename CType> */
-/* Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat format1, ModeFormat format2) : */
-/*   LinalgBase(name, Type(type<CType>(), {dim1, dim2}), type<CType>(), {(int)dim1, (int)dim2}, Format({format1, format2})) {} */
-/* template <typename CType> */
-/* ======= */
 
 template<typename CType>
 Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions) : LinalgBase(name, Type(type<CType>(), dimensions)) {}
@@ -180,15 +154,6 @@ class Vector : public LinalgBase {
   std::string name;
   Datatype ctype;
 public:
-/* <<<<<<< HEAD */
-/*   explicit Vector(std::string name); */
-/*   Vector(std::string name, size_t dim); */
-/*   Vector(std::string name, size_t dim, Format format); */
-/*   Vector(std::string name, size_t dim, ModeFormat format); */
-/*   Vector(std::string name, Type type, Format format); */
-/*   Vector(std::string name, Type type, ModeFormat format); */
-/*   LinalgAssignment operator=(const LinalgExpr& expr) { */
-/* ======= */
   explicit Vector(std::string name, bool isColVec = true);
 
   Vector(std::string name, size_t dim, bool isColVec = true);
@@ -202,7 +167,6 @@ public:
   Vector(std::string name, Type type, ModeFormat format, bool isColVec = true);
 
   LinalgAssignment operator=(const LinalgExpr &expr) {
-/* >>>>>>> master */
     return LinalgBase::operator=(expr);
   }
 };
@@ -211,24 +175,6 @@ public:
 // Vector template method implementations
 // ------------------------------------------------------------
 
-/* <<<<<<< HEAD */
-/* template <typename CType> */
-/* Vector<CType>::Vector(std::string name) : LinalgBase(name, Type(type<CType>(), {42})) {} */
-/* template <typename CType> */
-/* Vector<CType>::Vector(std::string name, size_t dim) : LinalgBase(name, Type(type<CType>(), {dim})) {} */
-/* template <typename CType> */
-/* Vector<CType>::Vector(std::string name, size_t dim, Format format) : LinalgBase(name, Type(type<CType>(), {dim}), format) {} */
-/* template <typename CType> */
-/* Vector<CType>::Vector(std::string name, size_t dim, ModeFormat format) : */
-/*   LinalgBase(name, Type(type<CType>(), {dim}), Format(format)) {} */
-/* template <typename CType> */
-/* Vector<CType>::Vector(std::string name, Type type, Format format) : */
-/*   LinalgBase(name, type, format) {} */
-/* template <typename CType> */
-/* Vector<CType>::Vector(std::string name, Type type, ModeFormat format) : */
-/*   LinalgBase(name, type, Format(format)) {} */
-/* } */
-/* ======= */
 template<typename CType>
 Vector<CType>::Vector(std::string name, bool isColVec) : LinalgBase(name, Type(type<CType>(), {42}), isColVec) {}
 
@@ -239,11 +185,13 @@ Vector<CType>::Vector(std::string name, size_t dim, bool isColVec) : LinalgBase(
 template<typename CType>
 Vector<CType>::Vector(std::string name, size_t dim, Format format, bool isColVec) : LinalgBase(name,
                                                                                             Type(type<CType>(), {dim}),
+                                                                                            type<CType>(),
+                                                                                            {(int) dim},
                                                                                             format, isColVec) {}
 
 template<typename CType>
 Vector<CType>::Vector(std::string name, size_t dim, ModeFormat format, bool isColVec) :
-  LinalgBase(name, Type(type<CType>(), {dim}), Format(format), isColVec) {}
+  LinalgBase(name, Type(type<CType>(), {dim}), type<CType>(), {(int)dim}, Format(format), isColVec) {}
 
 template<typename CType>
 Vector<CType>::Vector(std::string name, Type type, Format format, bool isColVec) :
@@ -269,5 +217,4 @@ template<typename CType>
 Scalar<CType>::Scalar(std::string name) : LinalgBase(name, Type(type<CType>(), {})) {}
 
 }   // namespace taco
-/* >>>>>>> master */
 #endif

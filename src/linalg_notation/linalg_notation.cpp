@@ -95,6 +95,10 @@ bool LinalgExpr::isColVector() const {
   return const_cast<LinalgExprNode*>(this->ptr)->isColVector();
 }
 
+void LinalgExpr::setColVector(bool val) const {
+  const_cast<LinalgExprNode*>(this->ptr)->setColVector(val);
+}
+
 void LinalgExpr::accept(LinalgExprVisitorStrict *v) const {
   ptr->accept(v);
 }
@@ -170,7 +174,7 @@ LinalgExpr elemMul(const LinalgExpr &lhs, const LinalgExpr &rhs) {
 }
 
 LinalgExpr transpose(const LinalgExpr &lhs) {
-  return new LinalgTransposeNode(lhs);
+  return new LinalgTransposeNode(lhs, !lhs.isColVector());
 }
 
 // class LinalgStmt
