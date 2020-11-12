@@ -25,6 +25,7 @@
 #include "taco/index_notation/provenance_graph.h"
 
 #include "taco/linalg_notation/linalg_notation_nodes_abstract.h"
+#include "taco/linalg.h"
 
 #include "taco/tensor.h"
 
@@ -39,6 +40,8 @@ class Format;
 class Schedule;
 
 class TensorVar;
+
+class LinalgBase;
 
 class LinalgExpr;
 
@@ -73,8 +76,9 @@ public:
   /// ```
   LinalgExpr(TensorVar);
 
-  LinalgExpr(TensorVar, TensorBase* tensorBase);
+  LinalgExpr(TensorVar, bool isColVec, TensorBase* tensorBase);
 
+  LinalgExpr(TensorVar var, bool isColVec);
   /// Consturct an integer literal.
   /// ```
   /// A(i,j) = 1;
@@ -118,6 +122,8 @@ public:
   LinalgExpr(std::complex<double>);
 
   Datatype getDataType() const;
+  int getOrder() const;
+  bool isColVector() const;
 
   /// Visit the linalg expression's sub-expressions.
   void accept(LinalgExprVisitorStrict *) const;
@@ -140,12 +146,25 @@ LinalgExpr operator+(const LinalgExpr&, const LinalgExpr&);
 /// Subtract a linear algebra expressions from another.
 LinalgExpr operator-(const LinalgExpr&, const LinalgExpr&);
 
-/// Multiply two linear algebra expressions.
+/// Matrix Multiply two linear algebra expressions.
 LinalgExpr operator*(const LinalgExpr&, const LinalgExpr&);
 
 /// Divide a linear expression by another.
 LinalgExpr operator/(const LinalgExpr&, const LinalgExpr&);
 
+/// Element-wise multiply two linear algebra expressions
+// FIXME: May want to be consistent with eigen library in c++ and change to cmul
+LinalgExpr elemMul(const LinalgExpr& lhs, const LinalgExpr& rhs);
+
+/// Construct and returns an expression that transposes this expression
+// FIXME: May want to change this with '^T' in the future
+LinalgExpr transpose(const LinalgExpr& lhs);
+//LinalgExpr operator^(const LinalgExpr&, const T);
+
+/// Check to make sure operators are legal (shape-wise)
+int getMatMulOrder(const LinalgExpr &lhs, const LinalgExpr &rhs);
+
+void checkCompatibleShape(const LinalgExpr &lhs, const LinalgExpr &rhs);
 /// A an index statement computes a tensor.  The index statements are
 /// assignment, forall, where, multi, and sequence.
 class LinalgStmt : public util::IntrusivePtr<const LinalgStmtNode> {

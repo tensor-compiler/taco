@@ -4,31 +4,10 @@
 
 using namespace taco;
 
-TEST(linalg, tensorbase) {
+TEST(linalg, matmul) {
   Matrix<double> B("B", 2, 2, dense, dense);
   Matrix<double> C("C", 2, 2, dense, dense);
   Matrix<double> A("A", 2, 2, dense, dense);
-
-  /* Vector<double> c("c"); */
-
-  /* Vector<double> a("a"); */
-
-  /* for(int i=0;i<42;i++) { */
-  /*   B.insert({i,i}, 1.0); */
-  /* } */
-
-  /* for(int i=0;i<42;i++) { */
-  /*   c.insert({i}, (double) i); */
-  /* } */
-
-  /* B.pack(); */
-  /* c.pack(); */
-
-  /* IndexVar i("i"), j("j"); */
-
-  /* a(i) = B(i,j) * c(j); */
-
-  /* A = B*C; */
 
   cout << "--- Before inserting ---" << endl;
   B.insert(0,0,2);
@@ -48,11 +27,6 @@ TEST(linalg, tensorbase) {
   cout << "A(0,0): " << A.at(0,0) << endl;
   cout << "--- After At ---" << endl;
 
-
-  /* cout << "--- before cout of a ---" << endl; */
-  /* cout << a << endl; */
-  /* cout << "--- after cout of a ---" << endl; */
-
   cout << "--- Before Rewrite of A ---" << endl;
   A.rewrite();
   cout << "--- After Rewrite of A ---" << endl;
@@ -68,6 +42,52 @@ TEST(linalg, tensorbase) {
   cout << "--- Before getIndexAssignment on A ---" << endl;
   cout << A.getIndexAssignment() << endl;
   cout << "--- After getIndexAssignment on A ---" << endl;
+}
+
+TEST(linalg, tensorbase) {
+  Matrix<double> B("B", 2, 2, dense, dense);
+  Matrix<double> C("C", 2, 2, dense, dense);
+  Matrix<double> A("A", 2, 2, dense, dense);
+
+  cout << C.getOrder() << endl;
+  cout << B.getOrder()  << endl;
+  cout << A.getOrder() << endl;
+  A = B + C;
+
+  cout << A << endl;
+
+  A.rewrite();
+  cout << A.getIndexAssignment();
+
+  ASSERT_TRUE(1);
+}
+
+TEST(linalg, matvec_mul) {
+  Vector<double> x("x", 2, dense);
+  Vector<double> b("b", 2, dense);
+  Matrix<double> A("A", 2, 2, dense, dense);
+
+  x = A*b;
+
+  cout << x << endl;
+
+  x.rewrite();
+  cout << x.getIndexAssignment();
+
+  ASSERT_TRUE(1);
+}
+
+TEST(linalg, vecmat_mul) {
+  Vector<double> x("x", 2, dense, false);
+  Vector<double> b("b", 2, dense, false);
+  Matrix<double> A("A", 2, 2, dense, dense);
+
+  x = b * A;
+
+  cout << x << endl;
+
+  x.rewrite();
+  cout << x.getIndexAssignment();
 
   ASSERT_TRUE(1);
 }
@@ -109,3 +129,32 @@ TEST(linalg, tensorapi) {
   /* cout << a << endl; */
 }
 
+TEST(linalg, inner_mul) {
+  Scalar<double> x("x");
+  Vector<double> b("b", 2, dense, false);
+  Vector<double> a("a", 2, dense, true);
+
+  x = b * a;
+
+  cout << x << endl;
+
+  x.rewrite();
+  cout << x.getIndexAssignment();
+
+  ASSERT_TRUE(1);
+}
+
+TEST(linalg, outer_mul) {
+  Matrix<double> X("X", 2, 2, dense, dense);
+  Vector<double> b("b", 2, dense, false);
+  Vector<double> a("a", 2, dense, true);
+
+  X = a * b;
+
+  cout << X << endl;
+
+  X.rewrite();
+  cout << X.getIndexAssignment();
+
+  ASSERT_TRUE(1);
+}

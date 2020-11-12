@@ -12,6 +12,7 @@
 #include "taco/util/uncopyable.h"
 #include "taco/util/intrusive_ptr.h"
 #include "taco/linalg_notation/linalg_notation_visitor.h"
+
 namespace taco {
 
 class TensorVar;
@@ -23,15 +24,23 @@ struct LinalgExprNode : public util::Manageable<LinalgExprNode>,
                        private util::Uncopyable {
 public:
   LinalgExprNode() = default;
-  LinalgExprNode(Datatype type);
+  explicit LinalgExprNode(Datatype type);
+  LinalgExprNode(Datatype type, int order);
+  LinalgExprNode(Datatype type, int order, bool isColVec);
+
   virtual ~LinalgExprNode() = default;
+
   virtual void accept(LinalgExprVisitorStrict*) const = 0;
 
   /// Return the scalar data type of the index expression.
   Datatype getDataType() const;
+  int getOrder() const;
+  bool isColVector() const;
 
 private:
   Datatype dataType;
+  int order;
+  bool isColVec;
 };
 
 struct LinalgStmtNode : public util::Manageable<LinalgStmtNode>,
