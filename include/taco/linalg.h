@@ -169,6 +169,12 @@ public:
   LinalgAssignment operator=(const LinalgExpr &expr) {
     return LinalgBase::operator=(expr);
   }
+
+  // Support some Write methods
+  void insert(int coord, CType value);
+
+  // Support some Read methods too
+  CType at(int coord);
 };
 
 // ------------------------------------------------------------
@@ -200,6 +206,13 @@ Vector<CType>::Vector(std::string name, Type type, Format format, bool isColVec)
 template<typename CType>
 Vector<CType>::Vector(std::string name, Type type, ModeFormat format, bool isColVec) :
   LinalgBase(name, type, Format(format), isColVec) {}
+
+
+// Vector write methods
+template<typename CType>
+void Vector<CType>::insert(int coord, CType value) {
+  tensorBase->insert({coord}, value);
+}
 
 template<typename CType>
 class Scalar : public LinalgBase {
