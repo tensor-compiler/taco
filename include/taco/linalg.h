@@ -20,7 +20,6 @@ class LinalgBase : public LinalgExpr {
   IndexStmt indexAssignment;
 
   int idxcount;
-  bool isColVec;
 
   IndexExpr rewrite(LinalgExpr linalg, std::vector<IndexVar> indices);
 
@@ -40,15 +39,10 @@ public:
 
   const IndexStmt getIndexAssignment() const;
 
-  bool isColVector() const;
 
   IndexStmt rewrite();
 
   typedef LinalgVarNode Node;
-  /* LinalgBase operator=(LinalgExpr) { */
-  /*   return (LinalgBase)LinalgExpr; */
-  /* } */
-
 };
 
 std::ostream &operator<<(std::ostream &os, const LinalgBase &linalg);

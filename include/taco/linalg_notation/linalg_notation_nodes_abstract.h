@@ -36,6 +36,7 @@ public:
   Datatype getDataType() const;
   int getOrder() const;
   bool isColVector() const;
+  void setColVector(bool val);
 
 private:
   Datatype dataType;

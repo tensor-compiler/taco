@@ -14,10 +14,10 @@ namespace taco {
 /* } */
 
 LinalgBase::LinalgBase(string name, Type tensorType, bool isColVec) : name(name), tensorType(tensorType), idxcount(0),
-  isColVec(isColVec), LinalgExpr(TensorVar(name, tensorType), isColVec) {
+  LinalgExpr(TensorVar(name, tensorType), isColVec) {
 }
 LinalgBase::LinalgBase(string name, Type tensorType, Format format, bool isColVec) : name(name), tensorType(tensorType),
-  idxcount(0), isColVec(isColVec), LinalgExpr(TensorVar(name, tensorType, format), isColVec) {
+  idxcount(0), LinalgExpr(TensorVar(name, tensorType, format), isColVec) {
 }
 
 LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
@@ -116,7 +116,13 @@ IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
     return new NegNode(index);
   } else if (isa<LinalgTransposeNode>(linalg.get())) {
     auto transpose = to<LinalgTransposeNode>(linalg.get());
-    return rewrite(transpose->a, {indices[1], indices[0]});
+    if (transpose->a.getOrder() == 2) {
+      return rewrite(transpose->a, {indices[1], indices[0]});
+    }
+    else if (transpose->a.getOrder() == 1) {
+      return rewrite(transpose->a, {indices[0]});
+    }
+    return rewrite(transpose->a, {});
   } else if (isa<LinalgLiteralNode>(linalg.get())) {
     auto lit = to<LinalgLiteralNode>(linalg.get());
 
@@ -203,10 +209,6 @@ IndexStmt LinalgBase::rewrite() {
     return indexAssign;
   }
   return IndexStmt();
-}
-
-bool LinalgBase::isColVector() const {
-  return this->isColVec;
 }
 
 std::ostream& operator<<(std::ostream& os, const LinalgBase& linalg) {
