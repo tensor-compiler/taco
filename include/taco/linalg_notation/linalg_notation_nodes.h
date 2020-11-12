@@ -38,7 +38,8 @@ namespace taco {
   struct LinalgTensorBaseNode : public LinalgExprNode {
     LinalgTensorBaseNode(TensorVar tensorVar, TensorBase *tensorBase)
       : LinalgExprNode(tensorVar.getType().getDataType(), tensorVar.getOrder()), tensorVar(tensorVar), tensorBase(tensorBase) {}
-
+    LinalgTensorBaseNode(TensorVar tensorVar, TensorBase *tensorBase, bool isColVec)
+      : LinalgExprNode(tensorVar.getType().getDataType(), tensorVar.getOrder(), isColVec), tensorVar(tensorVar), tensorBase(tensorBase) {}
     void accept(LinalgExprVisitorStrict* v) const override {
       v->visit(this);
     }

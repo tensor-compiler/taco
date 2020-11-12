@@ -487,6 +487,7 @@ struct AccessTensorNode : public AccessNode {
 };
 
 const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const {
+  cout << "Const op() call" << endl;
   taco_uassert(indices.size() == (size_t)getOrder())
       << "A tensor of order " << getOrder() << " must be indexed with "
       << getOrder() << " variables, but is indexed with:  "
@@ -495,10 +496,14 @@ const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const 
 }
 
 Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
+  cout << "Non-Const op() call" << endl;
+  cout << to_string(getOrder()) << endl;
+  cout << " after getOrder" << endl;
   taco_uassert(indices.size() == (size_t)getOrder())
       << "A tensor of order " << getOrder() << " must be indexed with "
       << getOrder() << " variables, but is indexed with:  "
       << util::join(indices);
+  cout << " after uassert" << endl;
   return Access(new AccessTensorNode(*this, indices));
 }
 

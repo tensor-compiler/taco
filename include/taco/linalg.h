@@ -207,6 +207,7 @@ class Scalar : public LinalgBase {
   Datatype ctype;
 public:
   explicit Scalar(std::string name);
+  Scalar(std::string name, bool useTensorBase);
 
   LinalgAssignment operator=(const LinalgExpr &expr) {
     return LinalgBase::operator=(expr);
@@ -215,6 +216,9 @@ public:
 
 template<typename CType>
 Scalar<CType>::Scalar(std::string name) : LinalgBase(name, Type(type<CType>(), {})) {}
+template<typename CType>
+Scalar<CType>::Scalar(std::string name, bool useTensorBase) :
+  LinalgBase(name, Type(type<CType>(), {}) , type<CType>(), {}, Format(), false) {}
 
 }   // namespace taco
 #endif

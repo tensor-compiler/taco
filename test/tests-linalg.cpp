@@ -124,7 +124,7 @@ TEST(linalg, tensorapi) {
 }
 
 TEST(linalg, inner_mul) {
-  Scalar<double> x("x");
+  Scalar<double> x("x", true);
   Vector<double> b("b", 2, dense, false);
   Vector<double> a("a", 2, dense, true);
 
@@ -154,7 +154,7 @@ TEST(linalg, outer_mul) {
 TEST(linalg, rowvec_transpose) {
   Vector<double> b("b", 2, dense, false);
   Matrix<double> A("A", 2, 2, dense, dense);
-  Scalar<double> a("a");
+  Scalar<double> a("a", true);
 
   a = transpose(transpose(b) * A * b);
 

@@ -11,13 +11,17 @@
 #include "taco/util/uncopyable.h"
 #include "taco/type.h"
 #include "taco/parser/parser.h"
+#include "taco/linalg_notation/linalg_notation_nodes.h"
 
 namespace taco {
 class TensorBase;
+class LinalgBase;
 class Format;
 class IndexVar;
-class IndexExpr;
-class Access;
+class LinalgExpr;
+
+class LinalgStmt;
+class LinalgAssignment;
 
 namespace parser {
 enum class Token;
@@ -64,26 +68,26 @@ private:
   std::vector<std::string> names;
 
   /// assign ::= var '=' expr
-  TensorBase parseAssign();
+  LinalgAssignment parseAssign();
 
   /// expr ::= term {('+' | '-') term}
-  IndexExpr parseExpr();
+  LinalgExpr parseExpr();
 
   /// term ::= factor {('*' | '/') factor}
-  IndexExpr parseTerm();
+  LinalgExpr parseTerm();
 
   /// factor ::= final
   ///          | '(' expr ')'
   ///          | '-' factor
   ///          | factor '^T'
-  IndexExpr parseFactor();
+  LinalgExpr parseFactor();
 
   /// final ::= var
   ///         | scalar
-  IndexExpr parseFinal();
+  LinalgExpr parseFinal();
 
   /// var ::= identifier
-  Access parseVar();
+  LinalgBase parseVar();
 
   std::string currentTokenString();
 

@@ -39,5 +39,4 @@ bool LinalgExprNode::isColVector() const {
 void LinalgExprNode::setColVector(bool val) {
   isColVec = val;
 }
-
 }

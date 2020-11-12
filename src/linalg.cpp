@@ -12,11 +12,13 @@ LinalgBase::LinalgBase(string name, Type tensorType, bool isColVec) : name(name)
   LinalgExpr(TensorVar(name, tensorType), isColVec) {
 }
 
-LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, bool isColVec) : LinalgExpr(TensorVar(name, tensorType, format), isColVec, new TensorBase(name, dtype, dims, format)), name(name), tensorType(tensorType), idxcount(0) {
-  if(isa<LinalgTensorBaseNode>(ptr)) {
-    /* cout << "LinalgBase constructor - LinalgTensorBaseNode" << endl; */
-    cout << this->tensorBase->getName() << endl;
-  }
+LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, bool isColVec) :
+  LinalgExpr(TensorVar(name, tensorType, format), isColVec, new TensorBase(name, dtype, dims, format)), name(name),
+  tensorType(tensorType), idxcount(0) {
+    if(isa<LinalgTensorBaseNode>(ptr)) {
+      /* cout << "LinalgBase constructor - LinalgTensorBaseNode" << endl; */
+      cout << this->tensorBase->getName() << endl;
+    }
 }
 
 LinalgBase::LinalgBase(string name, Type tensorType, Format format, bool isColVec) : name(name), tensorType(tensorType),
@@ -29,14 +31,17 @@ LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
   taco_iassert(isa<LinalgVarNode>(this->ptr));
   TensorVar var = to<LinalgVarNode>(this->get())->tensorVar;
 
+  cout << var.getOrder() << endl;
+  cout << expr.getOrder() << endl;
   taco_uassert(var.getOrder() == expr.getOrder()) << "RHS and LHS of linalg assignment must match order";
   if (var.getOrder() == 1)
     taco_uassert(this->isColVector() == expr.isColVector()) << "RHS and LHS of linalg assignment must match vector type";
 
   LinalgAssignment assignment = LinalgAssignment(var, expr);
   this->assignment = assignment;
-
+  cout << "rewrite here" << endl;
   this->rewrite();
+  cout << "end rewrite" << endl;
   return assignment;
 }
 
@@ -103,8 +108,8 @@ IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
       indicesB = {index};
     }
     else if (mul->a.getOrder() == 1 && mul->a.isColVector() && mul->b.getOrder() == 1) {
-      indicesA = {indices[0], index};
-      indicesB = {index};
+      indicesA = {indices[0]};
+      indicesB = {indices[1]};
     } else {
       indicesA = {index};
       indicesB = {index};
@@ -204,7 +209,7 @@ IndexStmt LinalgBase::rewrite() {
 
     TensorVar tensor = this->assignment.getLhs();
 
-    vector<IndexVar> indices;
+    vector<IndexVar> indices = {};
     if (tensor.getOrder() == 1) {
       indices.push_back(IndexVar("i"));
     } else if (tensor.getOrder() == 2) {
@@ -213,11 +218,13 @@ IndexStmt LinalgBase::rewrite() {
     }
     Access lhs = Access(tensor, indices);
     IndexExpr rhs = rewrite(this->assignment.getRhs(), indices);
+    cout << "rhs done here" << endl;
 
-    if(this->tensorBase != NULL) {
-      /* cout << "--- Going to use the Tensor API to assign the RHS ---" << endl; */
-      this->tensorBase->operator()(indices) = rhs;
-      /* cout << "--- Done assigning RHS to Tensor API ---" << endl; */
+    if(this->tensorBase != nullptr) {
+       cout << "--- Going to use the Tensor API to assign the RHS ---" << endl;
+       cout << rhs << endl;
+       this->tensorBase->operator()(indices) = rhs;
+       cout << "--- Done assigning RHS to Tensor API ---" << endl;
     }
 
     Assignment indexAssign = Assignment(lhs, rhs);
@@ -231,7 +238,7 @@ std::ostream& operator<<(std::ostream& os, const LinalgBase& linalg) {
   LinalgAssignment assignment = linalg.getAssignment();
 
   // If TensorBase exists, print the storage
-  if (linalg.tensorBase != NULL) {
+  if (linalg.tensorBase != nullptr) {
     return os << *(linalg.tensorBase) << endl;
   }
 

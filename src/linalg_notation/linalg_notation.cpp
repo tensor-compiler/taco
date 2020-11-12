@@ -1,4 +1,4 @@
-#include "taco/index_notation/index_notation.h"
+//#include "taco/linalg_notation/linalg_notation.h"
 
 #include <algorithm>
 #include <iostream>
@@ -12,23 +12,17 @@
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
 #include "taco/type.h"
-#include "taco/format.h"
 
-#include "taco/index_notation/intrinsic.h"
+//#include "taco/linalg_notation/linalg_notation.h"
+#include "taco/linalg.h"
+#include "taco/linalg_notation/linalg_notation_nodes.h"
+
 #include "taco/index_notation/schedule.h"
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/index_notation_nodes.h"
-#include "taco/linalg_notation/linalg_notation_nodes.h"
-#include "taco/index_notation/index_notation_rewriter.h"
-#include "taco/linalg_notation/linalg_notation_printer.h"
-#include "taco/ir/ir.h"
-#include "taco/lower/lower.h"
-#include "taco/codegen/module.h"
 
-#include "taco/util/name_generator.h"
-#include "taco/util/scopedmap.h"
-#include "taco/util/strings.h"
-#include "taco/util/collections.h"
+#include "taco/ir/ir.h"
+
 
 using namespace std;
 
@@ -37,7 +31,7 @@ namespace taco {
 LinalgExpr::LinalgExpr(TensorVar var) : LinalgExpr(new LinalgVarNode(var)) {
 }
 
-LinalgExpr::LinalgExpr(TensorVar var, bool isColVec, TensorBase* _tensorBase) : LinalgExpr(new LinalgTensorBaseNode(var, _tensorBase)) {
+LinalgExpr::LinalgExpr(TensorVar var, bool isColVec, TensorBase* _tensorBase) : LinalgExpr(new LinalgTensorBaseNode(var, _tensorBase, isColVec)) {
   tensorBase = _tensorBase;
 }
 
@@ -119,7 +113,7 @@ void checkCompatibleShape(const LinalgExpr &lhs, const LinalgExpr &rhs) {
 }
 
 LinalgExpr operator-(const LinalgExpr &expr) {
-  return new LinalgNegNode(expr.ptr);
+  return LinalgExpr(new LinalgNegNode(expr.ptr));
 }
 
 LinalgExpr operator+(const LinalgExpr &lhs, const LinalgExpr &rhs) {
@@ -174,6 +168,7 @@ LinalgExpr elemMul(const LinalgExpr &lhs, const LinalgExpr &rhs) {
 }
 
 LinalgExpr transpose(const LinalgExpr &lhs) {
+  cout << "transpose here" << endl;
   return new LinalgTransposeNode(lhs, !lhs.isColVector());
 }
 

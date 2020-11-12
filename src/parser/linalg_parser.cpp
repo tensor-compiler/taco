@@ -7,9 +7,9 @@
 #include "taco/tensor.h"
 #include "taco/format.h"
 
-#include "taco/index_notation/index_notation.h"
-#include "taco/index_notation/index_notation_nodes.h"
-#include "taco/index_notation/index_notation_rewriter.h"
+#include "taco/linalg_notation/linalg_notation.h"
+#include "taco/linalg_notation/linalg_notation_nodes.h"
+#include "taco/linalg.h"
 
 #include "taco/util/collections.h"
 
@@ -62,118 +62,33 @@ struct LinalgParser::Content {
   }
 
 void LinalgParser::parse() {
-    content->resultTensor = parseAssign();
+    content->resultTensor = parseAssign().getLhs();
 }
 
 const TensorBase& LinalgParser::getResultTensor() const {
     return content->resultTensor;
 }
 
-TensorBase LinalgParser::parseAssign() {
+LinalgAssignment LinalgParser::parseAssign() {
   content->parsingLhs = true;
   cout << "parsing lhs" << endl;
-  Access lhs = parseVar();
+  LinalgExpr lhs = parseVar();
+  const TensorVar var = to<LinalgVarNode>(lhs.get())->tensorVar;
   cout << "Result of parsing LHS" << endl;
   cout << lhs << endl;
   content->parsingLhs = false;
 
   cout << "parsing rhs" << endl;
   consume(Token::eq);
-  IndexExpr rhs = parseExpr();
+  LinalgExpr rhs = parseExpr();
   cout << "Result of parsing RHS" << endl;
   cout << rhs << endl;
 
-  // Collect all index var dimensions
-  struct Visitor : IndexNotationVisitor {
-    using IndexNotationVisitor::visit;
-    set<pair<TensorVar, size_t>> modesWithDefaults;
-    map<IndexVar, int> *indexVarDimensions;
-
-    void visit(const AccessNode *op) {
-      for (size_t i = 0; i < op->indexVars.size(); i++) {
-        IndexVar indexVar = op->indexVars[i];
-        if (!util::contains(modesWithDefaults, {op->tensorVar, i})) {
-          auto dimension = op->tensorVar.getType().getShape().getDimension(i);
-          if (util::contains(*indexVarDimensions, indexVar)) {
-            taco_uassert(indexVarDimensions->at(indexVar) == dimension) <<
-                                                                        "Incompatible dimensions";
-          } else {
-            indexVarDimensions->insert({indexVar, dimension.getSize()});
-          }
-        }
-      }
-    }
-  };
-  Visitor visitor;
-  visitor.indexVarDimensions = &content->indexVarDimensions;
-  visitor.modesWithDefaults = content->modesWithDefaults;
-  rhs.accept(&visitor);
-
-  // Rewrite expression to new index dimensions
-  struct Rewriter : IndexNotationRewriter {
-    using IndexNotationRewriter::visit;
-    map<IndexVar, int> *indexVarDimensions;
-    map<string, TensorBase> tensors;
-
-    void visit(const AccessNode *op) {
-      bool dimensionChanged = false;
-      Shape shape = op->tensorVar.getType().getShape();
-      vector<int> dimensions;
-      for (auto &dimension : shape) {
-        taco_iassert(dimension.isFixed());
-        dimensions.push_back((int) dimension.getSize());
-      }
-
-      taco_uassert(op->indexVars.size() == dimensions.size()) <<
-                                                              "The order of " << op->tensorVar.getName()
-                                                              << " is inconsistent " <<
-                                                              "between tensor accesses or options. Is it order " <<
-                                                              dimensions.size() << " or " << op->indexVars.size()
-                                                              << "?";
-
-      for (size_t i = 0; i < dimensions.size(); i++) {
-        IndexVar indexVar = op->indexVars[i];
-        if (util::contains(*indexVarDimensions, indexVar)) {
-          int dimension = indexVarDimensions->at(indexVar);
-          if (dimension != dimensions[i]) {
-            dimensions[i] = dimension;
-            dimensionChanged = true;
-          }
-        }
-      }
-      if (dimensionChanged) {
-        TensorBase tensor;
-        if (util::contains(tensors, op->tensorVar.getName())) {
-          tensor = tensors.at(op->tensorVar.getName());
-        } else {
-          tensor = TensorBase(op->tensorVar.getName(),
-                              op->tensorVar.getType().getDataType(), dimensions,
-                              op->tensorVar.getFormat());
-          tensors.insert({tensor.getName(), tensor});
-        }
-        expr = tensor(op->indexVars);
-      } else {
-        expr = op;
-      }
-    }
-  };
-  Rewriter rewriter;
-  rewriter.indexVarDimensions = visitor.indexVarDimensions;
-  rhs = rewriter.rewrite(rhs);
-
-  IndexExpr rewrittenLhs = rewriter.rewrite(lhs);
-
-  for (auto &tensor : rewriter.tensors) {
-    content->tensors.at(tensor.first) = tensor.second;
-  }
-  content->resultTensor = content->tensors.at(lhs.getTensorVar().getName());
-
-  content->resultTensor(lhs.getIndexVars()) = rhs;
-  return content->resultTensor;
+  return LinalgAssignment(var, rhs);
 }
 
-IndexExpr LinalgParser::parseExpr() {
-  IndexExpr expr = parseTerm();
+LinalgExpr LinalgParser::parseExpr() {
+  LinalgExpr expr = parseTerm();
   while (content->currentToken == Token::add ||
          content->currentToken == Token::sub) {
     switch (content->currentToken) {
@@ -192,8 +107,8 @@ IndexExpr LinalgParser::parseExpr() {
   return expr;
 }
 
-IndexExpr LinalgParser::parseTerm() {
-  IndexExpr term = parseFactor();
+LinalgExpr LinalgParser::parseTerm() {
+  LinalgExpr term = parseFactor();
   while (content->currentToken == Token::mul ||
          content->currentToken == Token::div) {
     switch (content->currentToken) {
@@ -214,31 +129,31 @@ IndexExpr LinalgParser::parseTerm() {
   return term;
 }
 
-IndexExpr LinalgParser::parseFactor() {
+LinalgExpr LinalgParser::parseFactor() {
   switch (content->currentToken) {
     case Token::lparen: {
       consume(Token::lparen);
-      IndexExpr factor = parseExpr();
+      LinalgExpr factor = parseExpr();
       consume(Token::rparen);
       return factor;
     }
     case Token::sub:
       consume(Token::sub);
-      return new NegNode(parseFactor());
+      return new LinalgNegNode(parseFactor());
     default:
       break;
   }
 
-  IndexExpr final = parseFinal();
+  LinalgExpr final = parseFinal();
 
   if (content->currentToken == Token::caretT) {
     consume(Token::caretT);
-    return new TransposeNode(final);
+    return new LinalgTransposeNode(final);
   }
   return final;
 }
 
-IndexExpr LinalgParser::parseFinal() {
+LinalgExpr LinalgParser::parseFinal() {
   std::istringstream value (content->lexer.getIdentifier());
   switch (content->currentToken) {
     case Token::complex_scalar:
@@ -246,35 +161,35 @@ IndexExpr LinalgParser::parseFinal() {
       consume(Token::complex_scalar);
       std::complex<double> complex_value;
       value >> complex_value;
-      return IndexExpr(complex_value);
+      return LinalgExpr(complex_value);
     }
     case Token::int_scalar:
     {
       consume(Token::int_scalar);
       int64_t int_value;
       value >> int_value;
-      return IndexExpr(int_value);
+      return LinalgExpr(int_value);
     }
     case Token::uint_scalar:
     {
       consume(Token::uint_scalar);
       uint64_t uint_value;
       value >> uint_value;
-      return IndexExpr(uint_value);
+      return LinalgExpr(uint_value);
     }
     case Token::float_scalar:
     {
       consume(Token::float_scalar);
       double float_value;
       value >> float_value;
-      return IndexExpr(float_value);
+      return LinalgExpr(float_value);
     }
     default:
       return parseVar();
   }
 }
 
-Access LinalgParser::parseVar() {
+LinalgBase LinalgParser::parseVar() {
   if(content->currentToken != Token::identifier) {
     throw ParseError("Expected linalg name");
   }
@@ -333,14 +248,7 @@ Access LinalgParser::parseVar() {
 
     content->tensors.insert({tensorName,tensor});
   }
-
-  cout << order << endl;
-  vector<IndexVar> idxlist = getUniqueIndices(order);
-  cout << "Idxlist";
-  for (auto i : idxlist)
-    cout << i << ", ";
-
-  return tensor(idxlist);
+  return LinalgBase(tensor.getName(),tensor.getComponentType(), tensor.getFormat() );
 }
 
 vector<IndexVar> LinalgParser::getUniqueIndices(size_t order) {
