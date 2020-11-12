@@ -36,8 +36,7 @@ LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
   LinalgAssignment assignment = LinalgAssignment(var, expr);
   this->assignment = assignment;
 
-  // invoke the rewrite at this point to get the interleaving of inserts and expressions correct?
-
+  this->rewrite();
   return assignment;
 }
 

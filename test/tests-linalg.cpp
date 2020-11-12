@@ -52,8 +52,7 @@ TEST(linalg, tensorbase) {
   A = B + C;
 
   cout << A << endl;
-
-  A.rewrite();
+  
   cout << A.getIndexAssignment();
 
   ASSERT_TRUE(1);
@@ -68,7 +67,6 @@ TEST(linalg, matvec_mul) {
 
   cout << x << endl;
 
-  x.rewrite();
   cout << x.getIndexAssignment();
 
   ASSERT_TRUE(1);
@@ -83,7 +81,6 @@ TEST(linalg, vecmat_mul) {
 
   cout << x << endl;
 
-  x.rewrite();
   cout << x.getIndexAssignment();
 
   ASSERT_TRUE(1);
@@ -135,7 +132,6 @@ TEST(linalg, inner_mul) {
 
   cout << x << endl;
 
-  x.rewrite();
   cout << x.getIndexAssignment();
 
   ASSERT_TRUE(1);
@@ -150,7 +146,6 @@ TEST(linalg, outer_mul) {
 
   cout << X << endl;
 
-  X.rewrite();
   cout << X.getIndexAssignment();
 
   ASSERT_TRUE(1);
@@ -165,7 +160,6 @@ TEST(linalg, rowvec_transpose) {
 
   cout << a << endl;
 
-  a.rewrite();
   cout << a.getIndexAssignment();
 
   ASSERT_TRUE(1);
