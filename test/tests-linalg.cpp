@@ -43,9 +43,13 @@ TEST(linalg, matmul) {
   cout << A.getIndexAssignment() << endl;
   cout << "--- After getIndexAssignment on A ---" << endl;
 
+  ASSERT_EQ(A.at(0,0), 4);
+  ASSERT_EQ(A.at(0,1), 4);
+  ASSERT_EQ(A.at(1,0), 0);
+  ASSERT_EQ(A.at(1,1), 2);
 
-  // Get the values..
-  map<vector<int>, double> vals = {{{0,0},4}, {{0,1},4}, {{1,1},2}};
+  // TODO: Support this style of accessing and querying the values, too
+  /* map<vector<int>, double> vals = {{{0,0},4}, {{0,1},4}, {{1,1},2}}; */
   /* for (auto val = A.beginTyped<int>(); val != A.endTyped<int>(); ++val) { */
   /*   ASSERT_TRUE(util::contains(vals, val->first.toVector())); */
   /*   ASSERT_EQ(vals.at(val->first.toVector()), val->second); */
@@ -71,7 +75,10 @@ TEST(linalg, tensorbase) {
   
   cout << A.getIndexAssignment();
 
-  ASSERT_TRUE(1);
+  ASSERT_EQ(A.at(0,0), 1);
+  ASSERT_EQ(A.at(0,1), 2);
+  ASSERT_EQ(A.at(1,0), 3);
+  ASSERT_EQ(A.at(1,1), 4);
 }
 
 TEST(linalg, matvec_mul) {
@@ -88,12 +95,13 @@ TEST(linalg, matvec_mul) {
 
   x = A*b;
 
+  ASSERT_EQ(x.at(0), 5);
+  ASSERT_EQ(x.at(1), 2);
+
   // Should be [5,2]
   cout << x << endl;
 
   cout << x.getIndexAssignment();
-
-  ASSERT_TRUE(1);
 }
 
 TEST(linalg, vecmat_mul) {
@@ -111,11 +119,12 @@ TEST(linalg, vecmat_mul) {
   // Should be [17, 6]
   x = b * A;
 
+  ASSERT_EQ(x.at(0), 17);
+  ASSERT_EQ(x.at(1), 6);
+
   cout << x << endl;
 
   cout << x.getIndexAssignment();
-
-  ASSERT_TRUE(1);
 }
 
 TEST(linalg, inner_mul) {

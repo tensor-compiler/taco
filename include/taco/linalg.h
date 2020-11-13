@@ -125,17 +125,6 @@ Matrix<CType>::Matrix(std::string name, Type tensorType, Format format) : Linalg
 // Definition of Read methods
 template <typename CType>
 CType Matrix<CType>::at(int coord_x, int coord_y) {
-  std::cout << "Name: " << name << std::endl;
-  std::cout << tensorBase << std::endl;
-  std::cout << "Matrix found a TBase " << tensorBase->getName() << std::endl;
-  std::cout << "Will print a coordinate" << std::endl;
-
-
-  // Check if this LinalgBase holds an assignment
-  if (this->assignment.ptr != NULL) {
-    std::cout << "This matrix is the result of an assignment" << std::endl;
-  }
-
   return tensorBase->at<CType>({coord_x, coord_y});
 }
 
@@ -214,6 +203,11 @@ void Vector<CType>::insert(int coord, CType value) {
   tensorBase->insert({coord}, value);
 }
 
+template <typename CType>
+CType Vector<CType>::at(int coord) {
+  return tensorBase->at<CType>({coord});
+}
+
 template<typename CType>
 class Scalar : public LinalgBase {
   std::string name;
@@ -225,6 +219,8 @@ public:
   LinalgAssignment operator=(const LinalgExpr &expr) {
     return LinalgBase::operator=(expr);
   }
+
+  /* operator int() const { return */ 
 };
 
 template<typename CType>
