@@ -38,6 +38,8 @@ struct LinalgParser::Content {
   bool parsingLhs = false;
 
   map<string,IndexVar> indexVars;
+  std::map<string,int> linalgShapes;
+  std::map<string,bool> linalgVecShapes;
 
   TensorBase             resultTensor;
   map<string,TensorBase> tensors;
@@ -47,6 +49,7 @@ struct LinalgParser::Content {
                  const map<string,Datatype>& dataTypes,
                  const map<string,std::vector<int>>& tensorDimensions,
                  const std::map<std::string,TensorBase>& tensors,
+                 const std::map<string,int>& linalgShapes, const std::map<string,bool>& linalgVecShapes,
                  int defaultDimension)
     : content(new LinalgParser::Content) {
     content->lexer = Lexer(expression);
@@ -56,6 +59,8 @@ struct LinalgParser::Content {
     content->tensors = tensors;
     content->dataTypes = dataTypes;
 
+    content->linalgShapes = linalgShapes;
+    content->linalgVecShapes = linalgVecShapes;
     idxcount = 0;
 
     nextToken();
@@ -251,7 +256,20 @@ LinalgBase LinalgParser::parseVar() {
     isColVec = true;
   }
 
-  if (content->formats.find(tensorName) != content->formats.end()) {
+  if (content->linalgShapes.find(tensorName) != content->linalgShapes.end()) {
+    if (content->formats.find(tensorName) != content->formats.end()) {
+      taco_uassert(content->linalgShapes.at(tensorName) == content->formats.at(tensorName).getOrder())
+        << "Linalg shape and tensor format must match" << endl;
+
+    }
+    if (content->tensorDimensions.find(tensorName) != content->tensorDimensions.end())
+      taco_uassert(content->linalgShapes.at(tensorName) == (int)content->tensorDimensions.at(tensorName).size())
+        << "Linalg shape and the number of tensor dimensions must match" << endl;
+
+    order = content->linalgShapes.at(tensorName);
+    isColVec = content->linalgVecShapes.at(tensorName);
+  }
+  else if (content->formats.find(tensorName) != content->formats.end()) {
 
       if (content->tensorDimensions.find(tensorName) != content->tensorDimensions.end())
           taco_uassert(content->formats.at(tensorName).getOrder() == (int)content->tensorDimensions.at(tensorName).size())

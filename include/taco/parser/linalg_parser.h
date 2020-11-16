@@ -33,8 +33,9 @@ public:
   /// Create a parser object from linalg notation
   LinalgParser(std::string expression, const std::map<std::string,Format>& formats,
   const std::map<std::string, Datatype>& dataTypes,
-  const std::map<std::string,std::vector<int>>& tensorDimensions,
-  const std::map<std::string,TensorBase>& tensors,
+  const std::map<std::string, std::vector<int>>& tensorDimensions,
+  const std::map<std::string, TensorBase>& tensors,
+  const std::map<std::string,int>& linalgShapes, const std::map<std::string,bool>& linalgVecShapes,
   int defaultDimension=5);
 
   /// Parses the linalg expression and sets the result tensor to the result of that expression

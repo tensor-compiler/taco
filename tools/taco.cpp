@@ -192,6 +192,12 @@ static void printUsageInfo() {
   printFlag("nthreads", "Specify number of threads for parallel execution");
   cout << endl;
   printFlag("linalg", "Specify if the input should be in Linear Algebra (not index) Notation");
+  cout << endl;
+  printFlag("k=<tensor>:<order>,<is_col_vec(optional)>",
+            "[LINALG NOTATION ONLY -linalg] Specify the shape of the linear algebra var. "
+            "Specify the number of dimensions, shape, (0, 1, or 2) and an optional flag of "
+            "if the var is a column vector for the cases where order == 1 (1 or 0) "
+            "Examples: A:2, A:0, A:1,1, A:1,0");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -522,6 +528,9 @@ int main(int argc, char* argv[]) {
   string writeTimeFilename;
   vector<string> declaredTensors;
 
+  map<string,int> linalgShapes;
+  map<string,bool> linalgVecShapes;
+
   vector<string> kernelFilenames;
 
   vector<string> scheduleCommands; 
@@ -840,6 +849,31 @@ int main(int argc, char* argv[]) {
     else if ("-linalg" == argName) {
       linalg = true;
     }
+    else if ("-k" == argName) {
+      vector<string> descriptor = util::split(argValue, ":");
+      string tensorName = descriptor[0];
+      vector<string> shapes = util::split(descriptor[1], ",");
+
+      int linalgShape = 0;
+      bool linalgVecShape = false;
+      if (shapes.size() == 1) {
+        linalgShape = std::stoi(shapes[0]);
+        taco_uassert(linalgShape >= 0 && linalgShape <= 2) << "Shape is not compatible with linalg notation" << endl;
+        if (linalgShape == 1)
+          linalgVecShape = true;
+      } else if (shapes.size() == 2) {
+        linalgShape = std::stoi(shapes[0]);
+        taco_uassert(linalgShape >= 0 && linalgShape <= 2) << "Shape is not compatible with linalg notation" << endl;
+        linalgVecShape = (bool) std::stoi(shapes[1]);
+        taco_uassert(linalgVecShape == 0 || linalgVecShape == 1) << "Vector type is not compatible with linalg notation" << endl;
+        if (linalgShape != 1 ) {
+          linalgVecShape = false;
+        }
+      }
+      linalgShapes.insert({tensorName, linalgShape});
+      linalgVecShapes.insert({tensorName, linalgVecShape});
+
+    }
     else {
       if (exprStr.size() != 0) {
         printUsageInfo();
@@ -891,7 +925,7 @@ int main(int argc, char* argv[]) {
   TensorBase tensor;
   parser::AbstractParser *parser;
   if (linalg)
-    parser = new parser::LinalgParser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, 42);
+    parser = new parser::LinalgParser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, linalgShapes, linalgVecShapes, 42);
   else
     parser = new parser::Parser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, 42);
 

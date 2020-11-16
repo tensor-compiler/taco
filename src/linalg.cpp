@@ -42,7 +42,8 @@ LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
 
   cout << var.getOrder() << endl;
   cout << expr.getOrder() << endl;
-  taco_uassert(var.getOrder() == expr.getOrder()) << "RHS and LHS of linalg assignment must match order";
+  taco_uassert(var.getOrder() == expr.getOrder()) << "LHS (" << var.getOrder() << ") and RHS (" << expr.getOrder()
+                                                      << ") of linalg assignment must match order";
   if (var.getOrder() == 1)
     taco_uassert(this->isColVector() == expr.isColVector()) << "RHS and LHS of linalg assignment must match vector type";
 
@@ -119,6 +120,12 @@ IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
     else if (mul->a.getOrder() == 1 && mul->a.isColVector() && mul->b.getOrder() == 1) {
       indicesA = {indices[0]};
       indicesB = {indices[1]};
+    } else if (mul->a.getOrder() == 0) {
+      indicesA = {};
+      indicesB = indices;
+    } else if (mul->b.getOrder() == 0) {
+      indicesA = indices;
+      indicesB = {};
     } else {
       indicesA = {index};
       indicesB = {index};
