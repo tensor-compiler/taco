@@ -17,6 +17,7 @@ public:
 
   // Scalar Expressions
   void visit(const LinalgVarNode*);
+  void visit(const LinalgTensorBaseNode*);
   void visit(const LinalgLiteralNode*);
   void visit(const LinalgNegNode*);
   void visit(const LinalgAddNode*);

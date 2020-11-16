@@ -22,6 +22,10 @@ void LinalgNotationPrinter::visit(const LinalgVarNode* op) {
   os << op->tensorVar.getName();
 }
 
+void LinalgNotationPrinter::visit(const LinalgTensorBaseNode* op) {
+  os << op->tensorBase->getName();
+}
+
 void LinalgNotationPrinter::visit(const LinalgLiteralNode* op) {
   switch (op->getDataType().getKind()) {
     case Datatype::Bool:

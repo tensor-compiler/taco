@@ -8,6 +8,7 @@ class LinalgStmt;
 class TensorVar;
 
 struct LinalgVarNode;
+struct LinalgTensorBaseNode;
 struct LinalgLiteralNode;
 struct LinalgNegNode;
 struct LinalgTransposeNode;
@@ -30,6 +31,8 @@ public:
   void visit(const LinalgExpr &);
 
   virtual void visit(const LinalgVarNode *) = 0;
+
+  virtual void visit(const LinalgTensorBaseNode*) = 0;
 
   virtual void visit(const LinalgLiteralNode *) = 0;
 
@@ -76,6 +79,7 @@ public:
 
   // Index Expressions
   virtual void visit(const LinalgVarNode* node);
+  virtual void visit(const LinalgTensorBaseNode* node);
   virtual void visit(const LinalgLiteralNode* node);
   virtual void visit(const LinalgNegNode* node);
   virtual void visit(const LinalgAddNode* node);

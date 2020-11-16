@@ -104,6 +104,7 @@ static Format initFormat(Format format) {
 TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
                        Format format)
     : content(new Content(name, ctype, dimensions, initFormat(format))) {
+  cout << name << endl;
   taco_uassert((size_t)format.getOrder() == dimensions.size()) <<
       "The number of format mode types (" << format.getOrder() << ") " <<
       "must match the tensor order (" << dimensions.size() << ").";

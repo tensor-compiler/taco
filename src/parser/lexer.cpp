@@ -31,6 +31,10 @@ Token Lexer::getToken() {
       lastChar = getNextChar();
       return Token::complex_scalar;
     }
+    if (identifier == "transpose")
+      return Token::transpose;
+    if (identifier == "elemMul")
+      return Token::elemMul;
     return Token::identifier;
   }
   if(isdigit(lastChar)) {
@@ -170,6 +174,12 @@ std::string Lexer::tokenString(const Token& token) {
       break;
     case Token::caretT:
       str = "^T";
+      break;
+    case Token::elemMul:
+      str = "elemMul";
+      break;
+    case Token::transpose:
+      str = "transpose";
       break;
     case Token::eot:
     default:

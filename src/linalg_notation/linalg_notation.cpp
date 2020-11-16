@@ -35,6 +35,10 @@ LinalgExpr::LinalgExpr(TensorVar var, bool isColVec, TensorBase* _tensorBase) : 
   tensorBase = _tensorBase;
 }
 
+LinalgExpr::LinalgExpr(TensorBase* _tensorBase, bool isColVec) : LinalgExpr(new LinalgTensorBaseNode(_tensorBase->getTensorVar(), _tensorBase, isColVec)) {
+
+}
+
 LinalgExpr::LinalgExpr(TensorVar var, bool isColVec) : LinalgExpr(new LinalgVarNode(var, isColVec)) {
 }
 
@@ -151,7 +155,9 @@ LinalgExpr operator*(const LinalgExpr &lhs, const LinalgExpr &rhs) {
     order = 2;
   }
   else {
-    taco_uassert(lhs.getOrder() != rhs.getOrder()) << "RHS and LHS order/vector type do not match "
+    taco_uassert(lhs.getOrder() != rhs.getOrder()) << "LHS (" << lhs.getOrder() << "," << lhs.isColVector()
+                                                      << ") and RHS (" << rhs.getOrder() << "," << rhs.isColVector()
+                                                      << ") order/vector type do not match "
                                                       "for linear algebra matrix multiply" << endl;
   }
   return new LinalgMatMulNode(lhs, rhs, order, isColVec);

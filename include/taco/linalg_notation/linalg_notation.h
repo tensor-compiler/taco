@@ -74,9 +74,11 @@ public:
   /// ```
   /// A(i,j) = b;
   /// ```
-  LinalgExpr(TensorVar);
+  explicit LinalgExpr(TensorVar);
 
   LinalgExpr(TensorVar, bool isColVec, TensorBase* tensorBase);
+
+  explicit LinalgExpr(TensorBase* _tensorBase, bool isColVec=false);
 
   LinalgExpr(TensorVar var, bool isColVec);
   /// Consturct an integer literal.

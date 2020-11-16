@@ -68,7 +68,7 @@ private:
   std::vector<std::string> names;
 
   /// assign ::= var '=' expr
-  LinalgAssignment parseAssign();
+  LinalgBase parseAssign();
 
   /// expr ::= term {('+' | '-') term}
   LinalgExpr parseExpr();
@@ -85,6 +85,8 @@ private:
   /// final ::= var
   ///         | scalar
   LinalgExpr parseFinal();
+
+  LinalgExpr parseCall();
 
   /// var ::= identifier
   LinalgBase parseVar();

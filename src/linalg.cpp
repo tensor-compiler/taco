@@ -21,6 +21,15 @@ LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector
     }
 }
 
+LinalgBase::LinalgBase(TensorBase* tbase, bool isColVec) :
+  LinalgExpr(tbase, isColVec), name(tbase->getName()),
+  tensorType(tbase->getTensorVar().getType()), idxcount(0) {
+  if(isa<LinalgTensorBaseNode>(ptr)) {
+    /* cout << "LinalgBase constructor - LinalgTensorBaseNode" << endl; */
+    cout << this->tensorBase->getName() << endl;
+  }
+}
+
 LinalgBase::LinalgBase(string name, Type tensorType, Format format, bool isColVec) : name(name), tensorType(tensorType),
   idxcount(0), LinalgExpr(TensorVar(name, tensorType, format), isColVec) {
 }

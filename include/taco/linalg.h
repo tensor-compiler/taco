@@ -35,6 +35,7 @@ public:
   LinalgBase(std::string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, bool isColVec = false);
   LinalgBase(std::string name, Type tensorType, bool isColVec = false);
   LinalgBase(std::string name, Type tensorType, Format format, bool isColVec = false);
+  LinalgBase(TensorBase* tensor, bool isColVec = false);
 
   /// [LINALG NOTATION]
   LinalgAssignment operator=(const LinalgExpr &expr);

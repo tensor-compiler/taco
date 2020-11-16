@@ -145,6 +145,7 @@ TEST(linalg, inner_mul) {
 
   cout << x.getIndexAssignment();
 
+
   ASSERT_TRUE(1);
 }
 
@@ -165,6 +166,8 @@ TEST(linalg, outer_mul) {
   cout << X << endl;
 
   cout << X.getIndexAssignment();
+
+  cout << X;
 
   ASSERT_TRUE(1);
 }
@@ -226,4 +229,20 @@ TEST(linalg, tensorapi) {
   cout << "Post-assignment" << endl;
 
   /* cout << a << endl; */
+}
+
+TEST(linalg, complex_expr) {
+  Matrix<double> A("A", 2, 2, dense, dense);
+  Matrix<double> B("B", 2, 2, dense, dense);
+  Matrix<double> C("C", 2, 2, dense, dense);
+  Matrix<double> D("D", 2, 2, dense, dense);
+  Matrix<double> E("D", 2, 2, dense, dense);
+
+  A = E*elemMul(B+C, D);
+
+  cout << A << endl;
+
+  cout << A.getIndexAssignment();
+
+  ASSERT_TRUE(1);
 }
