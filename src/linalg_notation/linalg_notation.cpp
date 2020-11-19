@@ -35,7 +35,11 @@ LinalgExpr::LinalgExpr(TensorVar var, bool isColVec, TensorBase* _tensorBase) : 
   tensorBase = _tensorBase;
 }
 
-LinalgExpr::LinalgExpr(TensorBase* _tensorBase, bool isColVec) : LinalgExpr(new LinalgTensorBaseNode(_tensorBase->getTensorVar(), _tensorBase, isColVec)) {
+LinalgExpr::LinalgExpr(TensorVar var, bool isColVec, int block, TensorBase* _tensorBase) : LinalgExpr(new LinalgTensorBaseNode(var, _tensorBase, isColVec, block)) {
+  tensorBase = _tensorBase;
+}
+
+LinalgExpr::LinalgExpr(TensorBase* _tensorBase, bool isColVec, int block) : LinalgExpr(new LinalgTensorBaseNode(_tensorBase->getTensorVar(), _tensorBase, isColVec, block)) {
 
 }
 
@@ -89,6 +93,14 @@ int LinalgExpr::getOrder() const {
   return const_cast<LinalgExprNode*>(this->ptr)->getOrder();
 }
 
+bool LinalgExpr::isBlocked() const {
+  return const_cast<LinalgExprNode*>(this->ptr)->isBlocked();
+}
+
+int LinalgExpr::getBlock() const {
+  return const_cast<LinalgExprNode*>(this->ptr)->getBlock();
+}
+
 bool LinalgExpr::isColVector() const {
   return const_cast<LinalgExprNode*>(this->ptr)->isColVector();
 }
@@ -112,9 +124,18 @@ void checkCompatibleShape(const LinalgExpr &lhs, const LinalgExpr &rhs) {
   if (lhs.getOrder() != 0 && rhs.getOrder() != 0)
     taco_uassert(lhs.getOrder() == rhs.getOrder()) << "RHS and LHS order do not match for linear algebra "
                                                       "binary operation" << endl;
-  if (lhs.getOrder() == 1)
+  if (lhs.getOrder() == 1 && !lhs.isBlocked())
     taco_uassert(lhs.isColVector() == rhs.isColVector()) << "RHS and LHS vector type do not match for linear algebra "
                                                             "binary operation" << endl;
+
+  if (lhs.isBlocked()) {
+    taco_uassert(lhs.getBlock() == rhs.getBlock()) << "LHS (" << lhs.getBlock() << ") and RHS (" << rhs.getBlock() <<
+                                                   "block size must match for linear algebra binary op" << endl;
+    if (lhs.getOrder() == 2)
+      taco_uassert(lhs.isColVector() == rhs.isColVector()) << "RHS and LHS vector type do not match for linear algebra "
+                                                              "binary operation" << endl;
+  }
+
 }
 
 LinalgExpr operator-(const LinalgExpr &expr) {
@@ -138,41 +159,84 @@ LinalgExpr operator-(const LinalgExpr &lhs, const LinalgExpr &rhs) {
 LinalgExpr operator*(const LinalgExpr &lhs, const LinalgExpr &rhs) {
   int order = 0;
   bool isColVec = false;
-  // Matrix-matrix mult
-  if (lhs.getOrder() == 2 && rhs.getOrder() == 2) {
-    order = 2;
-  }
-  // Matrix-column vector multiply
-  else if (lhs.getOrder() == 2 && rhs.getOrder() == 1 && rhs.isColVector()) {
-    order = 1;
-    isColVec = true;
-  }
-  // Row-vector Matrix multiply
-  else if (lhs.getOrder() == 1 && !lhs.isColVector() && rhs.getOrder() == 2) {
-    order = 1;
-  }
-  // Inner product
-  else if (lhs.getOrder() == 1 && !lhs.isColVector() && rhs.getOrder() == 1 && rhs.isColVector()) {
-    order = 0;
-  }
-  // Outer product
-  else if (lhs.getOrder() == 1 && lhs.isColVector() && rhs.getOrder() == 1 && !rhs.isColVector()) {
-    order = 2;
-  }
-  // Scalar product
-  else if (lhs.getOrder() == 0) {
-    order = rhs.getOrder();
-    isColVec = rhs.isColVector();
-  }
-  else if (rhs.getOrder() == 0) {
-    order = lhs.getOrder();
-    isColVec = lhs.isColVector();
+  if (lhs.isBlocked()) {
+    cout << "BLOCKED" << endl;
+    cout << lhs.getOrder() << ", " << rhs.getOrder() << endl;
+    cout << lhs.isColVector() << ", " << rhs.isColVector() << endl;
+    taco_uassert(lhs.getBlock() == rhs.getBlock()) << "LHS (" << lhs.getBlock() << ") and RHS (" << rhs.getBlock() <<
+                                                           "block size must match for linear algebra binary op" << endl;
+
+    // Matrix-matrix mult
+    if (lhs.getOrder() == 4 && rhs.getOrder() == 4) {
+      order = 4;
+    }
+      // Matrix-column vector multiply
+    else if (lhs.getOrder() == 4 && rhs.getOrder() == 2 && rhs.isColVector()) {
+      order = 2;
+      isColVec = true;
+    }
+      // Row-vector Matrix multiply
+    else if (lhs.getOrder() == 2 && !lhs.isColVector() && rhs.getOrder() == 4) {
+      order = 2;
+    }
+      // Inner product
+    else if (lhs.getOrder() == 2 && !lhs.isColVector() && rhs.getOrder() == 2 && rhs.isColVector()) {
+      order = 0;
+    }
+      // Outer product
+    else if (lhs.getOrder() == 2 && lhs.isColVector() && rhs.getOrder() == 2 && !rhs.isColVector()) {
+      order = 4;
+    }
+      // Scalar product
+    else if (lhs.getOrder() == 0) {
+      cout << "SCALAR" << endl;
+      order = rhs.getOrder();
+      isColVec = rhs.isColVector();
+    } else if (rhs.getOrder() == 0) {
+      order = lhs.getOrder();
+      isColVec = lhs.isColVector();
+    } else {
+      taco_uassert(lhs.getOrder() != rhs.getOrder()) << "LHS (" << lhs.getOrder() << "," << lhs.isColVector()
+                                                     << ") and RHS (" << rhs.getOrder() << "," << rhs.isColVector()
+                                                     << ") order/vector type do not match "
+                                                        "for linear algebra matrix multiply" << endl;
+    }
   }
   else {
-    taco_uassert(lhs.getOrder() != rhs.getOrder()) << "LHS (" << lhs.getOrder() << "," << lhs.isColVector()
-                                                      << ") and RHS (" << rhs.getOrder() << "," << rhs.isColVector()
-                                                      << ") order/vector type do not match "
-                                                      "for linear algebra matrix multiply" << endl;
+    // Matrix-matrix mult
+    if (lhs.getOrder() == 2 && rhs.getOrder() == 2) {
+      order = 2;
+    }
+      // Matrix-column vector multiply
+    else if (lhs.getOrder() == 2 && rhs.getOrder() == 1 && rhs.isColVector()) {
+      order = 1;
+      isColVec = true;
+    }
+      // Row-vector Matrix multiply
+    else if (lhs.getOrder() == 1 && !lhs.isColVector() && rhs.getOrder() == 2) {
+      order = 1;
+    }
+      // Inner product
+    else if (lhs.getOrder() == 1 && !lhs.isColVector() && rhs.getOrder() == 1 && rhs.isColVector()) {
+      order = 0;
+    }
+      // Outer product
+    else if (lhs.getOrder() == 1 && lhs.isColVector() && rhs.getOrder() == 1 && !rhs.isColVector()) {
+      order = 2;
+    }
+      // Scalar product
+    else if (lhs.getOrder() == 0) {
+      order = rhs.getOrder();
+      isColVec = rhs.isColVector();
+    } else if (rhs.getOrder() == 0) {
+      order = lhs.getOrder();
+      isColVec = lhs.isColVector();
+    } else {
+      taco_uassert(lhs.getOrder() != rhs.getOrder()) << "LHS (" << lhs.getOrder() << "," << lhs.isColVector()
+                                                     << ") and RHS (" << rhs.getOrder() << "," << rhs.isColVector()
+                                                     << ") order/vector type do not match "
+                                                        "for linear algebra matrix multiply" << endl;
+    }
   }
   return new LinalgMatMulNode(lhs, rhs, order, isColVec);
 }
@@ -192,7 +256,6 @@ LinalgExpr elemMul(const LinalgExpr &lhs, const LinalgExpr &rhs) {
 }
 
 LinalgExpr transpose(const LinalgExpr &lhs) {
-  cout << "transpose here" << endl;
   return new LinalgTransposeNode(lhs, !lhs.isColVector());
 }
 

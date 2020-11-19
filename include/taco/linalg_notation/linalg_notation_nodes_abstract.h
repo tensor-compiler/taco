@@ -27,6 +27,7 @@ public:
   explicit LinalgExprNode(Datatype type);
   LinalgExprNode(Datatype type, int order);
   LinalgExprNode(Datatype type, int order, bool isColVec);
+  LinalgExprNode(Datatype type, int order, bool isColVec, int block);
 
   virtual ~LinalgExprNode() = default;
 
@@ -37,11 +38,14 @@ public:
   int getOrder() const;
   bool isColVector() const;
   void setColVector(bool val);
+  bool isBlocked() const;
+  int getBlock() const;
 
 private:
   Datatype dataType;
   int order;
   bool isColVec;
+  int block;
 };
 
 struct LinalgStmtNode : public util::Manageable<LinalgStmtNode>,

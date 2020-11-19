@@ -25,6 +25,9 @@ namespace taco {
       : LinalgExprNode(tensorVar.getType().getDataType(), tensorVar.getOrder()), tensorVar(tensorVar) {}
     LinalgVarNode(TensorVar tensorVar, bool isColVec)
       : LinalgExprNode(tensorVar.getType().getDataType(), tensorVar.getOrder(), isColVec), tensorVar(tensorVar) {}
+    LinalgVarNode(TensorVar tensorVar, bool isColVec, int block)
+      : LinalgExprNode(tensorVar.getType().getDataType(), tensorVar.getOrder(), isColVec, block), tensorVar(tensorVar) {}
+
 
     void accept(LinalgExprVisitorStrict* v) const override {
       v->visit(this);
@@ -40,6 +43,8 @@ namespace taco {
       : LinalgExprNode(tensorVar.getType().getDataType(), tensorVar.getOrder()), tensorVar(tensorVar), tensorBase(tensorBase) {}
     LinalgTensorBaseNode(TensorVar tensorVar, TensorBase *tensorBase, bool isColVec)
       : LinalgExprNode(tensorVar.getType().getDataType(), tensorVar.getOrder(), isColVec), tensorVar(tensorVar), tensorBase(tensorBase) {}
+    LinalgTensorBaseNode(TensorVar tensorVar, TensorBase *tensorBase, bool isColVec, int block)
+      : LinalgExprNode(tensorVar.getType().getDataType(), tensorVar.getOrder(), isColVec, block), tensorVar(tensorVar), tensorBase(tensorBase) {}
     void accept(LinalgExprVisitorStrict* v) const override {
       v->visit(this);
     }
@@ -78,8 +83,9 @@ namespace taco {
     LinalgExpr a;
 
   protected:
-    LinalgUnaryExprNode(LinalgExpr a) : LinalgExprNode(a.getDataType(), a.getOrder(), a.isColVector()), a(a) {}
-    LinalgUnaryExprNode(LinalgExpr a, bool isColVec) : LinalgExprNode(a.getDataType(), a.getOrder(), isColVec), a(a) {}
+    LinalgUnaryExprNode(LinalgExpr a) : LinalgExprNode(a.getDataType(), a.getOrder(), a.isColVector(), a.getBlock()), a(a) {}
+    LinalgUnaryExprNode(LinalgExpr a, bool isColVec) : LinalgExprNode(a.getDataType(), a.getOrder(), isColVec, a.getBlock()), a(a) {}
+    LinalgUnaryExprNode(LinalgExpr a, bool isColVec, int block) : LinalgExprNode(a.getDataType(), a.getOrder(), isColVec, block), a(a) {}
   };
 
 
@@ -111,7 +117,7 @@ namespace taco {
     LinalgBinaryExprNode(LinalgExpr a, LinalgExpr b, int order)
       : LinalgExprNode(max_type(a.getDataType(), b.getDataType()), order), a(a), b(b) {}
     LinalgBinaryExprNode(LinalgExpr a, LinalgExpr b, int order, bool isColVec)
-      : LinalgExprNode(max_type(a.getDataType(), b.getDataType()), order, isColVec), a(a), b(b) {}
+      : LinalgExprNode(max_type(a.getDataType(), b.getDataType()), order, isColVec, a.getBlock()), a(a), b(b) {}
   };
 
 

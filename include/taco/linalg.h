@@ -27,6 +27,7 @@ protected:
   int block;
 
   IndexExpr rewrite(LinalgExpr linalg, std::vector<IndexVar> indices);
+  IndexExpr blockedRewrite(LinalgExpr linalg, std::vector<IndexVar> indices);
 
   IndexVar getUniqueIndex();
 
@@ -34,7 +35,7 @@ protected:
 
 public:
   LinalgBase(std::string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, bool isColVec = false);
-  LinalgBase(std::string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, int block, bool isColVec = false);
+  LinalgBase(std::string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, int block = 0, bool isColVec = false);
   LinalgBase(std::string name, Type tensorType, bool isColVec = false);
   LinalgBase(std::string name, Type tensorType, Format format, bool isColVec = false);
   LinalgBase(TensorBase* tensor, bool isColVec = false);
@@ -92,7 +93,9 @@ public:
     return LinalgBase::isBlocked();
   }
   // Support some Read methods
+  std::vector<CType> atBlock(int coord_x, int coord_y);
   CType at(int coord_x, int coord_y);
+  CType at(int coord_x, int coord_bx, int coord_y, int coord_by);
 
   // And a Write method
   void insert(int coord_x, int coord_y, CType value);
@@ -135,7 +138,7 @@ Matrix<CType>::Matrix(std::string name, Type tensorType, Format format) : Linalg
 template<typename CType>
 Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat format1, ModeFormat format2, int block_size) :
   LinalgBase(name, Type(type<CType>(), {dim1/block_size, dim2/block_size, block_size, block_size}), type<CType>(),
-    {(int)dim1/block_size, (int)dim2/block_size, block_size, block_size}, Format({format1, format2, dense, dense}), block_size, false) {
+    {(int)dim1/block_size,  block_size, (int)dim2/block_size, block_size}, Format({format1, dense, format2, dense}), block_size, false) {
     taco_uassert(block_size >= 0) << "Block size must be non-negative" << std::endl;
     taco_uassert(dim1 % block_size == 0 && dim2 % block_size == 0) << "Dimensions must be a multiple of block size" << std::endl;
   }
@@ -144,6 +147,25 @@ Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat for
 template <typename CType>
 CType Matrix<CType>::at(int coord_x, int coord_y) {
   return tensorBase->at<CType>({coord_x, coord_y});
+}
+
+template <typename CType>
+std::vector<CType> Matrix<CType>::atBlock(int coord_x, int coord_y) {
+  std::vector<CType> result;
+  if (isBlocked()) {
+    std::cout << "blocked matrix" << std::endl;
+    for (int bx = 0; bx < block; bx++)
+      for (int by = 0; by < block; by++)
+        result.push_back(tensorBase->at<CType>({coord_x, bx, coord_y, by}));
+    return result;
+  }
+  return {tensorBase->at<CType>({coord_x, coord_y})};
+}
+
+// Blocked read Method
+template <typename CType>
+CType Matrix<CType>::at(int coord_x, int coord_bx, int coord_y, int coord_by) {
+  return tensorBase->at<CType>({coord_x, coord_bx, coord_y, coord_by});
 }
 
 // Definition of Write methods
@@ -155,7 +177,7 @@ void Matrix<CType>::insert(int coord_x, int coord_y, CType value) {
     std::cout << "blocked matrix" << std::endl;
     for (int bx = 0; bx < block; bx++)
       for (int by = 0; by < block; by++)
-        tensorBase->insert({coord_x, coord_y, bx, by}, value);
+        tensorBase->insert({coord_x,  bx, coord_y, by}, value);
   } else {
     tensorBase->insert({coord_x, coord_y}, value);
   }
@@ -163,11 +185,11 @@ void Matrix<CType>::insert(int coord_x, int coord_y, CType value) {
 
 // Blocked Write Method
 template <typename CType>
-void Matrix<CType>::insert(int coord_x, int coord_y, int coord_bx, int coord_by, CType value) {
+void Matrix<CType>::insert(int coord_x, int coord_bx, int coord_y,  int coord_by, CType value) {
   std::cout << "blocked matrix" << std::endl;
   std::cout << "Blocked " << isBlocked() << std::endl;
   std::cout << this->block << std::endl;
-  tensorBase->insert({coord_x, coord_y, coord_bx, coord_by}, value);
+  tensorBase->insert({coord_x,  coord_bx, coord_y, coord_by}, value);
 }
 // ------------------------------------------------------------
 // Vector class
@@ -183,14 +205,12 @@ public:
   Vector(std::string name, size_t dim, bool isColVec = true);
 
   Vector(std::string name, size_t dim, Format format, bool isColVec = true);
-
   Vector(std::string name, size_t dim, ModeFormat format, bool isColVec = true);
-
+  Vector(std::string name, size_t dim, ModeFormat format, int block, bool isColVec = true);
   Vector(std::string name, Type type, Format format, bool isColVec = true);
 
   Vector(std::string name, Type type, ModeFormat format, bool isColVec = true);
 
-  Vector(std::string name, Type type, ModeFormat format, int blocking, bool isColVec = true);
 
   LinalgAssignment operator=(const LinalgExpr &expr) {
     return LinalgBase::operator=(expr);
@@ -198,12 +218,14 @@ public:
 
   // Support some Write methods
   void insert(int coord, CType value);
+  void insert(int coord, int coord_b, CType value);
 
   // Support some Read methods too
+  std::vector<CType> atBlock(int coord);
   CType at(int coord);
 
   // Support Read Method with Blocking
-  CType at(int bcoord0, int bcoord1);
+  CType at(int coord, int coord_b);
 };
 
 // ------------------------------------------------------------
@@ -226,7 +248,16 @@ Vector<CType>::Vector(std::string name, size_t dim, Format format, bool isColVec
 
 template<typename CType>
 Vector<CType>::Vector(std::string name, size_t dim, ModeFormat format, bool isColVec) :
-  LinalgBase(name, Type(type<CType>(), {dim}), type<CType>(), {(int)dim}, Format(format), isColVec) {}
+  LinalgBase(name, Type(type<CType>(), {dim}), type<CType>(), {(int)dim}, Format(format), isColVec) {
+}
+
+template<typename CType>
+Vector<CType>::Vector(std::string name, size_t dim, ModeFormat format, int block, bool isColVec) :
+  LinalgBase(name, Type(type<CType>(), {dim/block, block}), type<CType>(), {(int)dim/block, block}, Format({format, dense}), block, isColVec) {
+    std::cout << "IS COL VEC" << isColVec << std::endl;
+    taco_uassert(block >= 0) << "Block size must be non-negative" << std::endl;
+    taco_uassert(dim % block == 0) << "Dimension must be a multiple of block size" << std::endl;
+  }
 
 template<typename CType>
 Vector<CType>::Vector(std::string name, Type type, Format format, bool isColVec) :
@@ -240,12 +271,38 @@ Vector<CType>::Vector(std::string name, Type type, ModeFormat format, bool isCol
 // Vector write methods
 template<typename CType>
 void Vector<CType>::insert(int coord, CType value) {
-  tensorBase->insert({coord}, value);
+  if (isBlocked()) {
+    for (int bx = 0; bx < block; bx++)
+      tensorBase->insert({coord,  bx}, value);
+  } else {
+    tensorBase->insert({coord}, value);
+  }
+}
+
+template<typename CType>
+void Vector<CType>::insert(int coord, int coord_b, CType value) {
+  tensorBase->insert({coord, coord_b}, value);
 }
 
 template <typename CType>
 CType Vector<CType>::at(int coord) {
   return tensorBase->at<CType>({coord});
+}
+
+template <typename CType>
+CType Vector<CType>::at(int coord, int coord_b) {
+  return tensorBase->at<CType>({coord, coord_b});
+}
+
+template <typename CType>
+std::vector<CType> Vector<CType>::atBlock(int coord) {
+  std::vector<CType> result;
+  if (isBlocked()) {
+    for (int coord_b = 0; coord_b < block; coord_b++)
+      result.push_back(tensorBase->at<CType>({coord, coord_b}));
+    return result;
+  }
+  return {tensorBase->at<CType>({coord})};
 }
 
 template<typename CType>

@@ -248,9 +248,9 @@ TEST(linalg, complex_expr) {
 }
 
 TEST(linalg, blocking_matmul) {
-  Matrix<double> B("B", 16, 16, dense, dense, 4);
-  Matrix<double> C("C", 16, 16, dense, dense, 4);
-  Matrix<double> A("A", 16, 16, dense, dense, 4);
+  Matrix<double> B("B", 4, 4, sparse, dense, 2);
+  Matrix<double> C("C", 4, 4, dense, sparse, 2);
+  Matrix<double> A("A", 4, 4, dense, dense, 2);
 
   cout << "--- Before inserting ---" << endl;
   B.insert(0,0,0, 0,2);
@@ -263,40 +263,71 @@ TEST(linalg, blocking_matmul) {
   cout << "B: " << B << endl;
   cout << "C: " << C << endl;
   cout << "--- Before Expression ---" << endl;
-  A = B * C;
-//  cout << "--- After Expression ---" << endl;
-//
-//  cout << "--- Before At ---" << endl;
-//  cout << "B(0,0): " << B.at(0,0) << endl;
-//  cout << "A(0,0): " << A.at(0,0) << endl;
-//  cout << "--- After At ---" << endl;
-//
-//  cout << "--- Before Rewrite of A ---" << endl;
-//  A.rewrite();
-//  cout << "--- After Rewrite of A ---" << endl;
-//
-//  cout << "--- Before At (A) ---" << endl;
-//  cout << "A(0,0): " << A.at(0,0) << endl;
-//  cout << "--- After At (A) ---" << endl;
-//
-//  cout << "--- before cout of a ---" << endl;
-//  cout << A << endl;
-//  cout << "--- after cout of a ---" << endl;
-//
-//  cout << "--- Before getIndexAssignment on A ---" << endl;
-//  cout << A.getIndexAssignment() << endl;
-//  cout << "--- After getIndexAssignment on A ---" << endl;
+  A = transpose(B * C);
+  cout << "--- After Expression ---" << endl;
+
+  cout << "--- Before At ---" << endl;
+  auto vec =  B.atBlock(0,0);
+  for (auto it = 0; it < vec.size(); ++it)
+    cout << "B(0,0): " << vec.at(it) << endl;
+  vec =  A.atBlock(0,0);
+  for (auto it = 0; it < vec.size(); ++it)
+    cout << "B(0,0): " << vec.at(it) << endl;
+  cout << "--- After At ---" << endl;
+
+  cout << "--- before cout of a ---" << endl;
+  cout << A << endl;
+  cout << "--- after cout of a ---" << endl;
+
+  cout << "--- Before getIndexAssignment on A ---" << endl;
+  cout << A.getIndexAssignment() << endl;
+  cout << "--- After getIndexAssignment on A ---" << endl;
 //
 //  ASSERT_EQ(A.at(0,0), 4);
 //  ASSERT_EQ(A.at(0,1), 4);
 //  ASSERT_EQ(A.at(1,0), 0);
   ASSERT_TRUE(1);
+}
 
-  // TODO: Support this style of accessing and querying the values, too
-  /* map<vector<int>, double> vals = {{{0,0},4}, {{0,1},4}, {{1,1},2}}; */
-  /* for (auto val = A.beginTyped<int>(); val != A.endTyped<int>(); ++val) { */
-  /*   ASSERT_TRUE(util::contains(vals, val->first.toVector())); */
-  /*   ASSERT_EQ(vals.at(val->first.toVector()), val->second); */
-  /* } */
+TEST(linalg, blocking_matvec) {
+  Matrix<double> B("B", 4, 4, sparse, dense, 2);
+  Vector<double> c("c", 4, sparse, 2);
+  Vector<double> a("a", 4, dense, 2);
 
+  cout << "--- Before inserting ---" << endl;
+  B.insert(0,0,0, 0,2);
+  B.insert(1,1, 0,0,1);
+  B.insert(0,1, 0,0,2);
+
+  c.insert(0,0,2);
+  c.insert(1,1,2);
+  cout << "--- After inserting ---" << endl;
+  cout << "B: " << B << endl;
+  cout << "C: " << c << endl;
+  cout << "c(isColVec): " << c.isColVector();
+  cout << "--- Before Expression ---" << endl;
+  a = (transpose(c)*c)*(B*c);
+  cout << "--- After Expression ---" << endl;
+
+  cout << "--- Before At ---" << endl;
+  auto vec =  B.atBlock(0, 0);
+  for (auto it = 0; it < vec.size(); ++it)
+    cout << "B(0): " << vec.at(it) << endl;
+  vec =  a.atBlock(0);
+  for (auto it = 0; it < vec.size(); ++it)
+    cout << "B(0): " << vec.at(it) << endl;
+  cout << "--- After At ---" << endl;
+
+  cout << "--- before cout of a ---" << endl;
+  cout << a << endl;
+  cout << "--- after cout of a ---" << endl;
+
+  cout << "--- Before getIndexAssignment on A ---" << endl;
+  cout << a.getIndexAssignment() << endl;
+  cout << "--- After getIndexAssignment on A ---" << endl;
+//
+//  ASSERT_EQ(A.at(0,0), 4);
+//  ASSERT_EQ(A.at(0,1), 4);
+//  ASSERT_EQ(A.at(1,0), 0);
+  ASSERT_TRUE(1);
 }

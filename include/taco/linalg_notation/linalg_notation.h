@@ -77,8 +77,9 @@ public:
   explicit LinalgExpr(TensorVar);
 
   LinalgExpr(TensorVar, bool isColVec, TensorBase* tensorBase);
+  LinalgExpr(TensorVar, bool isColVec, int block, TensorBase* tensorBase);
 
-  explicit LinalgExpr(TensorBase* _tensorBase, bool isColVec=false);
+  explicit LinalgExpr(TensorBase* _tensorBase, bool isColVec=false, int block=0);
 
   LinalgExpr(TensorVar var, bool isColVec);
   /// Consturct an integer literal.
@@ -127,6 +128,8 @@ public:
   int getOrder() const;
   bool isColVector() const;
   void setColVector(bool) const;
+  bool isBlocked() const;
+  int getBlock() const;
 
   /// Visit the linalg expression's sub-expressions.
   void accept(LinalgExprVisitorStrict *) const;

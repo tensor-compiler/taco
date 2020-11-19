@@ -13,7 +13,7 @@ LinalgBase::LinalgBase(string name, Type tensorType, bool isColVec) : name(name)
 }
 
 LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, bool isColVec) :
-  LinalgExpr(TensorVar(name, tensorType, format), isColVec, new TensorBase(name, dtype, dims, format)), name(name),
+  LinalgExpr(TensorVar(name, tensorType, format), isColVec,new TensorBase(name, dtype, dims, format)), name(name),
   tensorType(tensorType), idxcount(0), block(0) {
     if(isa<LinalgTensorBaseNode>(ptr)) {
       /* cout << "LinalgBase constructor - LinalgTensorBaseNode" << endl; */
@@ -22,8 +22,9 @@ LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector
 }
 
 LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, int block, bool isColVec) :
-  LinalgExpr(TensorVar(name, tensorType, format), isColVec, new TensorBase(name, dtype, dims, format)), name(name),
+  LinalgExpr(TensorVar(name, tensorType, format), isColVec, block,new TensorBase(name, dtype, dims, format)), name(name),
   tensorType(tensorType), idxcount(0), block(block) {
+  cout << "LINALGBASE: " << isColVec;
   if(isa<LinalgTensorBaseNode>(ptr)) {
     cout << this->tensorBase->getName() << endl;
   }
@@ -54,7 +55,7 @@ LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
     taco_ierror << "LinalgBase LHS must be a VarNode or TensorBaseNode";
   }
 
-  cout << var.getOrder() << endl;
+  cout << "ASSIGN: " << var.getOrder() << endl;
   cout << expr.getOrder() << endl;
   taco_uassert(var.getOrder() == expr.getOrder()) << "LHS (" << var.getOrder() << ") and RHS (" << expr.getOrder()
                                                       << ") of linalg assignment must match order";
@@ -101,40 +102,41 @@ IndexVar LinalgBase::getUniqueIndex() {
 IndexExpr LinalgBase::blockedRewrite(LinalgExpr linalg, vector<IndexVar> indices) {
   if (isa<LinalgSubNode>(linalg.get())) {
     auto sub = to<LinalgSubNode>(linalg.get());
-    IndexExpr indexA = rewrite(sub->a, indices);
-    IndexExpr indexB = rewrite(sub->b, indices);
+    IndexExpr indexA = blockedRewrite(sub->a, indices);
+    IndexExpr indexB = blockedRewrite(sub->b, indices);
     return new SubNode(indexA, indexB);
   } else if (isa<LinalgAddNode>(linalg.get())) {
     auto add = to<LinalgAddNode>(linalg.get());
-    IndexExpr indexA = rewrite(add->a, indices);
-    IndexExpr indexB = rewrite(add->b, indices);
+    IndexExpr indexA = blockedRewrite(add->a, indices);
+    IndexExpr indexB = blockedRewrite(add->b, indices);
     return new AddNode(indexA, indexB);
   } else if (isa<LinalgElemMulNode>(linalg.get())) {
     auto mul = to<LinalgElemMulNode>(linalg.get());
-    IndexExpr indexA = rewrite(mul->a, indices);
-    IndexExpr indexB = rewrite(mul->b, indices);
+    IndexExpr indexA = blockedRewrite(mul->a, indices);
+    IndexExpr indexB = blockedRewrite(mul->b, indices);
     return new MulNode(indexA, indexB);
   } else if (isa<LinalgMatMulNode>(linalg.get())) {
     auto mul = to<LinalgMatMulNode>(linalg.get());
     IndexVar index = getUniqueIndex();
+    IndexVar indexb = getUniqueIndex();
     vector<IndexVar> indicesA;
     vector<IndexVar> indicesB;
-    if (mul->a.getOrder() == 2 && mul->b.getOrder() == 2) {
-      indicesA = {indices[0], index};
-      indicesB = {index, indices[1]};
+    if (mul->a.getOrder() == 4 && mul->b.getOrder() == 4) {
+      indicesA = {indices[0], indices[1], index, indexb};
+      indicesB = {index, indexb, indices[2], indices[3]};
     }
-    else if (mul->a.getOrder() == 1 && mul->b.getOrder() == 2) {
-      indicesA = {index};
-      indicesB = {index, indices[0]};
+    else if (mul->a.getOrder() == 2 && mul->b.getOrder() == 4) {
+      indicesA = {index, indexb};
+      indicesB = {index, indexb, indices[0], indices[1]};
     }
-    else if (mul->a.getOrder() == 2 && mul->b.getOrder() == 1) {
-      indicesA = {indices[0], index};
+    else if (mul->a.getOrder() == 4 && mul->b.getOrder() == 2) {
+      indicesA = {indices[0], indices[1], index, indexb};
 
-      indicesB = {index};
+      indicesB = {index, indexb};
     }
-    else if (mul->a.getOrder() == 1 && mul->a.isColVector() && mul->b.getOrder() == 1) {
-      indicesA = {indices[0]};
-      indicesB = {indices[1]};
+    else if (mul->a.getOrder() == 2 && mul->a.isColVector() && mul->b.getOrder() == 2) {
+      indicesA = {indices[0], indices[1]};
+      indicesB = {indices[2], indices[3]};
     } else if (mul->a.getOrder() == 0) {
       indicesA = {};
       indicesB = indices;
@@ -142,30 +144,30 @@ IndexExpr LinalgBase::blockedRewrite(LinalgExpr linalg, vector<IndexVar> indices
       indicesA = indices;
       indicesB = {};
     } else {
-      indicesA = {index};
-      indicesB = {index};
+      indicesA = {index, indexb};
+      indicesB = {index, indexb};
     }
-    IndexExpr indexA = rewrite(mul->a, indicesA);
-    IndexExpr indexB = rewrite(mul->b, indicesB);
+    IndexExpr indexA = blockedRewrite(mul->a, indicesA);
+    IndexExpr indexB = blockedRewrite(mul->b, indicesB);
     return new MulNode(indexA, indexB);
   } else if (isa<LinalgDivNode>(linalg.get())) {
     auto div = to<LinalgDivNode>(linalg.get());
-    IndexExpr indexA = rewrite(div->a, indices);
-    IndexExpr indexB = rewrite(div->b, indices);
+    IndexExpr indexA = blockedRewrite(div->a, indices);
+    IndexExpr indexB = blockedRewrite(div->b, indices);
     return new DivNode(indexA, indexB);
   } else if (isa<LinalgNegNode>(linalg.get())) {
     auto neg = to<LinalgNegNode>(linalg.get());
-    IndexExpr index = rewrite(neg->a, indices);
+    IndexExpr index = blockedRewrite(neg->a, indices);
     return new NegNode(index);
   } else if (isa<LinalgTransposeNode>(linalg.get())) {
     auto transpose = to<LinalgTransposeNode>(linalg.get());
-    if (transpose->a.getOrder() == 2) {
-      return rewrite(transpose->a, {indices[1], indices[0]});
+    if (transpose->a.getOrder() == 4) {
+      return blockedRewrite(transpose->a, {indices[2], indices[3], indices[0], indices[1]});
     }
-    else if (transpose->a.getOrder() == 1) {
-      return rewrite(transpose->a, {indices[0]});
+    else if (transpose->a.getOrder() == 2) {
+      return blockedRewrite(transpose->a, indices);
     }
-    return rewrite(transpose->a, {});
+    return blockedRewrite(transpose->a, {});
   } else if (isa<LinalgLiteralNode>(linalg.get())) {
     auto lit = to<LinalgLiteralNode>(linalg.get());
 
