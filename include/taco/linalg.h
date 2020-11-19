@@ -24,6 +24,7 @@ protected:
   IndexStmt indexAssignment;
 
   int idxcount;
+  int block;
 
   IndexExpr rewrite(LinalgExpr linalg, std::vector<IndexVar> indices);
 
@@ -33,6 +34,7 @@ protected:
 
 public:
   LinalgBase(std::string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, bool isColVec = false);
+  LinalgBase(std::string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, int block, bool isColVec = false);
   LinalgBase(std::string name, Type tensorType, bool isColVec = false);
   LinalgBase(std::string name, Type tensorType, Format format, bool isColVec = false);
   LinalgBase(TensorBase* tensor, bool isColVec = false);
@@ -44,6 +46,7 @@ public:
 
   const IndexStmt getIndexAssignment() const;
 
+  bool isBlocked() const;
 
   IndexStmt rewrite();
 
@@ -79,15 +82,21 @@ public:
 
   Matrix(std::string name, Type tensorType, Format format);
 
+  Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat format1, ModeFormat format2, int block_size);
+
   LinalgAssignment operator=(const LinalgExpr &expr) {
     return LinalgBase::operator=(expr);
   }
 
+  bool isBlocked() {
+    return LinalgBase::isBlocked();
+  }
   // Support some Read methods
   CType at(int coord_x, int coord_y);
 
   // And a Write method
   void insert(int coord_x, int coord_y, CType value);
+  void insert(int coord_x, int coord_y, int coord_bx, int coord_by, CType value);
 
 
 };
@@ -123,6 +132,14 @@ Matrix<CType>::Matrix(std::string name, Type tensorType) : LinalgBase(name, tens
 template<typename CType>
 Matrix<CType>::Matrix(std::string name, Type tensorType, Format format) : LinalgBase(name, tensorType, format) {}
 
+template<typename CType>
+Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat format1, ModeFormat format2, int block_size) :
+  LinalgBase(name, Type(type<CType>(), {dim1/block_size, dim2/block_size, block_size, block_size}), type<CType>(),
+    {(int)dim1/block_size, (int)dim2/block_size, block_size, block_size}, Format({format1, format2, dense, dense}), block_size, false) {
+    taco_uassert(block_size >= 0) << "Block size must be non-negative" << std::endl;
+    taco_uassert(dim1 % block_size == 0 && dim2 % block_size == 0) << "Dimensions must be a multiple of block size" << std::endl;
+  }
+
 // Definition of Read methods
 template <typename CType>
 CType Matrix<CType>::at(int coord_x, int coord_y) {
@@ -132,9 +149,26 @@ CType Matrix<CType>::at(int coord_x, int coord_y) {
 // Definition of Write methods
 template <typename CType>
 void Matrix<CType>::insert(int coord_x, int coord_y, CType value) {
-  tensorBase->insert({coord_x, coord_y}, value);
+  std::cout << "Blocked " << isBlocked() << std::endl;
+  std::cout << this->block << std::endl;
+  if (isBlocked()) {
+    std::cout << "blocked matrix" << std::endl;
+    for (int bx = 0; bx < block; bx++)
+      for (int by = 0; by < block; by++)
+        tensorBase->insert({coord_x, coord_y, bx, by}, value);
+  } else {
+    tensorBase->insert({coord_x, coord_y}, value);
+  }
 }
 
+// Blocked Write Method
+template <typename CType>
+void Matrix<CType>::insert(int coord_x, int coord_y, int coord_bx, int coord_by, CType value) {
+  std::cout << "blocked matrix" << std::endl;
+  std::cout << "Blocked " << isBlocked() << std::endl;
+  std::cout << this->block << std::endl;
+  tensorBase->insert({coord_x, coord_y, coord_bx, coord_by}, value);
+}
 // ------------------------------------------------------------
 // Vector class
 // ------------------------------------------------------------
@@ -156,6 +190,8 @@ public:
 
   Vector(std::string name, Type type, ModeFormat format, bool isColVec = true);
 
+  Vector(std::string name, Type type, ModeFormat format, int blocking, bool isColVec = true);
+
   LinalgAssignment operator=(const LinalgExpr &expr) {
     return LinalgBase::operator=(expr);
   }
@@ -165,6 +201,9 @@ public:
 
   // Support some Read methods too
   CType at(int coord);
+
+  // Support Read Method with Blocking
+  CType at(int bcoord0, int bcoord1);
 };
 
 // ------------------------------------------------------------

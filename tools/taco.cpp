@@ -193,11 +193,12 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("linalg", "Specify if the input should be in Linear Algebra (not index) Notation");
   cout << endl;
-  printFlag("k=<tensor>:<order>,<is_col_vec(optional)>",
+  printFlag("k=<var>:<shape,(opt)colvec>",
             "[LINALG NOTATION ONLY -linalg] Specify the shape of the linear algebra var. "
-            "Specify the number of dimensions, shape, (0, 1, or 2) and an optional flag of "
-            "if the var is a column vector for the cases where order == 1 (1 or 0) "
+            "Specify the number of dimensions (0, 1, or 2) and an optional flag of "
+            "if the var is a column vector when order == 1 (1 or 0) "
             "Examples: A:2, A:0, A:1,1, A:1,0");
+  cout << endl;
 }
 
 static int reportError(string errorMessage, int errorCode) {
