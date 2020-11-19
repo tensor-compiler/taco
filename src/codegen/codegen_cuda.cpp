@@ -282,6 +282,7 @@ public:
   vector<Stmt> threadFors; // contents is device function
   vector<Stmt> warpFors;
   map<Expr, string, ExprCompare> scopeMap;
+  string output_tensor;
 
   // the variables to pass to each device function
   vector<vector<pair<string, Expr>>> functionParameters;
@@ -312,7 +313,7 @@ public:
       taco_iassert(var) << "Outputs must be vars in codegen";
       taco_iassert(scopeMap.count(var) == 0) <<
                                              "Duplicate output found in codegen";
-
+      output_tensor = var->name; // Isn't there only one output?
       scopeMap[var] = var->name;
     }
   }
@@ -436,10 +437,20 @@ Stmt CodeGen_CUDA::simplifyFunctionBodies(Stmt stmt) {
   return FunctionBodySimplifier().rewrite(stmt);
 }
 
-string CodeGen_CUDA::printDeviceFuncName(const vector<pair<string, Expr>> currentParameters, int index) {
+string CodeGen_CUDA::printDeviceFuncName(const vector<pair<string, Expr>> currentParameters, int index, int flag) {
   stringstream ret;
-  ret << "__global__" << endl;
-  ret << "void " << funcName << "DeviceKernel" << index << "(";
+  switch(flag) {
+    case PRINT_FUNC:
+      ret << "__global__" << endl;
+      ret << "void " << funcName << "DeviceKernel" << index << "(";
+      break;
+    case PRINT_MEM_HOST_TO_DEV:
+      ret << "void " << funcName << "MemcpyHostToDev" << index << "(";
+      break;
+    case PRINT_MEM_DEV_TO_HOST:
+      ret << "void " << funcName << "MemcpyDevToHost" << index << "(";
+      break;
+  }
 
   string delimiter = "";
   for (size_t i=0; i<currentParameters.size(); i++) {
@@ -462,7 +473,32 @@ string CodeGen_CUDA::printDeviceFuncName(const vector<pair<string, Expr>> curren
     // No non-tensor parameters
     delimiter = ", ";
   }
+  if(flag == PRINT_MEM_HOST_TO_DEV || flag == PRINT_MEM_DEV_TO_HOST) {
+    ret << ", ";
+    string delimiter = "";
+    for (size_t i=0; i<currentParameters.size(); i++) {
+      auto var = currentParameters[i].second.as<Var>();
+      taco_iassert(var) << "Unable to convert output " << currentParameters[i].second
+                        << " to Var";
+      string varName = currentParameters[i].first;
+
+      if (var->is_tensor) {
+        ret << delimiter << "taco_tensor_t * __restrict__ " << varName << "_dev";
+      }
+      else {
+        auto tp = printCUDAType(var->type, var->is_ptr);
+        ret << delimiter << tp << " ";
+        if (!var->is_ptr) {
+          ret << "&";
+        }
+        ret << var->name;
+      }
+      // No non-tensor parameters
+      delimiter = ", ";
+    }
+  }
   ret << ")";
+
   return ret.str();
 }
 
@@ -574,7 +610,33 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
     emittedTimerStartCode = true;
   }
 
+  // for malloc
+  string delimiter = "";
+  for (size_t i=0; i<currentParameters.size(); i++) {
+    taco_iassert(currentParameters[i].second.as<Var>()) << "Unable to convert output " << currentParameters[i].second
+      << " to Var";
+    string varName = currentParameters[i].first;
+    stream << "taco_tensor_t *"<< varName << "_dev = (taco_tensor_t *)malloc(sizeof(taco_tensor_t *));\n";
+    doIndent();
+  }
 
+  // for MemcpyHostToDev
+  stream << funcName << "MemcpyHostToDev" << index << "(";
+  for (size_t l=0; l<2; l++) {
+    for (size_t i=0; i<currentParameters.size(); i++) {
+      taco_iassert(currentParameters[i].second.as<Var>()) << "Unable to convert output " << currentParameters[i].second
+        << " to Var";
+      string varName = currentParameters[i].first;
+      stream << delimiter << varName;
+      if(l == 1) stream << "_dev";
+
+      delimiter = ", ";
+    }
+  }
+  stream << ");\n\n";
+  doIndent();
+
+  // for DeviceKernel
   stream << funcName << "DeviceKernel" << index << "<<<";
   gridSize = ir::simplify(gridSize);
   gridSize.accept(this);
@@ -583,7 +645,7 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
   stream << ">>>";
   stream << "(";
 
-  string delimiter = "";
+  delimiter = "";
   for (size_t i=0; i<currentParameters.size(); i++) {
     taco_iassert(currentParameters[i].second.as<Var>()) << "Unable to convert output " << currentParameters[i].second
                                                         << " to Var";
@@ -605,8 +667,30 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
     stream << "cudaEventElapsedTime(&tot_ms, event1, event2);\n";
   }
   doIndent();
-  stream << "cudaDeviceSynchronize();\n";
+  stream << "cudaDeviceSynchronize();\n\n";
 
+  // for MemcpyDevToHost
+  doIndent();
+  stream << funcName << "DeviceFree" << index << "(";
+  delimiter = "";
+  for (size_t i=0; i<currentParameters.size(); i++) {
+    taco_iassert(currentParameters[i].second.as<Var>()) << "Unable to convert output " << currentParameters[i].second
+      << " to Var";
+    string varName = currentParameters[i].first;
+    stream << delimiter << varName << "_dev";
+
+    delimiter = ", ";
+  }
+  stream << ");\n";
+
+  // for free
+  for (size_t i=0; i<currentParameters.size(); i++) {
+    taco_iassert(currentParameters[i].second.as<Var>()) << "Unable to convert output " << currentParameters[i].second
+	  << " to Var";
+    string varName = currentParameters[i].first;
+    doIndent();
+    stream << "free("<< varName << "_dev);\n";
+  }
 }
 
 
@@ -679,12 +763,6 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
       }
     }
 
-    // Generate device function header
-    doIndent();
-    out << printDeviceFuncName(parameters, i);
-    out << "{\n";
-    indent++;
-
     // Generate device function code
     resetUniqueNameCounters();
     vector<Expr> inputs;
@@ -710,8 +788,35 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
     blockloop->accept(&varFinder);
     varMap = varFinder.varMap;
 
+
+
+    // Print MemcpyHostToDev function
+    out << printDeviceFuncName(parameters, i, PRINT_MEM_HOST_TO_DEV);
+    out << "{\n";
+    indent++;
+    out << printDecls(varFinder.varDecls, inputs, {}, PRINT_MEM_HOST_TO_DEV, deviceFunctionCollector.output_tensor) << endl;
+    indent--;
+    doIndent();
+    out << "}\n\n";
+
+    // Print MemcpyDevtToHost function
+    out << printDeviceFuncName(parameters, i, PRINT_MEM_DEV_TO_HOST);
+    out << "{\n";
+    indent++;
+    out << printDecls(varFinder.varDecls, inputs, {}, PRINT_MEM_DEV_TO_HOST, deviceFunctionCollector.output_tensor) << endl;
+    indent--;
+    doIndent();
+    out << "}\n\n";
+
+
+    // Generate device function header
+    doIndent();
+    out << printDeviceFuncName(parameters, i, PRINT_FUNC);
+    out << "{\n";
+    indent++;
+
     // Print variable declarations
-    out << printDecls(varFinder.varDecls, inputs, {}) << endl;
+    out << printDecls(varFinder.varDecls, inputs, {}, PRINT_FUNC, deviceFunctionCollector.output_tensor) << endl;
     doIndent();
     printBlockIDVariable(deviceFunctionCollector.blockIDVars[i], blockloop->start, blockloop->increment);
     doIndent();
@@ -779,7 +884,7 @@ void CodeGen_CUDA::visit(const Function* func) {
   localVars = varFinder.localVars;
 
   // Print variable declarations
-  out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << endl;
+  out << printDecls(varFinder.varDecls, func->inputs, func->outputs, PRINT_FUNC, "") << endl;
 
   if (emittingCoroutine) {
     out << printContextDeclAndInit(varMap, localVars, numYields, func->name)
@@ -1082,7 +1187,7 @@ void CodeGen_CUDA::visit(const Allocate* op) {
   }
 
   doIndent();
-  stream << "gpuErrchk(cudaMallocManaged((void**)&";
+  stream << "gpuErrchk(cudaMalloc((void**)&";
   if (op->is_realloc) {
     stream << variable_name;
   }
