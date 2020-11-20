@@ -56,11 +56,11 @@ jobs:
       - name: install cuda
         run: sudo sh cuda_10.2.89_440.33.01_linux.run --silent --toolkit --installpath="$GITHUB_WORKSPACE/cuda"
       - name: add path
-        run: echo "::add-path::$GITHUB_WORKSPACE/cuda/bin"
+        run: echo "$GITHUB_WORKSPACE/cuda/bin" >> $GITHUB_PATH
       - name: set ld_library_path
-        run: echo "::set-env name=LD_LIBRARY_PATH::$GITHUB_WORKSPACE/cuda/lib64"
+        run: echo "name=LD_LIBRARY_PATH::$GITHUB_WORKSPACE/cuda/lib64" >> $GITHUB_ENV
       - name: set library_path  
-        run: echo "::set-env name=LIBRARY_PATH::$GITHUB_WORKSPACE/cuda/lib64"
+        run: echo "name=LIBRARY_PATH::$GITHUB_WORKSPACE/cuda/lib64" >> $GITHUB_ENV
       - name: print environment
         run: |
           echo ${PATH}
