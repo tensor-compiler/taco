@@ -24,6 +24,14 @@ if (CUDA)
   include_directories(${CUDA_INCLUDE_DIRS})
   target_link_libraries(taco INTERFACE ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libcudart.so)
 endif (CUDA)
+
+if (LLVM)
+  include_directories(${LLVM_INCLUDE_DIRS})
+  target_link_libraries(taco INTERFACE ${llvm_libs})
+  add_definitions(${LLVM_DEFINITIONS})
+endif (LLVM)
+
+
 install(TARGETS taco DESTINATION lib)
 
 if (LINUX)

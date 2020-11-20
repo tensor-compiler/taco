@@ -14,6 +14,7 @@
 #include "taco/util/env.h"
 #include "codegen/codegen_c.h"
 #include "codegen/codegen_cuda.h"
+#include "codegen/codegen_llvm.h"
 #include "taco/cuda.h"
 
 using namespace std;
