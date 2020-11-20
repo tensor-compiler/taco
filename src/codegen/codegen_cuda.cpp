@@ -34,6 +34,7 @@ const string cHeaders =
   "#include <stdlib.h>\n"
   "#include <stdint.h>\n"
   "#include <math.h>\n"
+  "#include <malloc.h>\n"
   "#include <thrust/complex.h>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#define TACO_MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))\n"
@@ -675,7 +676,7 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
 
   // for MemcpyDevToHost
   doIndent();
-  stream << funcName << "DeviceFree" << index << "(";
+  stream << funcName << "DMemcpyDevToHost" << index << "(";
   delimiter = "";
   for (size_t i=0; i<currentParameters.size(); i++) {
     taco_iassert(currentParameters[i].second.as<Var>()) << "Unable to convert output " << currentParameters[i].second
@@ -694,7 +695,7 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
     string varName = currentParameters[i].first;
     doIndent();
 
-    stream << "deinit_taco_tensor_t(" << varName << "->dev);\n"; 
+    stream << "deinit_taco_tensor_t(" << varName << "_dev);\n"; 
     //stream << "free("<< varName << "_dev);\n";
   }
 }
@@ -1193,7 +1194,8 @@ void CodeGen_CUDA::visit(const Allocate* op) {
   }
 
   doIndent();
-  stream << "gpuErrchk(cudaMalloc((void**)&";
+  stream << "gpuErrchk(cudaMallocManaged((void**)&";
+  //stream << "gpuErrchk(cudaMalloc((void**)&";
   if (op->is_realloc) {
     stream << variable_name;
   }

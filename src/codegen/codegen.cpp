@@ -290,7 +290,7 @@ string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
           << "->dimensions[" << op->mode << "]);\n";
         break;
       case PRINT_MEM_HOST_TO_DEV:
-        ret << tensor->name << "_dev->dimension[" << op->mode << "] = " << tensor->name << "->dimension[" << op->mode << "];\n";
+        ret << tensor->name << "_dev->dimensions[" << op->mode << "] = " << tensor->name << "->dimensions[" << op->mode << "];\n";
         break;
     }
   } else {
@@ -324,7 +324,7 @@ string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
           ret << tensor->name << "->indices[" << op->mode << "][" << nm << "], ";
           ret << "malloc_usable_size(";
           ret << tensor->name << "_dev->indices[" << op->mode << "][" << nm << "]), ";
-          ret << "cudaMemcpyDevicetToHost);\n";
+          ret << "cudaMemcpyDeviceToHost);\n";
         }
         ret << "cudaFree(";
         ret << tensor->name << "_dev" << "->indices[" << op->mode << "][" << nm << "]);\n";
