@@ -1,0 +1,9 @@
+name: taco
+channels:
+  - local
+  - conda-forge
+dependencies:
+  - cmake
+  - llvmdev=11
+  - llvm-openmp=11
+  - compilers
