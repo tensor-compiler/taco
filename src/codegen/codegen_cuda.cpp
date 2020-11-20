@@ -313,6 +313,7 @@ public:
       taco_iassert(var) << "Outputs must be vars in codegen";
       taco_iassert(scopeMap.count(var) == 0) <<
                                              "Duplicate output found in codegen";
+      taco_iassert(outputs.size() == 1) << "The number of outputs should be 1";
       output_tensor = var->name; // Isn't there only one output?
       scopeMap[var] = var->name;
     }
@@ -616,9 +617,12 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
     taco_iassert(currentParameters[i].second.as<Var>()) << "Unable to convert output " << currentParameters[i].second
       << " to Var";
     string varName = currentParameters[i].first;
-    stream << "taco_tensor_t *"<< varName << "_dev = (taco_tensor_t *)malloc(sizeof(taco_tensor_t *));\n";
+    //stream << "taco_tensor_t *"<< varName << "_dev = (taco_tensor_t *)malloc(sizeof(taco_tensor_t *));\n";
+    stream << "taco_tensor_t *"<< varName << "_dev = init_taco_tensor_t(" << varName << "->order, " << varName << "->csize, " << varName << "->dimensions, "
+	   << varName << "->mode_ordering, " << varName << "->mode_types);\n"; 
     doIndent();
   }
+
 
   // for MemcpyHostToDev
   stream << funcName << "MemcpyHostToDev" << index << "(";
@@ -689,7 +693,9 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
 	  << " to Var";
     string varName = currentParameters[i].first;
     doIndent();
-    stream << "free("<< varName << "_dev);\n";
+
+    stream << "deinit_taco_tensor_t(" << varName << "->dev);\n"; 
+    //stream << "free("<< varName << "_dev);\n";
   }
 }
 

@@ -1,9 +1,10 @@
 #ifndef TACO_CODEGEN_H
 #define TACO_CODEGEN_H
 
-#define PRINT_FUNC 0
-#define PRINT_MEM_HOST_TO_DEV 1
-#define PRINT_MEM_DEV_TO_HOST 2
+//#define PRINT_FUNC 0
+//#define PRINT_MEM_HOST_TO_DEV 1
+//#define PRINT_MEM_DEV_TO_HOST 2
+enum func_selector {PRINT_FUNC, PRINT_MEM_HOST_TO_DEV, PRINT_MEM_DEV_TO_HOST};
 
 #include <memory>
 #include "taco/ir/ir.h"
