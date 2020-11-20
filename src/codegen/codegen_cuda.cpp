@@ -158,6 +158,48 @@ const string gpuAssertMacro =
   "  }\n"
   "}\n";
 
+const string tensor_allocation=
+"taco_tensor_t* init_taco_tensor_t(int32_t order, int32_t csize,\n"
+"                        int32_t* dimensions, int32_t* modeOrdering,\n"
+"                        taco_mode_t* mode_types) {\n"
+"  taco_tensor_t* t = (taco_tensor_t *) malloc(sizeof(taco_tensor_t));\n"
+"  t->order         = order;\n"
+"  t->dimensions = (int32_t *) malloc(order * sizeof(int32_t));\n"
+"  t->mode_ordering = (int32_t *) malloc(order * sizeof(int32_t));\n"
+"  t->mode_types = (taco_mode_t *) malloc(order * sizeof(taco_mode_t));\n"
+"  t->indices = (uint8_t ***) malloc(order * sizeof(uint8_t***));\n"
+"  t->csize         = csize;\n"
+"\n"
+"  for (int32_t i = 0; i < order; i++) {\n"
+"    t->dimensions[i]    = dimensions[i];\n"
+"    t->mode_ordering[i] = modeOrdering[i];\n"
+"    t->mode_types[i]    = mode_types[i];\n"
+"    switch (t->mode_types[i]) {\n"
+"      case taco_mode_dense:\n"
+"        t->indices[i] = (uint8_t **) malloc(1 * sizeof(uint8_t **));\n"
+"        break;\n"
+"      case taco_mode_sparse:\n"
+"        t->indices[i] = (uint8_t **) malloc(2 * sizeof(uint8_t **));\n"
+"        break;\n"
+"    }\n"
+"  }\n"
+"  return t;\n"
+"}\n"
+"\n"
+"void deinit_taco_tensor_t(taco_tensor_t* t) {\n"
+"  for (int i = 0; i < t->order; i++) {\n"
+"    free(t->indices[i]);\n"
+"  }\n"
+"  free(t->indices);\n"
+"\n"
+"  free(t->dimensions);\n"
+"  free(t->mode_ordering);\n"
+"  free(t->mode_types);\n"
+"  free(t);\n"
+"}\n";
+
+
+
 const std::string blue="\033[38;5;67m";
 const std::string nc="\033[0m";
 } // anonymous namespace
@@ -725,6 +767,7 @@ void CodeGen_CUDA::compile(Stmt stmt, bool isFirst) {
     out << cHeaders;
     if (outputKind == ImplementationGen) {
       out << endl << gpuAssertMacro;
+      out << endl << tensor_allocation;
     }
   }
   out << endl;
@@ -1194,8 +1237,9 @@ void CodeGen_CUDA::visit(const Allocate* op) {
   }
 
   doIndent();
-  stream << "gpuErrchk(cudaMallocManaged((void**)&";
   //stream << "gpuErrchk(cudaMalloc((void**)&";
+  
+  stream << "gpuErrchk(cudaMallocManaged((void**)&";
   if (op->is_realloc) {
     stream << variable_name;
   }
@@ -1209,6 +1253,21 @@ void CodeGen_CUDA::visit(const Allocate* op) {
   op->num_elements.accept(this);
   parentPrecedence = TOP;
   stream << "));" << endl;
+
+  /*
+  if (op->is_realloc) {
+    stream << variable_name;
+  }
+  else {
+    op->var.accept(this);
+  }
+  stream << "= (" << elementType << "*)malloc(";
+  stream << "sizeof(" << elementType << ")";
+  stream << " * ";
+  parentPrecedence = MUL;
+  op->num_elements.accept(this);
+  parentPrecedence = TOP;
+  stream << ");" << endl;*/
 
   if(op->is_realloc) {
     doIndent();
