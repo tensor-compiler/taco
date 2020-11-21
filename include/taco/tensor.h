@@ -76,6 +76,11 @@ public:
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions,
              Format format);
 
+  /// Create a tensor with the given data type, dimensions, format and
+  /// memory location
+  TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions,
+             Format format, MemoryLocation memoryLocation);
+
   /* --- Metadata Methods    --- */
 
   /// Set the name of the tensor.
@@ -98,6 +103,9 @@ public:
 
   /// Get the format the tensor is packed into
   const Format& getFormat() const;
+
+  /// Get the format the tensor is packed into
+  const MemoryLocation getMemoryLocation() const;
 
   /// Set the tensor's storage
   void setStorage(TensorStorage storage);
@@ -575,6 +583,10 @@ public:
   /// Create a tensor with the given name, dimensions and format
   Tensor(std::string name, std::vector<int> dimensions, Format format);
 
+  /// Create a tensor with the given name, dimensions, format and memory location
+  Tensor(std::string name, std::vector<int> dimensions,
+         Format format, MemoryLocation memoryLocation);
+
   /// Create a tensor from a TensorBase instance. The Tensor and TensorBase
   /// objects will reference the same underlying tensor so it is a shallow copy.
   Tensor(const TensorBase& tensor);
@@ -896,10 +908,11 @@ struct TensorBase::Content {
   unsigned int       uniqueId;
 
   Content(std::string name, Datatype dataType, const std::vector<int>& dimensions,
-          Format format)
+          Format format, MemoryLocation memoryLocation)
       : dataType(dataType), dimensions(dimensions),
         storage(TensorStorage(dataType, dimensions, format)),
-        tensorVar(TensorVar(util::getUniqueId(), name, Type(dataType,convert(dimensions)),format)) {
+        tensorVar(TensorVar(util::getUniqueId(), name, Type(dataType,convert(dimensions)),format,
+                  memoryLocation)) {
           uniqueId = tensorVar.getId();
         }
 };
@@ -1078,6 +1091,11 @@ Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions,
 template <typename CType>
 Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions, Format format)
     : TensorBase(name, type<CType>(), dimensions, format) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions,
+                      Format format, MemoryLocation memoryLocation)
+    : TensorBase(name, type<CType>(), dimensions, format, memoryLocation) {}
 
 template <typename CType>
 Tensor<CType>::Tensor(const TensorBase& tensor) : TensorBase(tensor) {

@@ -2074,6 +2074,7 @@ struct TensorVar::Content {
   Type type;
   Format format;
   Schedule schedule;
+  MemoryLocation memoryLocation;
 };
 
 TensorVar::TensorVar() : content(nullptr) {
@@ -2088,24 +2089,28 @@ TensorVar::TensorVar(const Type& type)
 }
 
 TensorVar::TensorVar(const std::string& name, const Type& type)
-: TensorVar(-1, name, type, createDenseFormat(type)) {
+: TensorVar(-1, name, type, createDenseFormat(type), MemoryLocation::Default) {
 }
 
 TensorVar::TensorVar(const Type& type, const Format& format)
-    : TensorVar(-1, util::uniqueName('A'), type, format) {
+    : TensorVar(-1, util::uniqueName('A'), type, format, MemoryLocation::Default) {
 }
 
 TensorVar::TensorVar(const string& name, const Type& type, const Format& format)
-    : TensorVar(-1, name, type, format) {
+    : TensorVar(-1, name, type, format, MemoryLocation::Default) {
 }
 
-TensorVar::TensorVar(const string& name, const Type& type, const Format& format
-                      const MemoryLocation memoryLocation=MemoryLocation::Default)
+TensorVar::TensorVar(const int& id, const string& name, const Type& type, const Format& format)
+  : TensorVar(id, name, type, format, MemoryLocation::Default) {
+}
+
+TensorVar::TensorVar(const string& name, const Type& type, const Format& format,
+                      const MemoryLocation memoryLocation)
     : TensorVar(-1, name, type, format, memoryLocation) {
 }
 
-TensorVar::TensorVar(const int& id, const string& name, const Type& type, const Format& format
-                      const MemoryLocation memoryLocation=MemoryLocation::Default)
+TensorVar::TensorVar(const int& id, const string& name, const Type& type, const Format& format,
+                      const MemoryLocation memoryLocation)
     : content(new Content) {
   content->id = id;
   content->name = name;
@@ -2116,6 +2121,7 @@ TensorVar::TensorVar(const int& id, const string& name, const Type& type, const 
 
 int TensorVar::getId() const {
   return content->id;
+}
 
 std::string TensorVar::getName() const {
   return content->name;
@@ -2131,6 +2137,10 @@ const Type& TensorVar::getType() const {
 
 const Format& TensorVar::getFormat() const {
   return content->format;
+}
+
+const MemoryLocation TensorVar::getMemoryLocation() const {
+  return content->memoryLocation;
 }
 
 const Schedule& TensorVar::getSchedule() const {
