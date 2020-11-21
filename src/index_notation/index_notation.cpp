@@ -1833,22 +1833,20 @@ TensorVar::TensorVar(const Type& type)
 }
 
 TensorVar::TensorVar(const std::string& name, const Type& type)
-: TensorVar(name, type, createDenseFormat(type)) {
+    : TensorVar(name, type, createDenseFormat(type), MemoryLocation::Default) {
 }
 
 TensorVar::TensorVar(const Type& type, const Format& format)
-    : TensorVar(util::uniqueName('A'), type, format) {
+    : TensorVar(util::uniqueName('A'), type, format, MemoryLocation::Default) {
 }
 
-TensorVar::TensorVar(const string& name, const Type& type, const Format& format)
-    : content(new Content) {
-  content->name = name;
-  content->type = type;
-  content->format = format;
+TensorVar::TensorVar(const string& name, const Type& type,
+                     const Format& format)
+    : TensorVar(name, type, format, MemoryLocation::Default) {
 }
 
 TensorVar::TensorVar(const string& name, const Type& type, const Format& format,
-                      const MemoryLocation memoryLocation=MemoryLocation::Default)
+                      const MemoryLocation memoryLocation)
     : content(new Content) {
   content->name = name;
   content->type = type;

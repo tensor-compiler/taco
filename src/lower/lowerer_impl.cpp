@@ -456,7 +456,6 @@ Stmt LowererImpl::lowerForall(Forall forall)
     vector<Iterator> appenders;
     vector<Iterator> inserters;
     tie(appenders, inserters) = splitAppenderAndInserters(point.results());
-    
     std::vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(iterator.getIndexVar());
     IndexVar posDescendant;
     bool hasPosDescendant = false;
@@ -1364,7 +1363,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
   for (auto it = temporaryInitialization.begin(); it != temporaryInitialization.end(); ++it) {
     if (it->second == where && it->first.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temporary.getType())) {
       temporaryHoisted = true;
-    }  
+    }
   }
 
   if (!temporaryHoisted)

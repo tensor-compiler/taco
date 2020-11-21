@@ -872,7 +872,7 @@ public:
   const Schedule& getSchedule() const;
 
   /// Returns the memory location of the tensor variable
-  const MemoryLocation getMemoryLocation() const;
+  MemoryLocation getMemoryLocation() const;
 
   /// Set the name of the tensor variable.
   void setName(std::string name);
