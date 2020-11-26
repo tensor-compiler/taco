@@ -1871,6 +1871,10 @@ const Format& TensorVar::getFormat() const {
   return content->format;
 }
 
+MemoryLocation TensorVar::getMemoryLocation() const {
+  return content->memoryLocation;
+}
+
 const Schedule& TensorVar::getSchedule() const {
   struct GetSchedule : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;

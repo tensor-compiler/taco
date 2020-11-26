@@ -852,8 +852,8 @@ public:
   TensorVar(const std::string& name, const Type& type);
   TensorVar(const Type& type, const Format& format);
   TensorVar(const std::string& name, const Type& type, const Format& format);
-  /// TODO: Should the memory location be const?
-  TensorVar(const std::string& name, const Type& type, const Format& format, const MemoryLocation memoryLocation=MemoryLocation::Default);
+  TensorVar(const std::string& name, const Type& type, const Format& format,
+            const MemoryLocation memoryLocation);
 
   /// Returns the name of the tensor variable.
   std::string getName() const;

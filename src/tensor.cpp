@@ -79,6 +79,12 @@ TensorBase::TensorBase(std::string name, Datatype ctype,
                  MemoryLocation::Default) {
 }
 
+TensorBase::TensorBase(std::string name, Datatype ctype,
+                       std::vector<int> dimensions, Format format)
+    : TensorBase(name, ctype, dimensions, format,
+                 MemoryLocation::Default) {
+}
+
 static Format initFormat(Format format) {
   // Initialize coordinate types for Format if not already set
   if (format.getLevelArrayTypes().size() < (size_t)format.getOrder()) {
