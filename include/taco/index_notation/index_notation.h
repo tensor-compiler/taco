@@ -1047,8 +1047,10 @@ public:
   TensorVar(const int &id, const std::string& name, const Type& type, const Format& format);
 
   /// TODO: Should the memory location be const?
-  TensorVar(const std::string& name, const Type& type, const Format& format, const MemoryLocation memoryLocation);
-  TensorVar(const int &id, const std::string& name, const Type& type, const Format& format, const MemoryLocation memoryLocation);
+  TensorVar(const std::string& name, const Type& type, const Format& format,
+            const MemoryLocation memoryLocation);
+  TensorVar(const int &id, const std::string& name, const Type& type, const Format& format, 
+            const MemoryLocation memoryLocation);
 
   /// Returns the ID of the tensor variable.
   int getId() const;

@@ -81,8 +81,8 @@ TensorBase::TensorBase(std::string name, Datatype ctype,
 
 TensorBase::TensorBase(std::string name, Datatype ctype,
                        std::vector<int> dimensions, Format format)
-  : TensorBase(name, ctype, dimensions, format,
-               MemoryLocation::Default) {
+    : TensorBase(name, ctype, dimensions, format,
+                 MemoryLocation::Default) {
 }
 
 static Format initFormat(Format format) {

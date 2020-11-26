@@ -2139,7 +2139,7 @@ const Format& TensorVar::getFormat() const {
   return content->format;
 }
 
-const MemoryLocation TensorVar::getMemoryLocation() const {
+MemoryLocation TensorVar::getMemoryLocation() const {
   return content->memoryLocation;
 }
 
