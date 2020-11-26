@@ -155,7 +155,7 @@ const Format& TensorBase::getFormat() const {
   return content->storage.getFormat();
 }
 
-const MemoryLocation TensorBase::getMemoryLocation() const {
+MemoryLocation TensorBase::getMemoryLocation() const {
   return content->tensorVar.getMemoryLocation();
 }
 

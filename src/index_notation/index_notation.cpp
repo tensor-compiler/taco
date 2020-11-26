@@ -1819,6 +1819,7 @@ struct TensorVar::Content {
   Type type;
   Format format;
   Schedule schedule;
+  MemoryLocation memoryLocation;
 };
 
 TensorVar::TensorVar() : content(nullptr) {
@@ -2789,13 +2790,14 @@ IndexStmt zero(IndexStmt stmt, const std::set<Access>& zeroed) {
   return Zero(zeroed).rewrite(stmt);
 }
 
+// TODO: May not be default
 IndexStmt generatePackStmt(TensorVar tensor, 
                            std::string otherName, Format otherFormat, 
                            std::vector<IndexVar> indexVars, 
                            bool otherIsOnRight) { 
 
   const Type type = tensor.getType();
-  TensorVar other(otherName, type, otherFormat);
+  TensorVar other(otherName, type, otherFormat, MemoryLocation::Default);
 
   const Format format = tensor.getFormat();
   IndexStmt packStmt = otherIsOnRight ? 
