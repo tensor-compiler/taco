@@ -687,7 +687,8 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
           for (auto assignment : precomputeAssignments) {
             // Construct temporary of correct type and size of outer loop
-            TensorVar w(string("w_") + ParallelUnit_NAMES[(int) parallelize.getParallelUnit()], Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense);
+            // TODO need not necessarily be default
+            TensorVar w(string("w_") + ParallelUnit_NAMES[(int) parallelize.getParallelUnit()], Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense, MemoryLocation::Default);
 
             // rewrite producer to write to temporary, mark producer as parallel
             IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, w(i)}})).rewrite(precomputed_stmt);
@@ -1665,10 +1666,11 @@ static IndexStmt optimizeSpMM(IndexStmt stmt) {
   }
 
   // It's an SpMM statement so return an optimized SpMM statement
+  // TODO: May not be default
   TensorVar w("w",
               Type(A.getType().getDataType(), 
               {A.getType().getShape().getDimension(1)}),
-              taco::dense);
+              taco::dense, MemoryLocation::Default);
   return forall(i,
                 where(forall(j,
                              A(i,j) = w(j)),
