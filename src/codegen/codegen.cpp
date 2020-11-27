@@ -1,7 +1,9 @@
 #include "codegen.h"
 #include "taco/cuda.h"
+#include "taco/llvm.h"
 #include "codegen_cuda.h"
 #include "codegen_c.h"
+#include "codegen_llvm.h"
 #include <algorithm>
 #include <unordered_set>
 
@@ -25,6 +27,9 @@ const std::string labelPrefix = "resume_";
 shared_ptr<CodeGen> CodeGen::init_default(std::ostream &dest, OutputKind outputKind) {
   if (should_use_CUDA_codegen()) {
     return make_shared<CodeGen_CUDA>(dest, outputKind);
+  }
+  if (should_use_LLVM_codegen()){
+    return make_shared<CodeGen_LLVM>(dest, outputKind);
   }
   else {
     return make_shared<CodeGen_C>(dest, outputKind);

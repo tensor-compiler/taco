@@ -13,7 +13,7 @@ class CodeGen : public IRPrinter {
 public:
   /// Kind of output: header or implementation
   enum OutputKind { HeaderGen, ImplementationGen };
-  enum CodeGenType { C, CUDA };
+  enum CodeGenType { C, CUDA, LLVM };
 
   CodeGen(std::ostream& stream, CodeGenType type) : IRPrinter(stream), codeGenType(type) {};
   CodeGen(std::ostream& stream, bool color, bool simplify, CodeGenType type) : IRPrinter(stream, color, simplify), codeGenType(type) {};

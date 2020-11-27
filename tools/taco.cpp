@@ -27,6 +27,7 @@
 #include "taco/util/env.h"
 #include "taco/util/collections.h"
 #include "taco/cuda.h"
+#include "taco/llvm.h"
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/index_notation/index_notation_nodes.h"
@@ -491,6 +492,7 @@ int main(int argc, char* argv[]) {
   bool color               = true;
   bool readKernels         = false;
   bool cuda                = false;
+  bool llvm                = false;
 
   bool setSchedule         = false; 
 
@@ -780,6 +782,9 @@ int main(int argc, char* argv[]) {
     else if ("-cuda" == argName) {
       cuda = true;
     }
+    else if ("-llvm" == argName) {
+      llvm = true;
+    }
     else if ("-schedule" == argName) {
       vector<string> descriptor = util::split(argValue, ",");
       if (descriptor.size() > 2 || descriptor.empty()) {
@@ -949,6 +954,17 @@ int main(int argc, char* argv[]) {
   }
   else {
     set_CUDA_codegen_enabled(false);
+  }
+
+  if (llvm) {
+    if (!USE_LLVM) {
+      return reportError("TACO must be built with LLVM (cmake -DLLVM=ON ..) to generate LLVM kernels.", 2);
+    }
+    set_LLVM_codegen_enabled(true);
+  }
+  else
+  {
+    set_LLVM_codegen_enabled(false);
   }
 
   stmt = scalarPromote(stmt);
