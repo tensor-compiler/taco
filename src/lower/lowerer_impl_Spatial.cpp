@@ -71,4 +71,55 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
            ? getTemporaryArrays().at(var).values
            : GetProperty::make(getTensorVar(var), TensorProperty::Values, 0, var.getOrder());
   }
+
+  vector<Stmt> LowererImplSpatial::codeToInitializeTemporary(Where where) {
+    TensorVar temporary = where.getTemporary();
+
+    Stmt freeTemporary = Stmt();
+    Stmt initializeTemporary = Stmt();
+    if (isScalar(temporary.getType())) {
+      initializeTemporary = defineScalarVariable(temporary, true);
+    } else {
+      if (generateComputeCode()) {
+        Expr values = ir::Var::make(temporary.getName(),
+                                    temporary.getType().getDataType(),
+                                    true, false);
+        taco_iassert(temporary.getType().getOrder() == 1) << " Temporary order was "
+                                                          << temporary.getType().getOrder();  // TODO
+        Dimension temporarySize = temporary.getType().getShape().getDimension(0);
+        Expr size;
+        if (temporarySize.isFixed()) {
+          size = ir::Literal::make(temporarySize.getSize());
+        } else if (temporarySize.isIndexVarSized()) {
+          IndexVar var = temporarySize.getIndexVarSize();
+          vector<Expr> bounds = getProvGraph().deriveIterBounds(var, getDefinedIndexVarsOrdered(), getUnderivedBounds(),
+                                                           getIndexVarToExprMap(), getIterators());
+          size = ir::Sub::make(bounds[1], bounds[0]);
+        } else {
+          taco_ierror; // TODO
+        }
+
+        // no decl needed for Spatial memory
+//        Stmt decl = Stmt();
+//        if ((isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) || !should_use_CUDA_codegen()) {
+//          decl = (values, ir::Literal::make(0));
+//        }
+        Stmt allocate = Allocate::make(values, size);
+
+        Expr p = Var::make("p" + temporary.getName(), Int());
+        Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
+        Stmt zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
+
+        /// Make a struct object that lowerAssignment and lowerAccess can read
+        /// temporary value arrays from.
+        TemporaryArrays arrays;
+        arrays.values = values;
+        this->getTemporaryArrays().insert({temporary, arrays});
+
+        freeTemporary = Free::make(values);
+        initializeTemporary = Block::make(allocate, zeroInitLoop);
+      }
+    }
+    return {initializeTemporary, freeTemporary};
+  }
 } // namespace taco

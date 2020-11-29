@@ -3541,4 +3541,25 @@ util::ScopedSet<Iterator> LowererImpl::getAccessibleIterators() const {
 map<TensorVar, TemporaryArrays> LowererImpl::getTemporaryArrays() const {
   return temporaryArrays;
 }
+
+ProvenanceGraph LowererImpl::getProvGraph() const {
+  return provGraph;
+}
+
+vector<IndexVar> LowererImpl::getDefinedIndexVarsOrdered() const {
+  return definedIndexVarsOrdered;
+}
+
+map<IndexVar, vector<Expr>> LowererImpl::getUnderivedBounds() const {
+  return underivedBounds;
+}
+
+Iterators LowererImpl::getIterators() const {
+  return iterators;
+}
+
+map<IndexVar, ir::Expr> LowererImpl::getIndexVarToExprMap() const {
+  return indexVarToExprMap;
+}
+
 }

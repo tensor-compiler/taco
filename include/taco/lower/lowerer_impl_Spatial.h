@@ -23,6 +23,9 @@ protected:
   /// Retrieve the values array of the tensor var.
   ir::Expr getValuesArray(TensorVar) const;
 
+  /// Initialize temporary variables
+  std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
+
 private:
   class Visitor;
   friend class Visitor;

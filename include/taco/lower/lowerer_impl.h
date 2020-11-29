@@ -356,7 +356,7 @@ protected:
   std::pair<bool,bool> canAccelerateDenseTemp(Where where);
 
   /// Initializes a temporary workspace
-  std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
+  virtual std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
 
   /// Gets the size of a temporary tensorVar in the where statement
   ir::Expr getTemporarySize(Where where);
@@ -431,10 +431,21 @@ protected:
   /// loop iterator variable should be incremented when the guard is fired.
   ir::Stmt strideBoundsGuard(Iterator iterator, ir::Expr access, bool incrementPosVar);
 
+  /// FIXME: Will need to change plugin interface. Currently accessor methods
+  /// Accessor methods needed for Spatial lowerer impl
   /// Accessor method for private attribute accessibleIterators
   util::ScopedSet<Iterator> getAccessibleIterators() const;
 
   std::map<TensorVar, TemporaryArrays> getTemporaryArrays() const;
+
+  ProvenanceGraph getProvGraph() const;
+
+  Iterators getIterators() const;
+
+  std::map<IndexVar, ir::Expr> getIndexVarToExprMap() const;
+
+  std::vector<IndexVar> getDefinedIndexVarsOrdered() const;
+  std::map<IndexVar, std::vector<ir::Expr>> getUnderivedBounds() const;
 
 private:
   bool assemble;

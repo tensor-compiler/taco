@@ -517,7 +517,7 @@ void CodeGen_Spatial::visit(const For* op) {
     stream << " par " << op->unrollFactor;
   }
 
-  stream << ") {";
+  stream << ") { ";
   op->var.accept(this);
   stream << " =>\n";
 
@@ -618,39 +618,39 @@ void CodeGen_Spatial::visit(const Assign* op) {
   op->lhs.accept(this);
   parentPrecedence = Precedence::TOP;
   bool printed = false;
-  if (simplify) {
-    if (isa<ir::Add>(op->rhs)) {
-      auto add = to<Add>(op->rhs);
-      if (add->a == op->lhs) {
-        const Literal* lit = add->b.as<Literal>();
-        if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
-                               (lit->type.isUInt() && lit->equalsScalar(1)))) {
-          stream << "++";
-        }
-        else {
-          stream << " += ";
-          add->b.accept(this);
-        }
-        printed = true;
-      }
-    }
-    else if (isa<Mul>(op->rhs)) {
-      auto mul = to<Mul>(op->rhs);
-      if (mul->a == op->lhs) {
-        stream << " *= ";
-        mul->b.accept(this);
-        printed = true;
-      }
-    }
-    else if (isa<BitOr>(op->rhs)) {
-      auto bitOr = to<BitOr>(op->rhs);
-      if (bitOr->a == op->lhs) {
-        stream << " |= ";
-        bitOr->b.accept(this);
-        printed = true;
-      }
-    }
-  }
+//  if (simplify) {
+//    if (isa<ir::Add>(op->rhs)) {
+//      auto add = to<Add>(op->rhs);
+//      if (add->a == op->lhs) {
+//        const Literal* lit = add->b.as<Literal>();
+//        if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
+//                               (lit->type.isUInt() && lit->equalsScalar(1)))) {
+//          stream << "++";
+//        }
+//        else {
+//          stream << " += ";
+//          add->b.accept(this);
+//        }
+//        printed = true;
+//      }
+//    }
+//    else if (isa<Mul>(op->rhs)) {
+//      auto mul = to<Mul>(op->rhs);
+//      if (mul->a == op->lhs) {
+//        stream << " *= ";
+//        mul->b.accept(this);
+//        printed = true;
+//      }
+//    }
+//    else if (isa<BitOr>(op->rhs)) {
+//      auto bitOr = to<BitOr>(op->rhs);
+//      if (bitOr->a == op->lhs) {
+//        stream << " |= ";
+//        bitOr->b.accept(this);
+//        printed = true;
+//      }
+//    }
+//  }
   if (!printed) {
     stream << " = ";
     op->rhs.accept(this);
