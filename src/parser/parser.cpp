@@ -21,6 +21,7 @@ struct Parser::Content {
   /// Tensor formats
   map<string,Format> formats;
   map<string,Datatype> dataTypes;
+  map<string,MemoryLocation> memoryLocations;
 
   /// Tensor dimensions
   map<string,std::vector<int>> tensorDimensions;
@@ -44,6 +45,7 @@ struct Parser::Content {
 
 Parser::Parser(string expression, const map<string,Format>& formats,
                const map<string,Datatype>& dataTypes,
+               const map<string,MemoryLocation>& memoryLocations,
                const map<string,std::vector<int>>& tensorDimensions,
                const std::map<std::string,TensorBase>& tensors,
                int defaultDimension)
@@ -54,6 +56,7 @@ Parser::Parser(string expression, const map<string,Format>& formats,
   content->defaultDimension = defaultDimension;
   content->tensors = tensors;
   content->dataTypes = dataTypes;
+  content->memoryLocations = memoryLocations;
   nextToken();
 }
 
@@ -146,7 +149,8 @@ TensorBase Parser::parseAssign() {
         else {
           tensor = TensorBase(op->tensorVar.getName(),
                               op->tensorVar.getType().getDataType(), dimensions,
-                              op->tensorVar.getFormat());
+                              op->tensorVar.getFormat(),
+                              op->tensorVar.getMemoryLocation());
           tensors.insert({tensor.getName(), tensor});
         }
         expr = tensor(op->indexVars);
@@ -334,7 +338,17 @@ Access Parser::parseAccess() {
     if (util::contains(content->dataTypes, tensorName)) {
       dataType = content->dataTypes.at(tensorName);
     }
-    tensor = TensorBase(tensorName,dataType,tensorDimensions,format);
+
+    MemoryLocation memoryLocation;
+    if (util::contains(content->memoryLocations, tensorName)) {
+      memoryLocation = content->memoryLocations.at(tensorName);
+    }
+    else {
+      memoryLocation = MemoryLocation::Default;
+    }
+    
+    tensor = TensorBase(tensorName,dataType,tensorDimensions,
+                        format,memoryLocation);
 
     for (size_t i = 0; i < tensorDimensions.size(); i++) {
       if (modesWithDefaults[i]) {

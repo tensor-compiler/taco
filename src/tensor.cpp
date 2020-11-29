@@ -57,23 +57,32 @@ TensorBase::TensorBase(Datatype ctype)
 }
 
 TensorBase::TensorBase(std::string name, Datatype ctype)
-    : TensorBase(name, ctype, {}, Format())  {
+  : TensorBase(name, ctype, {}, Format(), MemoryLocation::Default)  {
 }
 
 TensorBase::TensorBase(Datatype ctype, vector<int> dimensions,
                        ModeFormat modeType)
     : TensorBase(util::uniqueName('A'), ctype, dimensions,
-                 std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
+                 std::vector<ModeFormatPack>(dimensions.size(), modeType),
+                 MemoryLocation::Default) {
 }
 
 TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, Format format)
-    : TensorBase(util::uniqueName('A'), ctype, dimensions, format) {
+    : TensorBase(util::uniqueName('A'), ctype, dimensions, format,
+                 MemoryLocation::Default) {
 }
 
 TensorBase::TensorBase(std::string name, Datatype ctype,
                        std::vector<int> dimensions, ModeFormat modeType)
     : TensorBase(name, ctype, dimensions,
-                 std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
+                 std::vector<ModeFormatPack>(dimensions.size(), modeType),
+                 MemoryLocation::Default) {
+}
+
+TensorBase::TensorBase(std::string name, Datatype ctype,
+                       std::vector<int> dimensions, Format format)
+    : TensorBase(name, ctype, dimensions, format,
+                 MemoryLocation::Default) {
 }
 
 static Format initFormat(Format format) {
@@ -102,8 +111,9 @@ static Format initFormat(Format format) {
 }
 
 TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
-                       Format format)
-    : content(new Content(name, ctype, dimensions, initFormat(format))) {
+                       Format format, MemoryLocation memoryLocation)
+    : content(new Content(name, ctype, dimensions, initFormat(format),
+                          memoryLocation)) {
   taco_uassert((size_t)format.getOrder() == dimensions.size()) <<
       "The number of format mode types (" << format.getOrder() << ") " <<
       "must match the tensor order (" << dimensions.size() << ").";
@@ -150,6 +160,11 @@ int TensorBase::getOrder() const {
 const Format& TensorBase::getFormat() const {
   return content->storage.getFormat();
 }
+
+MemoryLocation TensorBase::getMemoryLocation() const {
+  return content->tensorVar.getMemoryLocation();
+}
+
 
 void TensorBase::reserve(size_t numCoordinates) {
   size_t newSize = content->coordinateBuffer->size() +

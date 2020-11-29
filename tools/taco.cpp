@@ -114,6 +114,11 @@ static void printUsageInfo() {
             "long, longlong, float, double, complexfloat, complexdouble"
             "Examples: A:uint16, b:long and D:complexfloat.");
   cout << endl;
+  printFlag("m=<tensor>:<memory>",
+            "Specify the memory location of a tensor"
+            "Available types: Default, GPUShared"
+            "Examples: A:Default, B:GPUShared");
+  cout << endl;
   printFlag("s=\"<command>(<params>)\"",
             "Specify a scheduling command to apply to the generated code. "
             "Parameters take the form of a comma-delimited list. "
@@ -508,6 +513,7 @@ int main(int argc, char* argv[]) {
   map<string,Format> formats;
   map<string,std::vector<int>> tensorsDimensions;
   map<string,Datatype> dataTypes;
+  map<string,MemoryLocation> memoryLocations;
   map<string,taco::util::FillMethod> tensorsFill;
   map<string,string> inputFilenames;
   map<string,string> outputFilenames;
@@ -631,6 +637,16 @@ int main(int argc, char* argv[]) {
       else return reportError("Incorrect format descriptor", 3);
       dataTypes.insert({tensorName, dataType});
     }
+    else if ("-m" == argName) {
+      // TODO: Create enum correctly
+      vector<string> descriptor = util::split(argValue, ":");
+      // if (descriptor.size() != 2) {
+      //   // TODO: What number?
+      //   return reportError("Incorrect memory descriptor", 3);
+      // }
+      string tensorName = descriptor[0];
+      memoryLocations.insert({tensorName, MemoryLocation::Default});
+    }   
     else if ("-d" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
       string tensorName = descriptor[0];
@@ -882,7 +898,8 @@ int main(int argc, char* argv[]) {
   }
 
   TensorBase tensor;
-  parser::Parser parser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, 42);
+  parser::Parser parser(exprStr, formats, dataTypes, memoryLocations,
+                        tensorsDimensions, loadedTensors, 42);
   try {
     parser.parse();
     tensor = parser.getResultTensor();
@@ -995,8 +1012,8 @@ int main(int argc, char* argv[]) {
       try {
         auto operands = parser.getTensors();
         operands.erase(parser.getResultTensor().getName());
-        parser::Parser parser2(exprStr, formats, dataTypes, tensorsDimensions,
-                               operands, 42);
+        parser::Parser parser2(exprStr, formats, dataTypes, memoryLocations,
+                               tensorsDimensions, operands, 42);
         parser2.parse();
         customTensor = parser2.getResultTensor();
       } catch (parser::ParseError& e) {

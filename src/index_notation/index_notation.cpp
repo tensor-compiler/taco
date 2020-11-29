@@ -1819,6 +1819,7 @@ struct TensorVar::Content {
   Type type;
   Format format;
   Schedule schedule;
+  MemoryLocation memoryLocation;
 };
 
 TensorVar::TensorVar() : content(nullptr) {
@@ -1833,18 +1834,25 @@ TensorVar::TensorVar(const Type& type)
 }
 
 TensorVar::TensorVar(const std::string& name, const Type& type)
-: TensorVar(name, type, createDenseFormat(type)) {
+    : TensorVar(name, type, createDenseFormat(type), MemoryLocation::Default) {
 }
 
 TensorVar::TensorVar(const Type& type, const Format& format)
-    : TensorVar(util::uniqueName('A'), type, format) {
+    : TensorVar(util::uniqueName('A'), type, format, MemoryLocation::Default) {
 }
 
-TensorVar::TensorVar(const string& name, const Type& type, const Format& format)
+TensorVar::TensorVar(const string& name, const Type& type,
+                     const Format& format)
+    : TensorVar(name, type, format, MemoryLocation::Default) {
+}
+
+TensorVar::TensorVar(const string& name, const Type& type, const Format& format,
+                      const MemoryLocation memoryLocation)
     : content(new Content) {
   content->name = name;
   content->type = type;
   content->format = format;
+  content->memoryLocation = memoryLocation;
 }
 
 std::string TensorVar::getName() const {
@@ -1861,6 +1869,10 @@ const Type& TensorVar::getType() const {
 
 const Format& TensorVar::getFormat() const {
   return content->format;
+}
+
+MemoryLocation TensorVar::getMemoryLocation() const {
+  return content->memoryLocation;
 }
 
 const Schedule& TensorVar::getSchedule() const {
@@ -2782,13 +2794,14 @@ IndexStmt zero(IndexStmt stmt, const std::set<Access>& zeroed) {
   return Zero(zeroed).rewrite(stmt);
 }
 
+// TODO: May not be default
 IndexStmt generatePackStmt(TensorVar tensor, 
                            std::string otherName, Format otherFormat, 
                            std::vector<IndexVar> indexVars, 
                            bool otherIsOnRight) { 
 
   const Type type = tensor.getType();
-  TensorVar other(otherName, type, otherFormat);
+  TensorVar other(otherName, type, otherFormat, MemoryLocation::Default);
 
   const Format format = tensor.getFormat();
   IndexStmt packStmt = otherIsOnRight ? 
