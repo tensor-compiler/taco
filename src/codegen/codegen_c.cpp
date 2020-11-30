@@ -190,6 +190,7 @@ protected:
     if (!util::contains(localVars, op->var)) {
       localVars.push_back(op->var);
     }
+    op->var.accept(this);
     op->rhs.accept(this);
   }
 

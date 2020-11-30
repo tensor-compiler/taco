@@ -236,5 +236,10 @@ void IRVisitor::visit(const Print* op) {
     e.accept(this);
 }
 
+void IRVisitor::visit(const Sort* op) {
+  for (auto e: op->args)
+    e.accept(this);
+}
+
 }  // namespace ir
 }  // namespace taco

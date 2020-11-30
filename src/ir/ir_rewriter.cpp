@@ -479,5 +479,23 @@ void IRRewriter::visit(const GetProperty* op) {
   }
 }
 
+void IRRewriter::visit(const Sort* op) {
+  std::vector<Expr> args;
+  bool rewritten = false;
+  for (auto& arg : op->args) {
+    Expr rewrittenArg = rewrite(arg);
+    args.push_back(rewrittenArg);
+    if (rewrittenArg != arg) {
+      rewritten = true;
+    }
+  }
+  if (rewritten) {
+    stmt = Sort::make(args);
+  }
+  else {
+    stmt = op;
+  }
+}
+
 
 }}

@@ -267,10 +267,11 @@ LowererImpl::lower(IndexStmt stmt, string name,
 Stmt LowererImpl::lowerAssignment(Assignment assignment)
 {
   TensorVar result = assignment.getLhs().getTensorVar();
+  Stmt computeStmt;
+  Expr rhs = lower(assignment.getRhs());
 
   if (generateComputeCode()) {
     Expr var = getTensorVar(result);
-    Expr rhs = lower(assignment.getRhs());
 
     // Assignment to scalar variables.
     if (isScalar(result.getType())) {
@@ -288,7 +289,6 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
       Expr values = getValuesArray(result);
       Expr loc = generateValueLocExpr(assignment.getLhs());
 
-      Stmt computeStmt;
       if (!assignment.getOperator().defined()) {
         computeStmt = Store::make(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
       }
@@ -296,13 +296,46 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
         computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
       }
       taco_iassert(computeStmt.defined());
-      return computeStmt;
     }
   }
-  // We're only assembling so defer allocating value memory to the end when
-  // we'll know exactly how much we need.
-  else if (generateAssembleCode()) {
-    // TODO
+  // TODO: If only assembling so defer allocating value memory to the end when
+  //       we'll know exactly how much we need.
+  if (generateAssembleCode() || generateComputeCode()) {
+
+    bool temporaryWithSparseAcceleration = util::contains(tempToIndexList, result);
+    if(generateComputeCode() && !temporaryWithSparseAcceleration) {
+      taco_iassert(computeStmt.defined());
+      return computeStmt;
+    }
+
+    if(temporaryWithSparseAcceleration) {
+      Expr values = getValuesArray(result);
+      Expr loc = generateValueLocExpr(assignment.getLhs());
+      Stmt initialStorage = computeStmt;
+      if(assignment.getOperator().defined()) {
+        // computeStmt is a compund stmt so we need to emit an initial store into the temporary
+        initialStorage =  Store::make(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
+      }
+
+      Expr bitGuardArr = tempToBitGuard.at(result);
+      Expr indexList = tempToIndexList.at(result);
+      Expr indexListSize = tempToIndexListSize.at(result);
+
+      Stmt markBitGuardAsTrue = Store::make(bitGuardArr, loc, ir::Literal::make(true), markAssignsAtomicDepth > 0, atomicParallelUnit);
+      Stmt trackIndex = Store::make(indexList, indexListSize, loc, markAssignsAtomicDepth > 0, atomicParallelUnit);
+      Expr incrementSize = ir::Add::make(indexListSize, ir::Literal::make(1));
+      Stmt incrementStmt = Assign::make(indexListSize, incrementSize, markAssignsAtomicDepth > 0, atomicParallelUnit);
+
+      Stmt firstWriteAtIndex = Block::make(initialStorage, trackIndex, markBitGuardAsTrue, incrementStmt);
+      if(!generateComputeCode()) {
+        firstWriteAtIndex = Block::make(trackIndex, markBitGuardAsTrue, incrementStmt);
+      }
+
+      Expr readBitGuard = Load::make(bitGuardArr, loc);
+      Stmt finalStmt = IfThenElse::make(ir::Neg::make(readBitGuard), firstWriteAtIndex, computeStmt);
+      return finalStmt;
+    }
+
     return Stmt();
   }
   // We're neither assembling or computing so we emit nothing.
@@ -473,9 +506,26 @@ Stmt LowererImpl::lowerForall(Forall forall)
         }
       }
     }
+
+    // For now, this only works when consuming a single workspace.
+    bool canAccelWithSparseIteration = inParallelLoopDepth == 0 && provGraph.isFullyDerived(iterator.getIndexVar());
+    if (canAccelWithSparseIteration && iterator.isDimensionIterator() && locators.size() == 1) {
+      // We are iterating over a dimension and locating into a temporary with a tracker to keep indices. Instead, we
+      // can just iterate over the indices and locate into the dense workspace.
+      for (auto it = tensorVars.begin(); it != tensorVars.end(); ++it) {
+        if (it->second == locators[0].getTensor() && util::contains(tempToIndexList, it->first)) {
+          canAccelWithSparseIteration = true;
+          break;
+        }
+      }
+    }
+
     if (!isWhereProducer && hasPosDescendant && underivedAncestors.size() > 1 && provGraph.isPosVariable(iterator.getIndexVar()) && posDescendant == forall.getIndexVar()) {
       loops = lowerForallFusedPosition(forall, iterator, locators,
                                          inserters, appenders, reducedAccesses, recoveryStmt);
+    }
+    else if (canAccelWithSparseIteration) {
+      loops = lowerForallDenseAcceleration(forall, locators, inserters, appenders, reducedAccesses, recoveryStmt);
     }
     // Emit dimension coordinate iteration loop
     else if (iterator.isDimensionIterator()) {
@@ -853,6 +903,64 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
                        posAppend);
 }
 
+  Stmt LowererImpl::lowerForallDenseAcceleration(Forall forall,
+                                                 vector<Iterator> locators,
+                                                 vector<Iterator> inserters,
+                                                 vector<Iterator> appenders,
+                                                 set<Access> reducedAccesses,
+                                                 ir::Stmt recoveryStmt)
+  {
+    taco_iassert(locators.size() == 1) << "Optimizing a dense workspace is only supported when the consumer is the only RHS tensor";
+    taco_iassert(provGraph.isFullyDerived(forall.getIndexVar())) << "Sparsely accelerating a dense workspace only works with fully derived index vars";
+    taco_iassert(forall.getParallelUnit() == ParallelUnit::NotParallel) << "Sparsely accelerating a dense workspace only works within serial loops";
+
+
+    TensorVar var;
+    for (auto it = tensorVars.begin(); it != tensorVars.end(); ++it) {
+      if (it->second == locators[0].getTensor() && util::contains(tempToIndexList, it->first)) {
+        var = it->first;
+        break;
+      }
+    }
+
+    Expr indexList = tempToIndexList.at(var);
+    Expr indexListSize = tempToIndexListSize.at(var);
+    Expr bitGuard = tempToBitGuard.at(var);
+    Expr loopVar = ir::Var::make(var.getName() + "_index_locator", taco::Int32, false, false);
+    Expr coordinate = getCoordinateVar(forall.getIndexVar());
+
+    if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
+      markAssignsAtomicDepth++;
+      atomicParallelUnit = forall.getParallelUnit();
+    }
+
+    Stmt declareVar = VarDecl::make(coordinate, Load::make(indexList, loopVar));
+    Stmt body = lowerForallBody(coordinate, forall.getStmt(), locators, inserters, appenders, reducedAccesses);
+    Stmt resetGuard = ir::Store::make(bitGuard, loopVar, ir::Literal::make(false), markAssignsAtomicDepth > 0, atomicParallelUnit);
+    body = Block::make(declareVar, body, resetGuard);
+
+    if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
+      markAssignsAtomicDepth--;
+    }
+
+    body = Block::make({recoveryStmt, body});
+
+    Stmt posAppend = generateAppendPositions(appenders);
+
+    LoopKind kind = LoopKind::Serial;
+    if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
+      kind = LoopKind::Vectorized;
+    }
+    else if (forall.getParallelUnit() != ParallelUnit::NotParallel
+             && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
+      kind = LoopKind::Runtime;
+    }
+
+    return Block::blanks(For::make(loopVar, 0, indexListSize, 1, body, kind,
+                                         ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(),
+                                         ignoreVectorize ? 0 : forall.getUnrollFactor()),
+                                         posAppend);
+  }
 
 Stmt LowererImpl::lowerForallCoordinate(Forall forall, Iterator iterator,
                                         vector<Iterator> locators,
@@ -1301,32 +1409,156 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
                      appendCoords);
 }
 
+Expr LowererImpl::getTemporarySize(TensorVar temporary) {
+  Dimension temporarySize = temporary.getType().getShape().getDimension(0);
+
+  if (temporarySize.isFixed()) {
+    return ir::Literal::make(temporarySize.getSize());
+  }
+
+  if (temporarySize.isIndexVarSized()) {
+    IndexVar var = temporarySize.getIndexVarSize();
+    vector<Expr> bounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds,
+                                                     indexVarToExprMap, iterators);
+    return ir::Sub::make(bounds[1], bounds[0]);
+  }
+
+  taco_ierror; // TODO
+  return Expr();
+}
+
+vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
+  TensorVar temporary = where.getTemporary();
+
+  // TODO: emit as uint64 and manually emit bit pack code
+  const Datatype bitGuardType = taco::Bool;
+  const std::string bitGuardName = temporary.getName() + "_already_set";
+  const Expr bitGuardSize = getTemporarySize(temporary);
+  const Expr alreadySetArr = ir::Var::make(bitGuardName,
+                                           bitGuardType,
+                                           true, false);
+
+  // TODO: TACO should probably keep state on if it can use int32 or if it should switch to
+  //       using int64 for indices. This assumption is made in other places of taco.
+  const Datatype indexListType = taco::Int32;
+  const std::string indexListName = temporary.getName() + "_index_list";
+  const Expr indexListArr = ir::Var::make(indexListName,
+                                          indexListType,
+                                          true, false);
+
+  // no decl for shared memory
+  Stmt alreadySetDecl = Stmt();
+  Stmt indexListDecl = Stmt();
+  const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
+  const Stmt indexListSizeDecl = VarDecl::make(indexListSizeExpr, ir::Literal::make(0));
+  Stmt freeTemps = Block::make(Free::make(indexListArr), Free::make(alreadySetArr));
+  if ((isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) || !should_use_CUDA_codegen()) {
+    alreadySetDecl = VarDecl::make(alreadySetArr, ir::Literal::make(0));
+    indexListDecl = VarDecl::make(indexListArr, ir::Literal::make(0));
+  }
+
+  tempToIndexList[temporary] = indexListArr;
+  tempToIndexListSize[temporary] = indexListSizeExpr;
+  tempToBitGuard[temporary] = alreadySetArr;
+
+  Stmt allocateIndexList = Allocate::make(indexListArr, bitGuardSize);
+  if(should_use_CUDA_codegen()) {
+    Stmt allocateAlreadySet = Allocate::make(alreadySetArr, bitGuardSize);
+    Expr p = Var::make("p" + temporary.getName(), Int());
+    Stmt guardZeroInit = Store::make(alreadySetArr, p, ir::Literal::zero(bitGuardType));
+
+    Stmt zeroInitLoop = For::make(p, 0, bitGuardSize, 1, guardZeroInit, LoopKind::Serial);
+    Stmt inits = Block::make(indexListSizeDecl, alreadySetDecl, indexListDecl, allocateAlreadySet, allocateIndexList, zeroInitLoop);
+    return {inits, freeTemps};
+  } else {
+    Expr sizeOfElt = Sizeof::make(bitGuardType);
+    Expr callocAlreadySet = ir::Call::make("calloc", {bitGuardSize, sizeOfElt}, Int());
+    Stmt allocateAlreadySet = VarDecl::make(alreadySetArr, callocAlreadySet);
+    Stmt inits = Block::make(indexListSizeDecl, indexListDecl, allocateIndexList, allocateAlreadySet);
+    return {inits, freeTemps};
+  }
+
+}
+
+// Returns true if the following conditions are met:
+// 1) The temporary is a dense vector
+// 2) There is only one value on the right hand side of the consumer
+//    -- We would need to handle sparse acceleration in the merge lattices for multiple operands on the RHS
+// 3) There are no reduced accesses
+// 4) The left hand side of the where consumer is sparse
+// 5) CPU Code is being generated (TEMPORARY - This should be removed)
+//    -- The sorting calls and calloc call in lower where are CPU specific. We could map calloc to a cudaMalloc
+//       and use a library like CUB to emit the sort. CUB support is built into CUDA 11 but not prior versions
+//       of CUDA so in that case, we'd probably need to include the CUB headers in the generated code.
+bool LowererImpl::canAccelerateDenseTemp(Where where) {
+  TensorVar temporary = where.getTemporary();
+  // (1) Temporary is dense vector
+  if(!isDense(temporary.getFormat()) || temporary.getOrder() == 1) return false;
+
+  vector<Access> inputAccesses, resultAccesses;
+  set<Access> reducedAccesses;
+
+  inputAccesses = getArgumentAccesses(where.getConsumer());
+  // (2) Multiple operands in inputs (need lattice to reason about iteration)
+  if(inputAccesses.size() > 1 || inputAccesses.empty()) return false;
+
+  std::tie(resultAccesses, reducedAccesses) = getResultAccesses(where.getConsumer());
+  // (3) Contains reduced accesses
+  if(!reducedAccesses.empty()) return false;
+
+  // no or multiple results?
+  if(resultAccesses.size() > 1 || resultAccesses.empty()) return false;
+
+  // (4) Level of result is sparse
+  // No check for size of tempVar since we enforced the temporary is a vector and if there is only one RHS value,
+  // it must (should?) be the temporary
+  std::vector<IndexVar> tempVar = inputAccesses[0].getIndexVars();
+
+  // Get vars in result.
+  std::vector<IndexVar> resultVars = resultAccesses[0].getIndexVars();
+  auto it = std::find(resultVars.begin(), resultVars.end(), tempVar[0]);
+  int index = it != resultVars.end()? (int)(it - resultVars.begin()) + 1: -1;
+
+  // Var used in input is not in result? Probably would fail earlier but here just in case.
+  if(index == -1) return false;
+
+  int modeIndex = resultAccesses[0].getTensorVar().getFormat().getModeOrdering()[index];
+  ModeFormat varFmt = resultAccesses[0].getTensorVar().getFormat().getModeFormats()[modeIndex];
+
+  // Actual check for condition (4). If the current mode is full, no optimizations necessary
+  if(varFmt.isFull()) return false;
+
+  // TODO: TEMPORARY -- Needs to be removed
+  if(should_use_CUDA_codegen()) return false;
+
+  return true;
+}
+
 vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
   TensorVar temporary = where.getTemporary();
+
+  bool accelerateDense = canAccelerateDenseTemp(where);
 
   Stmt freeTemporary = Stmt();
   Stmt initializeTemporary = Stmt();
   if (isScalar(temporary.getType())) {
     initializeTemporary = defineScalarVariable(temporary, true);
   } else {
+    // When emitting code to accelerate dense workspaces with sparse iteration, we need the following arrays
+    // to construct the result indices
+    if(accelerateDense) {
+      vector<Stmt> initAndFree = codeToInitializeDenseAcceleratorArrays(where);
+      initializeTemporary = initAndFree[0];
+      freeTemporary = initAndFree[1];
+    }
+
     if (generateComputeCode()) {
       Expr values = ir::Var::make(temporary.getName(),
                                   temporary.getType().getDataType(),
                                   true, false);
       taco_iassert(temporary.getType().getOrder() == 1) << " Temporary order was "
                                                         << temporary.getType().getOrder();  // TODO
-      Dimension temporarySize = temporary.getType().getShape().getDimension(0);
-      Expr size;
-      if (temporarySize.isFixed()) {
-        size = ir::Literal::make(temporarySize.getSize());
-      } else if (temporarySize.isIndexVarSized()) {
-        IndexVar var = temporarySize.getIndexVarSize();
-        vector<Expr> bounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds,
-                                                         indexVarToExprMap, iterators);
-        size = ir::Sub::make(bounds[1], bounds[0]);
-      } else {
-        taco_ierror; // TODO
-      }
+      Expr size = getTemporarySize(temporary);
 
       // no decl needed for shared memory
       Stmt decl = Stmt();
@@ -1334,10 +1566,14 @@ vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
         decl = VarDecl::make(values, ir::Literal::make(0));
       }
       Stmt allocate = Allocate::make(values, size);
-
-      Expr p = Var::make("p" + temporary.getName(), Int());
-      Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
-      Stmt zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
+      // If we are using acceleration of the dense workspace, we do not need to initialize the values array
+      // since the bit guard will take care of setting the value array when necessary
+      Stmt zeroInitLoop = Stmt();
+      if(!accelerateDense) {
+        Expr p = Var::make("p" + temporary.getName(), Int());
+        Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
+        zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
+      }
 
       /// Make a struct object that lowerAssignment and lowerAccess can read
       /// temporary value arrays from.
@@ -1345,8 +1581,8 @@ vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
       arrays.values = values;
       this->temporaryArrays.insert({temporary, arrays});
 
-      freeTemporary = Free::make(values);
-      initializeTemporary = Block::make(decl, allocate, zeroInitLoop);
+      freeTemporary = Block::make(freeTemporary, Free::make(values));
+      initializeTemporary = Block::make(decl, initializeTemporary, allocate, zeroInitLoop);
     }
   }
   return {initializeTemporary, freeTemporary};
@@ -1354,6 +1590,7 @@ vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
 
 Stmt LowererImpl::lowerWhere(Where where) {
   TensorVar temporary = where.getTemporary();
+  bool accelarateDenseWorkSpace = canAccelerateDenseTemp(where);
 
   // Declare and initialize the where statement's temporary
   vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
@@ -1379,6 +1616,16 @@ Stmt LowererImpl::lowerWhere(Where where) {
   );
 
   Stmt consumer = lower(where.getConsumer());
+  if(accelarateDenseWorkSpace) {
+    // We need to sort the indices array
+    Expr listOfIndices = tempToIndexList.at(temporary);
+    Expr listOfIndicesSize = tempToIndexListSize.at(temporary);
+    Expr sizeOfElt = ir::Sizeof::make(listOfIndices.type());
+    Expr cmpName = ir::Var::make("cmp", Int());
+    Stmt sortCall = ir::Sort::make( {listOfIndices, listOfIndicesSize, sizeOfElt, cmpName});
+    consumer = Block::make(sortCall, consumer);
+  }
+
   whereConsumers.push_back(consumer);
   whereTemps.push_back(where.getTemporary());
   captureNextLocatePos = true;
