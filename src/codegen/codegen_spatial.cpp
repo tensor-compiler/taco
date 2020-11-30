@@ -740,16 +740,22 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << "val " << varname << "_sram = SRAM[T](";
-    for (int i = 1; i < op->index+1; i++) {
-      ret << tensor->name << i << "_dimension_sram";
+    if (op->index == 0) {
+      ret << "1";
+    }
+    else {
+      for (int i = 1; i < op->index + 1; i++) {
+        ret << tensor->name << i << "_dimension_sram";
 
-      if (i < op->index) {
-        if (should_use_Spatial_multi_dim())
-          ret << ", ";
-        else
-          ret << " * ";
+        if (i < op->index) {
+          if (should_use_Spatial_multi_dim())
+            ret << ", ";
+          else
+            ret << " * ";
+        }
       }
     }
+
     ret << ")" << endl; 
 
     // Load from DRAM into SRAM
@@ -806,18 +812,23 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
 //    } else {
       // for the values, it's in the last slot
       ret << "val " << varname << " = DRAM[T](";
-      for (int i = 1; i < op->index+1; i++) {
-        ret << tensor->name << i << "_dimension";
+      if (op->index == 0) {
+        ret << "1";
+      }
+      else {
+        for (int i = 1; i < op->index + 1; i++) {
+          ret << tensor->name << i << "_dimension";
 
-        if (i < op->index) {
-          if (should_use_Spatial_multi_dim())
-            ret << ", ";
-          else
-            ret << " * ";
+          if (i < op->index) {
+            if (should_use_Spatial_multi_dim())
+              ret << ", ";
+            else
+              ret << " * ";
+          }
         }
       }
       ret << ")" << endl; 
-//    }
+
     return ret.str();
   } else if (op->property == TensorProperty::ValuesSize) {
     ret << "int " << varname << " = " << tensor->name << "->vals_size;\n";

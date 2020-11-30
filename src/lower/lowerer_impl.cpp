@@ -332,7 +332,11 @@ LowererImpl::lower(IndexStmt stmt, string name,
               dimension = getDimension(tv, n->lhs, loc);
             }
           }
-        } else {
+        }
+      /* else {
+          cout << "temporary set" << endl;
+          for (auto it = temporariesSet.begin(); it != temporariesSet.end(); ++it)
+            cout << it->getName() << endl;
           if(!util::contains(temporariesSet, n->lhs.getTensorVar())) {
             if (provGraph.hasBoundedDescendant(indexVar)) {
               auto ivars = n->lhs.getIndexVars();
@@ -347,7 +351,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
                                                                          provGraph.getVarBound(indexVar)));
             }
           }
-        }
+        }*/
       }),
       function<void(const AccessNode*)>([&](const AccessNode* n) {
         auto indexVars = n->indexVars;
