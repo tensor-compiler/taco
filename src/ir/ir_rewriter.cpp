@@ -501,5 +501,52 @@ void IRRewriter::visit(const Sort* op) {
   }
 }
 
+/// SPATIAL ONLY
+void IRRewriter::visit(const Reduce* op) {
+  Expr var       = rewrite(op->var);
+  Expr reg       = rewrite(op->reg);
+  Expr start     = rewrite(op->start);
+  Expr end       = rewrite(op->end);
+  Expr increment = rewrite(op->increment);
+  Expr contents  = rewrite(op->contents);
+  Expr redOp     = rewrite(op->op);
+  Expr par       = rewrite(op->par);
+  if (var == op->var && reg == op->reg && start == op->start && end == op->end &&
+      increment == op->increment && contents == op->contents && redOp == op->op && par == op->par) {
+    stmt = op;
+  }
+  else {
+    stmt = Reduce::make(var, reg, start, end, increment, contents, redOp, par);
+  }
+}
+
+void IRRewriter::visit(const MemLoad* op) {
+  Expr lhsMem       = rewrite(op->lhsMem);
+  Expr rhsMem       = rewrite(op->rhsMem);
+  Expr start        = rewrite(op->start);
+  Expr offset       = rewrite(op->offset);
+  Expr par          = rewrite(op->par);
+  if (lhsMem == op->lhsMem && rhsMem == op->rhsMem && start == op->start && offset == op->offset && par == op->par) {
+    stmt = op;
+  }
+  else {
+    stmt = MemLoad::make(lhsMem, rhsMem, start, offset, par);
+  }
+}
+
+void IRRewriter::visit(const MemStore* op) {
+  Expr lhsMem       = rewrite(op->lhsMem);
+  Expr rhsMem       = rewrite(op->rhsMem);
+  Expr start        = rewrite(op->start);
+  Expr offset       = rewrite(op->offset);
+  Expr par          = rewrite(op->par);
+  if (lhsMem == op->lhsMem && rhsMem == op->rhsMem && start == op->start && offset == op->offset && par == op->par) {
+    stmt = op;
+  }
+  else {
+    stmt = MemStore::make(lhsMem, rhsMem, start, offset, par);
+  }
+}
+/// SPATIAL ONLY END
 
 }}

@@ -70,6 +70,10 @@ protected:
   virtual void visit(const GetProperty*);
   virtual void visit(const Sort*);
   virtual void visit(const Break*);
+  // Spatial Only
+  virtual void visit(const Reduce*);
+  virtual void visit(const MemStore*);
+  virtual void visit(const MemLoad*);
 
   std::ostream &stream;
   int indent;

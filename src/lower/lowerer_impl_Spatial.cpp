@@ -47,6 +47,7 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
     void visit(const MultiNode* node)         { stmt = impl->lowerMulti(node); }
     void visit(const SuchThatNode* node)      { stmt = impl->lowerSuchThat(node); }
     void visit(const SequenceNode* node)      { stmt = impl->lowerSequence(node); }
+    void visit(const AssembleNode* node)      { stmt = impl->lowerAssemble(node); }
     void visit(const AccessNode* node)        { expr = impl->lowerAccess(node); }
     void visit(const LiteralNode* node)       { expr = impl->lowerLiteral(node); }
     void visit(const NegNode* node)           { expr = impl->lowerNeg(node); }

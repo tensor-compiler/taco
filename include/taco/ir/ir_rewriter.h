@@ -70,6 +70,11 @@ protected:
   virtual void visit(const GetProperty* op);
   virtual void visit(const Sort *op);
   virtual void visit(const Break *op);
+
+  // Spatial Only
+  virtual void visit(const Reduce* op);
+  virtual void visit(const MemLoad* op);
+  virtual void visit(const MemStore* op);
 };
 
 }}

@@ -67,7 +67,10 @@ enum class IRNodeType {
   GetProperty,
   Continue,
   Sort,
-  Break
+  Break,
+  MemStore,     // Spatial Only
+  MemLoad,      // Spatial Only
+  Reduce        // Spatial Only
 };
 
 enum class TensorProperty {
@@ -756,6 +759,56 @@ struct Print : public StmtNode<Print> {
   
   static const IRNodeType _type_info = IRNodeType::Print;
 };
+
+/// SPATIAL ONLY
+
+/** SPATIAL ONLY
+ *  A memory store statement
+ *  Takes in a lhs and rhs memory name.
+ */
+struct MemStore : public StmtNode<MemStore> {
+  Expr lhsMem;
+  Expr rhsMem;
+  // TODO: Add in features for multi-dim memories
+  Expr start;
+  Expr offset;
+  Expr par;
+
+  static Stmt make(Expr lhsMem, Expr rhsMem, Expr start, Expr offset, Expr par=1);
+
+  static const IRNodeType _type_info = IRNodeType::MemStore;
+};
+
+struct MemLoad : public StmtNode<MemLoad> {
+  Expr lhsMem;
+  Expr rhsMem;
+  // TODO: Add in features for multi-dim memories
+  Expr start;
+  Expr offset;
+  Expr par;
+
+  static Stmt make(Expr lhsMem, Expr rhsMem, Expr start, Expr offset, Expr par=1);
+
+  static const IRNodeType _type_info = IRNodeType::MemLoad;
+};
+
+struct Reduce : public StmtNode<Reduce> {
+  Expr var;
+  Expr reg;
+  Expr start;
+  Expr end;
+  Expr increment;
+  Expr par;
+  Expr contents;
+  Expr op;
+
+  static Stmt make(Expr var, Expr reg, Expr start, Expr end, Expr increment,
+                   Expr contents, Expr op, Expr par=1);
+
+  static const IRNodeType _type_info = IRNodeType::Reduce;
+};
+
+/// SPATIAL ONLY END
 
 /** A tensor property.
  * This unpacks one of the properties of a tensor into an Expr.

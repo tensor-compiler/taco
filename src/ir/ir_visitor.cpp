@@ -244,5 +244,35 @@ void IRVisitor::visit(const Sort* op) {
     e.accept(this);
 }
 
+/// SPATIAL ONLY
+void IRVisitor::visit(const Reduce* op) {
+  op->var.accept(this);
+  op->reg.accept(this);
+  op->start.accept(this);
+  op->end.accept(this);
+  op->increment.accept(this);
+  op->par.accept(this);
+  op->contents.accept(this);
+  op->op.accept(this);
+}
+
+void IRVisitor::visit(const MemLoad* op) {
+  op->lhsMem.accept(this);
+  op->rhsMem.accept(this);
+  op->start.accept(this);
+  op->offset.accept(this);
+  op->par.accept(this);
+}
+
+
+void IRVisitor::visit(const MemStore* op) {
+  op->lhsMem.accept(this);
+  op->rhsMem.accept(this);
+  op->start.accept(this);
+  op->offset.accept(this);
+  op->par.accept(this);
+}
+/// SPATIAL ONLY END
+
 }  // namespace ir
 }  // namespace taco

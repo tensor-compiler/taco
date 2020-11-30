@@ -933,6 +933,45 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
   
   return gp;
 }
+
+/// SPATIAL ONLY
+// Reduce loop
+Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Expr body,
+                Expr op, Expr par) {
+  Reduce *loop = new Reduce;
+  loop->var = var;
+  loop->reg = reg;
+  loop->start = start;
+  loop->end = end;
+  loop->increment = increment;
+  loop->contents = body;
+  loop->op = op;
+  loop->par = par;
+  return loop;
+}
+
+// Spatial Memory Load
+Stmt MemLoad::make(Expr lhsMem, Expr rhsMem, Expr start, Expr offset, Expr par) {
+  MemLoad *memLoad = new MemLoad;
+  memLoad->lhsMem = lhsMem;
+  memLoad->rhsMem = rhsMem;
+  memLoad->start = start;
+  memLoad->offset = offset;
+  memLoad->par = par;
+  return memLoad;
+}
+
+// Spatial Memory Store
+Stmt MemStore::make(Expr lhsMem, Expr rhsMem, Expr start, Expr offset, Expr par) {
+  MemStore *memStore = new MemStore;
+  memStore->lhsMem = lhsMem;
+  memStore->rhsMem = rhsMem;
+  memStore->start = start;
+  memStore->offset = offset;
+  memStore->par = par;
+  return memStore;
+}
+/// SPATIAL ONLY END
   
 // visitor methods
 template<> void ExprNode<Literal>::accept(IRVisitorStrict *v)
@@ -1029,6 +1068,13 @@ template<> void StmtNode<Sort>::accept(IRVisitorStrict *v)
   const { v->visit((const Sort*)this); }
 template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
   const { v->visit((const Break*)this); }
+/// SPATIAL ONLY
+template<> void StmtNode<Reduce>::accept(IRVisitorStrict *v)
+    const { v->visit((const Reduce*)this); }
+template<> void StmtNode<MemLoad>::accept(IRVisitorStrict *v)
+    const { v->visit((const MemLoad*)this); }
+template<> void StmtNode<MemStore>::accept(IRVisitorStrict *v)
+    const { v->visit((const MemStore*)this); }
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {

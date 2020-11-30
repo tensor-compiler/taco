@@ -9,7 +9,6 @@ namespace taco {
 /// ParallelUnit::GPUWarp can be optionally used to allow for GPU warp-level primitives
 /// ParallelUnit::GPUThread causes for every iteration to be executed on a separate GPU thread
 /// ParallelUnit::Spatial signifies a spatial, vectorized architecture
-/// ParallelUnit::SpatialBlock must be used with Spatial to create blocks in the spatial architecture
 enum class ParallelUnit {
   NotParallel, DefaultUnit, GPUBlock, GPUWarp, GPUThread, CPUThread, CPUVector, CPUThreadGroupReduction, GPUBlockReduction, GPUWarpReduction, Spatial
 };
@@ -18,7 +17,7 @@ extern const char *ParallelUnit_NAMES[];
 
 /// 
 enum class MemoryLocation {
-  Default, GPUSharedMemory, Spatial                    
+  Default, GPUSharedMemory, SpatialDRAM, SpatialSRAM, SpatialReg
 };
 
 extern const char *MemoryLocation_NAMES[];
@@ -28,8 +27,9 @@ extern const char *MemoryLocation_NAMES[];
 /// OutputRaceStrategy::Temporary uses a temporary array for outputs that is serially reduced
 /// OutputRaceStrategy::ParallelReduction uses reduction operations across a warp/vector
 /// OutputRaceStrategy::IgnoreRaces allows the user to specify that races can be safely ignored
+/// OutputRaceStrategy::SpatialReduction allows Spatial to reduce across forall node
 enum class OutputRaceStrategy {
-  IgnoreRaces, NoRaces, Atomics, Temporary, ParallelReduction
+  IgnoreRaces, NoRaces, Atomics, Temporary, ParallelReduction, SpatialReduction
 };
 extern const char *OutputRaceStrategy_NAMES[];
 

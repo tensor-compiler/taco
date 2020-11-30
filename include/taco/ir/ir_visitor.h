@@ -51,6 +51,11 @@ struct GetProperty;
 struct Sort;
 struct Break;
 
+// Spatial Only
+struct MemLoad;
+struct MemStore;
+struct Reduce;
+
 /// Extend this class to visit every node in the IR.
 class IRVisitorStrict {
 public:
@@ -102,6 +107,11 @@ public:
   virtual void visit(const GetProperty*) = 0;
   virtual void visit(const Sort*) = 0;
   virtual void visit(const Break*) = 0;
+
+  // Spatial only
+  virtual void visit(const Reduce*) = 0;
+  virtual void visit(const MemStore*) = 0;
+  virtual void visit(const MemLoad*) = 0;
 };
 
 
@@ -157,6 +167,10 @@ public:
   virtual void visit(const GetProperty* op);
   virtual void visit(const Sort* op);
   virtual void visit(const Break* op);
+  // Spatial Only
+  virtual void visit(const Reduce*);
+  virtual void visit(const MemStore*);
+  virtual void visit(const MemLoad*);
 };
 
 }}
