@@ -429,6 +429,10 @@ void IRPrinter::visit(const Scope* op) {
   varNames.scope();
   indent++;
   op->scopedStmt.accept(this);
+  if(op->returnExpr.defined()) {
+    doIndent();
+    op->returnExpr.accept(this);
+  }
   indent--;
   varNames.unscope();
 }
@@ -619,8 +623,19 @@ void IRPrinter::visit(const Reduce* op) {
     op->increment.accept(this);
   }
   stream << ") {\n";
-
+  doIndent();
   op->contents.accept(this);
+  stream << endl;
+  indent++;
+
+  if (op->returnExpr.defined()) {
+    op->reg.accept(this);
+    stream << " += ";
+    op->returnExpr.accept(this);
+    stream << ";" << endl;
+  }
+
+  indent--;
   doIndent();
   stream << "}";
   stream << endl;

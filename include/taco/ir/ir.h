@@ -545,9 +545,10 @@ struct Block : public StmtNode<Block> {
 /** A variable scope. */
 struct Scope : public StmtNode<Scope> {
   Stmt scopedStmt;
+  Expr returnExpr;
 
   static Stmt make(Stmt scopedStmt);
-
+  static Stmt make(Stmt scopedStmt, Expr returnExpr);
   static const IRNodeType _type_info = IRNodeType::Scope;
 };
 
@@ -659,8 +660,9 @@ struct Function : public StmtNode<Function> {
 struct VarDecl : public StmtNode<VarDecl> {
   Expr var;
   Expr rhs;
+  bool isReg;
 
-  static Stmt make(Expr var, Expr rhs);
+  static Stmt make(Expr var, Expr rhs, bool isReg=false);
 
   static const IRNodeType _type_info = IRNodeType::VarDecl;
 };
@@ -799,11 +801,15 @@ struct Reduce : public StmtNode<Reduce> {
   Expr end;
   Expr increment;
   Expr par;
-  Expr contents;
-  Expr op;
+  Stmt contents;
+  Expr returnExpr;
+  bool add;
 
   static Stmt make(Expr var, Expr reg, Expr start, Expr end, Expr increment,
-                   Expr contents, Expr op, Expr par=1);
+                   Stmt body, bool add=true, Expr par=1);
+
+  static Stmt make(Expr var, Expr reg, Expr start, Expr end, Expr increment,
+                   Stmt contents, Expr returnExpr, bool add=true, Expr par=1);
 
   static const IRNodeType _type_info = IRNodeType::Reduce;
 };

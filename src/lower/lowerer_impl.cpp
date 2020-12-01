@@ -334,9 +334,6 @@ LowererImpl::lower(IndexStmt stmt, string name,
           }
         }
       /* else {
-          cout << "temporary set" << endl;
-          for (auto it = temporariesSet.begin(); it != temporariesSet.end(); ++it)
-            cout << it->getName() << endl;
           if(!util::contains(temporariesSet, n->lhs.getTensorVar())) {
             if (provGraph.hasBoundedDescendant(indexVar)) {
               auto ivars = n->lhs.getIndexVars();
@@ -857,6 +854,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     parallelUnitIndexVars.erase(forall.getParallelUnit());
     parallelUnitSizes.erase(forall.getParallelUnit());
   }
+
   return Block::blanks(preInitValues,
                        temporaryValuesInitFree[0],
                        loops,
@@ -1163,6 +1161,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
+
+
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth++;
     atomicParallelUnit = forall.getParallelUnit();
@@ -1189,6 +1189,24 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   else if (forall.getParallelUnit() != ParallelUnit::NotParallel
             && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
     kind = LoopKind::Runtime;
+  }
+
+  if (forall.getParallelUnit() == ParallelUnit::Spatial && forall.getOutputRaceStrategy() == OutputRaceStrategy::SpatialReduction) {
+    if (isa<Assignment>(forall.getStmt())) {
+      Assignment forallExpr = to<Assignment>(forall.getStmt());
+      Expr reg = lower(forallExpr.getLhs());
+
+      Stmt reductionBody = lowerForallReductionBody(coordinate, forall.getStmt(),
+                                                    locators, inserters, appenders, reducedAccesses);
+      reductionBody = Block::make({recoveryStmt, reductionBody});
+
+      Expr reductionExpr = lower(forallExpr.getRhs());
+
+      // FIXME: reduction can only handle adds for now
+      taco_iassert(isa<taco::Add>(forallExpr.getOperator()));
+      if (should_use_Spatial_codegen())
+        return Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, Scope::make(reductionBody, reductionExpr));
+    }
   }
 
   return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
@@ -1784,7 +1802,6 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, I
   return Block::make(result);
 }
 
-
 Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
                                   vector<Iterator> locators,
                                   vector<Iterator> inserters,
@@ -1966,6 +1983,34 @@ std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
 
   // Only need to sort the workspace if the result needs to be ordered
   return std::make_pair(true, varFmt.isOrdered());
+}
+
+Stmt LowererImpl::lowerForallReductionBody(Expr coordinate, IndexStmt stmt,
+                                  vector<Iterator> locators,
+                                  vector<Iterator> inserters,
+                                  vector<Iterator> appenders,
+                                  const set<Access>& reducedAccesses) {
+  Stmt initVals = resizeAndInitValues(appenders, reducedAccesses);
+
+  // Inserter positions
+  Stmt declInserterPosVars = declLocatePosVars(inserters);
+
+  // Locate positions
+  Stmt declLocatorPosVars = declLocatePosVars(locators);
+
+  if (captureNextLocatePos) {
+    capturedLocatePos = Block::make(declInserterPosVars, declLocatorPosVars);
+    captureNextLocatePos = false;
+  }
+
+  // Code to append coordinates
+  //Stmt appendCoords = appendCoordinate(appenders, coordinate);
+
+  // TODO: Emit code to insert coordinates
+
+  return Block::make(initVals,
+                     declInserterPosVars,
+                     declLocatorPosVars);
 }
 
 vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
@@ -2681,7 +2726,8 @@ Stmt LowererImpl::defineScalarVariable(TensorVar var, bool zero) {
                      : Load::make(GetProperty::make(tensorVars.at(var),
                                                     TensorProperty::Values));
   tensorVars.find(var)->second = varValueIR;
-  return VarDecl::make(varValueIR, init);
+
+  return VarDecl::make(varValueIR, init, true);
 }
 
 static
@@ -2718,7 +2764,6 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
   for (auto& write : writes) {
     Expr tensor = getTensorVar(write.getTensorVar());
     Expr values = GetProperty::make(tensor, TensorProperty::Values);
-
     vector<Iterator> iterators = getIteratorsFrom(var, getIterators(write));
 
     if (iterators.empty()) {

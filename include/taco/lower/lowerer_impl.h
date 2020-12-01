@@ -184,6 +184,12 @@ protected:
                                    std::vector<Iterator> appenders,
                                    const std::set<Access>& reducedAccesses);
 
+  /// [SPATIAL] Lower a reduction loop body.
+  virtual ir::Stmt lowerForallReductionBody(ir::Expr coordinate, IndexStmt stmt,
+                                   std::vector<Iterator> locaters,
+                                   std::vector<Iterator> inserters,
+                                   std::vector<Iterator> appenders,
+                                   const std::set<Access>& reducedAccesses);
 
   /// Lower a where statement.
   virtual ir::Stmt lowerWhere(Where where);

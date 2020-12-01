@@ -342,8 +342,18 @@ void IRRewriter::visit(const Block* op) {
 
 void IRRewriter::visit(const Scope* op) {
   Stmt scopedStmt = rewrite(op->scopedStmt);
-  if (scopedStmt == op->scopedStmt) {
+
+  Expr returnExpr;
+  if (op->returnExpr.defined()) {
+    returnExpr = rewrite(op->returnExpr);
+  }
+
+  if ((scopedStmt == op->scopedStmt && !returnExpr.defined()) ||
+      (scopedStmt == op->scopedStmt && returnExpr.defined() && returnExpr == op->returnExpr)) {
     stmt = op;
+  }
+  else if (returnExpr.defined()) {
+    stmt = Scope::make(scopedStmt, returnExpr);
   }
   else {
     stmt = Scope::make(scopedStmt);
@@ -384,7 +394,7 @@ void IRRewriter::visit(const VarDecl* op) {
     stmt = op;
   }
   else {
-    stmt = VarDecl::make(var, rhs);
+    stmt = VarDecl::make(var, rhs, op->isReg);
   }
 }
 
@@ -508,15 +518,21 @@ void IRRewriter::visit(const Reduce* op) {
   Expr start     = rewrite(op->start);
   Expr end       = rewrite(op->end);
   Expr increment = rewrite(op->increment);
-  Expr contents  = rewrite(op->contents);
-  Expr redOp     = rewrite(op->op);
+  Stmt contents  = rewrite(op->contents);
+  Expr retExpr;
+  if (op->returnExpr.defined())
+    retExpr   = rewrite(op->returnExpr);
   Expr par       = rewrite(op->par);
   if (var == op->var && reg == op->reg && start == op->start && end == op->end &&
-      increment == op->increment && contents == op->contents && redOp == op->op && par == op->par) {
+      increment == op->increment && contents == op->contents && !op->returnExpr.defined() && par == op->par) {
+    stmt = op;
+  } else if (var == op->var && reg == op->reg && start == op->start && end == op->end &&
+             increment == op->increment && contents == op->contents && op->returnExpr.defined() && retExpr == op->returnExpr && par == op->par)
+  {
     stmt = op;
   }
   else {
-    stmt = Reduce::make(var, reg, start, end, increment, contents, redOp, par);
+    stmt = Reduce::make(var, reg, start, end, increment, contents, retExpr, op->add, par);
   }
 }
 

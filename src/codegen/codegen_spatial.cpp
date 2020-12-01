@@ -187,6 +187,12 @@ protected:
     }
   }
 
+  virtual void visit(const Scope *op) {
+    op->scopedStmt.accept(this);
+    if (op->returnExpr.defined())
+      op->returnExpr.accept(this);
+  }
+
   virtual void visit(const VarDecl *op) {
     if (!util::contains(localVars, op->var)) {
       localVars.push_back(op->var);
@@ -366,18 +372,34 @@ void CodeGen_Spatial::visit(const VarDecl* op) {
     stream << ";";
     stream << endl;
   } else {
-    doIndent();
-    stream << "val";
-    taco_iassert(isa<Var>(op->var));
-    stream << " ";
-    string varName = varNameGenerator.getUniqueName(util::toString(op->var));
-    varNames.insert({op->var, varName});
-    op->var.accept(this);
-    parentPrecedence = Precedence::TOP;
-    stream << " = ";
-    op->rhs.accept(this);
-    //stream << ";";
-    stream << endl;
+    if (op->isReg) {
+      doIndent();
+      stream << "val";
+      taco_iassert(isa<Var>(op->var));
+      stream << " ";
+      string varName = varNameGenerator.getUniqueName(util::toString(op->var));
+      varNames.insert({op->var, varName});
+      op->var.accept(this);
+      parentPrecedence = Precedence::TOP;
+      stream << " = Reg[T](";
+      op->rhs.accept(this);
+      stream << ".to[T])";
+      //stream << ";";
+      stream << endl;
+    } else {
+      doIndent();
+      stream << "val";
+      taco_iassert(isa<Var>(op->var));
+      stream << " ";
+      string varName = varNameGenerator.getUniqueName(util::toString(op->var));
+      varNames.insert({op->var, varName});
+      op->var.accept(this);
+      parentPrecedence = Precedence::TOP;
+      stream << " = ";
+      op->rhs.accept(this);
+      //stream << ";";
+      stream << endl;
+    }
   }
 }
 
@@ -538,6 +560,32 @@ void CodeGen_Spatial::visit(const While* op) {
   }
 
   IRPrinter::visit(op);
+}
+
+void CodeGen_Spatial::visit(const Reduce* op) {
+  doIndent();
+  stream << keywordString("Reduce") << "(" << op->reg << ")(";
+  op->start.accept(this);
+  stream << keywordString(" until ");
+  parentPrecedence = BOTTOM;
+  op->end.accept(this);
+  stream << keywordString(" by ");
+  op->increment.accept(this);
+  stream << ") {";
+  op->var.accept(this);
+  stream << " => \n";
+
+  op->contents.accept(this);
+  stream << endl;
+  doIndent();
+
+  stream << "} { _ ";
+  if (op->add)
+    stream << "+";
+  else
+    stream << "-";
+  stream << " _ }";
+  stream << endl;
 }
 
 void CodeGen_Spatial::visit(const GetProperty* op) {
@@ -980,7 +1028,10 @@ string CodeGen_Spatial::outputInitMemArgs(string varname, const GetProperty* op,
   ret << indentation;
 
   //auto tensor = op->tensor.as<Var>();
-  if (op->property == TensorProperty::Values) {
+  if (op->property == TensorProperty::Values && op->index == 0) {
+    ret << "1, " << varname;
+  }
+  else if (op->property == TensorProperty::Values) {
     ret << varname;
   } else if (op->property == TensorProperty::Dimension) {
     ret << varname;
@@ -1048,8 +1099,10 @@ string CodeGen_Spatial::outputCheckOutputArgs(string varname, Expr tnsr,
   ret << "";
 
   //auto tensor = tnsr.as<Var>();
-  if (property == TensorProperty::Values) {
-    ret << varname;  
+  if (property == TensorProperty::Values && index == 0) {
+    ret << "1, " << varname;
+  } else if (property == TensorProperty::Values) {
+      ret << varname;
   } else if (property == TensorProperty::Dimension) {
     ret << varname;  
   } 

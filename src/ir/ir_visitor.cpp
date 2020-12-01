@@ -253,7 +253,8 @@ void IRVisitor::visit(const Reduce* op) {
   op->increment.accept(this);
   op->par.accept(this);
   op->contents.accept(this);
-  op->op.accept(this);
+  if (op->returnExpr.defined())
+    op->returnExpr.accept(this);
 }
 
 void IRVisitor::visit(const MemLoad* op) {

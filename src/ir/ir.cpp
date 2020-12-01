@@ -583,6 +583,20 @@ Stmt Scope::make(Stmt scopedStmt) {
   return scope;
 }
 
+// Spatial Only
+Stmt Scope::make(Stmt scopedStmt, Expr returnExpr) {
+  taco_iassert(scopedStmt.defined());
+
+  if (isa<Scope>(scopedStmt)) {
+    return scopedStmt;
+  }
+
+  Scope *scope = new Scope;
+  scope->scopedStmt = scopedStmt;
+  scope->returnExpr = returnExpr;
+  return scope;
+}
+
 // Store to an array
 Stmt Store::make(Expr arr, Expr loc, Expr data, bool use_atomics, ParallelUnit atomic_parallel_unit) {
   Store *store = new Store;
@@ -720,12 +734,13 @@ std::pair<std::vector<Datatype>,Datatype> Function::getReturnType() const {
 }
 
 // VarDecl
-Stmt VarDecl::make(Expr var, Expr rhs) {
+Stmt VarDecl::make(Expr var, Expr rhs, bool isReg) {
   taco_iassert(var.as<Var>())
     << "Can only declare a Var";
   VarDecl* decl = new VarDecl;
   decl->var = var;
   decl->rhs = rhs;
+  decl->isReg = isReg;
   return decl;
 }
 
@@ -936,8 +951,8 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
 
 /// SPATIAL ONLY
 // Reduce loop
-Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Expr body,
-                Expr op, Expr par) {
+Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Stmt body,
+                bool add, Expr par) {
   Reduce *loop = new Reduce;
   loop->var = var;
   loop->reg = reg;
@@ -945,7 +960,22 @@ Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Expr
   loop->end = end;
   loop->increment = increment;
   loop->contents = body;
-  loop->op = op;
+  loop->add = add;
+  loop->par = par;
+  return loop;
+}
+
+Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Stmt body, Expr returnExpr,
+                  bool add, Expr par) {
+  Reduce *loop = new Reduce;
+  loop->var = var;
+  loop->reg = reg;
+  loop->start = start;
+  loop->end = end;
+  loop->increment = increment;
+  loop->contents = Scope::make(body);
+  loop->returnExpr = returnExpr;
+  loop->add = add;
   loop->par = par;
   return loop;
 }

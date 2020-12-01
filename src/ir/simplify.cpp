@@ -373,6 +373,13 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       loopLevel--;
     }
 
+    void visit(const Reduce* op) {
+      loopDependentVars.insert(op->var);
+      loopLevel++;
+      op->contents.accept(this);
+      loopLevel--;
+    }
+
     void visit(const While* op) {
       loopLevel++;
       op->contents.accept(this);
@@ -424,7 +431,13 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
     void visit(const Scope* scope) {
       declarations.scope();
       varsToReplace.scope();
-      stmt = rewrite(scope->scopedStmt);
+      Stmt rewrittenStmt = rewrite(scope->scopedStmt);
+      if (scope->returnExpr.defined()) {
+        stmt = Scope::make(rewrittenStmt, rewrite(scope->returnExpr));
+      }
+      else {
+        stmt = rewrite(rewrittenStmt);
+      }
       varsToReplace.unscope();
       declarations.unscope();
     }

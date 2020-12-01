@@ -45,6 +45,7 @@ protected:
   void visit(const Load*);
   void visit(const Malloc*);
   void visit(const Free*);
+  void visit(const Reduce*);
 
   std::map<Expr, std::string, ExprCompare> varMap;
   std::vector<Expr> localVars;
