@@ -282,13 +282,14 @@ TEST(spatial, reduction_GEMV) {
 
   // [Spatial] TODO: Add in temporary workspace
   IndexStmt stmt = A.getAssignment().concretize();
+  stmt = scalarPromote(stmt);
   stmt = stmt
           .bound(i, i_b, 16, BoundType::MaxExact)
           .bound(j, j_b, 16, BoundType::MaxExact)
           .parallelize(i_b, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces)
           .parallelize(j_b, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
 
-  stmt = scalarPromote(stmt);
+
 
   ir::IRPrinter irp = ir::IRPrinter(cout);
   cout << stmt << endl;

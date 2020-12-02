@@ -217,7 +217,7 @@ protected:
       // Don't create header unpacking code for temporaries
       return;
     }
-    
+
     if (varMap.count(op) == 0) {
       auto key =
               tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
@@ -1032,9 +1032,9 @@ string CodeGen_Spatial::outputInitMemArgs(string varname, const GetProperty* op,
     ret << "1, " << varname;
   }
   else if (op->property == TensorProperty::Values) {
-    ret << varname;
+    ret << varname << "_dram";
   } else if (op->property == TensorProperty::Dimension) {
-    ret << varname;
+    ret << varname << "_dram";
   }
 
   if (!last)
@@ -1102,9 +1102,9 @@ string CodeGen_Spatial::outputCheckOutputArgs(string varname, Expr tnsr,
   if (property == TensorProperty::Values && index == 0) {
     ret << "1, " << varname;
   } else if (property == TensorProperty::Values) {
-      ret << varname;
+      ret << varname << "_dram";
   } else if (property == TensorProperty::Dimension) {
-    ret << varname;  
+    ret << varname << "_dram";
   } 
 
   if (!last) 
