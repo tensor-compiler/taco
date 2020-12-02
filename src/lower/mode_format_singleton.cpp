@@ -153,6 +153,14 @@ std::vector<Expr> SingletonModeFormat::getArrays(Expr tensor, int mode,
                             level - 1, 1, arraysName + "_crd")};
 }
 
+std::vector<Expr> SingletonModeFormat::getArrays(Expr tensor, int mode,
+                                                 int level, bool hasFiniteBound, int bound) const {
+  std::string arraysName = util::toString(tensor) + std::to_string(level);
+  return {Expr(),
+          GetProperty::make(tensor, TensorProperty::Indices,
+                            level - 1, 1, arraysName + "_crd")};
+}
+
 Expr SingletonModeFormat::getCoordArray(ModePack pack) const {
   return pack.getArray(1);
 }

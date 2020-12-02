@@ -279,6 +279,15 @@ vector<Expr> CompressedModeFormat::getArrays(Expr tensor, int mode,
                             level - 1, 1, arraysName + "_crd")};
 }
 
+vector<Expr> CompressedModeFormat::getArrays(Expr tensor, int mode,
+                                             int level, bool hasFiniteBound, int bound) const {
+  std::string arraysName = util::toString(tensor) + std::to_string(level);
+  return {GetProperty::make(tensor, TensorProperty::Indices,
+                            level - 1, 0, arraysName + "_pos"),
+          GetProperty::make(tensor, TensorProperty::Indices,
+                            level - 1, 1, arraysName + "_crd")};
+}
+
 Expr CompressedModeFormat::getPosArray(ModePack pack) const {
   return pack.getArray(0);
 }

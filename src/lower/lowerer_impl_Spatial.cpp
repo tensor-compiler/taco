@@ -68,6 +68,8 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
 
   ir::Expr LowererImplSpatial::getValuesArray(TensorVar var) const
   {
+    cout << "getValuesArray" << endl;
+    cout << var.getName() << ": " << var.getOrder() << endl;
     return (util::contains(getTemporaryArrays(), var))
            ? getTemporaryArrays().at(var).values
            : GetProperty::make(getTensorVar(var), TensorProperty::Values, 0, var.getOrder());

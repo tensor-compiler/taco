@@ -75,7 +75,8 @@ public:
   ModePack();
   ModePack(size_t numModes, ModeFormat modeType, ir::Expr tensor, int mode, 
            int level);
-
+  ModePack(size_t numModes, ModeFormat modeType, ir::Expr tensor, int mode,
+           int level, int bound);
   /// Returns number of tensor modes belonging to mode pack.
   size_t getNumModes() const;
 

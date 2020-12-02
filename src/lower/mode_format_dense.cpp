@@ -91,6 +91,8 @@ ModeFunction DenseModeFormat::getYieldPos(Expr parentPos,
 
 vector<Expr> DenseModeFormat::getArrays(Expr tensor, int mode, 
                                         int level, bool hasFiniteBound, int index) const {
+  if (hasFiniteBound)
+    return {GetProperty::make(tensor, TensorProperty::Dimension, mode, index)};
   return {GetProperty::make(tensor, TensorProperty::Dimension, mode)};
 }
 

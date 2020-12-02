@@ -243,13 +243,17 @@ TEST(spatial, bound_elemMul) {
   expected.compute();
   ASSERT_TENSOR_EQ(A, expected);
 
+  cout << "----------------Resulting Tensors-----------------" << endl;
+  cout << A << endl;
+  cout << expected << endl;
+
   set_Spatial_codegen_enabled(true);
-//
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "Compute",  false, true);
-//
-//  irp.print(compute);
-//  cout << endl;
+  ir::Stmt compute = lower(stmt, "Compute", false, true);
+  cout << "----------Finish codegen lowering---------" << endl;
+  cout << compute << endl;
+
+  cout << "-----------Spatial Code---------------" << endl;
   codegen->compile(compute, false);
 
 }
@@ -276,10 +280,15 @@ TEST(spatial, reduction_GEMV) {
 
   A(i) = B(i, j) * C(j);
 
+  // [Spatial] TODO: Add in temporary workspace
   IndexStmt stmt = A.getAssignment().concretize();
-  stmt = stmt.bound(i, i_b, 16, BoundType::MaxExact)
+  stmt = stmt
+          .bound(i, i_b, 16, BoundType::MaxExact)
           .bound(j, j_b, 16, BoundType::MaxExact)
+          .parallelize(i_b, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces)
           .parallelize(j_b, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
+
+  stmt = scalarPromote(stmt);
 
   ir::IRPrinter irp = ir::IRPrinter(cout);
   cout << stmt << endl;
@@ -300,6 +309,58 @@ TEST(spatial, reduction_GEMV) {
   cout << expected << endl;
 
   set_Spatial_codegen_enabled(true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "Compute", false, true);
+  cout << "----------Finish codegen lowering---------" << endl;
+  cout << compute << endl;
+
+  cout << "-----------Spatial Code---------------" << endl;
+  codegen->compile(compute, false);
+}
+
+TEST(spatial, GEMV) {
+
+  Tensor<int> A("A", {16}, {Dense});
+  Tensor<int> B("B", {16, 16}, {Dense, Dense});
+  Tensor<int> C("C", {16}, {Dense});
+
+
+  for (int i = 0; i < 16; i++) {
+    for (int j = 0; j < 16; j++) {
+      B.insert({i, j}, (int) i + j);
+    }
+    C.insert({i}, (int) i);
+  }
+
+  B.pack();
+  C.pack();
+
+  IndexVar i("i"), i_b("i_b");
+  IndexVar j("j"), j_b("j_b");
+
+  A(i) = B(i, j) * C(j);
+
+  // [Spatial] TODO: Add in temporary workspace
+  IndexStmt stmt = A.getAssignment().concretize();
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+  cout << stmt << endl;
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<int> expected("expected", {16}, {Dense});
+  expected(i) = B(i, j) * C(j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+
+  cout << "----------------Resulting Tensors-----------------" << endl;
+  cout << A << endl;
+  cout << expected << endl;
+
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt compute = lower(stmt, "Compute", false, true);
   cout << "----------Finish codegen lowering---------" << endl;

@@ -890,6 +890,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode, int index
       gp->name = tensorVar->name + "_vals";
       // Assign dimension value for spatial code
       if (should_use_Spatial_codegen())
+
         gp->index = index;
       break;
     case TensorProperty::ValuesSize:

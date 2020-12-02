@@ -38,6 +38,10 @@ public:
   vector<ir::Expr> getArrays(ir::Expr tensor, int mode, int level) const {
     return {};
   }
+
+  vector<ir::Expr> getArrays(ir::Expr tensor, int mode, int level, bool hasFiniteBound, int bound) const {
+    return {};
+  }
 };
 ModeFormat hashed(make_shared<HashedModeFormat>());
 

@@ -235,6 +235,9 @@ public:
   virtual std::vector<ir::Expr>
   getArrays(ir::Expr tensor, int mode, int level) const = 0;
 
+  virtual std::vector<ir::Expr>
+  getArrays(ir::Expr tensor, int mode, int level, bool hasFiniteBound, int bound) const = 0;
+
   friend bool operator==(const ModeFormatImpl&, const ModeFormatImpl&);
   friend bool operator!=(const ModeFormatImpl&, const ModeFormatImpl&);
 

@@ -61,6 +61,9 @@ public:
   std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode, 
                                   int level) const override;
 
+  std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode,
+                                  int level, bool hasFiniteBound, int bound) const override;
+
 protected:
   ir::Expr getPosArray(ModePack pack) const;
   ir::Expr getCoordArray(ModePack pack) const;

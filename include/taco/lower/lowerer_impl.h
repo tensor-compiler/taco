@@ -332,7 +332,7 @@ protected:
    * Generate code to zero-initialize values array in range
    * [begin * size, (begin + 1) * size).
    */
-  ir::Stmt zeroInitValues(ir::Expr tensor, ir::Expr begin, ir::Expr size);
+  ir::Stmt zeroInitValues(ir::Expr tensor, ir::Expr begin, ir::Expr size, TensorVar var);
 
   /// Declare position variables and initialize them with a locate.
   ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
@@ -532,6 +532,9 @@ private:
 
   /// Visitor methods can add code to emit it to the function footer.
   std::vector<ir::Stmt> footer;
+
+  /// SPATIAL ONLY
+  std::map<ir::Expr, int> tensorExprDefinedBound;
 
   class Visitor;
   friend class Visitor;

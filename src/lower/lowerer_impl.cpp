@@ -283,6 +283,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
   set<TensorVar> temporariesSet(temporaries.begin(), temporaries.end());
   vector<IndexVar> indexVars = getIndexVars(stmt);
   for (auto& indexVar : indexVars) {
+    cout << "index: " << indexVar << endl;
     Expr dimension;
     // getDimension extracts an Expr that holds the dimension
     // of a particular tensor mode. This Expr should be used as a loop bound
@@ -307,7 +308,8 @@ LowererImpl::lower(IndexStmt stmt, string name,
       function<void(const AssignmentNode*, Matcher*)>([&](
           const AssignmentNode* n, Matcher* m) {
         m->match(n->rhs);
-
+        cout << "---Dimension---" << endl;
+        cout << dimension << endl;
         if (!dimension.defined()) {
           auto ivars = n->lhs.getIndexVars();
           auto tv = n->lhs.getTensorVar();
@@ -325,15 +327,19 @@ LowererImpl::lower(IndexStmt stmt, string name,
               ModeAccess ma = {Access(n->lhs), loc+1};
               auto iter = iterators.levelIterator(ma);
               auto prevDimGP = iter.getMode().getModePack().getArray(0).as<GetProperty>();
+              cout << "----Tensor Assignment----" << endl;
+              cout << prevDimGP->tensor << endl;
               iter.getMode().getModePack().setArray(0, GetProperty::make(prevDimGP->tensor, prevDimGP->property,
                                                                          prevDimGP->mode, provGraph.getVarBound(indexVar)));
 
             } else {
               dimension = getDimension(tv, n->lhs, loc);
+              cout << "-------Else" << endl;
+              cout << n->lhs.getTensorVar().getName() << endl;
             }
           }
         }
-      /* else {
+/*      else {
           if(!util::contains(temporariesSet, n->lhs.getTensorVar())) {
             if (provGraph.hasBoundedDescendant(indexVar)) {
               auto ivars = n->lhs.getIndexVars();
@@ -371,6 +377,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
                                                                          prevDimGP->mode, provGraph.getVarBound(indexVar)));
             } else {
               dimension = getDimension(n->tensorVar, Access(n), loc);
+              cout << "-------Access else: " << n->tensorVar.getName() << endl;
             }
           }
         }
@@ -405,7 +412,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
     for (auto& result : results) {
       if (result.getOrder() == 0) {
         Expr resultIR = resultVars.at(result);
-        Expr vals = GetProperty::make(resultIR, TensorProperty::Values);
+        Expr vals = GetProperty::make(resultIR, TensorProperty::Values, 0, 20);
         header.push_back(Allocate::make(vals, 1));
       }
     }
@@ -424,12 +431,14 @@ LowererImpl::lower(IndexStmt stmt, string name,
   // Store scalar stack variables back to results
   if (generateComputeCode()) {
     for (auto& result : results) {
+      cout << "RESULTS" << endl;
+      cout << result.getName() << endl;
       if (isScalar(result.getType())) {
         taco_iassert(util::contains(scalars, result));
         taco_iassert(util::contains(tensorVars, result));
         Expr resultIR = scalars.at(result);
         Expr varValueIR = tensorVars.at(result);
-        Expr valuesArrIR = GetProperty::make(resultIR, TensorProperty::Values);
+        Expr valuesArrIR = GetProperty::make(resultIR, TensorProperty::Values, 0, 21);
         footer.push_back(Store::make(valuesArrIR, 0, varValueIR, markAssignsAtomicDepth > 0, atomicParallelUnit));
       }
     }
@@ -1204,8 +1213,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
       // FIXME: reduction can only handle adds for now
       taco_iassert(isa<taco::Add>(forallExpr.getOperator()));
-      if (should_use_Spatial_codegen())
+      if (should_use_Spatial_codegen()) {
         return Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, Scope::make(reductionBody, reductionExpr));
+      }
+
     }
   }
 
@@ -2479,15 +2490,9 @@ Expr LowererImpl::getCapacityVar(Expr tensor) const {
 
 ir::Expr LowererImpl::getValuesArray(TensorVar var) const
 {
-  if (should_use_Spatial_codegen()) {
-    return (util::contains(temporaryArrays, var))
-           ? temporaryArrays.at(var).values
-           : GetProperty::make(getTensorVar(var), TensorProperty::Values, 0, var.getOrder());
-  }
-
   return (util::contains(temporaryArrays, var))
          ? temporaryArrays.at(var).values
-         : GetProperty::make(getTensorVar(var), TensorProperty::Values);
+         : GetProperty::make(getTensorVar(var), TensorProperty::Values, 0, 33);
 }
 
 
@@ -2665,7 +2670,9 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
       // iteration of all the iterators is not full. We can check this by seeing if we can recover a
       // full iterator from our set of iterators.
       Expr size = generateAssembleCode() ? getCapacityVar(tensor) : parentSize;
-      result.push_back(zeroInitValues(tensor, 0, size));
+      cout << "Init Result Arrays 3" << endl;
+      cout << tensor << endl;
+      result.push_back(zeroInitValues(tensor, 0, size, write.getTensorVar()));
     }
   }
   return result.empty() ? Stmt() : Block::blanks(result);
@@ -2724,7 +2731,7 @@ Stmt LowererImpl::defineScalarVariable(TensorVar var, bool zero) {
   Expr varValueIR = Var::make(var.getName() + "_val", type, false, false);
   Expr init = (zero) ? ir::Literal::zero(type)
                      : Load::make(GetProperty::make(tensorVars.at(var),
-                                                    TensorProperty::Values));
+                                                    TensorProperty::Values, 0, 25));
   tensorVars.find(var)->second = varValueIR;
 
   return VarDecl::make(varValueIR, init, true);
@@ -2763,7 +2770,7 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
   vector<Stmt> result;
   for (auto& write : writes) {
     Expr tensor = getTensorVar(write.getTensorVar());
-    Expr values = GetProperty::make(tensor, TensorProperty::Values);
+    Expr values = GetProperty::make(tensor, TensorProperty::Values, 0, 28);
     vector<Iterator> iterators = getIteratorsFrom(var, getIterators(write));
 
     if (iterators.empty()) {
@@ -2825,7 +2832,10 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
             util::contains(reducedAccesses, write)) {
           // Zero-initialize values array if might not assign to every element
           // in values array during compute
-          result.push_back(zeroInitValues(tensor, resultParentPos, stride));
+          cout << "Init Result Arrays 5" << endl;
+          cout << tensor << endl;
+
+          result.push_back(zeroInitValues(tensor, resultParentPos, stride, write.getTensorVar()));
         }
       }
     }
@@ -2871,11 +2881,11 @@ Stmt LowererImpl::resizeAndInitValues(const std::vector<Iterator>& appenders,
 }
 
 
-Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
+Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size, TensorVar var) {
   Expr lower = simplify(ir::Mul::make(begin, size));
   Expr upper = simplify(ir::Mul::make(ir::Add::make(begin, 1), size));
   Expr p = Var::make("p" + util::toString(tensor), Int());
-  Expr values = GetProperty::make(tensor, TensorProperty::Values);
+  Expr values = getValuesArray(var);
   Stmt zeroInit = Store::make(values, p, ir::Literal::zero(tensor.type()));
   LoopKind parallel = (isa<ir::Literal>(size) &&
                        to<ir::Literal>(size)->getIntValue() < (1 << 10))
@@ -2953,7 +2963,7 @@ Stmt LowererImpl::reduceDuplicateCoordinates(Expr coordinate,
     Expr segendVar = iterator.getSegendVar();
     Expr reducedVal = iterator.isLeaf() ? getReducedValueVar(access) : Expr();
     Expr tensorVar = getTensorVar(access.getTensorVar());
-    Expr tensorVals = GetProperty::make(tensorVar, TensorProperty::Values);
+    Expr tensorVals = GetProperty::make(tensorVar, TensorProperty::Values, 0, 32);
 
     // Initialize variable storing reduced component value.
     if (reducedVal.defined()) {

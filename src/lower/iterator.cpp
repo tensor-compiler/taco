@@ -574,10 +574,20 @@ void Iterators::createAccessIterators(Access access, Format format, Expr tensorI
     taco_iassert(modeTypePack.getModeFormats().size() > 0);
 
     int modeNumber = format.getModeOrdering()[level-1];
-    ModePack modePack(modeTypePack.getModeFormats().size(),
-                      modeTypePack.getModeFormats()[0], tensorIR,
-                      modeNumber, level);
-
+    cout << "Create Access Iterators" << endl;
+    cout << tensorIR << endl;
+    IndexVar indexVar = access.getIndexVars()[modeNumber];
+    ModePack modePack;
+    if (provGraph.hasBoundedDescendant(indexVar)) {
+      modePack = ModePack(modeTypePack.getModeFormats().size(),
+                        modeTypePack.getModeFormats()[0], tensorIR,
+                        modeNumber, level, provGraph.getVarBound(indexVar));
+    } else {
+      modePack = ModePack(modeTypePack.getModeFormats().size(),
+                        modeTypePack.getModeFormats()[0], tensorIR,
+                        modeNumber, level);
+    }
+    cout << "ivar: " << access.getIndexVars()[modeNumber] << endl;
     int pos = 0;
     for (auto& modeType : modeTypePack.getModeFormats()) {
       int modeNumber = format.getModeOrdering()[level-1];

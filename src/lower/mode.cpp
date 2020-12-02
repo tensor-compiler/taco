@@ -111,6 +111,12 @@ ModePack::ModePack(size_t numModes, ModeFormat modeType, ir::Expr tensor,
   content->arrays = modeType.impl->getArrays(tensor, mode, level);
 }
 
+ModePack::ModePack(size_t numModes, ModeFormat modeType, ir::Expr tensor,
+                   int mode, int level, int bound) : ModePack() {
+  content->numModes = numModes;
+  content->arrays = modeType.impl->getArrays(tensor, mode, level, true, bound);
+}
+
 size_t ModePack::getNumModes() const {
   return content->numModes;
 }
