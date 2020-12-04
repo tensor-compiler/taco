@@ -929,8 +929,6 @@ int main(int argc, char* argv[]) {
   IndexStmt stmt =
       makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
   stmt = reorderLoopsTopologically(stmt);
-  stmt = insertTemporaries(stmt);
-  stmt = parallelizeOuterLoop(stmt);
 
   if (setSchedule) {
     stringstream scheduleStream; 
@@ -939,6 +937,10 @@ int main(int argc, char* argv[]) {
     }
 
     cuda |= setSchedulingCommands(scheduleStream, parser, stmt);
+  }
+  else {
+    stmt = insertTemporaries(stmt);
+    stmt = parallelizeOuterLoop(stmt);
   }
 
   if (cuda) {
