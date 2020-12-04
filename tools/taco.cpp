@@ -19,6 +19,7 @@
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
 #include "codegen/codegen_cuda.h"
+#include "codegen/codegen_llvm.h"
 #include "codegen/codegen.h"
 #include "taco/util/strings.h"
 #include "taco/util/files.h"
@@ -27,6 +28,7 @@
 #include "taco/util/env.h"
 #include "taco/util/collections.h"
 #include "taco/cuda.h"
+#include "taco/llvm.h"
 #include "taco/llvm.h"
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/index_notation_visitor.h"
@@ -186,6 +188,8 @@ static void printUsageInfo() {
   printFlag("print-nocolor", "Print without colors.");
   cout << endl;
   printFlag("cuda", "Generate CUDA code for NVIDIA GPUs");
+  cout << endl;
+  printFlag("llvm", "Generate LLVM code");
   cout << endl;
   printFlag("schedule", "Specify parallel execution schedule");
   cout << endl;
