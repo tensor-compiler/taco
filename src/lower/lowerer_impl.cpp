@@ -1569,14 +1569,6 @@ vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
         decl = VarDecl::make(values, ir::Literal::make(0));
       }
       Stmt allocate = Allocate::make(values, size);
-      // If we are using acceleration of the dense workspace, we do not need to initialize the values array
-      // since the bit guard will take care of setting the value array when necessary
-      Stmt zeroInitLoop = Stmt();
-      if(!accelerateDense) {
-        Expr p = Var::make("p" + temporary.getName(), Int());
-        Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
-        zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
-      }
 
       /// Make a struct object that lowerAssignment and lowerAccess can read
       /// temporary value arrays from.
@@ -1585,7 +1577,7 @@ vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
       this->temporaryArrays.insert({temporary, arrays});
 
       freeTemporary = Block::make(freeTemporary, Free::make(values));
-      initializeTemporary = Block::make(decl, initializeTemporary, allocate, zeroInitLoop);
+      initializeTemporary = Block::make(decl, initializeTemporary, allocate);
     }
   }
   return {initializeTemporary, freeTemporary};
@@ -1627,6 +1619,23 @@ Stmt LowererImpl::lowerWhere(Where where) {
     Expr cmpName = ir::Var::make("cmp", Int());
     Stmt sortCall = ir::Sort::make( {listOfIndices, listOfIndicesSize, sizeOfElt, cmpName});
     consumer = Block::make(sortCall, consumer);
+  }
+
+  // Now that temporary allocations are hoisted, we always need to emit an initialization loop before entering the
+  // producer.
+  if(generateComputeCode() && !isScalar(temporary.getType())) {
+    // TODO: We only actually need to do this if:
+    //      1) We use the temporary multiple times
+    //      2) The PRODUCER RHS is sparse(not full). (Guarantees that old values are overwritten before consuming)
+
+    Expr p = Var::make("p" + temporary.getName(), Int());
+    Expr values = ir::Var::make(temporary.getName(),
+                                temporary.getType().getDataType(),
+                                true, false);
+    Expr size = getTemporarySize(temporary);
+    Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
+    Stmt loopInit = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
+    initializeTemporary = Block::make(initializeTemporary, loopInit);
   }
 
   whereConsumers.push_back(consumer);

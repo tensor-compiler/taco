@@ -182,7 +182,7 @@ protected:
 
   virtual void visit(const Var *op) {
     if (varMap.count(op) == 0) {
-      varMap[op] = codeGen->genUniqueName(op->name);
+      varMap[op] = op->is_ptr? op->name : codeGen->genUniqueName(op->name);
     }
   }
 
