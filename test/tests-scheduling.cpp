@@ -84,7 +84,6 @@ TEST(scheduling, lowerDenseMatrixMul) {
     }
   }
 
-  cout << "-------PACKING---------" << endl;
   A.pack();
   B.pack();
 
@@ -97,29 +96,21 @@ TEST(scheduling, lowerDenseMatrixMul) {
              .split(j, j0, j1, 2)
              .split(k, k0, k1, 2)
              .reorder({i0, j0, k0, i1, j1, k1});
-  cout << "-------COMPILING---------" << endl;
 
   C.compile(stmt);
-  cout << "-------ASSEMBLING---------" << endl;
   C.assemble();
-  cout << "-------COMPUTING---------" << endl;
   C.compute();
 
   Tensor<double> expected("expected", {4, 4}, {Dense, Dense});
   expected(i, j) = A(i, k) * B(k, j);
-  IndexStmt expected_stmt = C.getAssignment().concretize();
   expected.compile();
   expected.assemble();
   expected.compute();
   ASSERT_TENSOR_EQ(C, expected);
 
-    cout << stmt << endl;
-
-    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-    ir::Stmt compute = lower(stmt, "compute",  true, true);
-    codegen->compile(compute, true);
-    ir::Stmt expected_compute = lower(expected_stmt, "compute",  false, true);
-    //codegen->compile(expected_compute, true);
+  //  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  //  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  //  codegen->compile(compute, true);
 }
 
 TEST(scheduling, lowerSparseCopy) {

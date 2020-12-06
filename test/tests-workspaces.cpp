@@ -36,7 +36,7 @@ TEST(workspaces, tile_vecElemMul_NoTail) {
              .split(i_bounded, i0, i1, 4)
              .precompute(precomputedExpr, i1, i1, precomputed);
    
-    cout << stmt << endl;
+//    cout << stmt << endl;
 
   A.compile(stmt);
   A.assemble();
