@@ -508,16 +508,19 @@ Stmt LowererImpl::lowerForall(Forall forall)
     }
 
     // For now, this only works when consuming a single workspace.
-    bool canAccelWithSparseIteration = inParallelLoopDepth == 0 && provGraph.isFullyDerived(iterator.getIndexVar());
-    if (canAccelWithSparseIteration && iterator.isDimensionIterator() && locators.size() == 1) {
+    bool canAccelWithSparseIteration = inParallelLoopDepth == 0 && provGraph.isFullyDerived(iterator.getIndexVar()) &&
+                                       iterator.isDimensionIterator() && locators.size() == 1;
+    if (canAccelWithSparseIteration) {
+      bool indexListsExist = false;
       // We are iterating over a dimension and locating into a temporary with a tracker to keep indices. Instead, we
       // can just iterate over the indices and locate into the dense workspace.
       for (auto it = tensorVars.begin(); it != tensorVars.end(); ++it) {
         if (it->second == locators[0].getTensor() && util::contains(tempToIndexList, it->first)) {
-          canAccelWithSparseIteration = true;
+          indexListsExist = true;
           break;
         }
       }
+      canAccelWithSparseIteration &= indexListsExist;
     }
 
     if (!isWhereProducer && hasPosDescendant && underivedAncestors.size() > 1 && provGraph.isPosVariable(iterator.getIndexVar()) && posDescendant == forall.getIndexVar()) {
@@ -1493,7 +1496,7 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
 bool LowererImpl::canAccelerateDenseTemp(Where where) {
   TensorVar temporary = where.getTemporary();
   // (1) Temporary is dense vector
-  if(!isDense(temporary.getFormat()) || temporary.getOrder() == 1) return false;
+  if(!isDense(temporary.getFormat()) || temporary.getOrder() != 1) return false;
 
   vector<Access> inputAccesses, resultAccesses;
   set<Access> reducedAccesses;
@@ -1517,7 +1520,7 @@ bool LowererImpl::canAccelerateDenseTemp(Where where) {
   // Get vars in result.
   std::vector<IndexVar> resultVars = resultAccesses[0].getIndexVars();
   auto it = std::find(resultVars.begin(), resultVars.end(), tempVar[0]);
-  int index = it != resultVars.end()? (int)(it - resultVars.begin()) + 1: -1;
+  int index = it != resultVars.end()? (int)(it - resultVars.begin()): -1;
 
   // Var used in input is not in result? Probably would fail earlier but here just in case.
   if(index == -1) return false;
