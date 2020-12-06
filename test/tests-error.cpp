@@ -38,6 +38,17 @@ TEST(error, compile_without_expr) {
 #endif
 }
 
+TEST(error, compile_tensor_name_collision) {
+  Tensor<double> a("a", {5}, Sparse);
+  Tensor<double> b("a", {5}, Sparse); // name should be "b"
+  a(i) = b(i);
+#ifdef PYTHON
+  ASSERT_THROW(a.compile(), taco::TacoException);
+#else
+  ASSERT_DEATH(a.compile(), error::compile_tensor_name_collision);
+#endif
+}
+
 TEST(error, assemble_without_compile) {
   Tensor<double> a({5}, Sparse);
   Tensor<double> b({5}, Sparse);

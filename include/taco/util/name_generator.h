@@ -11,6 +11,8 @@ namespace util {
 std::string uniqueName(char prefix);
 std::string uniqueName(const std::string& prefix);
 
+int getUniqueId();
+
 class NameGenerator {
 public:
   NameGenerator();

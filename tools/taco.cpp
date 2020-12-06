@@ -189,6 +189,8 @@ static void printUsageInfo() {
   printFlag("schedule", "Specify parallel execution schedule");
   cout << endl;
   printFlag("nthreads", "Specify number of threads for parallel execution");
+  cout << endl;
+  printFlag("prefix", "Specify a prefix for generated function names");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -495,6 +497,7 @@ int main(int argc, char* argv[]) {
   ParallelSchedule sched = ParallelSchedule::Static;
   int chunkSize = 0;
   int nthreads = 0;
+  string prefix = "";
 
   taco::util::TimeResults compileTime;
   taco::util::TimeResults assembleTime;
@@ -833,6 +836,9 @@ int main(int argc, char* argv[]) {
       }, ' '); 
       scheduleCommands.push_back(argValue); 
     }
+    else if ("-prefix" == argName) {
+      prefix = argValue;
+    }
     else {
       if (exprStr.size() != 0) {
         printUsageInfo();
@@ -923,8 +929,6 @@ int main(int argc, char* argv[]) {
   IndexStmt stmt =
       makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
   stmt = reorderLoopsTopologically(stmt);
-  stmt = insertTemporaries(stmt);
-  stmt = parallelizeOuterLoop(stmt);
 
   if (setSchedule) {
     stringstream scheduleStream; 
@@ -933,6 +937,10 @@ int main(int argc, char* argv[]) {
     }
 
     cuda |= setSchedulingCommands(scheduleStream, parser, stmt);
+  }
+  else {
+    stmt = insertTemporaries(stmt);
+    stmt = parallelizeOuterLoop(stmt);
   }
 
   if (cuda) {
@@ -957,9 +965,9 @@ int main(int argc, char* argv[]) {
     shared_ptr<ir::Module> module(new ir::Module);
 
     TOOL_BENCHMARK_TIMER(
-      compute = lower(stmt, "compute",  computeWithAssemble, true);
-      assemble = lower(stmt, "assemble", true, false);
-      evaluate = lower(stmt, "evaluate", true, true);
+      compute = lower(stmt, prefix+"compute",  computeWithAssemble, true);
+      assemble = lower(stmt, prefix+"assemble", true, false);
+      evaluate = lower(stmt, prefix+"evaluate", true, true);
 
       module->addFunction(compute);
       module->addFunction(assemble);
@@ -967,9 +975,9 @@ int main(int argc, char* argv[]) {
       module->compile();
     , "Compile: ", compileTime);
       
-    void* compute  = module->getFuncPtr("compute");
-    void* assemble = module->getFuncPtr("assemble");
-    void* evaluate = module->getFuncPtr("evaluate");
+    void* compute  = module->getFuncPtr(prefix+"compute");
+    void* assemble = module->getFuncPtr(prefix+"assemble");
+    void* evaluate = module->getFuncPtr(prefix+"evaluate");
     kernel = Kernel(stmt, module, evaluate, assemble, compute);
 
     tensor.compileSource(util::toString(kernel));
@@ -1032,9 +1040,9 @@ int main(int argc, char* argv[]) {
     }
   }
   else {
-    compute = lower(stmt, "compute",  computeWithAssemble, true);
-    assemble = lower(stmt, "assemble", true, false);
-    evaluate = lower(stmt, "evaluate", true, true);
+    compute = lower(stmt, prefix+"compute",  computeWithAssemble, true);
+    assemble = lower(stmt, prefix+"assemble", true, false);
+    evaluate = lower(stmt, prefix+"evaluate", true, true);
   }
 
   string packComment = 
@@ -1061,7 +1069,7 @@ int main(int argc, char* argv[]) {
     std::vector<IndexVar> indexVars = a.getIndexVars();
 
     IndexStmt packStmt = generatePackCOOStmt(tensor, indexVars, true);
-    packs.push_back(lower(packStmt, "pack_" + tensorName, true, true, true));
+    packs.push_back(lower(packStmt, prefix+"pack_" + tensorName, true, true, true));
   }
 
   ir::Stmt unpack;
@@ -1074,7 +1082,7 @@ int main(int argc, char* argv[]) {
     std::vector<IndexVar> indexVars = a.getIndexVars();
 
     IndexStmt unpackStmt = generatePackCOOStmt(tensor, indexVars, false);
-    unpack = lower(unpackStmt, "unpack", true, true, false, true); 
+    unpack = lower(unpackStmt, prefix+"unpack", true, true, false, true);
     break; // should only have one result access
   }
 
