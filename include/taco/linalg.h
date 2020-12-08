@@ -89,6 +89,7 @@ public:
   // And a Write method
   void insert(int coord_x, int coord_y, CType value);
 
+  ScalarAccess<CType> operator()(int i, int j);
 
 };
 
@@ -135,6 +136,11 @@ void Matrix<CType>::insert(int coord_x, int coord_y, CType value) {
   tensorBase->insert({coord_x, coord_y}, value);
 }
 
+template <typename CType>
+ScalarAccess<CType> Matrix<CType>::operator()(int i, int j) {
+  return ScalarAccess<CType>(tensorBase, {i, j});
+}
+
 // ------------------------------------------------------------
 // Vector class
 // ------------------------------------------------------------
@@ -163,8 +169,11 @@ public:
   // Support some Write methods
   void insert(int coord, CType value);
 
+  ScalarAccess<CType> operator()(int i);
+
   // Support some Read methods too
   CType at(int coord);
+
 };
 
 // ------------------------------------------------------------
@@ -205,6 +214,11 @@ void Vector<CType>::insert(int coord, CType value) {
 }
 
 template <typename CType>
+ScalarAccess<CType> Vector<CType>::operator()(int i) {
+  return ScalarAccess<CType>(tensorBase, {i});
+}
+
+template <typename CType>
 CType Vector<CType>::at(int coord) {
   return tensorBase->at<CType>({coord});
 }
@@ -221,7 +235,7 @@ public:
     return LinalgBase::operator=(expr);
   }
 
-  /* operator int() const { return */ 
+  operator CType() const { return tensorBase->at<CType>({}); }
 };
 
 template<typename CType>
