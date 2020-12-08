@@ -41,8 +41,10 @@ protected:
   void visit(const Allocate*);
   void visit(const Sqrt*);
   void visit(const Store*);
+  void visit(const MemStore*);
   void visit(const Assign*);
   void visit(const Load*);
+  void visit(const MemLoad*);
   void visit(const Malloc*);
   void visit(const Free*);
   void visit(const Reduce*);

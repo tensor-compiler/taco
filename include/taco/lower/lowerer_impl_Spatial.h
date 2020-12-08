@@ -20,6 +20,12 @@ public:
   virtual ~LowererImplSpatial() = default;
 
 protected:
+  /// Lower an assignment statement.
+  virtual ir::Stmt lowerAssignment(Assignment assignment);
+
+  /// Lower an access expression.
+  virtual ir::Expr lowerAccess(Access access);
+
   /// Retrieve the values array of the tensor var.
   ir::Expr getValuesArray(TensorVar) const;
 

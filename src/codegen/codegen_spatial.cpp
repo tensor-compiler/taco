@@ -331,21 +331,21 @@ void CodeGen_Spatial::visit(const Function* func) {
   doIndent();
   out << "Accel {\n";
   indent++;
-  out << printDeclsAccel(varFinder.varDecls, func->inputs, func->outputs) << endl;
+  //out << printDeclsAccel(varFinder.varDecls, func->inputs, func->outputs) << endl;
 
   // output body
   print(func->body);
 
   // output repack only if we allocated memory
-  if (checkForAlloc(func))
-    out << endl << printPack(varFinder.outputProperties, func->outputs);
+//  if (checkForAlloc(func))
+//    out << endl << printPack(varFinder.outputProperties, func->outputs);
 
   if (emittingCoroutine) {
     out << printCoroutineFinish(numYields, funcName);
   }
 
   // Reformat output (store back into DRAM)
-  out << printOutputStore(varFinder.outputProperties, func->outputs);
+  //out << printOutputStore(varFinder.outputProperties, func->outputs);
 
   out << "  }\n"; // end Accel
   indent--;
@@ -372,7 +372,7 @@ void CodeGen_Spatial::visit(const VarDecl* op) {
     stream << ";";
     stream << endl;
   } else {
-    if (op->isReg) {
+    if (op->mem == MemoryLocation::SpatialReg) {
       doIndent();
       stream << "val";
       taco_iassert(isa<Var>(op->var));
@@ -726,6 +726,22 @@ void CodeGen_Spatial::visit(const Store* op) {
   stream << endl;
 }
 
+void CodeGen_Spatial::visit(const MemStore* op) {
+  doIndent();
+  op->lhsMem.accept(this);
+  stream << "(";
+  parentPrecedence = Precedence::TOP;
+  op->start.accept(this);
+  stream << ":";
+  op->start.accept(this);
+  stream << "+";
+  op->offset.accept(this);
+  stream << ") store ";
+  parentPrecedence = Precedence::TOP;
+  op->rhsMem.accept(this);
+  stream << endl;
+}
+
 void CodeGen_Spatial::visit(const Load* op) {
   parentPrecedence = Precedence::LOAD;
   op->arr.accept(this);
@@ -733,6 +749,23 @@ void CodeGen_Spatial::visit(const Load* op) {
   parentPrecedence = Precedence::LOAD;
   op->loc.accept(this);
   stream << ")";
+}
+
+void CodeGen_Spatial::visit(const MemLoad* op) {
+  doIndent();
+  op->lhsMem.accept(this);
+  stream << "(";
+  parentPrecedence = Precedence::TOP;
+  op->start.accept(this);
+  stream << ":";
+  op->start.accept(this);
+  stream << "+";
+  op->offset.accept(this);
+  stream << ")";
+  stream << " load ";
+  parentPrecedence = Precedence::TOP;
+  op->rhsMem.accept(this);
+  stream << endl;
 }
 
 void CodeGen_Spatial::visit(const Free* op) {
@@ -859,7 +892,14 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
 //      
 //    } else {
       // for the values, it's in the last slot
-      ret << "val " << varname << "_dram = DRAM[T](";
+      //ret << "val " << varname << "_dram = DRAM[T](";
+      string loc = "DRAM";
+      if (tensor->memoryLocation == MemoryLocation::SpatialSRAM)
+        loc = "SRAM";
+      else if (tensor->memoryLocation == MemoryLocation::SpatialReg)
+        loc = "Reg";
+
+      ret << "val " << varname << " = " << loc << "[T](";
       if (op->index == 0) {
         ret << "1";
       }

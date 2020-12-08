@@ -660,9 +660,9 @@ struct Function : public StmtNode<Function> {
 struct VarDecl : public StmtNode<VarDecl> {
   Expr var;
   Expr rhs;
-  bool isReg;
+  MemoryLocation mem;
 
-  static Stmt make(Expr var, Expr rhs, bool isReg=false);
+  static Stmt make(Expr var, Expr rhs, MemoryLocation mem=MemoryLocation::Default);
 
   static const IRNodeType _type_info = IRNodeType::VarDecl;
 };

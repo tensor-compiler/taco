@@ -734,13 +734,13 @@ std::pair<std::vector<Datatype>,Datatype> Function::getReturnType() const {
 }
 
 // VarDecl
-Stmt VarDecl::make(Expr var, Expr rhs, bool isReg) {
+Stmt VarDecl::make(Expr var, Expr rhs, MemoryLocation mem) {
   taco_iassert(var.as<Var>())
     << "Can only declare a Var";
   VarDecl* decl = new VarDecl;
   decl->var = var;
   decl->rhs = rhs;
-  decl->isReg = isReg;
+  decl->mem = mem;
   return decl;
 }
 

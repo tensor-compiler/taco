@@ -50,7 +50,7 @@ TEST(spatial, vecElemMul) {
   codegen->compile(compute, false);
 }
 
-TEST(spatial, tile_vecElemMul) {
+TEST(spatial, tileCompute_vecElemMul) {
   // Enable spatial codegen
   //should_use_Spatial_codegen();
   
@@ -77,7 +77,11 @@ TEST(spatial, tile_vecElemMul) {
   stmt = stmt.bound(i, i_bounded, 16, BoundType::MaxExact)
              .split(i_bounded, i0, i1, 4)
              .precompute(precomputedExpr, i1, i1, precomputed);
-   
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+  cout << "----------------Post-Schedule Stmt-----------------" << endl;
+  cout << stmt << endl;
+
   A.compile(stmt);
   A.assemble();
   A.compute();
@@ -501,5 +505,78 @@ TEST(spatial, reduction_higherOrder) {
   cout << compute << endl;
 
   cout << "-----------Spatial Code---------------" << endl;
+  codegen->compile(compute, false);
+}
+
+TEST(spatial, tile_vecElemMul) {
+  // Enable spatial codegen
+  //should_use_Spatial_codegen();
+
+  Tensor<double> A("A", {16}, {Dense}, MemoryLocation::SpatialDRAM);
+  Tensor<double> B("B", {16}, {Dense}, MemoryLocation::SpatialDRAM);
+  Tensor<double> C("C", {16}, {Dense}, MemoryLocation::SpatialDRAM);
+
+  for (int i = 0; i < 16; i++) {
+    A.insert({i}, (double) i);
+    B.insert({i}, (double) i);
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i");
+  IndexVar i_bounded("i_bounded");
+  IndexVar i0("i0"), i1("i1");
+  IndexVar i2("i2");
+  IndexExpr BExpr = B(i);
+  IndexExpr CExpr = C(i);
+  IndexExpr precomputedExpr = (BExpr) * (CExpr);
+  A(i) = precomputedExpr;
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar B_sram("B_sram", Type(Float64, {Dimension(i1)}), taco::dense, MemoryLocation::SpatialSRAM);
+  TensorVar C_sram("C_sram", Type(Float64, {Dimension(i1)}), taco::dense, MemoryLocation::SpatialSRAM);
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense, MemoryLocation::SpatialSRAM);
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+  cout << "----------------Pre-Schedule Stmt-----------------" << endl;
+  cout << stmt << endl;
+
+  stmt = stmt.bound(i, i_bounded, 16, BoundType::MaxExact)
+          .split(i_bounded, i0, i1, 4)
+          .precompute(precomputedExpr, i1, i1, precomputed);
+  cout << "----------------Post-Schedule 1 Stmt-----------------" << endl;
+  cout << stmt << endl;
+
+  stmt = stmt.precompute(BExpr, i1, i1, B_sram);
+  cout << "----------------Post-Schedule 2 Stmt-----------------" << endl;
+  cout << stmt << endl;
+
+  stmt = stmt.precompute(CExpr, i1, i1, C_sram);
+
+
+  cout << "----------------Post-Schedule 3 Stmt-----------------" << endl;
+  cout << stmt << endl;
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {16}, {Dense});
+  expected(i) = B(i) * C(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+
+
+  set_Spatial_codegen_enabled(true);
+
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+
+  cout << "----------Finish codegen lowering---------" << endl;
+  cout << compute << endl;
+
   codegen->compile(compute, false);
 }

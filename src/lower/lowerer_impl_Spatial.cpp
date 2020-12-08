@@ -66,6 +66,76 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
   LowererImplSpatial::LowererImplSpatial() : visitor(new Visitor(this)) {
   }
 
+  Stmt LowererImplSpatial::lowerAssignment(Assignment assignment)
+  {
+    TensorVar result = assignment.getLhs().getTensorVar();
+
+    if (generateComputeCode()) {
+      Expr var = getTensorVar(result);
+      Expr rhs = lower(assignment.getRhs());
+
+      // Assignment to scalar variables.
+      if (isScalar(result.getType())) {
+        if (!assignment.getOperator().defined()) {
+          return Assign::make(var, rhs, false, getAtomicParallelUnit());
+          // TODO: we don't need to mark all assigns/stores just when scattering/reducing
+        }
+        else {
+          taco_iassert(isa<taco::Add>(assignment.getOperator()));
+          return compoundAssign(var, rhs, false, getAtomicParallelUnit());
+        }
+      }
+        // Assignments to tensor variables (non-scalar).
+      else {
+        Expr values = getValuesArray(result);
+        Expr loc = generateValueLocExpr(assignment.getLhs());
+
+        Stmt computeStmt;
+        if (!assignment.getOperator().defined()) {
+          cout << "Debug: Values - ";
+          cout << values << " " << isa<GetProperty>(values) << endl;
+          if (result.getMemoryLocation() == MemoryLocation::SpatialDRAM) {
+            computeStmt = MemStore::make(values, rhs, loc, ir::Literal::zero(result.getType().getDataType()));
+          } else if (isa<Access>(assignment.getRhs()) &&
+                     to<Access>(assignment.getRhs()).getTensorVar().getMemoryLocation() == MemoryLocation::SpatialDRAM) {
+            computeStmt = MemLoad::make(values, rhs, loc, ir::Literal::zero(result.getType().getDataType()));
+          } else {
+            computeStmt = Store::make(values, loc, rhs, false, getAtomicParallelUnit());
+          }
+        }
+        else {
+          computeStmt = compoundStore(values, loc, rhs, false, getAtomicParallelUnit());
+        }
+        taco_iassert(computeStmt.defined());
+        return computeStmt;
+      }
+    }
+      // We're only assembling so defer allocating value memory to the end when
+      // we'll know exactly how much we need.
+    else if (generateAssembleCode()) {
+      // TODO
+      return Stmt();
+    }
+      // We're neither assembling or computing so we emit nothing.
+    else {
+      return Stmt();
+    }
+    taco_unreachable;
+    return Stmt();
+  }
+
+  Expr LowererImplSpatial::lowerAccess(Access access) {
+    TensorVar var = access.getTensorVar();
+
+    if (isScalar(var.getType())) {
+      return getTensorVar(var);
+    }
+
+    return getIterators(access).back().isUnique()
+           ? Load::make(getValuesArray(var), generateValueLocExpr(access))
+           : getReducedValueVar(access);
+  }
+
   ir::Expr LowererImplSpatial::getValuesArray(TensorVar var) const
   {
     return (util::contains(getTemporaryArrays(), var))
@@ -115,7 +185,12 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
         /// temporary value arrays from.
         TemporaryArrays arrays;
         arrays.values = values;
-        this->getTemporaryArrays().insert({temporary, arrays});
+        this->insertTemporaryArrays(temporary, arrays);
+        cout << temporary << endl;
+        cout << arrays.values << endl;
+//        cout << "Debug: TEMPORARY ARRAYS" << endl;
+//        for (auto it = getTemporaryArrays().begin(); it != getTemporaryArrays().end(); it++)
+//          cout << it->first << ", " << it->second.values << endl;
 
         freeTemporary = Free::make(values);
         initializeTemporary = Block::make(allocate, zeroInitLoop);

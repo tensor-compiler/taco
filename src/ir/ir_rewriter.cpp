@@ -394,7 +394,7 @@ void IRRewriter::visit(const VarDecl* op) {
     stmt = op;
   }
   else {
-    stmt = VarDecl::make(var, rhs, op->isReg);
+    stmt = VarDecl::make(var, rhs, op->mem);
   }
 }
 
