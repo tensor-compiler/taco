@@ -475,40 +475,11 @@ static string getAtomicPragma() {
 // Docs for vectorization pragmas:
 // http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations
 void CodeGen_Spatial::visit(const For* op) {
-  /*
-  switch (op->kind) {
-    case LoopKind::Vectorized:
-      doIndent();
-      out << genVectorizePragma(op->vec_width);
-      out << "\n";
-      break;
-    case LoopKind::Static:
-    case LoopKind::Dynamic:
-    case LoopKind::Runtime:
-    case LoopKind::Static_Chunked:
-      doIndent();
-      out << getParallelizePragma(op->kind);
-      out << "\n";
-      break;
-    default:
-      if (op->unrollFactor > 0) {
-        doIndent();
-        out << getUnrollPragma(op->unrollFactor) << endl;
-      }
-      break;
-  }
-  */
 
   // FIXME: [Spatial] See if this is the correct location
   doIndent();
   stream << keywordString("Foreach") << " (";
-  
-  /* Don't need type for spatial
-  if (!emittingCoroutine) {
-    stream << keywordString(util::toString(op->var.type())) << " ";
-  } */
 
-  //stream << " = ";
   auto start_lit = op->start.as<Literal>();
   if (start_lit != nullptr && !((start_lit->type.isInt() && 
                                 start_lit->equalsScalar(0)) ||
@@ -535,8 +506,8 @@ void CodeGen_Spatial::visit(const For* op) {
   }
   
   // Parallelization factor in spatial 
-  if (op->unrollFactor > 0) {
-    stream << " par " << op->unrollFactor;
+  if (op->numChunks > 0 && op->numChunks <= 16) {
+    stream << " par " << op->numChunks;
   }
 
   stream << ") { ";
@@ -571,6 +542,9 @@ void CodeGen_Spatial::visit(const Reduce* op) {
   op->end.accept(this);
   stream << keywordString(" by ");
   op->increment.accept(this);
+  if (op->par > 0 && op->par <= 16) {
+    stream << " par " << op->par;
+  }
   stream << ") {";
   op->var.accept(this);
   stream << " => \n";

@@ -617,10 +617,11 @@ struct For : public StmtNode<For> {
   int vec_width;  // vectorization width
   ParallelUnit parallel_unit;
   size_t unrollFactor;
+  size_t numChunks;
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
                    Stmt contents, LoopKind kind=LoopKind::Serial,
-                   ParallelUnit parallel_unit=ParallelUnit::NotParallel, size_t unrollFactor=0, int vec_width=0);
+                   ParallelUnit parallel_unit=ParallelUnit::NotParallel, size_t unrollFactor=0, int vec_width=0, size_t numChunks=1);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };
@@ -794,22 +795,45 @@ struct MemLoad : public StmtNode<MemLoad> {
   static const IRNodeType _type_info = IRNodeType::MemLoad;
 };
 
+struct StoreBulk : public StmtNode<StoreBulk> {
+  Expr arr;
+  Expr locStart;
+  Expr locEnd;
+  Expr data;
+  bool use_atomics;
+  ParallelUnit atomic_parallel_unit;
+
+  static Stmt make(Expr arr, Expr locStart, Expr locEnd, Expr data, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
+
+  static const IRNodeType _type_info = IRNodeType::Store;
+};
+
+struct LoadBulk : public ExprNode<LoadBulk> {
+  Expr arr;
+  Expr locStart;
+  Expr locEnd;
+
+  static Expr make(Expr arr, Expr locStart, Expr locEnd);
+
+  static const IRNodeType _type_info = IRNodeType::Load;
+};
+
 struct Reduce : public StmtNode<Reduce> {
   Expr var;
   Expr reg;
   Expr start;
   Expr end;
   Expr increment;
-  Expr par;
   Stmt contents;
   Expr returnExpr;
   bool add;
+  size_t par;
 
   static Stmt make(Expr var, Expr reg, Expr start, Expr end, Expr increment,
-                   Stmt body, bool add=true, Expr par=1);
+                   Stmt body, bool add=true, size_t par=1);
 
   static Stmt make(Expr var, Expr reg, Expr start, Expr end, Expr increment,
-                   Stmt contents, Expr returnExpr, bool add=true, Expr par=1);
+                   Stmt contents, Expr returnExpr, bool add=true, size_t par=1);
 
   static const IRNodeType _type_info = IRNodeType::Reduce;
 };

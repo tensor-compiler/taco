@@ -661,7 +661,7 @@ Stmt Switch::make(std::vector<std::pair<Expr,Stmt>> cases, Expr controlExpr) {
 
 // For loop
 Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
-  LoopKind kind, ParallelUnit parallel_unit, size_t unrollFactor, int vec_width) {
+  LoopKind kind, ParallelUnit parallel_unit, size_t unrollFactor, int vec_width, size_t numChunks) {
   For *loop = new For;
   loop->var = var;
   loop->start = start;
@@ -672,6 +672,7 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
   loop->unrollFactor = unrollFactor;
   loop->vec_width = vec_width;
   loop->parallel_unit = parallel_unit;
+  loop->numChunks = numChunks;
   return loop;
 }
 
@@ -950,10 +951,36 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
   return gp;
 }
 
+// Bulk Store
+Stmt StoreBulk::make(Expr arr, Expr locStart, Expr locEnd, Expr data, bool use_atomics, ParallelUnit atomic_parallel_unit) {
+  StoreBulk *store = new StoreBulk;
+  store->arr = arr;
+  store->locStart = locStart;
+  store->locEnd = locEnd;
+  store->data = data;
+  store->use_atomics = use_atomics;
+  store->atomic_parallel_unit = atomic_parallel_unit;
+  return store;
+}
+
+// Bulk Load
+Expr LoadBulk::make(Expr arr, Expr locStart, Expr locEnd) {
+  taco_iassert(locStart.type().isInt() || locStart.type().isUInt())
+          << "Can't load from a non-integer offset";
+  taco_iassert(locEnd.type().isInt() || locEnd.type().isUInt())
+          << "Can't load from a non-integer offset";
+  LoadBulk *load = new LoadBulk;
+  load->type = arr.type();
+  load->arr = arr;
+  load->locStart = locStart;
+  load->locEnd = locEnd;
+  return load;
+}
+
 /// SPATIAL ONLY
 // Reduce loop
 Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Stmt body,
-                bool add, Expr par) {
+                bool add, size_t par) {
   Reduce *loop = new Reduce;
   loop->var = var;
   loop->reg = reg;
@@ -967,7 +994,7 @@ Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Stmt
 }
 
 Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Stmt body, Expr returnExpr,
-                  bool add, Expr par) {
+                  bool add, size_t par) {
   Reduce *loop = new Reduce;
   loop->var = var;
   loop->reg = reg;
@@ -1099,6 +1126,10 @@ template<> void StmtNode<Sort>::accept(IRVisitorStrict *v)
   const { v->visit((const Sort*)this); }
 template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
   const { v->visit((const Break*)this); }
+template<> void StmtNode<StoreBulk>::accept(IRVisitorStrict *v)
+    const { v->visit((const StoreBulk*)this); }
+template<> void ExprNode<LoadBulk>::accept(IRVisitorStrict *v)
+    const { v->visit((const LoadBulk*)this); }
 /// SPATIAL ONLY
 template<> void StmtNode<Reduce>::accept(IRVisitorStrict *v)
     const { v->visit((const Reduce*)this); }

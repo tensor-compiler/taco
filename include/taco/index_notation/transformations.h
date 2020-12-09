@@ -163,11 +163,12 @@ class Parallelize : public TransformationInterface {
 public:
   Parallelize();
   Parallelize(IndexVar i);
-  Parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy);
+  Parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, int numChunks=1);
 
   IndexVar geti() const;
   ParallelUnit getParallelUnit() const;
   OutputRaceStrategy getOutputRaceStrategy() const;
+  int getNumChunks() const;
 
   /// Apply the parallelize optimization to a concrete index statement.
   IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;

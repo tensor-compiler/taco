@@ -50,6 +50,8 @@ struct Print;
 struct GetProperty;
 struct Sort;
 struct Break;
+struct LoadBulk;
+struct StoreBulk;
 
 // Spatial Only
 struct MemLoad;
@@ -107,6 +109,8 @@ public:
   virtual void visit(const GetProperty*) = 0;
   virtual void visit(const Sort*) = 0;
   virtual void visit(const Break*) = 0;
+  virtual void visit(const LoadBulk*) = 0;
+  virtual void visit(const StoreBulk*) = 0;
 
   // Spatial only
   virtual void visit(const Reduce*) = 0;
@@ -167,6 +171,9 @@ public:
   virtual void visit(const GetProperty* op);
   virtual void visit(const Sort* op);
   virtual void visit(const Break* op);
+  virtual void visit(const LoadBulk* op);
+  virtual void visit(const StoreBulk* op);
+
   // Spatial Only
   virtual void visit(const Reduce*);
   virtual void visit(const MemStore*);

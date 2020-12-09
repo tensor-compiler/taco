@@ -597,6 +597,32 @@ void IRPrinter::visit(const Sort* op) {
   stream << endl;
 }
 
+void IRPrinter::visit(const StoreBulk* op) {
+  doIndent();
+  op->arr.accept(this);
+  stream << "[";
+  parentPrecedence = Precedence::TOP;
+  op->locStart.accept(this);
+  stream << ":";
+  op->locEnd.accept(this);
+  stream << "] = ";
+  parentPrecedence = Precedence::TOP;
+  op->data.accept(this);
+  stream << ";";
+  stream << endl;
+}
+
+void IRPrinter::visit(const LoadBulk* op) {
+  parentPrecedence = Precedence::LOAD;
+  op->arr.accept(this);
+  stream << "[";
+  parentPrecedence = Precedence::LOAD;
+  op->locStart.accept(this);
+  stream << ":";
+  op->locEnd.accept(this);
+  stream << "]";
+}
+
 /// SPATIAL ONLY
 void IRPrinter::visit(const Reduce* op) {
   doIndent();

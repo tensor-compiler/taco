@@ -300,6 +300,30 @@ protected:
     // nothing here yet, but might be required
   }
 
+  void visit(const LoadBulk *op) {
+    if (op->type != op->arr.type()) {
+      messages << "Node: " << (Expr)op
+               << " has type that differs from the target array (" << op->type
+               << " vs. " << op->arr.type() << ")\n";
+    }
+    op->arr.accept(this);
+    op->locStart.accept(this);
+    op->locEnd.accept(this);
+  }
+
+  void visit(const StoreBulk *op) {
+    auto tp = op->arr.type();
+    if (tp != op->data.type()) {
+      messages << "Node: " << (Stmt)op
+               << " is storing data of different type from array (" << op->data.type()
+               << " vs. " << tp << ")\n";
+    }
+    op->arr.accept(this);
+    op->data.accept(this);
+    op->locStart.accept(this);
+    op->locEnd.accept(this);
+  }
+
 };
 
 } // anonymous namespace

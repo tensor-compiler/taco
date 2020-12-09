@@ -227,6 +227,9 @@ void IndexNotationPrinter::visit(const ForallNode* op) {
   if (op->parallel_unit != ParallelUnit::NotParallel) {
     os << ", " << ParallelUnit_NAMES[(int) op->parallel_unit] << ", " << OutputRaceStrategy_NAMES[(int) op->output_race_strategy];
   }
+  if (op->numChunks > 1) {
+    os << ", " << op->numChunks;
+  }
   os << ")";
 }
 

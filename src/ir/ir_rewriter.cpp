@@ -303,7 +303,7 @@ void IRRewriter::visit(const For* op) {
   }
   else {
     stmt = For::make(var, start, end, increment, contents, op->kind,
-                     op->parallel_unit, op->unrollFactor, op->vec_width);
+                     op->parallel_unit, op->unrollFactor, op->vec_width, op->numChunks);
   }
 }
 
@@ -511,6 +511,31 @@ void IRRewriter::visit(const Sort* op) {
   }
 }
 
+void IRRewriter::visit(const StoreBulk* op) {
+  Expr arr      = rewrite(op->arr);
+  Expr locStart = rewrite(op->locStart);
+  Expr locEnd   = rewrite(op->locEnd);
+  Expr data     = rewrite(op->data);
+  if (arr == op->arr && locStart == op->locStart && locEnd == op->locEnd && data == op->data) {
+    stmt = op;
+  }
+  else {
+    stmt = StoreBulk::make(arr, locStart, locEnd, data, op->use_atomics);
+  }
+}
+
+void IRRewriter::visit(const LoadBulk* op) {
+  Expr arr      = rewrite(op->arr);
+  Expr locStart = rewrite(op->locStart);
+  Expr locEnd   = rewrite(op->locEnd);
+  if (arr == op->arr && locStart == op->locStart && locEnd == op->locEnd) {
+    expr = op;
+  }
+  else {
+    expr = LoadBulk::make(arr, locStart, locEnd);
+  }
+}
+
 /// SPATIAL ONLY
 void IRRewriter::visit(const Reduce* op) {
   Expr var       = rewrite(op->var);
@@ -522,17 +547,16 @@ void IRRewriter::visit(const Reduce* op) {
   Expr retExpr;
   if (op->returnExpr.defined())
     retExpr   = rewrite(op->returnExpr);
-  Expr par       = rewrite(op->par);
   if (var == op->var && reg == op->reg && start == op->start && end == op->end &&
-      increment == op->increment && contents == op->contents && !op->returnExpr.defined() && par == op->par) {
+      increment == op->increment && contents == op->contents && !op->returnExpr.defined()) {
     stmt = op;
   } else if (var == op->var && reg == op->reg && start == op->start && end == op->end &&
-             increment == op->increment && contents == op->contents && op->returnExpr.defined() && retExpr == op->returnExpr && par == op->par)
+             increment == op->increment && contents == op->contents && op->returnExpr.defined() && retExpr == op->returnExpr)
   {
     stmt = op;
   }
   else {
-    stmt = Reduce::make(var, reg, start, end, increment, contents, retExpr, op->add, par);
+    stmt = Reduce::make(var, reg, start, end, increment, contents, retExpr, op->add, op->par);
   }
 }
 

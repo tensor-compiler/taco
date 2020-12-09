@@ -353,13 +353,17 @@ TEST(spatial, reduction_GEMM) {
           .bound(i, i_b, 16, BoundType::MaxExact)
           .bound(j, j_b, 16, BoundType::MaxExact)
           .bound(k, k_b, 16, BoundType::MaxExact)
-          //.parallelize(i_b, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces)
-          .parallelize(k_b, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
-
-
-
+          .parallelize(k_b, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 16)
+          .parallelize(i_b, ParallelUnit::Spatial, OutputRaceStrategy::IgnoreRaces, 16);
   ir::IRPrinter irp = ir::IRPrinter(cout);
   cout << stmt << endl;
+
+  stmt = stmt
+          .parallelize(j_b, ParallelUnit::Spatial, OutputRaceStrategy::IgnoreRaces, 16);
+  cout << stmt << endl;
+
+
+
 
   A.compile(stmt);
   A.assemble();

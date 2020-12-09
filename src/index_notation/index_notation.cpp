@@ -1546,9 +1546,18 @@ IndexStmt IndexStmt::reorder(std::vector<IndexVar> reorderedvars) const {
   return transformed;
 }
 
-IndexStmt IndexStmt::parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy) const {
+//IndexStmt IndexStmt::parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy) const {
+//  string reason;
+//  IndexStmt transformed = Parallelize(i, parallel_unit, output_race_strategy).apply(*this, &reason);
+//  if (!transformed.defined()) {
+//    taco_uerror << reason;
+//  }
+//  return transformed;
+//}
+
+IndexStmt IndexStmt::parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, int numChunks) const {
   string reason;
-  IndexStmt transformed = Parallelize(i, parallel_unit, output_race_strategy).apply(*this, &reason);
+  IndexStmt transformed = Parallelize(i, parallel_unit, output_race_strategy, numChunks).apply(*this, &reason);
   if (!transformed.defined()) {
     taco_uerror << reason;
   }
@@ -1767,8 +1776,8 @@ Forall::Forall(IndexVar indexVar, IndexStmt stmt)
     : Forall(indexVar, stmt, ParallelUnit::NotParallel, OutputRaceStrategy::IgnoreRaces) {
 }
 
-Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor)
-        : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor)) {
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor, size_t numChunks)
+        : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor, numChunks)) {
 }
 
 IndexVar Forall::getIndexVar() const {
@@ -1791,12 +1800,16 @@ size_t Forall::getUnrollFactor() const {
   return getNode(*this)->unrollFactor;
 }
 
+size_t Forall::getNumChunks() const {
+  return getNode(*this)->numChunks;
+}
+
 Forall forall(IndexVar i, IndexStmt stmt) {
   return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor) {
-  return Forall(i, stmt, parallel_unit, output_race_strategy, unrollFactor);
+Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor, size_t numChunks) {
+  return Forall(i, stmt, parallel_unit, output_race_strategy, unrollFactor, numChunks);
 }
 
 template <> bool isa<Forall>(IndexStmt s) {

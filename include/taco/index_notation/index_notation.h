@@ -636,7 +636,7 @@ public:
   /// assume that no data races will occur. For all other strategies other than Atomics,
   /// there is the precondition
   /// that the racing reduction must be over the index variable being parallelized.
-  IndexStmt parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy) const;
+  IndexStmt parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, int numChunks=0) const;
 
   /// pos and coord create
   /// new index variables in their respective iteration spaces.
@@ -782,7 +782,7 @@ public:
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
-  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0);
+  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0, size_t numChunks = 1);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
@@ -793,12 +793,14 @@ public:
 
   size_t getUnrollFactor() const;
 
+  size_t getNumChunks() const;
+
   typedef ForallNode Node;
 };
 
 /// Create a forall index statement.
 Forall forall(IndexVar i, IndexStmt stmt);
-Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0);
+Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0, size_t numChunks = 1);
 
 
 /// A where statment has a producer statement that binds a tensor variable in
