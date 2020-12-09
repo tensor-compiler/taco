@@ -403,7 +403,7 @@ static void declareTensor(py::module &m, const std::string typestr) {
                return elementGetter<CType>(self, indices);
             }, py::is_operator())
 
-          .def("__getitem__", [](typedTensor& self, nullptr_t ptr) -> Access{
+          .def("__getitem__", [](typedTensor& self, std::nullptr_t ptr) -> Access{
             if(self.getOrder() != 0) {
               throw py::index_error("Can only index scalar tensors with None.");
             }
@@ -417,15 +417,15 @@ static void declareTensor(py::module &m, const std::string typestr) {
           .def("__getitem__", &accessGetter<CType, std::vector<IndexVar>&>, py::is_operator())
 
           //  Set scalars to expression using none
-          .def("__setitem__", [](typedTensor& self, nullptr_t ptr, const IndexExpr expr) -> void {
+          .def("__setitem__", [](typedTensor& self, std::nullptr_t ptr, const IndexExpr expr) -> void {
               self = expr;
           }, py::is_operator())
 
-          .def("__setitem__", [](typedTensor& self, nullptr_t ptr, const Access access) -> void {
+          .def("__setitem__", [](typedTensor& self, std::nullptr_t ptr, const Access access) -> void {
               self = access;
           }, py::is_operator())
 
-          .def("__setitem__", [](typedTensor& self, nullptr_t ptr, const TensorVar tensorVar) -> void {
+          .def("__setitem__", [](typedTensor& self, std::nullptr_t ptr, const TensorVar tensorVar) -> void {
               self = tensorVar;
           }, py::is_operator())
 
