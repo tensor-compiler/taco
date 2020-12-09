@@ -49,6 +49,28 @@ TEST(linalg, vecmat_mul_index_expr) {
 }
 
 
+TEST(linalg, inner_mul_index_expr) {
+  Scalar<double> x("x", true);
+  Vector<double> b("b", 2, dense, false);
+  Vector<double> a("a", 2, dense, true);
+
+  b(0) = 2;
+  b(1) = 3;
+
+  a(0) = -3;
+  a(1) = 5;
+
+  IndexVar i;
+  x = b(i) * a(i);
+
+  // Should be 9
+  cout << x << endl;
+
+  cout << x.getIndexAssignment();
+
+  ASSERT_EQ(x, 9);
+}
+
 TEST(linalg, matmul) {
   Matrix<double> B("B", 2, 2, dense, dense);
   Matrix<double> C("C", 2, 2, dense, dense);

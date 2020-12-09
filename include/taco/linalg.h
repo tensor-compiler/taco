@@ -268,6 +268,10 @@ public:
     return LinalgBase::operator=(expr);
   }
 
+  void operator=(const IndexExpr& expr) {
+    (*tensorBase) = expr;
+  }
+
   operator CType() const { return tensorBase->at<CType>({}); }
 };
 
