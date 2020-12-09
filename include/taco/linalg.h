@@ -91,6 +91,9 @@ public:
 
   ScalarAccess<CType> operator()(int i, int j);
 
+  // Access methods for use in IndexExprs
+  const Access operator()(const IndexVar i, const IndexVar j) const;
+  Access operator()(const IndexVar i, const IndexVar j);
 };
 
 // ------------------------------------------------------------
@@ -141,6 +144,18 @@ ScalarAccess<CType> Matrix<CType>::operator()(int i, int j) {
   return ScalarAccess<CType>(tensorBase, {i, j});
 }
 
+// Definition of Access methods
+template <typename CType>
+const Access Matrix<CType>::operator()(const IndexVar i, const IndexVar j) const {
+  return (*tensorBase)({i,j});
+}
+
+template <typename CType>
+Access Matrix<CType>::operator()(const IndexVar i, const IndexVar j) {
+  return (*tensorBase)({i,j});
+}
+
+
 // ------------------------------------------------------------
 // Vector class
 // ------------------------------------------------------------
@@ -174,6 +189,9 @@ public:
   // Support some Read methods too
   CType at(int coord);
 
+  // Access methods for use in IndexExprs
+  const Access operator()(const IndexVar i) const;
+  Access operator()(const IndexVar i);
 };
 
 // ------------------------------------------------------------
@@ -222,6 +240,21 @@ template <typename CType>
 CType Vector<CType>::at(int coord) {
   return tensorBase->at<CType>({coord});
 }
+
+// Definition of Access methods
+template <typename CType>
+const Access Vector<CType>::operator()(const IndexVar i) const {
+  return (*tensorBase)({i});
+}
+
+template <typename CType>
+Access Vector<CType>::operator()(const IndexVar i) {
+  return (*tensorBase)({i});
+}
+
+// ------------------------------------------------------------
+// Scalar class
+// ------------------------------------------------------------
 
 template<typename CType>
 class Scalar : public LinalgBase {

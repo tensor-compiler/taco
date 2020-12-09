@@ -4,6 +4,51 @@
 
 using namespace taco;
 
+TEST(linalg, matmul_index_expr) {
+  Matrix<double> B("B", 2, 2, dense, dense);
+  Matrix<double> C("C", 2, 2, dense, dense);
+  Matrix<double> A("A", 2, 2, dense, dense);
+
+  B(0,0) = 2;
+  B(1,1) = 1;
+  B(0,1) = 2;
+  C(0,0) = 2;
+  C(1,1) = 2;
+
+  IndexVar i, j, k;
+  A(i,j) = B(i,k) * C(k,j);
+
+  ASSERT_EQ(A.at(0,0), 4);
+  ASSERT_EQ(A.at(0,1), 4);
+  ASSERT_EQ(A.at(1,0), 0);
+  ASSERT_EQ(A.at(1,1), 2);
+}
+
+TEST(linalg, vecmat_mul_index_expr) {
+  Vector<double> x("x", 2, dense, false);
+  Vector<double> b("b", 2, dense, false);
+  Matrix<double> A("A", 2, 2, dense, dense);
+
+  b(0) = 3;
+  b(1) = -2;
+
+  A(0,0) = 5;
+  A(0,1) = 2;
+  A(1,0) = -1;
+
+  // Should be [17, 6]
+  IndexVar i, j;
+  x(i) = b(j) * A(j,i);
+
+  ASSERT_EQ(x.at(0), 17);
+  ASSERT_EQ(x.at(1), 6);
+
+  cout << x << endl;
+
+  cout << x.getIndexAssignment();
+}
+
+
 TEST(linalg, matmul) {
   Matrix<double> B("B", 2, 2, dense, dense);
   Matrix<double> C("C", 2, 2, dense, dense);
