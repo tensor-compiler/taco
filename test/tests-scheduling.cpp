@@ -725,11 +725,7 @@ TEST(scheduling, dense_pos_error) {
   y(i) = x(i);
 
   IndexStmt stmt = y.getAssignment().concretize();
-#ifdef PYTHON
   ASSERT_THROW(stmt.pos(i, ipos, x(i)), taco::TacoException);
-#else
-  ASSERT_DEATH(stmt.pos(i, ipos, x(i)), "Pos transformation is not valid for dense formats, the coordinate space should be transformed instead");
-#endif
 }
 
 TEST(scheduling, pos_var_not_in_access) {
@@ -739,11 +735,7 @@ TEST(scheduling, pos_var_not_in_access) {
   y(i) = x(i);
 
   IndexStmt stmt = y.getAssignment().concretize();
-#ifdef PYTHON
   ASSERT_THROW(stmt.pos(j, ipos, x(i)), taco::TacoException);
-#else
-  ASSERT_DEATH(stmt.pos(j, ipos, x(i)), "Index variable j does not appear in access: x[(]i[)]");
-#endif
 }
 
 TEST(scheduling, pos_wrong_access) {
@@ -753,13 +745,8 @@ TEST(scheduling, pos_wrong_access) {
   y(i) = x(i);
 
   IndexStmt stmt = y.getAssignment().concretize();
-#ifdef PYTHON
   ASSERT_THROW(stmt.pos(i, ipos, x(j)), taco::TacoException);
   ASSERT_THROW(stmt.pos(i, ipos, y(i)), taco::TacoException);
-#else
-  ASSERT_DEATH(stmt.pos(i, ipos, x(j)), "Access: x[(]j[)] does not appear in index statement as an argument");
-  ASSERT_DEATH(stmt.pos(i, ipos, y(i)), "Access: y[(]i[)] does not appear in index statement as an argument");
-#endif
 }
 
 TEST(scheduling_eval_test, spmv_fuse) {
