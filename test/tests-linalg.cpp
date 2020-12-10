@@ -88,6 +88,10 @@ TEST(linalg, matmul) {
   ASSERT_EQ(A.at(0,1), 4);
   ASSERT_EQ(A.at(1,0), 0);
   ASSERT_EQ(A.at(1,1), 2);
+
+  cout << "A(1,1) = " << A(1,1) << endl;
+  double a11 = A(1,1);
+  cout << "a11 = " << a11 << endl;
 }
 
 TEST(linalg, tensorbase) {
