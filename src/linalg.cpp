@@ -8,8 +8,8 @@ using namespace std;
 
 namespace taco {
 
-LinalgBase::LinalgBase(string name, Type tensorType, bool isColVec) : LinalgExpr(TensorVar(name, tensorType), isColVec),  name(name), tensorType(tensorType), idxcount(0) {
-}
+/* LinalgBase::LinalgBase(string name, Type tensorType, bool isColVec) : LinalgExpr(TensorVar(name, tensorType), isColVec),  name(name), tensorType(tensorType), idxcount(0) { */
+/* } */
 
 LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, bool isColVec) :
   LinalgExpr(TensorVar(name, tensorType, format), isColVec, new TensorBase(name, dtype, dims, format)), name(name),

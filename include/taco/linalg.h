@@ -33,9 +33,9 @@ protected:
 
 public:
   LinalgBase(std::string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, bool isColVec = false);
-  LinalgBase(std::string name, Type tensorType, bool isColVec = false);
-  LinalgBase(std::string name, Type tensorType, Format format, bool isColVec = false);
-  LinalgBase(TensorBase* tensor, bool isColVec = false);
+  /* LinalgBase(std::string name, Type tensorType, bool isColVec = false); */
+  /* LinalgBase(std::string name, Type tensorType, Format format, bool isColVec = false); */
+  /* LinalgBase(TensorBase* tensor, bool isColVec = false); */
 
   /// [LINALG NOTATION]
   LinalgAssignment operator=(const LinalgExpr &expr);
@@ -68,6 +68,7 @@ public:
   Matrix(std::string name, size_t dim1, size_t dim2);
 
   Matrix(std::string name, std::vector<size_t> dimensions);
+  /* Matrix(std::string name, std::initializer_list<Dimension> dimensions); */
 
   Matrix(std::string name, size_t dim1, size_t dim2, Format format);
 
@@ -104,7 +105,10 @@ template<typename CType>
 Matrix<CType>::Matrix(std::string name) : LinalgBase(name, Type(type<CType>(), {42, 42})) {}
 
 template<typename CType>
-Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions) : LinalgBase(name, Type(type<CType>(), dimensions)) {}
+/* Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions) : LinalgBase(name, Type(type<CType>(), dimensions)) {} */
+Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions) : 
+/* Matrix<CType>::Matrix(std::string name, std::initializer_list<Dimension> dimensions) : */ 
+  LinalgBase(name, Type(type<CType>(), Shape(std::vector<Dimension>(dimensions.begin(), dimensions.end()))), type<CType>(), std::vector<int>(dimensions.begin(), dimensions.end()), Format({dense,dense})) {}
 
 template<typename CType>
 Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2) : LinalgBase(name, Type(type<CType>(), {dim1, dim2})) {}
@@ -117,6 +121,7 @@ template<typename CType>
 Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions, Format format) :
   LinalgBase(name, Type(type<CType>(), dimensions), format) {}
 
+/* This is the one in use currently */
 template<typename CType>
 Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat format1, ModeFormat format2) :
   LinalgBase(name, Type(type<CType>(), {dim1, dim2}), type<CType>(), {(int)dim1, (int)dim2}, Format({format1, format2}), false) {}
