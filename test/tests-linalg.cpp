@@ -5,7 +5,7 @@
 using namespace taco;
 
 TEST(linalg, matmul_index_expr) {
-  Matrix<double> B("B", 2, 2, dense, dense);
+  Tensor<double> B("B", {2,2});
   Matrix<double> C("C", 2, 2, dense, dense);
   Matrix<double> A("A", 2, 2, dense, dense);
 
