@@ -78,9 +78,18 @@ vector<IndexVar> LinalgBase::getUniqueIndices(size_t order) {
 }
 
 IndexVar LinalgBase::getUniqueIndex() {
-  string name = "i" + to_string(idxcount);
+  int loc = idxcount % indexVarNameList.size();
+  cout << "Locatopm" << loc << endl;
+  int num = idxcount / indexVarNameList.size();
+
+  string indexVarName;
+  if (num == 0)
+    indexVarName = indexVarNameList.at(loc);
+  else
+    indexVarName = indexVarNameList.at(loc) + to_string(num);
+
   idxcount += 1;
-  IndexVar result(name);
+  IndexVar result(indexVarName);
   return result;
 }
 
@@ -227,10 +236,10 @@ IndexStmt LinalgBase::rewrite() {
 
     vector<IndexVar> indices = {};
     if (tensor.getOrder() == 1) {
-      indices.push_back(IndexVar("i"));
+      indices.push_back(getUniqueIndex());
     } else if (tensor.getOrder() == 2) {
-      indices.push_back(IndexVar("i"));
-      indices.push_back(IndexVar("j"));
+      indices.push_back(getUniqueIndex());
+      indices.push_back(getUniqueIndex());
     }
     Access lhs = Access(tensor, indices);
     IndexExpr rhs = rewrite(this->assignment.getRhs(), indices);
