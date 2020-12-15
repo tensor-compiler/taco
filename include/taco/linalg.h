@@ -114,13 +114,15 @@ template<typename CType>
 Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2) : 
   LinalgBase(name, Type(type<CType>(), {dim1, dim2}), type<CType>(), {(int) dim1, (int) dim2}, Format({dense,dense})) {}
 
+// Works
 template<typename CType>
 Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2, Format format) :
-  LinalgBase(name, Type(type<CType>(), {dim1, dim2}), format) {}
+  LinalgBase(name, Type(type<CType>(), {dim1, dim2}), type<CType>(), {(int) dim1, (int) dim2}, format) {}
 
+// Works
 template<typename CType>
 Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions, Format format) :
-  LinalgBase(name, Type(type<CType>(), dimensions), format) {}
+  LinalgBase(name, Type(type<CType>(), Shape(std::vector<Dimension>(dimensions.begin(), dimensions.end()))), type<CType>(), std::vector<int>(dimensions.begin(), dimensions.end()), format) {}
 
 /* This is the one in use currently */
 template<typename CType>

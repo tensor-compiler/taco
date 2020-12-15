@@ -7,6 +7,8 @@ using namespace taco;
 TEST(linalg, matrix_constructors) {
   Matrix<double> B("B", {2, 2});
   Matrix<double> D("D", 2, 2);
+  Matrix<double> E("E", 2, 2, {dense, dense});
+  Matrix<double> F("F", {2, 2}, {dense, dense});
   Matrix<double> C("C", 2, 2, dense, dense);
   Matrix<double> A("A", 2, 2, dense, dense);
 
