@@ -5,25 +5,12 @@
 using namespace taco;
 
 TEST(linalg, matrix_constructors) {
+  Matrix<double> A("A");
   Matrix<double> B("B", {2, 2});
   Matrix<double> D("D", 2, 2);
   Matrix<double> E("E", 2, 2, {dense, dense});
   Matrix<double> F("F", {2, 2}, {dense, dense});
   Matrix<double> C("C", 2, 2, dense, dense);
-  Matrix<double> A("A", 2, 2, dense, dense);
-
-  B(0,0) = 2;
-  B(1,1) = 1;
-  B(0,1) = 2;
-  C(0,0) = 2;
-  C(1,1) = 2;
-
-  A = B * C;
-
-  ASSERT_EQ(A.at(0,0), 4);
-  ASSERT_EQ(A.at(0,1), 4);
-  ASSERT_EQ(A.at(1,0), 0);
-  ASSERT_EQ(A.at(1,1), 2);
 }
 
 TEST(linalg, matmul_index_expr) {

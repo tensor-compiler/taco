@@ -76,9 +76,10 @@ public:
 
   Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat format1, ModeFormat format2);
 
-  Matrix(std::string name, Type tensorType);
+  //TODO: are these really necessary?
+  /* Matrix(std::string name, Type tensorType); */
 
-  Matrix(std::string name, Type tensorType, Format format);
+  /* Matrix(std::string name, Type tensorType, Format format); */
 
   LinalgAssignment operator=(const LinalgExpr &expr) {
     return LinalgBase::operator=(expr);
@@ -102,7 +103,8 @@ public:
 // ------------------------------------------------------------
 
 template<typename CType>
-Matrix<CType>::Matrix(std::string name) : LinalgBase(name, Type(type<CType>(), {42, 42})) {}
+Matrix<CType>::Matrix(std::string name) : 
+  LinalgBase(name, Type(type<CType>(), {42, 42}), type<CType>(), {42, 42}, Format({dense, dense})) {}
 
 // Works
 template<typename CType>
@@ -129,11 +131,12 @@ template<typename CType>
 Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2, ModeFormat format1, ModeFormat format2) :
   LinalgBase(name, Type(type<CType>(), {dim1, dim2}), type<CType>(), {(int)dim1, (int)dim2}, Format({format1, format2}), false) {}
 
-template<typename CType>
-Matrix<CType>::Matrix(std::string name, Type tensorType) : LinalgBase(name, tensorType) {}
+// TODO: do we really need these?
+/* template<typename CType> */
+/* Matrix<CType>::Matrix(std::string name, Type tensorType) : LinalgBase(name, tensorType) {} */
 
-template<typename CType>
-Matrix<CType>::Matrix(std::string name, Type tensorType, Format format) : LinalgBase(name, tensorType, format) {}
+/* template<typename CType> */
+/* Matrix<CType>::Matrix(std::string name, Type tensorType, Format format) : LinalgBase(name, tensorType, format) {} */
 
 // Definition of Read methods
 template <typename CType>
@@ -207,7 +210,8 @@ public:
 // ------------------------------------------------------------
 
 template<typename CType>
-Vector<CType>::Vector(std::string name, bool isColVec) : LinalgBase(name, Type(type<CType>(), {42}), isColVec) {}
+Vector<CType>::Vector(std::string name, bool isColVec) : 
+  LinalgBase(name, Type(type<CType>(), {42}), isColVec) {}
 
 template<typename CType>
 Vector<CType>::Vector(std::string name, size_t dim, bool isColVec) : LinalgBase(name, Type(type<CType>(), {dim}),
