@@ -8,35 +8,28 @@ using namespace std;
 
 namespace taco {
 
-LinalgBase::LinalgBase(string name, Type tensorType, bool isColVec) : name(name), tensorType(tensorType), idxcount(0),
-  LinalgExpr(TensorVar(name, tensorType), isColVec) {
+LinalgBase::LinalgBase(string name, Type tensorType, bool isColVec) : LinalgExpr(TensorVar(name, tensorType), isColVec),  name(name), tensorType(tensorType), idxcount(0) {
 }
 
 LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, bool isColVec) :
   LinalgExpr(TensorVar(name, tensorType, format), isColVec, new TensorBase(name, dtype, dims, format)), name(name),
   tensorType(tensorType), idxcount(0) {
-    if(isa<LinalgTensorBaseNode>(ptr)) {
-      /* cout << "LinalgBase constructor - LinalgTensorBaseNode" << endl; */
-      cout << this->tensorBase->getName() << endl;
-    }
 }
 
-LinalgBase::LinalgBase(TensorBase* tbase, bool isColVec) :
-  LinalgExpr(tbase, isColVec), name(tbase->getName()),
-  tensorType(tbase->getTensorVar().getType()), idxcount(0) {
-  if(isa<LinalgTensorBaseNode>(ptr)) {
-    /* cout << "LinalgBase constructor - LinalgTensorBaseNode" << endl; */
-    cout << this->tensorBase->getName() << endl;
-  }
-}
+//TODO: remove this entirely
+/* LinalgBase::LinalgBase(TensorBase* tbase, bool isColVec) : */
+/*   LinalgExpr(tbase, isColVec), name(tbase->getName()), */
+/*   tensorType(tbase->getTensorVar().getType()), idxcount(0) { */
+/*     // Checking if this is used */
+/*     cout << "!!!!!! LinalgBase::LinalgBase with tbase arg used" << endl; */
+/* } */
 
-LinalgBase::LinalgBase(string name, Type tensorType, Format format, bool isColVec) : name(name), tensorType(tensorType),
-  idxcount(0), LinalgExpr(TensorVar(name, tensorType, format), isColVec) {
-}
+/* LinalgBase::LinalgBase(string name, Type tensorType, Format format, bool isColVec) : name(name), tensorType(tensorType), */
+/*   idxcount(0), LinalgExpr(TensorVar(name, tensorType, format), isColVec) { */
+/* } */
 
 
 LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
-  /* cout << "LinalgBase operator= on " << name << endl; */
   taco_iassert(isa<LinalgVarNode>(this->ptr));
   TensorVar var = to<LinalgVarNode>(this->get())->tensorVar;
 
