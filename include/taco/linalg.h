@@ -104,14 +104,15 @@ public:
 template<typename CType>
 Matrix<CType>::Matrix(std::string name) : LinalgBase(name, Type(type<CType>(), {42, 42})) {}
 
+// Works
 template<typename CType>
-/* Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions) : LinalgBase(name, Type(type<CType>(), dimensions)) {} */
 Matrix<CType>::Matrix(std::string name, std::vector<size_t> dimensions) : 
-/* Matrix<CType>::Matrix(std::string name, std::initializer_list<Dimension> dimensions) : */ 
   LinalgBase(name, Type(type<CType>(), Shape(std::vector<Dimension>(dimensions.begin(), dimensions.end()))), type<CType>(), std::vector<int>(dimensions.begin(), dimensions.end()), Format({dense,dense})) {}
 
+// Works
 template<typename CType>
-Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2) : LinalgBase(name, Type(type<CType>(), {dim1, dim2})) {}
+Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2) : 
+  LinalgBase(name, Type(type<CType>(), {dim1, dim2}), type<CType>(), {(int) dim1, (int) dim2}, Format({dense,dense})) {}
 
 template<typename CType>
 Matrix<CType>::Matrix(std::string name, size_t dim1, size_t dim2, Format format) :
