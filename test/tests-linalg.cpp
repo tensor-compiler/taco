@@ -7,10 +7,15 @@ using namespace taco;
 TEST(linalg, matrix_constructors) {
   Matrix<double> A("A");
   Matrix<double> B("B", {2, 2});
+  Matrix<double> C("C", 2, 2, dense, dense);
   Matrix<double> D("D", 2, 2);
   Matrix<double> E("E", 2, 2, {dense, dense});
   Matrix<double> F("F", {2, 2}, {dense, dense});
-  Matrix<double> C("C", 2, 2, dense, dense);
+
+  Vector<double> a("a");
+  Vector<double> b("b", 2, false);
+  Vector<double> c("c", 2, dense);
+  Vector<double> d("d", 2, {dense});
 }
 
 TEST(linalg, matmul_index_expr) {
@@ -104,7 +109,7 @@ TEST(linalg, matmul) {
   cout << "a11 = " << a11 << endl;
 }
 
-TEST(linalg, tensorbase) {
+TEST(linalg, matmat_add) {
   Matrix<double> B("B", 2, 2, dense, dense);
   Matrix<double> C("C", 2, 2, dense, dense);
   Matrix<double> A("A", 2, 2, dense, dense);
@@ -116,11 +121,6 @@ TEST(linalg, tensorbase) {
   C(1,0) = 3;
 
   A = B + C;
-
-  // Should be [1,2,3,4]
-  cout << A << endl;
-  
-  cout << A.getIndexAssignment();
 
   ASSERT_EQ(A.at(0,0), 1);
   ASSERT_EQ(A.at(0,1), 2);
@@ -277,18 +277,19 @@ TEST(linalg, tensorapi) {
   /* cout << a << endl; */
 }
 
-/* TEST(linalg, complex_expr) { */
-/*   Matrix<double> A("A", 2, 2, dense, dense); */
-/*   Matrix<double> B("B", 2, 2, dense, dense); */
-/*   Matrix<double> C("C", 2, 2, dense, dense); */
-/*   Matrix<double> D("D", 2, 2, dense, dense); */
-/*   Matrix<double> E("D", 2, 2, dense, dense); */
+TEST(linalg, complex_expr) {
+  Matrix<double> A("A", 2, 2, dense, dense);
+  Matrix<double> B("B", 2, 2, dense, dense);
+  Matrix<double> C("C", 2, 2, dense, dense);
+  Matrix<double> D("D", 2, 2, dense, dense);
+  Matrix<double> E("D", 2, 2, dense, dense);
 
 /*   A = E*elemMul(B+C, D); */
+  A = elemMul(B+C, D);
 
-/*   cout << A << endl; */
+  cout << A << endl;
 
-/*   cout << A.getIndexAssignment(); */
+  cout << A.getIndexAssignment();
 
-/*   ASSERT_TRUE(1); */
-/* } */
+  ASSERT_TRUE(1);
+}
