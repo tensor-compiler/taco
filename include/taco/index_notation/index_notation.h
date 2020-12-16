@@ -1162,12 +1162,19 @@ std::vector<TensorVar> getTemporaries(IndexStmt stmt);
 std::vector<TensorVar> getAttrQueryResults(IndexStmt stmt);
 
 // [Olivia]
-/// Returns the temporaries in the index statement, in the order they appear.
+/// Returns a map of where statements that can be hoisted and their parent forall stmt
 std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt);
+
+/// Returns the first assignment 
+Assignment getAssignment(IndexStmt stmt);
 
 /// Returns the results in the index statement that should be assembled by 
 /// ungrouped insertion.
 std::vector<TensorVar> getAssembledByUngroupedInsertion(IndexStmt stmt);
+
+// [Olivia]
+/// Returns a map of assigmnet statements that can be represented as LoadBulk or LoadStores and their parent forall stmt
+std::map<Forall, Assignment> getBulkMemTransfers(IndexStmt stmt);
 
 /// Returns the tensors in the index statement.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);

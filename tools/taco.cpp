@@ -1056,7 +1056,7 @@ int main(int argc, char* argv[]) {
   // pre-parse expression, to determine existence and order of loaded tensors
   map<string,TensorBase> loadedTensors;
   TensorBase temp_tensor;
-  parser::Parser temp_parser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, 42);
+  parser::Parser temp_parser(exprStr, formats, dataTypes, memoryLocations, tensorsDimensions, loadedTensors, 42);
   try {
     temp_parser.parse();
     temp_tensor = temp_parser.getResultTensor();

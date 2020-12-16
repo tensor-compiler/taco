@@ -194,6 +194,14 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
 
         freeTemporary = Free::make(values);
         initializeTemporary = Block::make(allocate, zeroInitLoop);
+        // Don't zero initialize temporary if there is no reduction across temporary
+        if (isa<Forall>(where.getProducer())) {
+          Forall forall = to<Forall>(where.getProducer());
+          if (isa<Assignment>(forall.getStmt()) && !to<Assignment>(forall.getStmt()).getOperator().defined()) {
+            initializeTemporary = Block::make(allocate);
+          }
+        }
+
       }
     }
     return {initializeTemporary, freeTemporary};

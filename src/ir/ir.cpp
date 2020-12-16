@@ -1153,5 +1153,25 @@ std::ostream& operator<<(std::ostream& os, const Expr& expr) {
   return os;
 }
 
+    Stmt Stmt::rewriteBulk(IndexVar i) const {
+      struct BulkRewrite : IRRewriter {
+        using IRRewriter::visit;
+        IndexVar i;
+        size_t unrollFactor;
+        UnrollLoop(IndexVar i, size_t unrollFactor) : i(i), unrollFactor(unrollFactor) {}
+
+        void visit(const Add* node) {
+          if (node->indexVar == i) {
+            stmt = Forall(i, rewrite(node->stmt), node->parallel_unit, node->output_race_strategy, unrollFactor);
+          }
+          else {
+            IndexNotationRewriter::visit(node);
+          }
+        }
+      };
+      return UnrollLoop(i, unrollFactor).rewrite(*this);
+    }
+
+
 } // namespace ir
 } // namespace taco

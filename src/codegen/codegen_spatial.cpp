@@ -700,13 +700,33 @@ void CodeGen_Spatial::visit(const Store* op) {
   stream << endl;
 }
 
+void CodeGen_Spatial::visit(const StoreBulk* op) {
+  if (op->use_atomics) {
+    doIndent();
+    stream << getAtomicPragma() << endl;
+  }
+
+  doIndent();
+  op->arr.accept(this);
+  stream << "(";
+  parentPrecedence = Precedence::TOP;
+  op->locStart.accept(this);
+  stream << "::";
+  op->locEnd.accept(this);
+  stream << ") = ";
+  parentPrecedence = Precedence::TOP;
+  op->data.accept(this);
+  //stream << ";";
+  stream << endl;
+}
+
 void CodeGen_Spatial::visit(const MemStore* op) {
   doIndent();
   op->lhsMem.accept(this);
   stream << "(";
   parentPrecedence = Precedence::TOP;
   op->start.accept(this);
-  stream << ":";
+  stream << "::";
   op->start.accept(this);
   stream << "+";
   op->offset.accept(this);
@@ -725,13 +745,25 @@ void CodeGen_Spatial::visit(const Load* op) {
   stream << ")";
 }
 
+void CodeGen_Spatial::visit(const LoadBulk* op) {
+  parentPrecedence = Precedence::LOAD;
+  op->arr.accept(this);
+  stream << "(";
+  parentPrecedence = Precedence::LOAD;
+  op->locStart.accept(this);
+  stream << "::";
+  op->locEnd.accept(this);
+  stream << ")";
+}
+
+
 void CodeGen_Spatial::visit(const MemLoad* op) {
   doIndent();
   op->lhsMem.accept(this);
   stream << "(";
   parentPrecedence = Precedence::TOP;
   op->start.accept(this);
-  stream << ":";
+  stream << "::";
   op->start.accept(this);
   stream << "+";
   op->offset.accept(this);

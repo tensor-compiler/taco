@@ -552,7 +552,7 @@ TEST(spatial, tile_vecElemMul) {
   cout << "----------------Post-Schedule 1 Stmt-----------------" << endl;
   cout << stmt << endl;
 
-  stmt = stmt.precompute(BExpr, i1, i1, B_sram);
+  stmt = stmt.precompute(BExpr, i1, i1, B_sram); // where (forall(i p = B_sram * C_sram, forall_i (B_sram = B(i))
   cout << "----------------Post-Schedule 2 Stmt-----------------" << endl;
   cout << stmt << endl;
 
