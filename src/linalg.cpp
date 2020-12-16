@@ -3,6 +3,7 @@
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/linalg_notation/linalg_notation_nodes.h"
+#include "taco/linalg_notation/linalg_rewriter.h"
 
 using namespace std;
 
@@ -94,134 +95,134 @@ IndexVar LinalgBase::getUniqueIndex() {
 }
 
 IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
-  if (isa<LinalgSubNode>(linalg.get())) {
-    auto sub = to<LinalgSubNode>(linalg.get());
-    IndexExpr indexA = rewrite(sub->a, indices);
-    IndexExpr indexB = rewrite(sub->b, indices);
-    return new SubNode(indexA, indexB);
-  } else if (isa<LinalgAddNode>(linalg.get())) {
-    auto add = to<LinalgAddNode>(linalg.get());
-    IndexExpr indexA = rewrite(add->a, indices);
-    IndexExpr indexB = rewrite(add->b, indices);
-    return new AddNode(indexA, indexB);
-  } else if (isa<LinalgElemMulNode>(linalg.get())) {
-    auto mul = to<LinalgElemMulNode>(linalg.get());
-    IndexExpr indexA = rewrite(mul->a, indices);
-    IndexExpr indexB = rewrite(mul->b, indices);
-    return new MulNode(indexA, indexB);
-  } else if (isa<LinalgMatMulNode>(linalg.get())) {
-    auto mul = to<LinalgMatMulNode>(linalg.get());
-    IndexVar index = getUniqueIndex();
-    vector<IndexVar> indicesA;
-    vector<IndexVar> indicesB;
-    if (mul->a.getOrder() == 2 && mul->b.getOrder() == 2) {
-      indicesA = {indices[0], index};
-      indicesB = {index, indices[1]};
-    }
-    else if (mul->a.getOrder() == 1 && mul->b.getOrder() == 2) {
-      indicesA = {index};
-      indicesB = {index, indices[0]};
-    }
-    else if (mul->a.getOrder() == 2 && mul->b.getOrder() == 1) {
-      indicesA = {indices[0], index};
-      indicesB = {index};
-    }
-    else if (mul->a.getOrder() == 1 && mul->a.isColVector() && mul->b.getOrder() == 1) {
-      indicesA = {indices[0]};
-      indicesB = {indices[1]};
-    } else if (mul->a.getOrder() == 0) {
-      indicesA = {};
-      indicesB = indices;
-    } else if (mul->b.getOrder() == 0) {
-      indicesA = indices;
-      indicesB = {};
-    } else {
-      indicesA = {index};
-      indicesB = {index};
-    }
-    IndexExpr indexA = rewrite(mul->a, indicesA);
-    IndexExpr indexB = rewrite(mul->b, indicesB);
-    return new MulNode(indexA, indexB);
-  } else if (isa<LinalgDivNode>(linalg.get())) {
-    auto div = to<LinalgDivNode>(linalg.get());
-    IndexExpr indexA = rewrite(div->a, indices);
-    IndexExpr indexB = rewrite(div->b, indices);
-    return new DivNode(indexA, indexB);
-  } else if (isa<LinalgNegNode>(linalg.get())) {
-    auto neg = to<LinalgNegNode>(linalg.get());
-    IndexExpr index = rewrite(neg->a, indices);
-    return new NegNode(index);
-  } else if (isa<LinalgTransposeNode>(linalg.get())) {
-    auto transpose = to<LinalgTransposeNode>(linalg.get());
-    if (transpose->a.getOrder() == 2) {
-      return rewrite(transpose->a, {indices[1], indices[0]});
-    }
-    else if (transpose->a.getOrder() == 1) {
-      return rewrite(transpose->a, {indices[0]});
-    }
-    return rewrite(transpose->a, {});
-  } else if (isa<LinalgLiteralNode>(linalg.get())) {
-    auto lit = to<LinalgLiteralNode>(linalg.get());
-
-    LiteralNode* value;
-    switch (lit->getDataType().getKind()) {
-      case Datatype::Bool:
-        value = new LiteralNode(lit->getVal<bool>());
-        break;
-      case Datatype::UInt8:
-        value = new LiteralNode(lit->getVal<uint8_t>());
-        break;
-      case Datatype::UInt16:
-        value = new LiteralNode(lit->getVal<uint16_t>());
-        break;
-      case Datatype::UInt32:
-        value = new LiteralNode(lit->getVal<uint32_t>());
-        break;
-      case Datatype::UInt64:
-        value = new LiteralNode(lit->getVal<uint64_t>());
-        break;
-      case Datatype::UInt128:
-        taco_not_supported_yet;
-        break;
-      case Datatype::Int8:
-        value = new LiteralNode(lit->getVal<int8_t>());
-        break;
-      case Datatype::Int16:
-        value = new LiteralNode(lit->getVal<int16_t>());
-        break;
-      case Datatype::Int32:
-        value = new LiteralNode(lit->getVal<int32_t>());
-        break;
-      case Datatype::Int64:
-        value = new LiteralNode(lit->getVal<int64_t>());
-        break;
-      case Datatype::Int128:
-        taco_not_supported_yet;
-        break;
-      case Datatype::Float32:
-        value = new LiteralNode(lit->getVal<float>());
-        break;
-      case Datatype::Float64:
-        value = new LiteralNode(lit->getVal<double>());
-        break;
-      case Datatype::Complex64:
-        value = new LiteralNode(lit->getVal<std::complex<float>>());
-        break;
-      case Datatype::Complex128:
-        value = new LiteralNode(lit->getVal<std::complex<double>>());
-        break;
-      case Datatype::Undefined:
-        taco_uerror << "unsupported Datatype";
-        break;
-    }
-    return value;
-  } else if (isa<LinalgVarNode>(linalg.get())) {
-    auto var = to<LinalgVarNode>(linalg.get());
-    return new AccessNode(var->tensorVar, indices);
-  } else if (isa<LinalgTensorBaseNode>(linalg.get())) {
-    /* cout << "LinalgBase::rewrite -- got a tensorbasenode " << linalg.tensorBase->getName() << endl; */
-    return linalg.tensorBase->operator()(indices);
-  }
+//  if (isa<LinalgSubNode>(linalg.get())) {
+//    auto sub = to<LinalgSubNode>(linalg.get());
+//    IndexExpr indexA = rewrite(sub->a, indices);
+//    IndexExpr indexB = rewrite(sub->b, indices);
+//    return new SubNode(indexA, indexB);
+//  } else if (isa<LinalgAddNode>(linalg.get())) {
+//    auto add = to<LinalgAddNode>(linalg.get());
+//    IndexExpr indexA = rewrite(add->a, indices);
+//    IndexExpr indexB = rewrite(add->b, indices);
+//    return new AddNode(indexA, indexB);
+//  } else if (isa<LinalgElemMulNode>(linalg.get())) {
+//    auto mul = to<LinalgElemMulNode>(linalg.get());
+//    IndexExpr indexA = rewrite(mul->a, indices);
+//    IndexExpr indexB = rewrite(mul->b, indices);
+//    return new MulNode(indexA, indexB);
+//  } else if (isa<LinalgMatMulNode>(linalg.get())) {
+//    auto mul = to<LinalgMatMulNode>(linalg.get());
+//    IndexVar index = getUniqueIndex();
+//    vector<IndexVar> indicesA;
+//    vector<IndexVar> indicesB;
+//    if (mul->a.getOrder() == 2 && mul->b.getOrder() == 2) {
+//      indicesA = {indices[0], index};
+//      indicesB = {index, indices[1]};
+//    }
+//    else if (mul->a.getOrder() == 1 && mul->b.getOrder() == 2) {
+//      indicesA = {index};
+//      indicesB = {index, indices[0]};
+//    }
+//    else if (mul->a.getOrder() == 2 && mul->b.getOrder() == 1) {
+//      indicesA = {indices[0], index};
+//      indicesB = {index};
+//    }
+//    else if (mul->a.getOrder() == 1 && mul->a.isColVector() && mul->b.getOrder() == 1) {
+//      indicesA = {indices[0]};
+//      indicesB = {indices[1]};
+//    } else if (mul->a.getOrder() == 0) {
+//      indicesA = {};
+//      indicesB = indices;
+//    } else if (mul->b.getOrder() == 0) {
+//      indicesA = indices;
+//      indicesB = {};
+//    } else {
+//      indicesA = {index};
+//      indicesB = {index};
+//    }
+//    IndexExpr indexA = rewrite(mul->a, indicesA);
+//    IndexExpr indexB = rewrite(mul->b, indicesB);
+//    return new MulNode(indexA, indexB);
+//  } else if (isa<LinalgDivNode>(linalg.get())) {
+//    auto div = to<LinalgDivNode>(linalg.get());
+//    IndexExpr indexA = rewrite(div->a, indices);
+//    IndexExpr indexB = rewrite(div->b, indices);
+//    return new DivNode(indexA, indexB);
+//  } else if (isa<LinalgNegNode>(linalg.get())) {
+//    auto neg = to<LinalgNegNode>(linalg.get());
+//    IndexExpr index = rewrite(neg->a, indices);
+//    return new NegNode(index);
+//  } else if (isa<LinalgTransposeNode>(linalg.get())) {
+//    auto transpose = to<LinalgTransposeNode>(linalg.get());
+//    if (transpose->a.getOrder() == 2) {
+//      return rewrite(transpose->a, {indices[1], indices[0]});
+//    }
+//    else if (transpose->a.getOrder() == 1) {
+//      return rewrite(transpose->a, {indices[0]});
+//    }
+//    return rewrite(transpose->a, {});
+//  } else if (isa<LinalgLiteralNode>(linalg.get())) {
+//    auto lit = to<LinalgLiteralNode>(linalg.get());
+//
+//    LiteralNode* value;
+//    switch (lit->getDataType().getKind()) {
+//      case Datatype::Bool:
+//        value = new LiteralNode(lit->getVal<bool>());
+//        break;
+//      case Datatype::UInt8:
+//        value = new LiteralNode(lit->getVal<uint8_t>());
+//        break;
+//      case Datatype::UInt16:
+//        value = new LiteralNode(lit->getVal<uint16_t>());
+//        break;
+//      case Datatype::UInt32:
+//        value = new LiteralNode(lit->getVal<uint32_t>());
+//        break;
+//      case Datatype::UInt64:
+//        value = new LiteralNode(lit->getVal<uint64_t>());
+//        break;
+//      case Datatype::UInt128:
+//        taco_not_supported_yet;
+//        break;
+//      case Datatype::Int8:
+//        value = new LiteralNode(lit->getVal<int8_t>());
+//        break;
+//      case Datatype::Int16:
+//        value = new LiteralNode(lit->getVal<int16_t>());
+//        break;
+//      case Datatype::Int32:
+//        value = new LiteralNode(lit->getVal<int32_t>());
+//        break;
+//      case Datatype::Int64:
+//        value = new LiteralNode(lit->getVal<int64_t>());
+//        break;
+//      case Datatype::Int128:
+//        taco_not_supported_yet;
+//        break;
+//      case Datatype::Float32:
+//        value = new LiteralNode(lit->getVal<float>());
+//        break;
+//      case Datatype::Float64:
+//        value = new LiteralNode(lit->getVal<double>());
+//        break;
+//      case Datatype::Complex64:
+//        value = new LiteralNode(lit->getVal<std::complex<float>>());
+//        break;
+//      case Datatype::Complex128:
+//        value = new LiteralNode(lit->getVal<std::complex<double>>());
+//        break;
+//      case Datatype::Undefined:
+//        taco_uerror << "unsupported Datatype";
+//        break;
+//    }
+//    return value;
+//  } else if (isa<LinalgVarNode>(linalg.get())) {
+//    auto var = to<LinalgVarNode>(linalg.get());
+//    return new AccessNode(var->tensorVar, indices);
+//  } else if (isa<LinalgTensorBaseNode>(linalg.get())) {
+//    /* cout << "LinalgBase::rewrite -- got a tensorbasenode " << linalg.tensorBase->getName() << endl; */
+//    return linalg.tensorBase->operator()(indices);
+//  }
   return IndexExpr();
 }
 
@@ -241,8 +242,13 @@ IndexStmt LinalgBase::rewrite() {
       indices.push_back(getUniqueIndex());
       indices.push_back(getUniqueIndex());
     }
+
+
     Access lhs = Access(tensor, indices);
-    IndexExpr rhs = rewrite(this->assignment.getRhs(), indices);
+
+    auto linalgRewriter = new LinalgRewriter();
+    //linalgRewriter->setLiveIndices(indices);
+    IndexExpr rhs = linalgRewriter->rewrite(*this);
     cout << "rhs done here" << endl;
 
     if(this->tensorBase != nullptr) {
