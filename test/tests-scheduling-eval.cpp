@@ -43,6 +43,13 @@ IndexStmt scheduleSpMVCPU(IndexStmt stmt, int CHUNK_SIZE=16) {
           .parallelize(i0, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }
 
+IndexStmt scheduleSpMVCPUTest(IndexStmt stmt, IndexExpr precomputedExpr, int CHUNK_SIZE=16) {
+  IndexVar i0("i0"), i1("i1"), a("a");
+  TensorVar precomputed("precomputed", Type(Float64, {103}), taco::dense);
+  return stmt.precompute(precomputedExpr, j, a, precomputed);
+}
+
+
 IndexStmt scheduleSpMMCPU(IndexStmt stmt, Tensor<double> A, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
   IndexVar i0("i0"), i1("i1"), kbounded("kbounded"), k0("k0"), k1("k1"), jpos("jpos"), jpos0("jpos0"), jpos1("jpos1");
   return stmt.split(i, i0, i1, CHUNK_SIZE)
@@ -540,18 +547,21 @@ TEST(scheduling_eval, spmvCPU) {
   }
   int NUM_I = 1021/10;
   int NUM_J = 1039/10;
+  // int NUM_K = 128;
   float SPARSITY = .3;
-  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<double> A("A", {NUM_I, NUM_J}, Format({Dense, Sparse}));
   Tensor<double> x("x", {NUM_J}, Format({Dense}));
   Tensor<double> y("y", {NUM_I}, Format({Dense}));
 
   srand(120);
   for (int i = 0; i < NUM_I; i++) {
     for (int j = 0; j < NUM_J; j++) {
-      float rand_float = (float)rand()/(float)(RAND_MAX);
-      if (rand_float < SPARSITY) {
-        A.insert({i, j}, (double) ((int) (rand_float * 3 / SPARSITY)));
-      }
+      // for (int k = 0; k < NUM_K; k++) {
+        float rand_float = (float)rand()/(float)(RAND_MAX);
+        if (rand_float < SPARSITY) {
+          A.insert({i, j}, (double) ((int) (rand_float * 3 / SPARSITY)));
+        }
+      // }
     }
   }
 
@@ -562,11 +572,11 @@ TEST(scheduling_eval, spmvCPU) {
 
   x.pack();
   A.pack();
-
-  y(i) = A(i, j) * x(j);
+  IndexExpr precomputed = A(i, j) * x(j);
+  y(i) = precomputed;
 
   IndexStmt stmt = y.getAssignment().concretize();
-  stmt = scheduleSpMVCPU(stmt);
+  stmt = scheduleSpMVCPUTest(stmt, precomputed);
 
   //printToFile("spmv_cpu", stmt);
 
