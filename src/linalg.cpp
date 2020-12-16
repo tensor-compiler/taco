@@ -8,26 +8,10 @@ using namespace std;
 
 namespace taco {
 
-/* LinalgBase::LinalgBase(string name, Type tensorType, bool isColVec) : LinalgExpr(TensorVar(name, tensorType), isColVec),  name(name), tensorType(tensorType), idxcount(0) { */
-/* } */
-
 LinalgBase::LinalgBase(string name, Type tensorType, Datatype dtype, std::vector<int> dims, Format format, bool isColVec) :
   LinalgExpr(TensorVar(name, tensorType, format), isColVec, new TensorBase(name, dtype, dims, format)), name(name),
   tensorType(tensorType), idxcount(0) {
 }
-
-//TODO: remove this entirely
-/* LinalgBase::LinalgBase(TensorBase* tbase, bool isColVec) : */
-/*   LinalgExpr(tbase, isColVec), name(tbase->getName()), */
-/*   tensorType(tbase->getTensorVar().getType()), idxcount(0) { */
-/*     // Checking if this is used */
-/*     cout << "!!!!!! LinalgBase::LinalgBase with tbase arg used" << endl; */
-/* } */
-
-/* LinalgBase::LinalgBase(string name, Type tensorType, Format format, bool isColVec) : name(name), tensorType(tensorType), */
-/*   idxcount(0), LinalgExpr(TensorVar(name, tensorType, format), isColVec) { */
-/* } */
-
 
 LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
   taco_iassert(isa<LinalgVarNode>(this->ptr));
@@ -42,9 +26,7 @@ LinalgAssignment LinalgBase::operator=(const LinalgExpr& expr) {
 
   LinalgAssignment assignment = LinalgAssignment(var, expr);
   this->assignment = assignment;
-  cout << "rewrite here" << endl;
   this->rewrite();
-  cout << "end rewrite" << endl;
   return assignment;
 }
 
