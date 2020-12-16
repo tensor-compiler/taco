@@ -201,15 +201,15 @@ IndexStmt LinalgRewriter::rewriteAssignment(const LinalgAssignmentNode *node) {
   return IndexStmt();
 }
 
-//void LinalgRewriter::setLiveIndices(std::vector<IndexVar> indices) {
-//  liveIndices = indices;
-//}
+void LinalgRewriter::setLiveIndices(std::vector<IndexVar> indices) {
+  liveIndices = indices;
+}
 
 IndexExpr LinalgRewriter::rewrite(LinalgExpr linalgExpr) {
   return visitor->rewrite(linalgExpr);
 }
 
-IndexExpr LinalgRewriter::rewrite(LinalgBase linalgBase) {
+IndexStmt LinalgRewriter::rewrite(LinalgBase linalgBase) {
   TensorVar tensor = linalgBase.getAssignment().getLhs();
 
   vector<IndexVar> indices = {};
@@ -220,6 +220,21 @@ IndexExpr LinalgRewriter::rewrite(LinalgBase linalgBase) {
     indices.push_back(getUniqueIndex());
   }
 
+  Access lhs = Access(tensor, indices);
+
   liveIndices = indices;
-  return rewrite(linalgBase.getAssignment().getRhs());
+  auto rhs = rewrite(linalgBase.getAssignment().getRhs());
+
+  cout << "rhs done here" << endl;
+
+  if(linalgBase.tensorBase != nullptr) {
+    cout << "--- Going to use the Tensor API to assign the RHS ---" << endl;
+    cout << lhs << " = ";
+    cout << rhs << endl;
+    linalgBase.tensorBase->operator()(indices) = rhs;
+    cout << "--- Done assigning RHS to Tensor API ---" << endl;
+  }
+
+  Assignment indexAssign = Assignment(lhs, rhs);
+  return indexAssign;
 }

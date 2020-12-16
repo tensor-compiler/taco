@@ -29,9 +29,9 @@ public:
   virtual ~LinalgRewriter() = default;
 
   /// Lower an index statement to an IR function.
-  IndexExpr rewrite(LinalgBase linalgBase);
+  IndexStmt rewrite(LinalgBase linalgBase);
 
-//  void setLiveIndices(std::vector<IndexVar> indices);
+  void setLiveIndices(std::vector<IndexVar> indices);
 protected:
 
   virtual IndexExpr rewriteSub(const LinalgSubNode* sub);
@@ -61,7 +61,7 @@ protected:
 private:
   std::vector<IndexVar> liveIndices;
 
-  int idxcount;
+  int idxcount = 0;
   std::vector<std::string> indexVarNameList = {"i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z"};
 
   IndexVar getUniqueIndex();

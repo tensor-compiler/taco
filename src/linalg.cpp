@@ -232,35 +232,11 @@ IndexStmt rewrite(LinalgStmt linalg) {
 
 IndexStmt LinalgBase::rewrite() {
   if (this->assignment.defined()) {
-
-    TensorVar tensor = this->assignment.getLhs();
-
-    vector<IndexVar> indices = {};
-    if (tensor.getOrder() == 1) {
-      indices.push_back(getUniqueIndex());
-    } else if (tensor.getOrder() == 2) {
-      indices.push_back(getUniqueIndex());
-      indices.push_back(getUniqueIndex());
-    }
-
-
-    Access lhs = Access(tensor, indices);
-
     auto linalgRewriter = new LinalgRewriter();
     //linalgRewriter->setLiveIndices(indices);
-    IndexExpr rhs = linalgRewriter->rewrite(*this);
-    cout << "rhs done here" << endl;
-
-    if(this->tensorBase != nullptr) {
-       cout << "--- Going to use the Tensor API to assign the RHS ---" << endl;
-       cout << rhs << endl;
-       this->tensorBase->operator()(indices) = rhs;
-       cout << "--- Done assigning RHS to Tensor API ---" << endl;
-    }
-
-    Assignment indexAssign = Assignment(lhs, rhs);
-    this->indexAssignment = indexAssign;
-    return indexAssign;
+    IndexStmt stmt = linalgRewriter->rewrite(*this);
+    this->indexAssignment = stmt;
+    return stmt;
   }
   return IndexStmt();
 }
