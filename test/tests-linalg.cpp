@@ -4,6 +4,36 @@
 
 using namespace taco;
 
+TEST(linalg, reassignment) {
+  Matrix<double> A("A", {2,2});
+  Matrix<double> B1("B1", {2,2});
+  Matrix<double> B2("B2", {2,2});
+  Matrix<double> B3("B3", {2,2});
+  Matrix<double> C1("C1", {2,2});
+  Matrix<double> C2("C2", {2,2});
+  Matrix<double> C3("C3", {2,2});
+
+  A = B1 * C1;
+
+  IndexVar i,j,k;
+  A(i,j) = B2(i,k) * C2(k,j);
+
+  A = B3 * C3;
+}
+
+TEST(linalg, tensor_comparison) {
+  Matrix<double> A("A", {2,2});
+  Tensor<double> B("B", {2,2});
+
+  A(0,0) = 1;
+  A(1,1) = 1;
+
+  B(0,0) = 1;
+  B(1,1) = 1;
+
+  ASSERT_TENSOR_EQ(A,B);
+}
+
 TEST(linalg, matrix_constructors) {
   Matrix<double> A("A");
   Matrix<double> B("B", {2, 2});
@@ -32,10 +62,10 @@ TEST(linalg, matmul_index_expr) {
   IndexVar i, j, k;
   A(i,j) = B(i,k) * C(k,j);
 
-  ASSERT_EQ(A.at(0,0), 4);
-  ASSERT_EQ(A.at(0,1), 4);
-  ASSERT_EQ(A.at(1,0), 0);
-  ASSERT_EQ(A.at(1,1), 2);
+  ASSERT_EQ((double) A(0,0), 4);
+  ASSERT_EQ((double) A(0,1), 4);
+  ASSERT_EQ((double) A(1,0), 0);
+  ASSERT_EQ((double) A(1,1), 2);
 }
 
 TEST(linalg, vecmat_mul_index_expr) {
@@ -54,8 +84,8 @@ TEST(linalg, vecmat_mul_index_expr) {
   IndexVar i, j;
   x(i) = b(j) * A(j,i);
 
-  ASSERT_EQ(x.at(0), 17);
-  ASSERT_EQ(x.at(1), 6);
+  ASSERT_EQ((double) x(0), 17);
+  ASSERT_EQ((double) x(1), 6);
 
   cout << x << endl;
 
@@ -82,7 +112,7 @@ TEST(linalg, inner_mul_index_expr) {
 
   cout << x.getIndexAssignment();
 
-  ASSERT_EQ(x, 9);
+  ASSERT_EQ((double) x, 9);
 }
 
 TEST(linalg, matmul) {
@@ -98,15 +128,26 @@ TEST(linalg, matmul) {
 
   A = B * C;
 
-  ASSERT_EQ(A.at(0,0), 4);
-  ASSERT_EQ(A.at(0,1), 4);
-  ASSERT_EQ(A.at(1,0), 0);
-  ASSERT_EQ(A.at(1,1), 2);
+  ASSERT_EQ((double) A(0,0), 4);
+  ASSERT_EQ((double) A(0,1), 4);
+  ASSERT_EQ((double) A(1,0), 0);
+  ASSERT_EQ((double) A(1,1), 2);
 
-  //TODO: make this better
-  cout << "A(1,1) = " << A(1,1) << endl;
-  double a11 = A(1,1);
-  cout << "a11 = " << a11 << endl;
+  // Equivalent Tensor API computation
+  Tensor<double> tB("B", {2, 2}, dense);
+  Tensor<double> tC("C", {2, 2}, dense);
+  Tensor<double> tA("A", {2, 2}, dense);
+
+  tB(0,0) = 2;
+  tB(1,1) = 1;
+  tB(0,1) = 2;
+  tC(0,0) = 2;
+  tC(1,1) = 2;
+
+  IndexVar i,j,k;
+  tA(i,j) = tB(i,k) * tC(k,j);
+
+  ASSERT_TENSOR_EQ(A,tA);
 }
 
 TEST(linalg, matmat_add) {
@@ -122,10 +163,10 @@ TEST(linalg, matmat_add) {
 
   A = B + C;
 
-  ASSERT_EQ(A.at(0,0), 1);
-  ASSERT_EQ(A.at(0,1), 2);
-  ASSERT_EQ(A.at(1,0), 3);
-  ASSERT_EQ(A.at(1,1), 4);
+  ASSERT_EQ((double) A(0,0), 1);
+  ASSERT_EQ((double) A(0,1), 2);
+  ASSERT_EQ((double) A(1,0), 3);
+  ASSERT_EQ((double) A(1,1), 4);
 }
 
 TEST(linalg, matvec_mul) {
@@ -142,8 +183,8 @@ TEST(linalg, matvec_mul) {
 
   x = A*b;
 
-  ASSERT_EQ(x.at(0), 5);
-  ASSERT_EQ(x.at(1), 2);
+  ASSERT_EQ((double) x(0), 5);
+  ASSERT_EQ((double) x(1), 2);
 
   // Should be [5,2]
   cout << x << endl;
@@ -166,8 +207,8 @@ TEST(linalg, vecmat_mul) {
   // Should be [17, 6]
   x = b * A;
 
-  ASSERT_EQ(x.at(0), 17);
-  ASSERT_EQ(x.at(1), 6);
+  ASSERT_EQ((double) x(0), 17);
+  ASSERT_EQ((double) x(1), 6);
 
   cout << x << endl;
 
@@ -192,7 +233,7 @@ TEST(linalg, inner_mul) {
 
   cout << x.getIndexAssignment();
 
-  ASSERT_EQ(x, 9);
+  ASSERT_EQ((double) x, 9);
 }
 
 TEST(linalg, outer_mul) {
@@ -240,19 +281,37 @@ TEST(linalg, outer_mul) {
 /*   ASSERT_TRUE(1); */
 /* } */
 
-TEST(linalg, complex_expr) {
+TEST(linalg, compound_expr_elemmul_elemadd) {
   Matrix<double> A("A", 2, 2, dense, dense);
   Matrix<double> B("B", 2, 2, dense, dense);
   Matrix<double> C("C", 2, 2, dense, dense);
   Matrix<double> D("D", 2, 2, dense, dense);
-  Matrix<double> E("D", 2, 2, dense, dense);
 
-/*   A = E*elemMul(B+C, D); */
+  Tensor<double> tA("A", {2,2}, dense);
+  Tensor<double> tB("B", {2,2}, dense);
+  Tensor<double> tC("C", {2,2}, dense);
+  Tensor<double> tD("D", {2,2}, dense);
+
+  A(0,0) = 1;
+  A(0,1) = 2;
+  A(0,2) = 3;
+
+  tA(0,0) = 1;
+  tA(0,1) = 2;
+  tA(0,2) = 3;
+
+  D(0,0) = 2;
+  D(0,1) = 3;
+  D(0,2) = 4;
+
+  tD(0,0) = 2;
+  tD(0,1) = 3;
+  tD(0,2) = 4;
+
   A = elemMul(B+C, D);
 
-  cout << A << endl;
+  IndexVar i,j;
+  tA(i,j) = (tB(i,j) + tC(i,j)) * tD(i,j);
 
-  cout << A.getIndexAssignment();
-
-  ASSERT_TRUE(1);
+  ASSERT_TENSOR_EQ(A,tA);
 }

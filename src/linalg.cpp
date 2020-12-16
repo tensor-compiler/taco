@@ -185,7 +185,6 @@ IndexExpr LinalgBase::rewrite(LinalgExpr linalg, vector<IndexVar> indices) {
     auto var = to<LinalgVarNode>(linalg.get());
     return new AccessNode(var->tensorVar, indices);
   } else if (isa<LinalgTensorBaseNode>(linalg.get())) {
-    /* cout << "LinalgBase::rewrite -- got a tensorbasenode " << linalg.tensorBase->getName() << endl; */
     return linalg.tensorBase->operator()(indices);
   }
   return IndexExpr();

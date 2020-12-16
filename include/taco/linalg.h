@@ -38,7 +38,6 @@ public:
 
   const IndexStmt getIndexAssignment() const;
 
-
   IndexStmt rewrite();
 
   typedef LinalgVarNode Node;
@@ -73,17 +72,21 @@ public:
     return LinalgBase::operator=(expr);
   }
 
-  // Support some Read methods
+  // Read method
   CType at(int coord_x, int coord_y);
 
-  // And a Write method
+  // Write method
   void insert(int coord_x, int coord_y, CType value);
 
+  // ScalarAccess supports reading/assigning to single element
   ScalarAccess<CType> operator()(int i, int j);
 
-  // Access methods for use in IndexExprs
+  // Access methods
   const Access operator()(const IndexVar i, const IndexVar j) const;
   Access operator()(const IndexVar i, const IndexVar j);
+
+  // Allow to be cast to a TensorBase for the sake of ASSERT_TENSOR_EQ
+  operator TensorBase() const { return *tensorBase; }
 };
 
 // ------------------------------------------------------------
