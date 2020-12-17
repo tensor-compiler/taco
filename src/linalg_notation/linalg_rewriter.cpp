@@ -225,14 +225,8 @@ IndexStmt LinalgRewriter::rewrite(LinalgBase linalgBase) {
   liveIndices = indices;
   auto rhs = rewrite(linalgBase.getAssignment().getRhs());
 
-  cout << "rhs done here" << endl;
-
   if(linalgBase.tensorBase != nullptr) {
-    cout << "--- Going to use the Tensor API to assign the RHS ---" << endl;
-    cout << lhs << " = ";
-    cout << rhs << endl;
     linalgBase.tensorBase->operator()(indices) = rhs;
-    cout << "--- Done assigning RHS to Tensor API ---" << endl;
   }
 
   Assignment indexAssign = Assignment(lhs, rhs);

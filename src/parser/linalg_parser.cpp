@@ -78,19 +78,12 @@ const TensorBase& LinalgParser::getResultTensor() const {
 
 LinalgBase LinalgParser::parseAssign() {
   content->parsingLhs = true;
-  cout << "parsing lhs" << endl;
   LinalgBase lhs = parseVar();
-  cout << "end parsing lhs" << endl;
   const TensorVar var = lhs.tensorBase->getTensorVar();
-  cout << "Result of parsing LHS" << endl;
-  cout << var.getName() << endl;
   content->parsingLhs = false;
 
-  cout << "parsing rhs" << endl;
   consume(Token::eq);
   LinalgExpr rhs = parseExpr();
-  cout << "Result of parsing RHS" << endl;
-  cout << rhs << endl;
   lhs = rhs;
 
   return lhs;
@@ -242,7 +235,6 @@ LinalgBase LinalgParser::parseVar() {
     throw ParseError("Expected linalg name");
   }
   string tensorName = content->lexer.getIdentifier();
-  cout << tensorName << endl;
   consume(Token::identifier);
   names.push_back(tensorName);
 
@@ -281,8 +273,6 @@ LinalgBase LinalgParser::parseVar() {
       order = content->tensorDimensions.at(tensorName).size();
   }
 
-  cout << order << endl;
-
   Format format;
   if (util::contains(content->formats, tensorName)) {
     format = content->formats.at(tensorName);
@@ -290,7 +280,6 @@ LinalgBase LinalgParser::parseVar() {
   else {
     format = Format(std::vector<ModeFormatPack>(order, Dense));
   }
-  cout << format << endl;
 
   TensorBase tensor;
   if (util::contains(content->tensors, tensorName)) {
@@ -300,12 +289,10 @@ LinalgBase LinalgParser::parseVar() {
     vector<int> tensorDimensions(order);
     vector<bool> modesWithDefaults(order, false);
     for (size_t i = 0; i < tensorDimensions.size(); i++) {
-      cout << i << endl;
       if (util::contains(content->tensorDimensions, tensorName)) {
         tensorDimensions[i] = content->tensorDimensions.at(tensorName)[i];
       }
       else {
-        cout << "default" << endl;
         tensorDimensions[i] = content->defaultDimension;
         modesWithDefaults[i] = true;
       }
@@ -332,11 +319,8 @@ LinalgBase LinalgParser::parseVar() {
 vector<IndexVar> LinalgParser::getUniqueIndices(size_t order) {
     vector<IndexVar> result;
     for (int i = idxcount; i < (idxcount + (int)order); i++) {
-      cout << i << ": ";
       string name = "i" + to_string(i);
-      cout << name << " ";
       IndexVar indexVar = getIndexVar(name);
-      cout << indexVar << endl;
       result.push_back(indexVar);
     }
     idxcount += order;

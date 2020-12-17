@@ -104,7 +104,6 @@ static Format initFormat(Format format) {
 TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
                        Format format)
     : content(new Content(name, ctype, dimensions, initFormat(format))) {
-  cout << name << endl;
   taco_uassert((size_t)format.getOrder() == dimensions.size()) <<
       "The number of format mode types (" << format.getOrder() << ") " <<
       "must match the tensor order (" << dimensions.size() << ").";
@@ -488,7 +487,6 @@ struct AccessTensorNode : public AccessNode {
 };
 
 const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const {
-  cout << "Const op() call" << endl;
   taco_uassert(indices.size() == (size_t)getOrder())
       << "A tensor of order " << getOrder() << " must be indexed with "
       << getOrder() << " variables, but is indexed with:  "
@@ -497,14 +495,10 @@ const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const 
 }
 
 Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
-  cout << "Non-Const op() call" << endl;
-  cout << to_string(getOrder()) << endl;
-  cout << " after getOrder" << endl;
   taco_uassert(indices.size() == (size_t)getOrder())
       << "A tensor of order " << getOrder() << " must be indexed with "
       << getOrder() << " variables, but is indexed with:  "
       << util::join(indices);
-  cout << " after uassert" << endl;
   return Access(new AccessTensorNode(*this, indices));
 }
 

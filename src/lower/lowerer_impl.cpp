@@ -1380,7 +1380,6 @@ Stmt LowererImpl::lowerSuchThat(SuchThat suchThat) {
 Expr LowererImpl::lowerAccess(Access access) {
 
   TensorVar var = access.getTensorVar();
-  cout << "Lower access " << var.getName() << endl;
 
   if (isScalar(var.getType())) {
     return getTensorVar(var);

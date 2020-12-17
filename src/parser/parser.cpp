@@ -55,14 +55,6 @@ Parser::Parser(string expression, const map<string,Format>& formats,
   content->tensors = tensors;
   content->dataTypes = dataTypes;
 
-  cout << "Parser Constructor" << endl;
-  for (auto& d: tensorDimensions) {
-    cout << d.first << ": ";
-    for (auto i: d.second) {
-       cout << i << ", "<< endl;
-    }
-  }
-
   nextToken();
 }
 
