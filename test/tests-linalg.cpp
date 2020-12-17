@@ -4,50 +4,6 @@
 
 using namespace taco;
 
-TEST(linalg, reassignment) {
-  Matrix<double> A("A", {2,2});
-  Matrix<double> B1("B1", {2,2});
-  Matrix<double> B2("B2", {2,2});
-  Matrix<double> B3("B3", {2,2});
-  Matrix<double> C1("C1", {2,2});
-  Matrix<double> C2("C2", {2,2});
-  Matrix<double> C3("C3", {2,2});
-
-  A = B1 * C1;
-
-  IndexVar i,j,k;
-  A(i,j) = B2(i,k) * C2(k,j);
-
-  A = B3 * C3;
-}
-
-TEST(linalg, tensor_comparison) {
-  Matrix<double> A("A", {2,2});
-  Tensor<double> B("B", {2,2});
-
-  A(0,0) = 1;
-  A(1,1) = 1;
-
-  B(0,0) = 1;
-  B(1,1) = 1;
-
-  ASSERT_TENSOR_EQ(A,B);
-}
-
-TEST(linalg, matrix_constructors) {
-  Matrix<double> A("A");
-  Matrix<double> B("B", {2, 2});
-  Matrix<double> C("C", 2, 2, dense, dense);
-  Matrix<double> D("D", 2, 2);
-  Matrix<double> E("E", 2, 2, {dense, dense});
-  Matrix<double> F("F", {2, 2}, {dense, dense});
-
-  Vector<double> a("a");
-  Vector<double> b("b", 2, false);
-  Vector<double> c("c", 2, dense);
-  Vector<double> d("d", 2, {dense});
-}
-
 TEST(linalg, matmul_index_expr) {
   Tensor<double> B("B", {2,2});
   Matrix<double> C("C", 2, 2, dense, dense);
@@ -80,16 +36,11 @@ TEST(linalg, vecmat_mul_index_expr) {
   A(0,1) = 2;
   A(1,0) = -1;
 
-  // Should be [17, 6]
   IndexVar i, j;
   x(i) = b(j) * A(j,i);
 
   ASSERT_EQ((double) x(0), 17);
   ASSERT_EQ((double) x(1), 6);
-
-  cout << x << endl;
-
-  cout << x.getIndexAssignment();
 }
 
 
@@ -107,17 +58,12 @@ TEST(linalg, inner_mul_index_expr) {
   IndexVar i;
   x = b(i) * a(i);
 
-  // Should be 9
-  cout << x << endl;
-
-  cout << x.getIndexAssignment();
-
   ASSERT_EQ((double) x, 9);
 }
 
 TEST(linalg, matmul) {
   Matrix<double> B("B", 2, 2, dense, dense);
-  Matrix<double> C("C", 2, 2, dense, dense);
+  Matrix<double> C("C", 2, 2, sparse, sparse);
   Matrix<double> A("A", 2, 2, dense, dense);
 
   B(0,0) = 2;
@@ -185,11 +131,6 @@ TEST(linalg, matvec_mul) {
 
   ASSERT_EQ((double) x(0), 5);
   ASSERT_EQ((double) x(1), 2);
-
-  // Should be [5,2]
-  cout << x << endl;
-
-  cout << x.getIndexAssignment();
 }
 
 TEST(linalg, vecmat_mul) {
@@ -204,15 +145,10 @@ TEST(linalg, vecmat_mul) {
   A(0,1) = 2;
   A(1,0) = -1;
 
-  // Should be [17, 6]
   x = b * A;
 
   ASSERT_EQ((double) x(0), 17);
   ASSERT_EQ((double) x(1), 6);
-
-  cout << x << endl;
-
-  cout << x.getIndexAssignment();
 }
 
 TEST(linalg, inner_mul) {
@@ -227,11 +163,6 @@ TEST(linalg, inner_mul) {
   a(1) = 5;
 
   x = b * a;
-
-  // Should be 9
-  cout << x << endl;
-
-  cout << x.getIndexAssignment();
 
   ASSERT_EQ((double) x, 9);
 }
@@ -249,37 +180,39 @@ TEST(linalg, outer_mul) {
 
   X = a * b;
 
-  // Should be [-6,-9,10,15]
-  cout << X << endl;
+  // Tensor API equivalent
+  Tensor<double> tX("X", {2, 2}, dense);
+  Tensor<double> tb("b", {2}, dense);
+  Tensor<double> ta("a", {2}, dense);
 
-  cout << X.getIndexAssignment();
+  tb(0) = 2;
+  tb(1) = 3;
 
-  cout << X;
+  ta(0) = -3;
+  ta(1) = 5;
 
-  ASSERT_TRUE(1);
+  IndexVar i,j;
+  tX(i,j) = a(i) * b(j);
+
+  ASSERT_TENSOR_EQ(X,tX);
 }
 
-/* TEST(linalg, rowvec_transpose) { */
-/*   Vector<double> b("b", 2, dense, false); */
-/*   Matrix<double> A("A", 2, 2, dense, dense); */
-/*   Scalar<double> a("a", true); */
+TEST(linalg, rowvec_transpose) {
+  Vector<double> b("b", 2, dense, true);
+  Matrix<double> A("A", 2, 2, dense, dense);
+  Scalar<double> a("a", true);
 
-/*   b(0) = 2; */
-/*   b(1) = 5; */
+  b(0) = 2;
+  b(1) = 5;
 
-/*   A(0,0) = 1; */
-/*   A(0,1) = 2; */
-/*   A(1,1) = 4; */
+  A(0,0) = 1;
+  A(0,1) = 2;
+  A(1,1) = 4;
 
-/*   a = transpose(transpose(b) * A * b); */
+  a = transpose(transpose(b) * A * b);
 
-/*   // Should be 124 */
-/*   cout << a << endl; */
-
-/*   cout << a.getIndexAssignment(); */
-
-/*   ASSERT_TRUE(1); */
-/* } */
+  ASSERT_EQ((double) a, 124);
+}
 
 TEST(linalg, compound_expr_elemmul_elemadd) {
   Matrix<double> A("A", 2, 2, dense, dense);
@@ -287,31 +220,118 @@ TEST(linalg, compound_expr_elemmul_elemadd) {
   Matrix<double> C("C", 2, 2, dense, dense);
   Matrix<double> D("D", 2, 2, dense, dense);
 
-  Tensor<double> tA("A", {2,2}, dense);
-  Tensor<double> tB("B", {2,2}, dense);
-  Tensor<double> tC("C", {2,2}, dense);
-  Tensor<double> tD("D", {2,2}, dense);
-
   A(0,0) = 1;
   A(0,1) = 2;
   A(0,2) = 3;
-
-  tA(0,0) = 1;
-  tA(0,1) = 2;
-  tA(0,2) = 3;
 
   D(0,0) = 2;
   D(0,1) = 3;
   D(0,2) = 4;
 
+  A = elemMul(B+C, D);
+
+  // Tensor API equivalent
+  Tensor<double> tA("A", {2,2}, dense);
+  Tensor<double> tB("B", {2,2}, dense);
+  Tensor<double> tC("C", {2,2}, dense);
+  Tensor<double> tD("D", {2,2}, dense);
+
+  tA(0,0) = 1;
+  tA(0,1) = 2;
+  tA(0,2) = 3;
+
   tD(0,0) = 2;
   tD(0,1) = 3;
   tD(0,2) = 4;
-
-  A = elemMul(B+C, D);
 
   IndexVar i,j;
   tA(i,j) = (tB(i,j) + tC(i,j)) * tD(i,j);
 
   ASSERT_TENSOR_EQ(A,tA);
+}
+
+TEST(linalg, matrix_constructors) {
+  Matrix<double> A("A");
+  Matrix<double> B("B", {2, 2});
+  Matrix<double> C("C", 2, 2, dense, dense);
+  Matrix<double> D("D", 2, 2);
+  Matrix<double> E("E", 2, 2, {dense, dense});
+  Matrix<double> F("F", {2, 2}, {dense, dense});
+
+  Vector<double> a("a");
+  Vector<double> b("b", 2, false);
+  Vector<double> c("c", 2, dense);
+  Vector<double> d("d", 2, {dense});
+}
+
+TEST(linalg, reassignment) {
+  Matrix<double> A("A", {2,2});
+  Matrix<double> B1("B1", {2,2});
+  Matrix<double> B2("B2", {2,2});
+  Matrix<double> B3("B3", {2,2});
+  Matrix<double> C1("C1", {2,2});
+  Matrix<double> C2("C2", {2,2});
+  Matrix<double> C3("C3", {2,2});
+
+  B1(0,0) = 1;
+  B1(0,1) = 2;
+  B1(1,0) = 3;
+  B1(1,1) = 4;
+  C1(0,0) = 1;
+  C1(0,1) = 2;
+  C1(1,0) = 3;
+  C1(1,1) = 4;
+
+  A = B1 * C1;
+
+  ASSERT_EQ((double) A(0,0), 7);
+  ASSERT_EQ((double) A(0,1), 10);
+  ASSERT_EQ((double) A(1,0), 15);
+  ASSERT_EQ((double) A(1,1), 22);
+
+  B2(0,0) = 2;
+  B2(0,1) = 1;
+  B2(1,0) = 4;
+  B2(1,1) = 3;
+  C2(0,0) = 2;
+  C2(0,1) = 1;
+  C2(1,0) = 4;
+  C2(1,1) = 3;
+
+  IndexVar i,j,k;
+  A(i,j) = B2(i,k) * C2(k,j);
+
+  ASSERT_EQ((double) A(0,0), 8);
+  ASSERT_EQ((double) A(0,1), 5);
+  ASSERT_EQ((double) A(1,0), 20);
+  ASSERT_EQ((double) A(1,1), 13);
+
+  B3(0,0) = 2;
+  B3(0,1) = 1;
+  B3(1,0) = 5;
+  B3(1,1) = 3;
+  C3(0,0) = 2;
+  C3(0,1) = 1;
+  C3(1,0) = 5;
+  C3(1,1) = 3;
+
+  A = B3 * C3;
+
+  ASSERT_EQ((double) A(0,0), 9);
+  ASSERT_EQ((double) A(0,1), 5);
+  ASSERT_EQ((double) A(1,0), 25);
+  ASSERT_EQ((double) A(1,1), 14);
+}
+
+TEST(linalg, tensor_comparison) {
+  Matrix<double> A("A", {2,2});
+  Tensor<double> B("B", {2,2});
+
+  A(0,0) = 1;
+  A(1,1) = 1;
+
+  B(0,0) = 1;
+  B(1,1) = 1;
+
+  ASSERT_TENSOR_EQ(A,B);
 }
