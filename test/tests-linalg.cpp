@@ -250,6 +250,55 @@ TEST(linalg, compound_expr_elemmul_elemadd) {
   ASSERT_TENSOR_EQ(A,tA);
 }
 
+TEST(linalg, compound_sparse_matmul_transpose_outer) {
+  Matrix<double> A("A", 16, 16, dense, sparse);
+  Matrix<double> B("B", 16, 16, dense, sparse);
+  Matrix<double> C("C", 16, 16, dense, sparse);
+  Matrix<double> D("D", 16, 16, dense, dense);
+  Vector<double> e("e", 16, sparse);
+  Vector<double> f("f", 16, sparse);
+
+  A(0,0) = 1;
+  A(0,1) = 2;
+  A(0,2) = 3;
+  B(0,0) = 1;
+  B(1,1) = 2;
+  B(2,2) = 3;
+  C(0, 0) = 8;
+  D(0,0) = 2;
+  D(0,1) = 3;
+  D(0,2) = 4;
+
+  e(0) = 43;
+  f(1) = 2;
+  A = ((B*C)*D) + transpose(e*transpose(f));
+
+  // Tensor API equivalent
+  Tensor<double> tA("tA", {16,16}, {dense, sparse});
+  Tensor<double> tB("tB", {16,16}, {dense, sparse});
+  Tensor<double> tC("tC", {16,16}, {dense, sparse});
+  Tensor<double> tD("tD", {16,16}, dense);
+  Tensor<double> te("te", {16}, {sparse});
+  Tensor<double> tf("tf", {16}, {sparse});
+  tA(0,0) = 1;
+  tA(0,1) = 2;
+  tA(0,2) = 3;
+  tB(0,0) = 1;
+  tB(1,1) = 2;
+  tB(2,2) = 3;
+  tC(0, 0) = 8;
+  tD(0,0) = 2;
+  tD(0,1) = 3;
+  tD(0,2) = 4;
+
+  te(0) = 43;
+  tf(1) = 2;
+  IndexVar i,j, k, l, m, n;
+  tA(i,j) = ((tB(i,k) * tC(k,l)) * tD(l,j)) + (te(j)*tf(i));
+
+  ASSERT_TENSOR_EQ(tA, A);
+}
+
 TEST(linalg, matrix_constructors) {
   Matrix<double> A("A");
   Matrix<double> B("B", {2, 2});

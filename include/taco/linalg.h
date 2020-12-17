@@ -254,8 +254,8 @@ public:
   operator CType() const { return tensorBase->at<CType>({}); }
 };
 
-template<typename CType>
-Scalar<CType>::Scalar(std::string name) : LinalgBase(name, Type(type<CType>(), {})) {}
+//template<typename CType>
+//Scalar<CType>::Scalar(std::string name) : LinalgBase(name, Type(type<CType>(), {})) {}
 template<typename CType>
 Scalar<CType>::Scalar(std::string name, bool useTensorBase) :
   LinalgBase(name, Type(type<CType>(), {}) , type<CType>(), {}, Format(), false) {}

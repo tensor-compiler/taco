@@ -42,19 +42,25 @@ LinalgRewriter::LinalgRewriter() : visitor(new Visitor(this)) {
 }
 
 IndexExpr LinalgRewriter::rewriteSub(const LinalgSubNode* sub) {
+  auto originalIndices = liveIndices;
   IndexExpr indexA = rewrite(sub->a);
+  liveIndices = originalIndices;
   IndexExpr indexB = rewrite(sub->b);
   return new SubNode(indexA, indexB);
 }
 
 IndexExpr LinalgRewriter::rewriteAdd(const LinalgAddNode* add) {
+  auto originalIndices = liveIndices;
   IndexExpr indexA = rewrite(add->a);
+  liveIndices = originalIndices;
   IndexExpr indexB = rewrite(add->b);
   return new AddNode(indexA, indexB);
 }
 
 IndexExpr LinalgRewriter::rewriteElemMul(const LinalgElemMulNode* elemMul) {
+  auto originalIndices = liveIndices;
   IndexExpr indexA = rewrite(elemMul->a);
+  liveIndices = originalIndices;
   IndexExpr indexB = rewrite(elemMul->b);
   return new MulNode(indexA, indexB);
 }
@@ -96,7 +102,9 @@ IndexExpr LinalgRewriter::rewriteMatMul(const LinalgMatMulNode *matMul) {
 }
 
 IndexExpr LinalgRewriter::rewriteDiv(const LinalgDivNode *div) {
+  auto originalIndices = liveIndices;
   IndexExpr indexA = rewrite(div->a);
+  liveIndices = originalIndices;
   IndexExpr indexB = rewrite(div->b);
   return new DivNode(indexA, indexB);
 }
