@@ -18,6 +18,7 @@ extern const std::string expr_einsum_missformed;
 
 // compile error messages
 extern const std::string compile_without_expr;
+extern const std::string compile_tensor_name_collision;
 
 // assemble error messages
 extern const std::string assemble_without_compile;

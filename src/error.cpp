@@ -59,13 +59,6 @@ ErrorReport::ErrorReport(const char *file, const char *func, int line,
   (*msg) << " ";
 }
 
-void ErrorReport::explode() {
-  std::cerr << msg->str() << endl;
-  delete msg;
-  if (warning) return;
-  abort();
-}
-
 void ErrorReport::explodeWithException() {
   TacoException e = TacoException(msg->str());
   delete msg;

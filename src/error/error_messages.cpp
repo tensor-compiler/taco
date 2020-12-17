@@ -28,6 +28,9 @@ const std::string expr_einsum_missformed =
 const std::string compile_without_expr =
   "The tensor must be assigned to before compile is called.";
 
+const std::string compile_tensor_name_collision =
+  "Tensor name collision.";
+
 const std::string assemble_without_compile =
   "The compile method must be called before assemble.";
 
