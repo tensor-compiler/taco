@@ -254,7 +254,14 @@ public:
     (*tensorBase) = expr;
   }
 
+  CType operator=(CType x) {
+    tensorBase->insert({}, x);
+    return x;
+  }
+
   operator CType() const { return tensorBase->at<CType>({}); }
+
+  operator TensorBase() const { return *tensorBase; }
 };
 
 //template<typename CType>

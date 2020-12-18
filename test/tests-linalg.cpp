@@ -392,3 +392,103 @@ TEST(linalg, tensor_comparison) {
 
   ASSERT_TENSOR_EQ(a,ta);
 }
+
+TEST(linalg, scalar_assignment) {
+  Scalar<double> x("x");
+  Scalar<double> y("y");
+  Scalar<double> z("z");
+  x = 1;
+  y = x;
+  z = 1;
+  ASSERT_TENSOR_EQ(x,y);
+  ASSERT_TENSOR_EQ(x,z);
+}
+
+TEST(linalg, scalar_coeff_vector) {
+  Scalar<double> x("x");
+  x = 2;
+  Vector<double> y("y", 5);
+  for(int i=0;i<5;i++) {
+    y(i) = i;
+  }
+
+  Vector<double> z("z", 5);
+  for(int i=0;i<5;i++) {
+    z(i) = 2*i;
+  }
+
+  Vector<double> xy("xy", 5);
+  xy = x * y;
+
+  ASSERT_TENSOR_EQ(xy,z);
+}
+
+TEST(linalg, scalar_coeff_matrix) {
+  Scalar<double> x("x");
+  x = 2;
+  Matrix<double> A("A", 5,5);
+  Matrix<double> xA("xA", 5,5);
+
+  A(0,0) = 1;
+  A(2,3) = 2;
+  A(4,0) = 3;
+
+  xA = x * A;
+
+  Matrix<double> B("B", 5,5);
+
+  B(0,0) = 2;
+  B(2,3) = 4;
+  B(4,0) = 6;
+
+  ASSERT_TENSOR_EQ(xA,B);
+}
+
+TEST(linalg, compound_scalar_expr) {
+  Matrix<double> A("A", {3,3});
+  Matrix<double> B("B", {3,3});
+  Vector<double> x("x", 3);
+  Vector<double> y("y", 3, false);
+  Scalar<double> a("a");
+  Scalar<double> b("b");
+  Scalar<double> c("c");
+
+  a = 2;
+  b = 3;
+  c = 4;
+  B(0,0) = 2;
+  B(0,1) = 3;
+  B(1,2) = 4;
+  x(0) = 2;
+  x(1) = 5;
+  x(2) = 1;
+  y(0) = 4;
+  y(1) = 5;
+  y(2) = 1;
+
+  A = a*B + b*x*y*c;
+
+  // Tensor API equivalent
+  Tensor<double> tA("tA", {3,3});
+  Tensor<double> tB("tB", {3,3});
+  Tensor<double> tx("tx", {3});
+  Tensor<double> ty("ty", {3});
+  Tensor<double> ta(2);
+  Tensor<double> tb(3);
+  Tensor<double> tc(4);
+
+  tB(0,0) = 2;
+  tB(0,1) = 3;
+  tB(1,2) = 4;
+  tx(0) = 2;
+  tx(1) = 5;
+  tx(2) = 1;
+  ty(0) = 4;
+  ty(1) = 5;
+  ty(2) = 1;
+
+  IndexVar i,j;
+  tA(i,j) = ta() * tB(i,j) + tb() * tx(i) * ty(j) * tc();
+
+  ASSERT_TENSOR_EQ(A,tA);
+}
