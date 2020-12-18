@@ -45,7 +45,7 @@ TEST(linalg, vecmat_mul_index_expr) {
 
 
 TEST(linalg, inner_mul_index_expr) {
-  Scalar<double> x("x", true);
+  Scalar<double> x("x");
   Vector<double> b("b", 2, dense, false);
   Vector<double> a("a", 2, dense, true);
 
@@ -152,7 +152,7 @@ TEST(linalg, vecmat_mul) {
 }
 
 TEST(linalg, inner_mul) {
-  Scalar<double> x("x", true);
+  Scalar<double> x("x");
   Vector<double> b("b", 2, dense, false);
   Vector<double> a("a", 2, dense, true);
 
@@ -200,7 +200,7 @@ TEST(linalg, outer_mul) {
 TEST(linalg, rowvec_transpose) {
   Vector<double> b("b", 2, dense, true);
   Matrix<double> A("A", 2, 2, dense, dense);
-  Scalar<double> a("a", true);
+  Scalar<double> a("a");
 
   b(0) = 2;
   b(1) = 5;
