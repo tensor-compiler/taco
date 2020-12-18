@@ -179,6 +179,9 @@ public:
   // Access methods for use in IndexExprs
   const Access operator()(const IndexVar i) const;
   Access operator()(const IndexVar i);
+
+  // Allow to be cast to a TensorBase for the sake of ASSERT_TENSOR_EQ
+  operator TensorBase() const { return *tensorBase; }
 };
 
 // ------------------------------------------------------------

@@ -334,4 +334,12 @@ TEST(linalg, tensor_comparison) {
   B(1,1) = 1;
 
   ASSERT_TENSOR_EQ(A,B);
+
+  Vector<double> a("a", 2);
+  Tensor<double> ta("ta", {2});
+
+  a(0) = 1;
+  ta(0) = 1;
+
+  ASSERT_TENSOR_EQ(a,ta);
 }
