@@ -713,7 +713,16 @@ void CodeGen_Spatial::visit(const StoreBulk* op) {
   op->locStart.accept(this);
   stream << "::";
   op->locEnd.accept(this);
-  stream << ") = ";
+  stream << ")";
+
+  if (op->rhs_mem_loc == MemoryLocation::SpatialDRAM) {
+    stream << " store ";
+  } else if (op->lhs_mem_loc == MemoryLocation::SpatialDRAM) {
+    stream << " load ";
+  } else {
+    stream << " = ";
+  }
+
   parentPrecedence = Precedence::TOP;
   op->data.accept(this);
   //stream << ";";

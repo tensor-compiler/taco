@@ -802,8 +802,12 @@ struct StoreBulk : public StmtNode<StoreBulk> {
   Expr data;
   bool use_atomics;
   ParallelUnit atomic_parallel_unit;
+  MemoryLocation rhs_mem_loc;
+  MemoryLocation lhs_mem_loc;
 
   static Stmt make(Expr arr, Expr locStart, Expr locEnd, Expr data, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
+  static Stmt make(Expr arr, Expr locStart, Expr locEnd, Expr data, MemoryLocation lhs_mem_loc = MemoryLocation::Default, MemoryLocation rhs_mem_loc = MemoryLocation::Default,
+                   bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
 
   static const IRNodeType _type_info = IRNodeType::Store;
 };
@@ -892,6 +896,9 @@ bool isValue(Expr expr, T val) {
   }
   return false;
 }
+
+Stmt rewriteBulkStmt(Stmt stmt);
+Expr rewriteBulkExpr(Stmt stmt, IndexVar indexVar);
 
 }}
 #endif

@@ -1175,6 +1175,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
 
+  cout << "BODY --" << endl;
+  cout << body << endl;
+
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
   }
@@ -1217,27 +1220,37 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   if (bulkMemTransfer.find(forall) != bulkMemTransfer.end() && should_use_Spatial_codegen()) {
     auto assignment = bulkMemTransfer.at(forall);
-    Expr valuesRhs = getValuesArray(assignment.getLhs().getTensorVar());
-    Expr valuesLhs = getValuesArray(to<Access>(assignment.getRhs()).getTensorVar());
+    auto tensorLhs = assignment.getLhs().getTensorVar();
+    Expr valuesLhs = getValuesArray(tensorLhs);
+    auto tensorRhs = to<Access>(assignment.getRhs()).getTensorVar();
+    Expr valuesRhs = getValuesArray(tensorRhs);
 
-    Stmt vars = lowerForallReductionBody(coordinate, forall.getStmt(),
-                                         locators, inserters, appenders, reducedAccesses);
+    //Stmt vars = lowerForallReductionBody(coordinate, forall.getStmt(),
+    //                                     locators, inserters, appenders, reducedAccesses);
 
     auto locs = lowerForallBulk(forall, coordinate, forall.getStmt(),
-                                 locators, inserters, appenders, reducedAccesses);
+                                 locators, inserters, appenders, reducedAccesses, recoveryStmt);
 
-    Expr data = LoadBulk::make(valuesLhs, ir::Add::make(locs[1], bounds[0]), ir::Add::make(locs[1], bounds[1]));
+    Expr data = LoadBulk::make(valuesRhs, ir::Add::make(get<1>(locs[1]), bounds[0]), ir::Add::make(get<1>(locs[1]), bounds[1]));
 
 
 
-    return Block::make(vars, StoreBulk::make(valuesRhs, ir::Add::make(locs[0], bounds[0]), ir::Add::make(locs[0], bounds[1]), data));
+    return Block::make(get<0>(locs[0]), get<0>(locs[1]), StoreBulk::make(valuesLhs,
+                                                                         ir::Add::make(get<1>(locs[0]), bounds[0]),
+                                                                         ir::Add::make(get<1>(locs[0]), bounds[1]), data,
+                                                                         tensorRhs.getMemoryLocation(), tensorLhs.getMemoryLocation()));
   }
 
-  return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
+  auto returnExpr = Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
                                  kind,
                                  ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(),
                                  ignoreVectorize ? 0 : forall.getUnrollFactor(), 0, forall.getNumChunks()),
                        posAppend);
+  cout << "Return Expr --- \n" << returnExpr << endl;
+  cout << bounds[0] << endl;
+  cout << bounds[1] << endl;
+  cout << body << endl;
+  return returnExpr;
 }
 
   Stmt LowererImpl::lowerForallDenseAcceleration(Forall forall,
@@ -2039,11 +2052,11 @@ Stmt LowererImpl::lowerForallReductionBody(Expr coordinate, IndexStmt stmt,
                      declLocatorPosVars);
 }
 
-vector<Expr> LowererImpl::lowerForallBulk(Forall forall, Expr coordinate, IndexStmt stmt,
+vector<tuple<Stmt, Expr>> LowererImpl::lowerForallBulk(Forall forall, Expr coordinate, IndexStmt stmt,
                                            vector<Iterator> locators,
                                            vector<Iterator> inserters,
                                            vector<Iterator> appenders,
-                                           const set<Access>& reducedAccesses) {
+                                           const set<Access>& reducedAccesses, ir::Stmt recoveryStmt) {
   Stmt initVals = resizeAndInitValues(appenders, reducedAccesses);
 
   // Inserter positions
@@ -2058,13 +2071,24 @@ vector<Expr> LowererImpl::lowerForallBulk(Forall forall, Expr coordinate, IndexS
   }
 
   // TODO: rewriter here
+  Stmt declInserterPosVarsNew = rewriteBulkStmt(Block::make({recoveryStmt, declInserterPosVars}));
+  Expr declInserterPosVarsExpr = rewriteBulkExpr(declInserterPosVars, forall.getIndexVar());
 
-  cout << "Debug: Inserters " << declInserterPosVars << endl;
-  cout << "Debug: Locator " << declLocatorPosVars << endl;
+  Stmt declLocatorPosVarsNew = rewriteBulkStmt(Block::make({recoveryStmt, declLocatorPosVars}));
+  Expr declLocatorPosVarsExpr = rewriteBulkExpr(declLocatorPosVars, forall.getIndexVar());
+
+  cout << "Debug: Inserters \n Original: " << declInserterPosVars << endl;
+  cout << "New Stmt: " << declInserterPosVarsNew << endl;
+  cout << "New Expr: " << declInserterPosVarsExpr << endl;
+  cout << "Debug: Locator \n Original: " << declLocatorPosVars << endl;
+  cout << "New Stmt: " << declLocatorPosVarsNew << endl;
+  cout << "New Expr: " << declLocatorPosVarsExpr << endl;
   // TODO: Emit code to insert coordinates
   Expr storeStart = ir::Literal::make(0);
   Expr loadStart = ir::Literal::make(0);
-  return {storeStart, loadStart};
+  tuple<Stmt, Expr> returnInserters = make_tuple(declInserterPosVarsNew, declInserterPosVarsExpr);
+  tuple<Stmt, Expr> returnLocators = make_tuple(declLocatorPosVarsNew, declLocatorPosVarsExpr);
+  return {returnInserters, returnLocators};
 }
 
 vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {

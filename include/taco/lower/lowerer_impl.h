@@ -191,11 +191,11 @@ protected:
                                    std::vector<Iterator> appenders,
                                    const std::set<Access>& reducedAccesses);
 
-  virtual std::vector<ir::Expr> lowerForallBulk(Forall forall, ir::Expr coordinate, IndexStmt stmt,
+  virtual std::vector<std::tuple<ir::Stmt,ir::Expr>> lowerForallBulk(Forall forall, ir::Expr coordinate, IndexStmt stmt,
                                             std::vector<Iterator> locaters,
                                             std::vector<Iterator> inserters,
                                             std::vector<Iterator> appenders,
-                                            const std::set<Access>& reducedAccesses);
+                                            const std::set<Access>& reducedAccesses,  ir::Stmt recoveryStmt);
 
 
   /// Lower a where statement.

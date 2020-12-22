@@ -1,6 +1,8 @@
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_visitor.h"
+#include "taco/ir/ir_rewriter.h"
 #include "taco/ir/ir_printer.h"
+#include "taco/index_notation/index_notation.h"
 
 #include "taco/error.h"
 #include "taco/util/strings.h"
@@ -960,6 +962,22 @@ Stmt StoreBulk::make(Expr arr, Expr locStart, Expr locEnd, Expr data, bool use_a
   store->data = data;
   store->use_atomics = use_atomics;
   store->atomic_parallel_unit = atomic_parallel_unit;
+  store->lhs_mem_loc = MemoryLocation::Default;
+  store->rhs_mem_loc = MemoryLocation::Default;
+  return store;
+}
+
+Stmt StoreBulk::make(Expr arr, Expr locStart, Expr locEnd, Expr data, MemoryLocation lhs_mem_loc, MemoryLocation rhs_mem_loc,
+                     bool use_atomics, ParallelUnit atomic_parallel_unit) {
+  StoreBulk *store = new StoreBulk;
+  store->arr = arr;
+  store->locStart = locStart;
+  store->locEnd = locEnd;
+  store->data = data;
+  store->use_atomics = use_atomics;
+  store->atomic_parallel_unit = atomic_parallel_unit;
+  store->lhs_mem_loc = lhs_mem_loc;
+  store->rhs_mem_loc = rhs_mem_loc;
   return store;
 }
 
@@ -1153,24 +1171,71 @@ std::ostream& operator<<(std::ostream& os, const Expr& expr) {
   return os;
 }
 
-    Stmt Stmt::rewriteBulk(IndexVar i) const {
-      struct BulkRewrite : IRRewriter {
-        using IRRewriter::visit;
-        IndexVar i;
-        size_t unrollFactor;
-        UnrollLoop(IndexVar i, size_t unrollFactor) : i(i), unrollFactor(unrollFactor) {}
+Stmt rewriteBulkStmt(Stmt stmt, IndexVar indexVar) {
+  struct BulkRewriteStmt : IRRewriter {
+    using IRRewriter::visit;
 
-        void visit(const Add* node) {
-          if (node->indexVar == i) {
-            stmt = Forall(i, rewrite(node->stmt), node->parallel_unit, node->output_race_strategy, unrollFactor);
-          }
-          else {
-            IndexNotationRewriter::visit(node);
-          }
+    BulkRewriteStmt() = default;
+
+    void visit(const Block* node) {
+      if (node->contents.size() > 1) {
+        std::vector<Stmt> rewritten;
+        for (auto it = node->contents.begin(); it != node->contents.end(); it++) {
+          rewritten.push_back(*it);
         }
-      };
-      return UnrollLoop(i, unrollFactor).rewrite(*this);
+        stmt = Block::make(rewritten);
+      }
+      IRRewriter::visit(node);
     }
+  };
+  return BulkRewriteStmt().rewrite(stmt);
+}
+
+Expr rewriteBulkExpr(Stmt stmt, IndexVar indexVar) {
+
+  struct BulkExprFinder : IRVisitor {
+    using IRVisitor::visit;
+    BulkExprFinder() = default;
+    Stmt parentStmt;
+    Expr e = Expr();
+    Expr visit(Stmt stmt) {
+      stmt.accept(this);
+      return e;
+    }
+    void visit(const Block* node) {
+      parentStmt = node;
+      node->contents.back().accept(this);
+    }
+    void visit(const Assign* node) {
+      if (parentStmt.defined())
+        e = node->rhs;
+    }
+    void visit(const VarDecl* node) {
+      if (parentStmt.defined())
+        e = node->rhs;
+    }
+  };
+  struct BulkExprRewriter : IRRewriter {
+    using IRRewriter::visit;
+    IndexVar i;
+    BulkExprRewriter(IndexVar indexVar) : i(indexVar) {}
+
+    void visit(const Var* node) {
+      std::cout << "Var Name: " << node->name << ", " << i.getName() << std::endl;
+      if (node->name == i.getName()) {
+        expr = Literal::make(0);
+      }
+      else {
+        expr = node;
+      }
+    }
+  };
+  Expr rewrittenExpr = BulkExprFinder().visit(stmt);
+  std::cout << "Intermediate: " << rewrittenExpr << std::endl;
+  Expr returnExpr = BulkExprRewriter(indexVar).rewrite(rewrittenExpr);
+  std::cout << "Return: " << returnExpr << std::endl;
+  return returnExpr;
+}
 
 
 } // namespace ir

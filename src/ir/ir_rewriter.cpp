@@ -520,7 +520,7 @@ void IRRewriter::visit(const StoreBulk* op) {
     stmt = op;
   }
   else {
-    stmt = StoreBulk::make(arr, locStart, locEnd, data, op->use_atomics);
+    stmt = StoreBulk::make(arr, locStart, locEnd, data, op->lhs_mem_loc, op->rhs_mem_loc, op->use_atomics, op->atomic_parallel_unit);
   }
 }
 
