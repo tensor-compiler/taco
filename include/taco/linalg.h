@@ -244,7 +244,6 @@ class Scalar : public LinalgBase {
   Datatype ctype;
 public:
   explicit Scalar(std::string name);
-  Scalar(std::string name, bool useTensorBase);
 
   LinalgAssignment operator=(const LinalgExpr &expr) {
     return LinalgBase::operator=(expr);
