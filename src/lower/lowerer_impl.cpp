@@ -1622,8 +1622,8 @@ Stmt LowererImpl::lowerWhere(Where where) {
   }
 
   // Now that temporary allocations are hoisted, we always need to emit an initialization loop before entering the
-  // producer.
-  if(generateComputeCode() && !isScalar(temporary.getType())) {
+  // producer but only if there is no dense acceleration
+  if(generateComputeCode() && !isScalar(temporary.getType()) && !accelarateDenseWorkSpace) {
     // TODO: We only actually need to do this if:
     //      1) We use the temporary multiple times
     //      2) The PRODUCER RHS is sparse(not full). (Guarantees that old values are overwritten before consuming)
