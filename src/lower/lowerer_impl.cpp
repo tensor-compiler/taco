@@ -939,7 +939,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
     Stmt declareVar = VarDecl::make(coordinate, Load::make(indexList, loopVar));
     Stmt body = lowerForallBody(coordinate, forall.getStmt(), locators, inserters, appenders, reducedAccesses);
-    Stmt resetGuard = ir::Store::make(bitGuard, loopVar, ir::Literal::make(false), markAssignsAtomicDepth > 0, atomicParallelUnit);
+    Stmt resetGuard = ir::Store::make(bitGuard, coordinate, ir::Literal::make(false), markAssignsAtomicDepth > 0, atomicParallelUnit);
     body = Block::make(declareVar, body, resetGuard);
 
     if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
