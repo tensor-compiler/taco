@@ -350,8 +350,8 @@ protected:
   /// Initializes a temporary workspace
   std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
 
-  /// Gets the size of a temporary tensorVar
-  ir::Expr getTemporarySize(TensorVar var);
+  /// Gets the size of a temporary tensorVar in the where statement
+  ir::Expr getTemporarySize(Where where);
 
   /// Initializes helper arrays to give dense workspaces sparse acceleration
   std::vector<ir::Stmt> codeToInitializeDenseAcceleratorArrays(Where where);

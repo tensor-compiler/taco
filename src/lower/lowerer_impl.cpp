@@ -1412,8 +1412,22 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
                      appendCoords);
 }
 
-Expr LowererImpl::getTemporarySize(TensorVar temporary) {
+Expr LowererImpl::getTemporarySize(Where where) {
+  TensorVar temporary = where.getTemporary();
   Dimension temporarySize = temporary.getType().getShape().getDimension(0);
+  Access temporaryAccess = getResultAccesses(where.getProducer()).first[0];
+  std::vector<IndexVar> indexVars = temporaryAccess.getIndexVars();
+
+  if(util::all(indexVars, [&](const IndexVar& var) { return provGraph.isUnderived(var);})) {
+    // All index vars underived then use tensor properties to get tensor size
+    taco_iassert(util::contains(dimensions, indexVars[0])) << "Missing " << indexVars[0];
+    ir::Expr size = dimensions.at(indexVars[0]);
+    for(size_t i = 1; i < indexVars.size(); ++i) {
+      taco_iassert(util::contains(dimensions, indexVars[i])) << "Missing " << indexVars[i];
+      size = ir::Mul::make(size, dimensions.at(indexVars[i]));
+    }
+    return size;
+  }
 
   if (temporarySize.isFixed()) {
     return ir::Literal::make(temporarySize.getSize());
@@ -1436,7 +1450,7 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
   // TODO: emit as uint64 and manually emit bit pack code
   const Datatype bitGuardType = taco::Bool;
   const std::string bitGuardName = temporary.getName() + "_already_set";
-  const Expr bitGuardSize = getTemporarySize(temporary);
+  const Expr bitGuardSize = getTemporarySize(where);
   const Expr alreadySetArr = ir::Var::make(bitGuardName,
                                            bitGuardType,
                                            true, false);
@@ -1560,7 +1574,7 @@ vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
                                   true, false);
       taco_iassert(temporary.getType().getOrder() == 1) << " Temporary order was "
                                                         << temporary.getType().getOrder();  // TODO
-      Expr size = getTemporarySize(temporary);
+      Expr size = getTemporarySize(where);
 
       // no decl needed for shared memory
       Stmt decl = Stmt();
@@ -1631,7 +1645,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
     Expr values = ir::Var::make(temporary.getName(),
                                 temporary.getType().getDataType(),
                                 true, false);
-    Expr size = getTemporarySize(temporary);
+    Expr size = getTemporarySize(where);
     Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
     Stmt loopInit = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
     initializeTemporary = Block::make(initializeTemporary, loopInit);
