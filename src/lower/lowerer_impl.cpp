@@ -1453,7 +1453,6 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
   Stmt alreadySetDecl = Stmt();
   Stmt indexListDecl = Stmt();
   const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
-  const Stmt indexListSizeDecl = VarDecl::make(indexListSizeExpr, ir::Literal::make(0));
   Stmt freeTemps = Block::make(Free::make(indexListArr), Free::make(alreadySetArr));
   if ((isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) || !should_use_CUDA_codegen()) {
     alreadySetDecl = VarDecl::make(alreadySetArr, ir::Literal::make(0));
@@ -1471,13 +1470,13 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
     Stmt guardZeroInit = Store::make(alreadySetArr, p, ir::Literal::zero(bitGuardType));
 
     Stmt zeroInitLoop = For::make(p, 0, bitGuardSize, 1, guardZeroInit, LoopKind::Serial);
-    Stmt inits = Block::make(indexListSizeDecl, alreadySetDecl, indexListDecl, allocateAlreadySet, allocateIndexList, zeroInitLoop);
+    Stmt inits = Block::make(alreadySetDecl, indexListDecl, allocateAlreadySet, allocateIndexList, zeroInitLoop);
     return {inits, freeTemps};
   } else {
     Expr sizeOfElt = Sizeof::make(bitGuardType);
     Expr callocAlreadySet = ir::Call::make("calloc", {bitGuardSize, sizeOfElt}, Int());
     Stmt allocateAlreadySet = VarDecl::make(alreadySetArr, callocAlreadySet);
-    Stmt inits = Block::make(indexListSizeDecl, indexListDecl, allocateIndexList, allocateAlreadySet);
+    Stmt inits = Block::make(indexListDecl, allocateIndexList, allocateAlreadySet);
     return {inits, freeTemps};
   }
 
@@ -1650,6 +1649,11 @@ Stmt LowererImpl::lowerWhere(Where where) {
   }
 
   Stmt producer = lower(where.getProducer());
+  if(accelarateDenseWorkSpace) {
+    const Expr indexListSizeExpr = tempToIndexListSize.at(temporary);
+    const Stmt indexListSizeDecl = VarDecl::make(indexListSizeExpr, ir::Literal::make(0));
+    initializeTemporary = Block::make(indexListSizeDecl, initializeTemporary);
+  }
 
   if (restoreAtomicDepth) {
     markAssignsAtomicDepth++;
