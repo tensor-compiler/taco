@@ -814,23 +814,19 @@ int main(int argc, char* argv[]) {
     }
     else if ("-s" == argName) {  
       setSchedule = true;       
-      bool insideCall = false; 
-      bool parsingExpr = false; 
+      int parenthesesCnt = 0;
 
-      std::replace_if(argValue.begin(), argValue.end(), [&insideCall, &parsingExpr](char c) {
+      std::replace_if(argValue.begin(), argValue.end(), [&parenthesesCnt](char c) {
         if (c == '(') {
-          if (insideCall) {
-            parsingExpr = true; // need to handle precompute case specially
-          } else {
-            insideCall = true; 
-            return true; 
+          if (parenthesesCnt++ == 0) { // '(' for a call
+            return true;
           }
         } else if (c == ',') {
-          return !parsingExpr; 
+          return parenthesesCnt <= 1;
         } else if (c == ')') {
-          bool previous = parsingExpr; 
-          parsingExpr = false; 
-          return !previous; 
+          if (--parenthesesCnt == 0) { // ')' for a call
+            return true;
+          }
         }
         return false; 
       }, ' '); 

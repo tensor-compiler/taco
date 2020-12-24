@@ -1219,8 +1219,9 @@ void CodeGen_CUDA::visit(const Yield* op) {
 
 // Need to handle some binary ops so that we can add the necessary casts if complex
 // Because c++ does not properly handle double * std::complex<float> or std::complex<float> * std::complex<double>
+// Based on IRPrinter::printBinOp
 void CodeGen_CUDA::printBinCastedOp(Expr a, Expr b, string op, Precedence precedence) {
-  bool parenthesize = precedence > parentPrecedence;
+  bool parenthesize = needsParentheses(precedence);
   if (parenthesize) {
     stream << "(";
   }
