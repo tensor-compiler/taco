@@ -1123,7 +1123,7 @@ static IndexStmt optimizeSpMM(IndexStmt stmt) {
   // We need random access into the first mode or this tensor in order to perform a linear combination of rows
   // algorithm. (I think?)
   TensorVar C = Caccess.getTensorVar();
-  if (C.getFormat().getModeFormats()[0].getName() == "compressed" ||
+  if (!C.getFormat().getModeFormats()[0].hasLocate() ||
       C.getFormat().getModeOrdering()[0] != 0 ||
       C.getFormat().getModeOrdering()[1] != 1) {
     return stmt;
