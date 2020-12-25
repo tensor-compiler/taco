@@ -1115,16 +1115,15 @@ static IndexStmt optimizeSpMM(IndexStmt stmt) {
   }
 
   TensorVar B = Baccess.getTensorVar();
-  if (B.getFormat().getModeFormats()[0].getName() != "dense" ||
-      B.getFormat().getModeFormats()[1].getName() != "compressed" ||
-      B.getFormat().getModeOrdering()[0] != 0 ||
+  if (B.getFormat().getModeOrdering()[0] != 0 ||
       B.getFormat().getModeOrdering()[1] != 1) {
     return stmt;
   }
 
+  // We need random access into the first mode or this tensor in order to perform a linear combination of rows
+  // algorithm. (I think?)
   TensorVar C = Caccess.getTensorVar();
-  if (C.getFormat().getModeFormats()[0].getName() != "dense" ||
-      C.getFormat().getModeFormats()[1].getName() != "compressed" ||
+  if (C.getFormat().getModeFormats()[0].getName() == "compressed" ||
       C.getFormat().getModeOrdering()[0] != 0 ||
       C.getFormat().getModeOrdering()[1] != 1) {
     return stmt;
