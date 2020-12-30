@@ -564,10 +564,15 @@ ir::Stmt FuseRelNode::recoverChild(taco::IndexVar indexVar,
   return ir::Stmt();
 }
 
+// Combine two bounds
+// if (i, j) where i in [a, b) and j in [c, d)
+// then combined bound is [a * (d - c) + c, b * (d - c) + c)
+// this results in (b - a) * (d - c) iterations while still being
+// properly offset in cases where a != 0 or c != 0
 std::vector<ir::Expr> FuseRelNode::combineParentBounds(std::vector<ir::Expr> outerParentBound, std::vector<ir::Expr> innerParentBound) const {
   ir::Expr innerSize = ir::Sub::make(innerParentBound[1], innerParentBound[0]);
   ir::Expr minBound = ir::Add::make(ir::Mul::make(outerParentBound[0], innerSize), innerParentBound[0]);
-  ir::Expr maxBound = ir::Add::make(ir::Mul::make(outerParentBound[1], innerSize), innerParentBound[1]);
+  ir::Expr maxBound = ir::Add::make(ir::Mul::make(outerParentBound[1], innerSize), innerParentBound[0]);
   return {minBound, maxBound};
 }
 
