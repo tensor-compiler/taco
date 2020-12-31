@@ -65,7 +65,8 @@ enum class IRNodeType {
   BlankLine,
   Print,
   GetProperty,
-  Break
+  Break,
+  Sort
 };
 
 enum class TensorProperty {
@@ -723,6 +724,13 @@ struct Break : public StmtNode<Break> {
   static Stmt make();
 
   static const IRNodeType _type_info = IRNodeType::Break;
+};
+
+struct Sort : public StmtNode<Sort> {
+  std::vector<Expr> args;
+  static Stmt make(std::vector<Expr> args);
+
+  static const IRNodeType _type_info = IRNodeType::Sort;
 };
 
 /** A print statement.

@@ -1378,17 +1378,19 @@ static IndexStmt optimizeSpMM(IndexStmt stmt) {
     return stmt;
   }
 
+  // I think we can to linear combination of rows as long as there are no permutations in the format and the
+  // level formats are ordered. The i -> k -> j loops should iterate over the data structures without issue.
   TensorVar B = Baccess.getTensorVar();
-  if (B.getFormat().getModeFormats()[0].getName() != "dense" ||
-      B.getFormat().getModeFormats()[1].getName() != "compressed" ||
+  if (!B.getFormat().getModeFormats()[0].isOrdered() ||
+      !B.getFormat().getModeFormats()[1].isOrdered() ||
       B.getFormat().getModeOrdering()[0] != 0 ||
       B.getFormat().getModeOrdering()[1] != 1) {
     return stmt;
   }
 
   TensorVar C = Caccess.getTensorVar();
-  if (C.getFormat().getModeFormats()[0].getName() != "dense" ||
-      C.getFormat().getModeFormats()[1].getName() != "compressed" ||
+  if (!C.getFormat().getModeFormats()[0].isOrdered() ||
+      !C.getFormat().getModeFormats()[1].isOrdered() ||
       C.getFormat().getModeOrdering()[0] != 0 ||
       C.getFormat().getModeOrdering()[1] != 1) {
     return stmt;
