@@ -9,7 +9,9 @@
 #include "taco.h"
 
 #include "taco/error.h"
+#include "taco/parser/lexer.h"
 #include "taco/parser/parser.h"
+#include "taco/parser/schedule_parser.h"
 #include "taco/storage/storage.h"
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_printer.h"
@@ -210,7 +212,7 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   }
 }
 
-static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt& stmt) {
+static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parser::Parser& parser, IndexStmt& stmt) {
   auto findVar = [&stmt](string name) {
     ProvenanceGraph graph(stmt);
     for (auto v : graph.getAllIndexVars()) {
@@ -225,17 +227,16 @@ static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt
 
   bool isGPU = false;
 
-  while (true) {
-    string command;
-    in >> command;
+  for(vector<string> scheduleCommand : scheduleCommands) {
+    string command = scheduleCommand[0];
+    scheduleCommand.erase(scheduleCommand.begin());
 
     if (command == "pos") {
-      string i, ipos;
-      in >> i;
-      in >> ipos;
-
-      string tensor;
-      in >> tensor;
+      taco_uassert(scheduleCommand.size() == 3) << "'pos' scheduling directive takes 3 parameters: pos(i, ipos, tensor)";
+      string i, ipos, tensor;
+      i      = scheduleCommand[0];
+      ipos   = scheduleCommand[1];
+      tensor = scheduleCommand[2];
 
       for (auto a : getArgumentAccesses(stmt)) {
         if (a.getTensorVar().getName() == tensor) {
@@ -246,22 +247,23 @@ static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt
       }
 
     } else if (command == "fuse") {
+      taco_uassert(scheduleCommand.size() == 3) << "'fuse' scheduling directive takes 3 parameters: fuse(i, j, f)";
       string i, j, f;
-      in >> i;
-      in >> j;
-      in >> f;
+      i = scheduleCommand[0];
+      j = scheduleCommand[1];
+      f = scheduleCommand[2];
 
       IndexVar fused(f);
       stmt = stmt.fuse(findVar(i), findVar(j), fused);
 
     } else if (command == "split") {
+      taco_uassert(scheduleCommand.size() == 4) << "'split' scheduling directive takes 4 parameters: split(i, i1, i2, splitFactor)";
       string i, i1, i2;
-      in >> i;
-      in >> i1;
-      in >> i2;
-
       size_t splitFactor;
-      in >> splitFactor;
+      i  = scheduleCommand[0];
+      i1 = scheduleCommand[1];
+      i2 = scheduleCommand[2];
+      taco_uassert(sscanf(scheduleCommand[3].c_str(), "%zu", &splitFactor) == 1) << "failed to parse fourth parameter to `split` directive as a size_t";
 
       IndexVar split1(i1);
       IndexVar split2(i2);
@@ -282,9 +284,10 @@ static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt
 
     } else if (command == "precompute") {
       string exprStr, i, iw;
-      in >> exprStr;
-      in >> i;
-      in >> iw;
+      taco_uassert(scheduleCommand.size() == 3) << "'precompute' scheduling directive takes 3 parameters: precompute(expr, i, iw)";
+      exprStr = scheduleCommand[0];
+      i       = scheduleCommand[1];
+      iw      = scheduleCommand[2];
 
       IndexVar orig = findVar(i);
       IndexVar pre;
@@ -361,29 +364,23 @@ static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt
       stmt = stmt.precompute(visitor.expr, orig, pre, workspace);
 
     } else if (command == "reorder") {
-      string line;
-      getline(in, line);
-      stringstream temp;
-      temp << line;
+      taco_uassert(scheduleCommand.size() > 1) << "'reorder' scheduling directive needs at least 2 parameters: reorder(outermost, ..., innermost)";
 
       vector<IndexVar> reorderedVars;
-      string var;
-      while (temp >> var) {
+      for (string var : scheduleCommand) {
         reorderedVars.push_back(findVar(var));
       }
 
       stmt = stmt.reorder(reorderedVars);
 
     } else if (command == "bound") {
-      string i, i1;
-      in >> i;
-      in >> i1;
-
+      taco_uassert(scheduleCommand.size() == 2) << "'bound' scheduling directive takes 4 parameters: bound(i, i1, bound, type)";
+      string i, i1, type;
       size_t bound;
-      in >> bound;
-
-      string type;
-      in >> type;
+      i  = scheduleCommand[0];
+      i1 = scheduleCommand[1];
+      taco_uassert(sscanf(scheduleCommand[2].c_str(), "%zu", &bound) == 1) << "failed to parse third parameter to `bound` directive as a size_t";
+      type = scheduleCommand[3];
 
       BoundType bound_type;
       if (type == "MinExact") {
@@ -403,19 +400,20 @@ static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt
       stmt = stmt.bound(findVar(i), bound1, bound, bound_type);
 
     } else if (command == "unroll") {
+      taco_uassert(scheduleCommand.size() == 2) << "'unroll' scheduling directive takes 2 parameters: unroll(i, unrollFactor)";
       string i;
-      in >> i;
-
       size_t unrollFactor;
-      in >> unrollFactor;
+      i  = scheduleCommand[0];
+      taco_uassert(sscanf(scheduleCommand[1].c_str(), "%zu", &unrollFactor) == 1) << "failed to parse second parameter to `unroll` directive as a size_t";
 
       stmt = stmt.unroll(findVar(i), unrollFactor);
 
     } else if (command == "parallelize") {
       string i, unit, strategy;
-      in >> i;
-      in >> unit;
-      in >> strategy;
+      taco_uassert(scheduleCommand.size() == 3) << "'parallelize' scheduling directive takes 3 parameters: parallelize(i, unit, strategy)";
+      i        = scheduleCommand[0];
+      unit     = scheduleCommand[1];
+      strategy = scheduleCommand[2];
 
       ParallelUnit parallel_unit;
       if (unit == "NotParallel") {
@@ -457,6 +455,7 @@ static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt
       stmt = stmt.parallelize(findVar(i), parallel_unit, output_race_strategy);
 
     } else {
+      taco_uerror << "Unknown scheduling function \"" << command << "\"";
       break;
     }
 
@@ -524,7 +523,7 @@ int main(int argc, char* argv[]) {
 
   vector<string> kernelFilenames;
 
-  vector<string> scheduleCommands;
+  vector<vector<string>> scheduleCommands;
 
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
@@ -815,23 +814,11 @@ int main(int argc, char* argv[]) {
     }
     else if ("-s" == argName) {
       setSchedule = true;
-      int parenthesesCnt = 0;
+      vector<vector<string>> parsed = parser::ScheduleParser(argValue);
 
-      std::replace_if(argValue.begin(), argValue.end(), [&parenthesesCnt](char c) {
-        if (c == '(') {
-          if (parenthesesCnt++ == 0) { // '(' for a call
-            return true;
-          }
-        } else if (c == ',') {
-          return parenthesesCnt <= 1;
-        } else if (c == ')') {
-          if (--parenthesesCnt == 0) { // ')' for a call
-            return true;
-          }
-        }
-        return false;
-      }, ' ');
-      scheduleCommands.push_back(argValue);
+      taco_uassert(parsed.size() > 0) << "-s parameter got no scheduling directives?";
+      for(vector<string> directive : parsed)
+        scheduleCommands.push_back(directive);
     }
     else if ("-prefix" == argName) {
       prefix = argValue;
@@ -928,12 +915,7 @@ int main(int argc, char* argv[]) {
   stmt = reorderLoopsTopologically(stmt);
 
   if (setSchedule) {
-    stringstream scheduleStream;
-    for (string command : scheduleCommands) {
-      scheduleStream << command << endl;
-    }
-
-    cuda |= setSchedulingCommands(scheduleStream, parser, stmt);
+    cuda |= setSchedulingCommands(scheduleCommands, parser, stmt);
   }
   else {
     stmt = insertTemporaries(stmt);
