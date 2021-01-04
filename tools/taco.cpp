@@ -219,7 +219,8 @@ static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt
       }
     }
 
-    throw "Index variable not defined in statement.";
+    taco_uassert(0) << "Index variable '" << name << "' not defined in statement " << stmt;
+    abort(); // to silence a warning: control reaches end of non-void function
   };
 
   bool isGPU = false;
@@ -289,7 +290,7 @@ static bool setSchedulingCommands(istream& in, parser::Parser& parser, IndexStmt
       IndexVar pre;
       try {
         pre = findVar(iw);
-      } catch (const char* e) {
+      } catch (TacoException &e) {
         pre = IndexVar(iw);
       }
 
