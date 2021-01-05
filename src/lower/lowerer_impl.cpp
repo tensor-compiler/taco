@@ -820,8 +820,8 @@ Stmt LowererImpl::lowerForall(Forall forall)
     else if (iterator.isDimensionIterator()) {
       loops = lowerForallDimension(forall, point.locators(),
                                    inserters, appenders, reducedAccesses, recoveryStmt);
-      cout << "Debug ----" << endl;
-      cout << loops << endl;
+      //cout << "Debug ----" << endl;
+      //cout << loops << endl;
     }
     // Emit position iteration loop
     else if (iterator.hasPosIter()) {
@@ -1175,8 +1175,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
 
-  cout << "BODY --" << endl;
-  cout << body << endl;
+  //cout << "BODY ---" << endl;
+  //cout << body << endl;
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
@@ -1235,7 +1235,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
 
 
-    return Block::make(get<0>(locs[0]), get<0>(locs[1]), StoreBulk::make(valuesLhs,
+    return Block::make(get<0>(locs[0]), StoreBulk::make(valuesLhs,
                                                                          ir::Add::make(get<1>(locs[0]), bounds[0]),
                                                                          ir::Add::make(get<1>(locs[0]), bounds[1]), data,
                                                                          tensorRhs.getMemoryLocation(), tensorLhs.getMemoryLocation()));
@@ -2071,12 +2071,15 @@ vector<tuple<Stmt, Expr>> LowererImpl::lowerForallBulk(Forall forall, Expr coord
   }
 
   // TODO: rewriter here
-  Stmt declInserterPosVarsNew = rewriteBulkStmt(Block::make({recoveryStmt, declInserterPosVars}));
+  Stmt declInserterPosVarsNew = rewriteBulkStmt(Block::make({recoveryStmt, declInserterPosVars}), forall.getIndexVar());
   Expr declInserterPosVarsExpr = rewriteBulkExpr(declInserterPosVars, forall.getIndexVar());
 
-  Stmt declLocatorPosVarsNew = rewriteBulkStmt(Block::make({recoveryStmt, declLocatorPosVars}));
+  Stmt declLocatorPosVarsNew = rewriteBulkStmt(Block::make({recoveryStmt, declLocatorPosVars}), forall.getIndexVar());
   Expr declLocatorPosVarsExpr = rewriteBulkExpr(declLocatorPosVars, forall.getIndexVar());
 
+  Stmt posVarsNew = rewriteStmtRemoveDuplicates(declInserterPosVarsNew, declLocatorPosVarsNew);
+
+  cout << "Debug BULK: " << posVarsNew << endl;
   cout << "Debug: Inserters \n Original: " << declInserterPosVars << endl;
   cout << "New Stmt: " << declInserterPosVarsNew << endl;
   cout << "New Expr: " << declInserterPosVarsExpr << endl;
@@ -2087,7 +2090,7 @@ vector<tuple<Stmt, Expr>> LowererImpl::lowerForallBulk(Forall forall, Expr coord
   Expr storeStart = ir::Literal::make(0);
   Expr loadStart = ir::Literal::make(0);
   tuple<Stmt, Expr> returnInserters = make_tuple(declInserterPosVarsNew, declInserterPosVarsExpr);
-  tuple<Stmt, Expr> returnLocators = make_tuple(declLocatorPosVarsNew, declLocatorPosVarsExpr);
+  tuple<Stmt, Expr> returnLocators = make_tuple(posVarsNew, declLocatorPosVarsExpr);
   return {returnInserters, returnLocators};
 }
 

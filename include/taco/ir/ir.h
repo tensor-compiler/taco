@@ -897,8 +897,9 @@ bool isValue(Expr expr, T val) {
   return false;
 }
 
-Stmt rewriteBulkStmt(Stmt stmt);
+Stmt rewriteBulkStmt(Stmt stmt, IndexVar indexVar);
 Expr rewriteBulkExpr(Stmt stmt, IndexVar indexVar);
+Stmt rewriteStmtRemoveDuplicates(Stmt stmt1, Stmt stmt2);
 
 }}
 #endif

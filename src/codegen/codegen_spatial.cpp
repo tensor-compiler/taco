@@ -1087,7 +1087,7 @@ string CodeGen_Spatial::outputInitMemArgs(string varname, const GetProperty* op,
     ret << "1, " << varname;
   }
   else if (op->property == TensorProperty::Values) {
-    ret << varname << "_dram";
+    ret << varname;
   } else if (op->property == TensorProperty::Dimension) {
     ret << varname << "_dram";
   }
@@ -1157,7 +1157,7 @@ string CodeGen_Spatial::outputCheckOutputArgs(string varname, Expr tnsr,
   if (property == TensorProperty::Values && index == 0) {
     ret << "1, " << varname;
   } else if (property == TensorProperty::Values) {
-      ret << varname << "_dram";
+      ret << varname;
   } else if (property == TensorProperty::Dimension) {
     ret << varname << "_dram";
   } 

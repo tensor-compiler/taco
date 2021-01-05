@@ -1174,8 +1174,8 @@ std::ostream& operator<<(std::ostream& os, const Expr& expr) {
 Stmt rewriteBulkStmt(Stmt stmt, IndexVar indexVar) {
   struct BulkRewriteStmt : IRRewriter {
     using IRRewriter::visit;
-
-    BulkRewriteStmt() = default;
+    IndexVar i;
+    BulkRewriteStmt(IndexVar indexVar) : i(indexVar) {}
 
     void visit(const Block* node) {
       if (node->contents.size() > 1) {
@@ -1187,8 +1187,18 @@ Stmt rewriteBulkStmt(Stmt stmt, IndexVar indexVar) {
       }
       IRRewriter::visit(node);
     }
+
+    void visit(const Var* node) {
+      std::cout << "Var Name: " << node->name << ", " << i.getName() << std::endl;
+      if (node->name == i.getName()) {
+        expr = Literal::make(0);
+      }
+      else {
+        expr = node;
+      }
+    }
   };
-  return BulkRewriteStmt().rewrite(stmt);
+  return BulkRewriteStmt(indexVar).rewrite(stmt);
 }
 
 Expr rewriteBulkExpr(Stmt stmt, IndexVar indexVar) {
@@ -1237,6 +1247,43 @@ Expr rewriteBulkExpr(Stmt stmt, IndexVar indexVar) {
   return returnExpr;
 }
 
+Stmt rewriteStmtRemoveDuplicates(Stmt stmt1, Stmt stmt2) {
+  struct GetDecls : IRRewriter {
+    using IRRewriter::visit;
+    std::map<Expr,Stmt> declarations;
+
+    GetDecls() = default;
+
+    void visit(const VarDecl* decl) {
+      Expr rhs = rewrite(decl->rhs);
+      stmt = (rhs == decl->rhs) ? decl : VarDecl::make(decl->var, rhs);
+
+      declarations.insert({decl->var, stmt});
+    }
+  };
+
+  struct RemoveDuplicates : IRRewriter {
+    using IRRewriter::visit;
+    std::map<Expr,Stmt> declarations;
+
+    RemoveDuplicates(std::map<Expr,Stmt> decls) : declarations(decls) {}
+
+    void visit(const VarDecl* decl) {
+      Expr rhs = rewrite(decl->rhs);
+      stmt = (rhs == decl->rhs) ? decl : VarDecl::make(decl->var, rhs);
+      if (declarations.find(decl->var) != declarations.end())
+        stmt = Stmt();
+      else
+        declarations.insert({decl->var, stmt});
+    }
+  };
+
+  auto decls = GetDecls();
+  decls.rewrite(stmt1);
+
+  auto simplifiedStmt = RemoveDuplicates(decls.declarations).rewrite(stmt2);
+  return simplifiedStmt;
+}
 
 } // namespace ir
 } // namespace taco
