@@ -461,6 +461,8 @@ protected:
   std::vector<IndexVar> getDefinedIndexVarsOrdered() const;
   std::map<IndexVar, std::vector<ir::Expr>> getUnderivedBounds() const;
 
+  std::map<TensorVar, Where> getTempNoZeroInit() const;
+
   ParallelUnit getAtomicParallelUnit() const;
 
 private:
@@ -476,8 +478,9 @@ private:
 
   /// Map used to hoist temporary workspace initialization
   std::map<Forall, Where> temporaryInitialization;
-
+  std::map<TensorVar, Where> tempNoZeroInit;
   std::map<Forall, Assignment> bulkMemTransfer;
+  std::map<Forall, Assignment> forallReductions;
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;

@@ -13,6 +13,7 @@ class Stmt;
 /// Generate `a[i] += val;`
 Stmt compoundStore(Expr a, Expr i, Expr val, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
 
+Stmt compoundStore(Expr a, Expr i, Expr val, MemoryLocation lhsMemLoc, MemoryLocation rhsMemLoc, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
 /// Generate `a += val;`
 Stmt compoundAssign(Expr a, Expr val, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
 

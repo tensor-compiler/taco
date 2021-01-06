@@ -372,29 +372,23 @@ void CodeGen_Spatial::visit(const VarDecl* op) {
     stream << ";";
     stream << endl;
   } else {
+    doIndent();
+    stream << "val";
+    taco_iassert(isa<Var>(op->var));
+    stream << " ";
+    string varName = varNameGenerator.getUniqueName(util::toString(op->var));
+    varNames.insert({op->var, varName});
+    op->var.accept(this);
+    parentPrecedence = Precedence::TOP;
+
     if (op->mem == MemoryLocation::SpatialReg) {
-      doIndent();
-      stream << "val";
-      taco_iassert(isa<Var>(op->var));
-      stream << " ";
-      string varName = varNameGenerator.getUniqueName(util::toString(op->var));
-      varNames.insert({op->var, varName});
-      op->var.accept(this);
-      parentPrecedence = Precedence::TOP;
       stream << " = Reg[T](";
       op->rhs.accept(this);
       stream << ".to[T])";
       //stream << ";";
       stream << endl;
     } else {
-      doIndent();
-      stream << "val";
-      taco_iassert(isa<Var>(op->var));
-      stream << " ";
-      string varName = varNameGenerator.getUniqueName(util::toString(op->var));
-      varNames.insert({op->var, varName});
-      op->var.accept(this);
-      parentPrecedence = Precedence::TOP;
+
       stream << " = ";
       op->rhs.accept(this);
       //stream << ";";
@@ -639,44 +633,8 @@ void CodeGen_Spatial::visit(const Assign* op) {
   doIndent();
   op->lhs.accept(this);
   parentPrecedence = Precedence::TOP;
-  bool printed = false;
-//  if (simplify) {
-//    if (isa<ir::Add>(op->rhs)) {
-//      auto add = to<Add>(op->rhs);
-//      if (add->a == op->lhs) {
-//        const Literal* lit = add->b.as<Literal>();
-//        if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
-//                               (lit->type.isUInt() && lit->equalsScalar(1)))) {
-//          stream << "++";
-//        }
-//        else {
-//          stream << " += ";
-//          add->b.accept(this);
-//        }
-//        printed = true;
-//      }
-//    }
-//    else if (isa<Mul>(op->rhs)) {
-//      auto mul = to<Mul>(op->rhs);
-//      if (mul->a == op->lhs) {
-//        stream << " *= ";
-//        mul->b.accept(this);
-//        printed = true;
-//      }
-//    }
-//    else if (isa<BitOr>(op->rhs)) {
-//      auto bitOr = to<BitOr>(op->rhs);
-//      if (bitOr->a == op->lhs) {
-//        stream << " |= ";
-//        bitOr->b.accept(this);
-//        printed = true;
-//      }
-//    }
-//  }
-  if (!printed) {
-    stream << " = ";
-    op->rhs.accept(this);
-  }
+  stream << " = ";
+  op->rhs.accept(this);
 
   //stream << ";";
   stream << endl;
@@ -690,10 +648,24 @@ void CodeGen_Spatial::visit(const Store* op) {
 
   doIndent();
   op->arr.accept(this);
-  stream << "(";
-  parentPrecedence = Precedence::TOP;
-  op->loc.accept(this);
-  stream << ") = ";
+
+  if (op->lhs_mem_loc != MemoryLocation::SpatialReg || op->rhs_mem_loc != MemoryLocation::SpatialReg) {
+    stream << "(";
+    parentPrecedence = Precedence::TOP;
+    op->loc.accept(this);
+    stream << ")";
+  }
+
+  if (op->rhs_mem_loc == MemoryLocation::SpatialDRAM) {
+    stream << " load ";
+  } else if (op->lhs_mem_loc == MemoryLocation::SpatialDRAM) {
+    stream << " store ";
+  } else if (op->lhs_mem_loc == MemoryLocation::SpatialReg && op->rhs_mem_loc == MemoryLocation::SpatialReg) {
+    stream << " := ";
+  } else {
+    stream << " = ";
+  }
+
   parentPrecedence = Precedence::TOP;
   op->data.accept(this);
   //stream << ";";
@@ -716,9 +688,9 @@ void CodeGen_Spatial::visit(const StoreBulk* op) {
   stream << ")";
 
   if (op->rhs_mem_loc == MemoryLocation::SpatialDRAM) {
-    stream << " store ";
-  } else if (op->lhs_mem_loc == MemoryLocation::SpatialDRAM) {
     stream << " load ";
+  } else if (op->lhs_mem_loc == MemoryLocation::SpatialDRAM) {
+    stream << " store ";
   } else {
     stream << " = ";
   }
@@ -901,37 +873,31 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
 
   auto tensor = op->tensor.as<Var>();
   if (op->property == TensorProperty::Values) {
-// FIXME: [Spatial] add this in for scalar outputs. 
-//    if (is_output_prop) {
-//      ret << "val " << varname << " = ArgOut[T]()" << endl;
-//      
-//    } else {
-      // for the values, it's in the last slot
-      //ret << "val " << varname << "_dram = DRAM[T](";
-      string loc = "DRAM";
-      if (tensor->memoryLocation == MemoryLocation::SpatialSRAM)
-        loc = "SRAM";
-      else if (tensor->memoryLocation == MemoryLocation::SpatialReg)
-        loc = "Reg";
+    string loc = "DRAM";
+    if (tensor->memoryLocation == MemoryLocation::SpatialSRAM) {
+      loc = "SRAM";
+    } else if (tensor->memoryLocation == MemoryLocation::SpatialReg) {
+      if (is_output_prop)
+        loc = "ArgOut";
+      else
+        loc = "ArgIn";
+    }
 
-      ret << "val " << varname << " = " << loc << "[T](";
-      if (op->index == 0) {
-        ret << "1";
-      }
-      else {
-        for (int i = 1; i < op->index + 1; i++) {
-          ret << tensor->name << i << "_dimension_dram";
+    ret << "val " << varname << " = " << loc << "[T]";
+    if (op->index > 0) {
+      for (int i = 1; i < op->index + 1; i++) {
+        ret << "(" << tensor->name << i << "_dimension_dram";
 
-          if (i < op->index) {
-            if (should_use_Spatial_multi_dim())
-              ret << ", ";
-            else
-              ret << " * ";
-          }
+        if (i < op->index) {
+          if (should_use_Spatial_multi_dim())
+            ret << ", ";
+          else
+            ret << " * ";
         }
       }
-      ret << ")" << endl; 
-
+      ret << ")";
+    }
+    ret << endl;
     return ret.str();
   } else if (op->property == TensorProperty::ValuesSize) {
     ret << "int " << varname << " = " << tensor->name << "->vals_size;\n";

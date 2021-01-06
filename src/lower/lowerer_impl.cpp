@@ -93,10 +93,10 @@ static void getDependentTensors(IndexStmt stmt, std::set<TensorVar>& tensors) {
   do {
     prev = tensors;
     match(stmt,
-      function<void(const assignmentnode*, matcher*)>([&](
-          const assignmentnode* n, matcher* m) {
-        if (util::contains(tensors, n->lhs.gettensorvar())) {
-          const auto arguments = getarguments(assignment(n));
+      function<void(const AssignmentNode*, Matcher*)>([&](
+          const AssignmentNode* n, Matcher* m) {
+        if (util::contains(tensors, n->lhs.getTensorVar())) {
+          const auto arguments = getArguments(Assignment(n));
           tensors.insert(arguments.begin(), arguments.end());
         }
       })
@@ -214,6 +214,13 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   // Create datastructure needed for temporary workspace hoisting/reuse
   temporaryInitialization = getTemporaryLocations(stmt);
+  tempNoZeroInit = getTemporariesWithoutReduction(stmt);
+  forallReductions = getForallReductions(stmt);
+
+  cout << "Debug: TEMP NO MEM INIT MAP" << endl;
+  for (auto it = tempNoZeroInit.begin(); it != tempNoZeroInit.end(); it++) {
+    cout << it->first.getName() << ", " << it->second << endl;
+  }
 
   // Create datastructure needed for bulk memory load/store optimization from forall
   bulkMemTransfer = getBulkMemTransfers(stmt);
@@ -250,7 +257,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
   // TODO: Make diff node based on whether it is set?
   for (auto& temp : temporaries) {
     ir::Expr irVar = ir::Var::make(temp.getName(), temp.getType().getDataType(),
-                                   true, true);
+                                   true, true, false, temp.getMemoryLocation());
     tensorVars.insert({temp, irVar});
   }
 
@@ -386,6 +393,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
   if (generateComputeCode()) {
     for (auto& result : results) {
       if (isScalar(result.getType())) {
+        cout << "RESULT: " << result << " " << MemoryLocation_NAMES[(int)result.getMemoryLocation()] << endl;
         taco_iassert(!util::contains(scalars, result));
         taco_iassert(util::contains(tensorVars, result));
         scalars.insert({result, tensorVars.at(result)});
@@ -394,6 +402,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
     }
     for (auto& argument : arguments) {
       if (isScalar(argument.getType())) {
+        cout << "ARGUMENT: " << argument << " " << MemoryLocation_NAMES[(int)argument.getMemoryLocation()] << endl;
         taco_iassert(!util::contains(scalars, argument));
         taco_iassert(util::contains(tensorVars, argument));
         scalars.insert({argument, tensorVars.at(argument)});
@@ -432,7 +441,14 @@ LowererImpl::lower(IndexStmt stmt, string name,
         Expr resultIR = scalars.at(result);
         Expr varValueIR = tensorVars.at(result);
         Expr valuesArrIR = GetProperty::make(resultIR, TensorProperty::Values);
-        footer.push_back(Store::make(valuesArrIR, 0, varValueIR, markAssignsAtomicDepth > 0, atomicParallelUnit));
+        cout << "Footer RESULT" << MemoryLocation_NAMES[(int)result.getMemoryLocation()] << endl;
+        if (should_use_Spatial_codegen()) {
+          footer.push_back(Store::make(valuesArrIR, 0, varValueIR, result.getMemoryLocation(), MemoryLocation::SpatialReg, markAssignsAtomicDepth > 0, atomicParallelUnit));
+
+          footer.push_back(Block::make(Scope::make(BlankLine::make(), valuesArrIR), BlankLine::make()));
+        } else {
+          footer.push_back(Store::make(valuesArrIR, 0, varValueIR, result.getMemoryLocation(), MemoryLocation::Default, markAssignsAtomicDepth > 0, atomicParallelUnit));
+        }
       }
     }
   }
@@ -1199,9 +1215,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   }
 
   if (forall.getParallelUnit() == ParallelUnit::Spatial && forall.getOutputRaceStrategy() == OutputRaceStrategy::SpatialReduction) {
-    if (isa<Assignment>(forall.getStmt())) {
+    if (forallReductions.find(forall) != forallReductions.end() && isa<Assignment>(forall.getStmt())) {
       Assignment forallExpr = to<Assignment>(forall.getStmt());
-      Expr reg = lower(forallExpr.getLhs());
+      Expr reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(), forallExpr.getLhs().getDataType());
+      Stmt regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
 
       Stmt reductionBody = lowerForallReductionBody(coordinate, forall.getStmt(),
                                                     locators, inserters, appenders, reducedAccesses);
@@ -1211,11 +1228,35 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
       // FIXME: reduction can only handle adds for now
       taco_iassert(isa<taco::Add>(forallExpr.getOperator()));
-      if (should_use_Spatial_codegen()) {
-        return Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, Scope::make(reductionBody, reductionExpr), true, forall.getNumChunks());
+
+      cout << forall.getIndexVar() << ": " << forallExpr << endl;
+      if (should_use_Spatial_codegen() && forallExpr.getOperator().defined()) {
+        return Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, Scope::make(reductionBody, reductionExpr), true, forall.getNumChunks()));
       }
 
     }
+    else if (forallReductions.find(forall) != forallReductions.end() && !provGraph.getParents(forall.getIndexVar()).empty()) {
+        cout << "REduction parent: " << provGraph.getParents(forall.getIndexVar()).empty() << endl;
+        Assignment forallExpr = forallReductions.at(forall);
+        Expr reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(),
+                             forallExpr.getLhs().getDataType());
+        Stmt regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+
+        // FIXME: reduction can only handle adds for now
+        taco_iassert(isa<taco::Add>(forallExpr.getOperator()));
+        auto parentVar = provGraph.getParents(forall.getIndexVar())[0];
+        vector<IndexVar> children = provGraph.getChildren(parentVar);
+
+        if (should_use_Spatial_codegen() && forallExpr.getOperator().defined() && children.size() < 1) {
+          return Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, body, true,
+                                                   forall.getNumChunks()));
+        }
+        else if (should_use_Spatial_codegen() && forallExpr.getOperator().defined() && children.size() > 1) {
+          Expr reg = lower(forallExpr.getLhs());
+          return Reduce::make(coordinate, reg , bounds[0], bounds[1], 1, body, true,
+                              forall.getNumChunks());
+        }
+      }
   }
 
   if (bulkMemTransfer.find(forall) != bulkMemTransfer.end() && should_use_Spatial_codegen()) {
@@ -1238,7 +1279,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     return Block::make(get<0>(locs[0]), StoreBulk::make(valuesLhs,
                                                                          ir::Add::make(get<1>(locs[0]), bounds[0]),
                                                                          ir::Add::make(get<1>(locs[0]), bounds[1]), data,
-                                                                         tensorRhs.getMemoryLocation(), tensorLhs.getMemoryLocation()));
+                                                                         tensorLhs.getMemoryLocation(), tensorRhs.getMemoryLocation()));
   }
 
   auto returnExpr = Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
@@ -2114,24 +2155,11 @@ vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
 
     // When emitting code to accelerate dense workspaces with sparse iteration, we need the following arrays
     // to construct the result indices
-    Stmt zeroInitLoop = Stmt();
     if(accelerateDense) {
       vector<Stmt> initAndFree = codeToInitializeDenseAcceleratorArrays(where);
       initializeTemporary = initAndFree[0];
       freeTemporary = initAndFree[1];
-    } else {
-      // Optimization: Don't zero initialize temporary if there is no reduction across temporary
-      //TODO: check this is correct OLIVIA
-      if (where.getProducer())) {
-        Forall forall = to<Forall>(where.getProducer());
-        if (isa<Assignment>(forall.getStmt()) && to<Assignment>(forall.getStmt()).getOperator().defined()) {
-          Expr p = Var::make("p" + temporary.getName(), Int());
-          Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
-          zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
-        }
-      }
-
-    }
+    } 
 
     Expr values;
     if (util::contains(needCompute, temporary) &&
@@ -2141,6 +2169,18 @@ vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
       taco_iassert(temporary.getType().getOrder() == 1)
           << " Temporary order was " << temporary.getType().getOrder();  // TODO
       Expr size = getTemporarySize(where);
+
+      // Optimization: Don't zero initialize temporary if there is no reduction across temporary
+      //TODO: check this is correct OLIVIA
+      Assignment assignment = getAssignment(where.getProducer());
+      Stmt zeroInitLoop = Stmt();
+      if (!accelerateDense && assignment.defined()) {
+        if (assignment.getOperator().defined()) {
+          Expr p = Var::make("p" + temporary.getName(), Int());
+          Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
+          zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
+        }
+      }
 
       // no decl needed for shared memory
       Stmt decl = Stmt();
@@ -3706,5 +3746,9 @@ map<IndexVar, ir::Expr> LowererImpl::getIndexVarToExprMap() const {
 
 ParallelUnit LowererImpl::getAtomicParallelUnit() const {
   return atomicParallelUnit;
+}
+
+std::map<TensorVar, Where> LowererImpl::getTempNoZeroInit() const {
+  return tempNoZeroInit;
 }
 }

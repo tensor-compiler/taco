@@ -559,9 +559,11 @@ struct Store : public StmtNode<Store> {
   Expr data;
   bool use_atomics;
   ParallelUnit atomic_parallel_unit;
+  MemoryLocation lhs_mem_loc;
+  MemoryLocation rhs_mem_loc;
 
   static Stmt make(Expr arr, Expr loc, Expr data, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
-
+  static Stmt make(Expr arr, Expr loc, Expr data, MemoryLocation lhsMemLoc, MemoryLocation rhsMemLoc, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
   static const IRNodeType _type_info = IRNodeType::Store;
 };
 
@@ -676,6 +678,7 @@ struct Assign : public StmtNode<Assign> {
   ParallelUnit atomic_parallel_unit;
   
   static Stmt make(Expr lhs, Expr rhs, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
+  static Stmt make(Expr lhs, Expr rhs, MemoryLocation lhsMemLoc, MemoryLocation rhsMemLoc, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
   
   static const IRNodeType _type_info = IRNodeType::VarAssign;
 };

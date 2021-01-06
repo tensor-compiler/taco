@@ -100,11 +100,12 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
                      to<Access>(assignment.getRhs()).getTensorVar().getMemoryLocation() == MemoryLocation::SpatialDRAM) {
             computeStmt = MemLoad::make(values, rhs, loc, ir::Literal::zero(result.getType().getDataType()));
           } else {
-            computeStmt = Store::make(values, loc, rhs, false, getAtomicParallelUnit());
+            // [Olivia] TODO: see if SpatialReg is correct for RHS
+            computeStmt = Store::make(values, loc, rhs, result.getMemoryLocation(), MemoryLocation::SpatialReg, false, getAtomicParallelUnit());
           }
         }
         else {
-          computeStmt = compoundStore(values, loc, rhs, false, getAtomicParallelUnit());
+          computeStmt = compoundStore(values, loc, rhs, result.getMemoryLocation(), MemoryLocation::SpatialReg,false, getAtomicParallelUnit());
         }
         taco_iassert(computeStmt.defined());
         return computeStmt;
@@ -193,7 +194,11 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
 //          cout << it->first << ", " << it->second.values << endl;
 
         freeTemporary = Free::make(values);
-        initializeTemporary = Block::make(allocate, zeroInitLoop);
+
+        if (getTempNoZeroInit().find(temporary) != getTempNoZeroInit().end())
+          initializeTemporary = Block::make(allocate);
+        else
+          initializeTemporary = Block::make(allocate, zeroInitLoop);
         // Don't zero initialize temporary if there is no reduction across temporary
         if (isa<Forall>(where.getProducer())) {
           Forall forall = to<Forall>(where.getProducer());

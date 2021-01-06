@@ -2670,10 +2670,10 @@ vector<TensorVar> getArguments(IndexStmt stmt) {
 }
 
 Assignment getAssignment(IndexStmt stmt) {
-  Assignment ret = IndexStmt();
+  Assignment ret = Assignment();
   match(stmt, 
         function<void(const WhereNode*, Matcher*)>([&](const WhereNode* w, Matcher* ctx) {
-          ctx-match(w->producer);
+          ctx->match(w->producer);
         }),
         function<void(const AssignmentNode*, Matcher*)>([&](const AssignmentNode* a, Matcher* ctx) {
           ret = Assignment(a);
@@ -2696,6 +2696,44 @@ std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt) {
           })
         );
   return temporaryLocs;
+}
+
+std::map<TensorVar, Where> getTemporariesWithoutReduction(IndexStmt stmt) {
+  map<TensorVar, Where> temporaries;
+  Where w = Where();
+  match(stmt,
+        function<void(const WhereNode*, Matcher*)>([&](const WhereNode* op, Matcher* ctx) {
+          w = op;
+          ctx->match(op->producer);
+          ctx->match(op->consumer);
+        }),
+        function<void(const AssignmentNode*, Matcher*)>([&](const AssignmentNode* op, Matcher* ctx) {
+          if (w != IndexStmt() && !op->op.defined())
+            temporaries.insert({op->lhs.getTensorVar(), w});
+        })
+  );
+  return temporaries;
+}
+
+std::map<Forall, Assignment> getForallReductions(IndexStmt stmt) {
+  map<Forall, Assignment> forallReductions;
+  vector<Forall> f;
+  match(stmt,
+        function<void(const ForallNode*, Matcher*)>([&](const ForallNode* op, Matcher* ctx) {
+          f.push_back(op);
+          ctx->match(op->stmt);
+        }),
+        function<void(const AssignmentNode*, Matcher*)>([&](const AssignmentNode* a, Matcher* ctx) {
+          if (!f.empty() && a->op.defined()) {
+            for (auto it = f.begin(); it != f.end(); it++)
+              forallReductions.insert({Forall(*it), Assignment(a)});
+            f.clear();
+
+          }
+
+        })
+  );
+  return forallReductions;
 }
 
 std::map<Forall, Assignment> getBulkMemTransfers(IndexStmt stmt) {
@@ -2921,7 +2959,7 @@ vector<ir::Expr> createVars(const vector<TensorVar>& tensorVars,
   vector<ir::Expr> irVars;
   for (auto& var : tensorVars) {
     ir::Expr irVar = ir::Var::make(var.getName(), var.getType().getDataType(),
-                                   true, true, isParameter);
+                                   true, true, isParameter, var.getMemoryLocation());
     irVars.push_back(irVar);
     vars->insert({var, irVar});
   }

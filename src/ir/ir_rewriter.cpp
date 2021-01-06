@@ -287,7 +287,7 @@ void IRRewriter::visit(const Store* op) {
     stmt = op;
   }
   else {
-    stmt = Store::make(arr, loc, data, op->use_atomics);
+    stmt = Store::make(arr, loc, data, op->lhs_mem_loc, op->rhs_mem_loc, op->use_atomics);
   }
 }
 
@@ -405,7 +405,7 @@ void IRRewriter::visit(const Assign* op) {
     stmt = op;
   }
   else {
-    stmt = Assign::make(lhs, rhs, op->use_atomics);
+    stmt = Assign::make(lhs, rhs, op->use_atomics, op->atomic_parallel_unit);
   }
 }
 
