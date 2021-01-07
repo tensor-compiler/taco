@@ -218,7 +218,6 @@ static Assignment getAssignmentContainingExpr(IndexStmt stmt, IndexExpr expr) {
   match(stmt,
         function<void(const AssignmentNode*,Matcher*)>([&assignment, &expr](
             const AssignmentNode* node, Matcher* ctx) {
-          cout << node->rhs << endl;
           if (containsExpr(node, expr)) {
             assignment = node;
           }

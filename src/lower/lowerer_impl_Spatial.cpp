@@ -92,8 +92,6 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
 
         Stmt computeStmt;
         if (!assignment.getOperator().defined()) {
-          cout << "Debug: Values - ";
-          cout << values << " " << isa<GetProperty>(values) << endl;
           if (result.getMemoryLocation() == MemoryLocation::SpatialDRAM) {
             computeStmt = MemStore::make(values, rhs, loc, ir::Literal::zero(result.getType().getDataType()));
           } else if (isa<Access>(assignment.getRhs()) &&
@@ -187,11 +185,6 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
         TemporaryArrays arrays;
         arrays.values = values;
         this->insertTemporaryArrays(temporary, arrays);
-        cout << temporary << endl;
-        cout << arrays.values << endl;
-//        cout << "Debug: TEMPORARY ARRAYS" << endl;
-//        for (auto it = getTemporaryArrays().begin(); it != getTemporaryArrays().end(); it++)
-//          cout << it->first << ", " << it->second.values << endl;
 
         freeTemporary = Free::make(values);
 
