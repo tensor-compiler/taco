@@ -26,6 +26,23 @@ struct AccessNode : public IndexExprNode {
 
   TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
+
+  // An AccessNode carries the windowing information for an IndexVar + TensorVar
+  // combination. windowedModes contains the lower and upper bounds of each
+  // windowed mode (0-indexed).
+  struct Window {
+    int lo;
+    int hi;
+    friend bool operator==(const Window& a, const Window& b) {
+      return a.lo == b.lo && a.hi == b.hi;
+    }
+  };
+  std::map<int, Window> windowedModes;
+
+protected:
+  /// Initialize an AccessNode with just a TensorVar. If this constructor is used,
+  /// then indexVars must be set afterwards.
+  explicit AccessNode(TensorVar tensorVar) : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar) {}
 };
 
 struct LiteralNode : public IndexExprNode {

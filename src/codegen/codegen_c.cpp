@@ -516,7 +516,7 @@ void CodeGen_C::visit(const Allocate* op) {
     stream << ", ";
   }
   else {
-    stream << "malloc(";
+    stream << "calloc(1, ";
   }
   stream << "sizeof(" << elementType << ")";
   stream << " * ";

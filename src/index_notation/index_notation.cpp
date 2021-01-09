@@ -185,7 +185,7 @@ struct Isomorphic : public IndexNotationVisitorStrict {
         return;
       }
     }
-    eq = true;
+    eq = anode->windowedModes == bnode->windowedModes;
   }
 
   void visit(const LiteralNode* anode) {
@@ -758,11 +758,45 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
   return getNode(*this)->indexVars;
 }
 
+bool Access::hasWindowedModes() const {
+  return !getNode(*this)->windowedModes.empty();
+}
+
+bool Access::isModeWindowed(int mode) const {
+  auto node = getNode(*this);
+  return node->windowedModes.find(mode) != node->windowedModes.end();
+}
+
+int Access::getWindowLowerBound(int mode) const {
+  taco_iassert(this->isModeWindowed(mode));
+  return getNode(*this)->windowedModes.at(mode).lo;
+}
+
+int Access::getWindowUpperBound(int mode) const {
+  taco_iassert(this->isModeWindowed(mode));
+  return getNode(*this)->windowedModes.at(mode).hi;
+}
+
 static void check(Assignment assignment) {
-  auto tensorVar = assignment.getLhs().getTensorVar();
-  auto freeVars = assignment.getLhs().getIndexVars();
+  auto lhs = assignment.getLhs();
+  auto tensorVar = lhs.getTensorVar();
+  auto freeVars = lhs.getIndexVars();
   auto indexExpr = assignment.getRhs();
   auto shape = tensorVar.getType().getShape();
+
+  // If the LHS access has any windowed modes, use the dimensions of those
+  // windows as the shape, rather than the shape of the underlying tensor.
+  if (lhs.hasWindowedModes()) {
+    vector<Dimension> dims(shape.getOrder());
+    for (int i = 0; i < shape.getOrder();i++) {
+      dims[i] = shape.getDimension(i);
+      if (lhs.isModeWindowed(i)) {
+        dims[i] = Dimension(lhs.getWindowUpperBound(i) - lhs.getWindowLowerBound(i));
+      }
+    }
+    shape = Shape(dims);
+  }
+
   auto typecheck = error::dimensionsTypecheck(freeVars, indexExpr, shape);
   taco_uassert(typecheck.first) << error::expr_dimension_mismatch << " " << typecheck.second;
 }
@@ -1800,6 +1834,10 @@ std::string IndexVar::getName() const {
   return content->name;
 }
 
+WindowedIndexVar IndexVar::operator()(int lo, int hi) {
+  return WindowedIndexVar(*this, lo, hi);
+}
+
 bool operator==(const IndexVar& a, const IndexVar& b) {
   return a.content == b.content;
 }
@@ -1808,8 +1846,40 @@ bool operator<(const IndexVar& a, const IndexVar& b) {
   return a.content < b.content;
 }
 
+std::ostream& operator<<(std::ostream& os, const std::shared_ptr<IndexVarInterface>& var) {
+  std::stringstream ss;
+  IndexVarInterface::match(var, [&](std::shared_ptr<IndexVar> ivar) {
+    ss << *ivar;
+  }, [&](std::shared_ptr<WindowedIndexVar> wvar) {
+    ss << *wvar;
+  });
+  return os << ss.str();
+}
+
 std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
   return os << var.getName();
+}
+
+std::ostream& operator<<(std::ostream& os, const WindowedIndexVar& var) {
+  return os << var.getIndexVar();
+}
+
+WindowedIndexVar::WindowedIndexVar(IndexVar base, int lo, int hi) : content( new Content){
+  this->content->base = base;
+  this->content->lo = lo;
+  this->content->hi = hi;
+}
+
+IndexVar WindowedIndexVar::getIndexVar() const {
+  return this->content->base;
+}
+
+int WindowedIndexVar::getLowerBound() const {
+  return this->content->lo;
+}
+
+int WindowedIndexVar::getUpperBound() const {
+  return this->content->hi;
 }
 
 // class TensorVar
@@ -1951,6 +2021,20 @@ static bool isValid(Assignment assignment, string* reason) {
   auto result = lhs.getTensorVar();
   auto freeVars = lhs.getIndexVars();
   auto shape = result.getType().getShape();
+
+  // If the LHS access has any windowed modes, use the dimensions of those
+  // windows as the shape, rather than the shape of the underlying tensor.
+  if (lhs.hasWindowedModes()) {
+    vector<Dimension> dims(shape.getOrder());
+    for (int i = 0; i < shape.getOrder();i++) {
+      dims[i] = shape.getDimension(i);
+      if (lhs.isModeWindowed(i)) {
+        dims[i] = Dimension(lhs.getWindowUpperBound(i) - lhs.getWindowLowerBound(i));
+      }
+    }
+    shape = Shape(dims);
+  }
+
   auto typecheck = error::dimensionsTypecheck(freeVars, rhs, shape);
   if (!typecheck.first) {
     *reason = error::expr_dimension_mismatch + " " + typecheck.second;

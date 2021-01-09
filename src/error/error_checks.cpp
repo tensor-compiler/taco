@@ -53,6 +53,14 @@ std::pair<bool, string> dimensionsTypecheck(const std::vector<IndexVar>& resultV
     for (size_t mode = 0; mode < readNode->indexVars.size(); mode++) {
       IndexVar var = readNode->indexVars[mode];
       Dimension dimension = readNode->tensorVar.getType().getShape().getDimension(mode);
+
+      // If this access has windowed modes, use the dimensions of those windows
+      // as the shape, rather than the shape of the underlying tensor.
+      auto a = Access(readNode);
+      if (a.isModeWindowed(mode)) {
+        dimension = Dimension(a.getWindowUpperBound(mode) - a.getWindowLowerBound(mode));
+      }
+
       if (util::contains(indexVarDims,var) && indexVarDims.at(var) != dimension) {
         errors.push_back(addDimensionError(var, indexVarDims.at(var), dimension));
       } else {

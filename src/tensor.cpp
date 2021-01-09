@@ -458,6 +458,31 @@ static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr);
 struct AccessTensorNode : public AccessNode {
   AccessTensorNode(TensorBase tensor, const std::vector<IndexVar>& indices)
       :  AccessNode(tensor.getTensorVar(), indices), tensor(tensor) {}
+
+  AccessTensorNode(TensorBase tensor, const std::vector<std::shared_ptr<IndexVarInterface>>& indices)
+    : AccessNode(tensor.getTensorVar()), tensor(tensor) {
+    // Create the vector of IndexVar to assign to this->indexVars.
+    std::vector<IndexVar> ivars(indices.size());
+    for (size_t i = 0; i < indices.size(); i++) {
+      auto var = indices[i];
+      // Match on what the IndexVarInterface actually is.
+      IndexVarInterface::match(var, [&](std::shared_ptr<IndexVar> ivar) {
+        ivars[i] = *ivar;
+      }, [&](std::shared_ptr<WindowedIndexVar> wvar) {
+        ivars[i] = wvar->getIndexVar();
+        auto lo = wvar->getLowerBound();
+        auto hi = wvar->getUpperBound();
+        taco_uassert(lo >= 0) << "slice lower bound must be >= 0";
+        taco_uassert(hi <= tensor.getDimension(i)) <<
+          "slice upper bound must be <= tensor dimension (" << tensor.getDimension(i) << ")";
+        this->windowedModes[i].lo = lo;
+        this->windowedModes[i].hi = hi;
+      });
+    }
+    // Initialize this->indexVars.
+    this->indexVars = std::move(ivars);
+  }
+
   TensorBase tensor;
   virtual void setAssignment(const Assignment& assignment) {
     tensor.syncDependentTensors();
@@ -495,6 +520,14 @@ const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const 
 }
 
 Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
+  taco_uassert(indices.size() == (size_t)getOrder())
+      << "A tensor of order " << getOrder() << " must be indexed with "
+      << getOrder() << " variables, but is indexed with:  "
+      << util::join(indices);
+  return Access(new AccessTensorNode(*this, indices));
+}
+
+Access TensorBase::operator()(const std::vector<std::shared_ptr<IndexVarInterface>>& indices) {
   taco_uassert(indices.size() == (size_t)getOrder())
       << "A tensor of order " << getOrder() << " must be indexed with "
       << getOrder() << " variables, but is indexed with:  "

@@ -28,6 +28,16 @@ struct Iterator::Content {
   ir::Expr segendVar;
   ir::Expr validVar;
   ir::Expr beginVar;
+
+  // Window represents a window (or slice) into a tensor mode, given by
+  // the expressions representing an upper and lower bound. An iterator
+  // is windowed if window is not NULL.
+  struct Window {
+      ir::Expr lo;
+      ir::Expr hi;
+      Window(ir::Expr _lo, ir::Expr _hi) : lo(_lo), hi(_hi) {};
+  };
+  std::unique_ptr<Window> window;
 };
 
 Iterator::Iterator() : content(nullptr) {
@@ -323,6 +333,24 @@ bool Iterator::defined() const {
   return content != nullptr;
 }
 
+bool Iterator::isWindowed() const {
+  return this->content->window != nullptr;
+}
+
+ir::Expr Iterator::getWindowLowerBound() const {
+  taco_iassert(this->isWindowed());
+  return this->content->window->lo;
+}
+
+ir::Expr Iterator::getWindowUpperBound() const {
+  taco_iassert(this->isWindowed());
+  return this->content->window->hi;
+}
+
+void Iterator::setWindowBounds(ir::Expr lo, ir::Expr hi) {
+  this->content->window = std::make_unique<Content::Window>(Content::Window(lo, hi));
+}
+
 bool operator==(const Iterator& a, const Iterator& b) {
   if (a.isDimensionIterator() && b.isDimensionIterator()) {
     return a.getIndexVar() == b.getIndexVar();
@@ -425,7 +453,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
     })
   );
 
-  // Reverse the levelITerators map for fast modeAccess lookup
+  // Reverse the levelIterators map for fast modeAccess lookup
   for (auto& iterator : content->levelIterators) {
     content->modeAccesses.insert({iterator.second, iterator.first});
   }
@@ -440,6 +468,8 @@ Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, Pr
       << tensorConcrete << ", Format" << format;
   Shape shape = tensorConcrete.getType().getShape();
 
+  // TODO (rohany): What's the deal with this parent iterator? It seems like
+  //  I don't need to attempt to window it, because it doesn't "have" a mode.
   Iterator parent(tensorIR);
   content->levelIterators.insert({{access,0}, parent});
 
@@ -472,6 +502,15 @@ Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, Pr
 
       string name = iteratorIndexVar.getName() + tensorConcrete.getName();
       Iterator iterator(iteratorIndexVar, tensorIR, mode, parent, name, true);
+
+      // If the access that this iterator corresponds to has a window, then
+      // adjust the iterator appropriately.
+      if (access.isModeWindowed(modeNumber)) {
+        auto lo = ir::Literal::make(access.getWindowLowerBound(modeNumber));
+        auto hi = ir::Literal::make(access.getWindowUpperBound(modeNumber));
+        iterator.setWindowBounds(lo, hi);
+      }
+
       content->levelIterators.insert({{access,modeNumber+1}, iterator});
       if (iteratorIndexVar != indexVar) {
         // add to allowing lowering to find correct iterator for this pos variable
