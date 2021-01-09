@@ -1,6 +1,7 @@
 #ifndef TACO_INDEX_NOTATION_H
 #define TACO_INDEX_NOTATION_H
 
+#include <functional>
 #include <ostream>
 #include <string>
 #include <memory>
@@ -30,6 +31,7 @@ class Format;
 class Schedule;
 
 class IndexVar;
+class WindowedIndexVar;
 class TensorVar;
 
 class IndexExpr;
@@ -37,6 +39,7 @@ class Assignment;
 class Access;
 
 struct AccessNode;
+struct AccessWindow;
 struct LiteralNode;
 struct NegNode;
 struct SqrtNode;
@@ -220,13 +223,23 @@ public:
   Access() = default;
   Access(const Access&) = default;
   Access(const AccessNode*);
-  Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={});
+  Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={}, const std::map<int, AccessWindow>& windows={});
 
   /// Return the Access expression's TensorVar.
   const TensorVar &getTensorVar() const;
 
   /// Returns the index variables used to index into the Access's TensorVar.
   const std::vector<IndexVar>& getIndexVars() const;
+
+  /// hasWindowedModes returns true if any accessed modes are windowed.
+  bool hasWindowedModes() const;
+
+  /// Returns whether or not the input mode (0-indexed) is windowed.
+  bool isModeWindowed(int mode) const;
+
+  /// Return the {lower,upper} bound of the window on the input mode (0-indexed).
+  int getWindowLowerBound(int mode) const;
+  int getWindowUpperBound(int mode) const;
 
   /// Assign the result of an expression to a left-hand-side tensor access.
   /// ```
@@ -800,11 +813,67 @@ public:
 /// Create a multi index statement.
 Multi multi(IndexStmt stmt1, IndexStmt stmt2);
 
+/// IndexVarInterface is a marker superclass for IndexVar-like objects.
+/// It is intended to be used in situations where many IndexVar-like objects
+/// must be stored together, like when building an Access AST node where some
+/// of the access variables are windowed. Use cases for IndexVarInterface
+/// will inspect the underlying type of the IndexVarInterface. For sake of
+/// completeness, the current implementers of IndexVarInterface are:
+/// * IndexVar
+/// * WindowedIndexVar
+/// If this set changes, make sure to update the match function.
+class IndexVarInterface {
+public:
+  virtual ~IndexVarInterface() = default;
+
+  /// match performs a dynamic case analysis of the implementers of IndexVarInterface
+  /// as a utility for handling the different values within. It mimics the dynamic
+  /// type assertion of Go.
+  static void match(
+      std::shared_ptr<IndexVarInterface> ptr,
+      std::function<void(std::shared_ptr<IndexVar>)> ivarFunc,
+      std::function<void(std::shared_ptr<WindowedIndexVar>)> wvarFunc
+  ) {
+    auto iptr = std::dynamic_pointer_cast<IndexVar>(ptr);
+    auto wptr = std::dynamic_pointer_cast<WindowedIndexVar>(ptr);
+    if (iptr != nullptr) {
+      ivarFunc(iptr);
+    } else if (wptr != nullptr) {
+      wvarFunc(wptr);
+    } else {
+      taco_iassert("IndexVarInterface was not IndexVar or WindowedIndexVar");
+    }
+  }
+};
+
+/// WindowedIndexVar represents an IndexVar that has been windowed. For example,
+///   A(i) = B(i(2, 4))
+/// In this case, i(2, 4) is a WindowedIndexVar. WindowedIndexVar is defined
+/// before IndexVar so that IndexVar can return objects of type WindowedIndexVar.
+class WindowedIndexVar : public util::Comparable<WindowedIndexVar>, public IndexVarInterface {
+public:
+  WindowedIndexVar(IndexVar base, int lo = -1, int hi = -1);
+  ~WindowedIndexVar() = default;
+
+  /// getIndexVar returns the underlying IndexVar.
+  IndexVar getIndexVar() const;
+
+  /// get{Lower,Upper}Bound returns the {lower,upper} bound of the window of
+  /// this index variable.
+  int getLowerBound() const;
+  int getUpperBound() const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.
-class IndexVar : public util::Comparable<IndexVar> {
+class IndexVar : public util::Comparable<IndexVar>, public IndexVarInterface {
 public:
   IndexVar();
+  ~IndexVar() = default;
   IndexVar(const std::string& name);
 
   /// Returns the name of the index variable.
@@ -813,6 +882,8 @@ public:
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);
 
+  /// Indexing into an IndexVar returns a window into it.
+  WindowedIndexVar operator()(int lo, int hi);
 
 private:
   struct Content;
@@ -823,7 +894,15 @@ struct IndexVar::Content {
   std::string name;
 };
 
+struct WindowedIndexVar::Content {
+  IndexVar base;
+  int lo;
+  int hi;
+};
+
+std::ostream& operator<<(std::ostream&, const std::shared_ptr<IndexVarInterface>&);
 std::ostream& operator<<(std::ostream&, const IndexVar&);
+std::ostream& operator<<(std::ostream&, const WindowedIndexVar&);
 
 /// A suchthat statement provides a set of IndexVarRel that constrain
 /// the iteration space for the child concrete index notation
