@@ -327,7 +327,7 @@ struct ReplaceIndexVars : public IndexNotationRewriter {
       }
     }
     if (modified) {
-      expr = Access(op->tensorVar, indexVars);
+      expr = Access(op->tensorVar, indexVars, op->windowedModes);
     }
     else {
       expr = op;
