@@ -747,3 +747,41 @@ TEST(spatial, tile_dotProduct) {
 //
 //  codegen->compile(compute, false);
 //}
+
+TEST(spatial, sparse_vecElemMul) {
+  set_Spatial_codegen_enabled(false);
+
+  Tensor<double> A("A", {16}, {sparse});
+  Tensor<double> B("B", {16}, {sparse});
+  Tensor<double> C("C", {16}, {sparse});
+
+  for (int i = 0; i < 16; i++) {
+    C.insert({i}, (double) i);
+    B.insert({i}, (double) i);
+  }
+
+  B.pack();
+  C.pack();
+
+  IndexVar i("i");
+  IndexVar i0("i0"), i1("i1");
+  A(i) = B(i) * C(i);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {16}, {sparse});
+  expected(i) = B(i) * C(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+
+  set_Spatial_codegen_enabled(true);
+
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  codegen->compile(compute, false);
+}
