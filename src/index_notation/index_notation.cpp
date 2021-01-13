@@ -2118,8 +2118,23 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
         return;
       }
 
+      // Handles derived vars on RHS with underived vars on LHS.
+      Assignment assignPtrWrapper = Assignment(op);
+      std::vector<IndexVar> possibleReductionVars = assignPtrWrapper.getReductionVars();
+      std::vector<IndexVar> freeVars = assignPtrWrapper.getFreeVars();
+      std::set<IndexVar> freeVarsSet(freeVars.begin(), freeVars.end());
+
+      int numReductionVars = 0;
+      for(const auto& reductionVar : possibleReductionVars) {
+        std::vector<IndexVar> underivedParents = provGraph.getUnderivedAncestors(reductionVar);
+        for(const auto& parent : underivedParents) {
+          if(!util::contains(freeVarsSet, parent)) {
+            ++numReductionVars;
+          }
+        }
+      }
       // allow introducing precompute loops where we set a temporary to values instead of +=
-      if (Assignment(op).getReductionVars().size() > 0 &&
+      if (numReductionVars > 0 &&
           op->op == IndexExpr() && !inWhereProducer) {
         *reason = "reduction variables in concrete notation must be dominated "
                   "by compound assignments (such as +=)";
@@ -2340,6 +2355,22 @@ vector<TensorVar> getArguments(IndexStmt stmt) {
   }
 
   return result;
+}
+
+std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt) {
+  map<Forall, Where> temporaryLocs;
+  Forall f = Forall();
+  match(stmt,
+        function<void(const ForallNode*, Matcher*)>([&](const ForallNode* op, Matcher* ctx) {
+          f = op;
+          ctx->match(op->stmt);
+        }),
+          function<void(const WhereNode*, Matcher*)>([&](const WhereNode* w, Matcher* ctx) {
+            if (!(f == IndexStmt()))
+              temporaryLocs.insert({f, Where(w)});
+          })
+        );
+  return temporaryLocs;
 }
 
 std::vector<TensorVar> getTemporaries(IndexStmt stmt) {

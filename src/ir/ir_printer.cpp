@@ -131,7 +131,11 @@ void IRPrinter::visit(const Var* op) {
 }
 
 void IRPrinter::visit(const Neg* op) {
-  stream << "-";
+  if(op->type.isBool()) {
+    stream << "!";
+  } else {
+    stream << "-";
+  }
   parentPrecedence = Precedence::NEG;
   op->a.accept(this);
 }
@@ -574,6 +578,16 @@ void IRPrinter::visit(const Print* op) {
 void IRPrinter::visit(const GetProperty* op) {
   stream << op->name;
 }
+
+void IRPrinter::visit(const Sort* op) {
+  doIndent();
+  stream << "qsort(";
+  parentPrecedence = Precedence::CALL;
+  acceptJoin(this, stream, op->args, ", ");
+  stream << ");";
+  stream << endl;
+}
+
 
 void IRPrinter::resetNameCounters() {
   // seed the unique names with all C99 keywords

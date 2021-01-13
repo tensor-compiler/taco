@@ -953,6 +953,10 @@ std::vector<TensorVar> getArguments(IndexStmt stmt);
 /// Returns the temporaries in the index statement, in the order they appear.
 std::vector<TensorVar> getTemporaries(IndexStmt stmt);
 
+// [Olivia]
+/// Returns the temporaries in the index statement, in the order they appear.
+std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt);
+
 /// Returns the tensors in the index statement.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);
 

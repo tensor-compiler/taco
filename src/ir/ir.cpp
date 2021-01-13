@@ -817,6 +817,13 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode,
   return gp;
 }
 
+// Sort
+Stmt Sort::make(std::vector<Expr> args) {
+  Sort* sort = new Sort;
+  sort->args = args;
+  return sort;
+}
+
 
 // GetProperty
 Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
@@ -953,6 +960,8 @@ template<> void StmtNode<Print>::accept(IRVisitorStrict *v)
     const { v->visit((const Print*)this); }
 template<> void ExprNode<GetProperty>::accept(IRVisitorStrict *v)
     const { v->visit((const GetProperty*)this); }
+template<> void StmtNode<Sort>::accept(IRVisitorStrict *v)
+  const { v->visit((const Sort*)this); }
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {
