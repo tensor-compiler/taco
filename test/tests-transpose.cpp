@@ -76,3 +76,26 @@ TEST(DISABLED_lower, transpose3) {
                            &reason));
   ASSERT_EQ(error::expr_transposition, reason);
 }
+
+// denseIterationTranspose tests a dense iteration that contain a transposition
+// of one of the tensors.
+TEST(lower, denseIterationTranspose) {
+  auto dim = 4;
+  Tensor<int> A("A", {dim, dim, dim}, {Dense, Dense, Dense});
+  Tensor<int> B("B", {dim, dim, dim}, {Dense, Dense, Dense});
+  Tensor<int> C("C", {dim, dim, dim}, {Dense, Dense, Dense});
+  Tensor<int> expected("expected", {dim, dim, dim}, {Dense, Dense, Dense});
+  for (int i = 0; i < dim; i++) {
+    for (int j = 0; j < dim; j++) {
+      for (int k = 0; k < dim; k++) {
+        A.insert({i, j, k}, i + j + k);
+        B.insert({i, j, k}, i + j + k);
+        expected.insert({i, j, k}, 2 * (i + j + k));
+      }
+    }
+  }
+  A.pack(); B.pack(); expected.pack();
+  C(i, j, k) = A(i, j, k) + B(k, j, i);
+  C.evaluate();
+  ASSERT_TRUE(equals(C, expected));
+}

@@ -72,6 +72,54 @@ TEST(scheduling, splitIndexStmt) {
   ASSERT_TRUE(equals(a(i) = b(i), i2Forall.getStmt()));
 }
 
+TEST(scheduling, fuseDenseLoops) {
+  auto dim = 4;
+  Tensor<int> A("A", {dim, dim, dim}, {Dense, Dense, Dense});
+  Tensor<int> B("B", {dim, dim, dim}, {Dense, Dense, Dense});
+  Tensor<int> expected("expected", {dim, dim, dim}, {Dense, Dense, Dense});
+  IndexVar f("f"), g("g");
+  for (int i = 0; i < dim; i++) {
+    for (int j = 0; j < dim; j++) {
+      for (int k = 0; k < dim; k++) {
+        A.insert({i, j, k}, i + j + k);
+        B.insert({i, j, k}, i + j + k);
+        expected.insert({i, j, k}, 2 * (i + j + k));
+      }
+    }
+  }
+  A.pack();
+  B.pack();
+  expected.pack();
+
+  // Helper function to evaluate the target statement and verify the results.
+  // It takes in a function that applies some scheduling transforms to the
+  // input IndexStmt, and applies to the point-wise tensor addition below.
+  // The test is structured this way as TACO does its best to avoid re-compilation
+  // whenever possible. I.e. changing the stmt that a tensor is compiled with
+  // doesn't cause compilation to occur again.
+  auto testFn = [&](std::function<IndexStmt(IndexStmt)> modifier) {
+    Tensor<int> C("C", {dim, dim, dim}, {Dense, Dense, Dense});
+    C(i, j, k) = A(i, j, k) + B(i, j, k);
+    auto stmt = C.getAssignment().concretize();
+    C.compile(modifier(stmt));
+    C.evaluate();
+    ASSERT_TRUE(equals(C, expected)) << endl << C << endl << expected << endl;
+  };
+
+  // First, a sanity check with no transformations.
+  testFn([](IndexStmt stmt) { return stmt; });
+  // Next, fuse the outer two loops. This tests the original bug in #355.
+  testFn([&](IndexStmt stmt) {
+    return stmt.fuse(i, j, f);
+  });
+  // Lastly, fuse all of the loops into a single loop. This ensures that
+  // locators with a chain of ancestors have all of their dependencies
+  // generated in a valid ordering.
+  testFn([&](IndexStmt stmt) {
+    return stmt.fuse(i, j, f).fuse(f, k, g);
+  });
+}
+
 TEST(scheduling, lowerDenseMatrixMul) {
   Tensor<double> A("A", {4, 4}, {Dense, Dense});
   Tensor<double> B("B", {4, 4}, {Dense, Dense});
