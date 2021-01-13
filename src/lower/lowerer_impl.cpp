@@ -140,7 +140,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   provGraph = ProvenanceGraph(stmt);
 
-  for (const IndexVar indexVar : provGraph.getAllIndexVars()) {
+  for (const IndexVar& indexVar : provGraph.getAllIndexVars()) {
     if (iterators.modeIterators().count(indexVar)) {
       indexVarToExprMap.insert({indexVar, iterators.modeIterators()[indexVar].getIteratorVar()});
     }
