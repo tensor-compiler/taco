@@ -1377,22 +1377,30 @@ IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFa
   return *this;
 }
 
-IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
+IndexStmt IndexStmt::precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
+                                  std::vector<IndexVar> iw_vars, TensorVar workspace) const {
+  // TODO Need to assert that they are same length
   IndexStmt transformed = *this;
   string reason;
-  if (i != iw) {
-    IndexVarRel rel = IndexVarRel(new PrecomputeRelNode(i, iw));
-    transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed, &reason);
-    if (!transformed.defined()) {
-      taco_uerror << reason;
-    }
-  }
+    
+  // if (i != iw) {
+  //   IndexVarRel rel = IndexVarRel(new PrecomputeRelNode(i, iw));
+  //   transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed, &reason);
+  //   if (!transformed.defined()) {
+  //     taco_uerror << reason;
+  //   }
+  // }
 
-  transformed = Transformation(Precompute(expr, i, iw, workspace)).apply(transformed, &reason);
+  transformed = Transformation(Precompute(expr, i_vars, iw_vars, workspace)).apply(transformed, &reason);
   if (!transformed.defined()) {
     taco_uerror << reason;
   }
   return transformed;
+}
+
+IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
+  // infinite recursion?
+  return precompute(expr, {i}, {iw}, workspace);
 }
 
 IndexStmt IndexStmt::reorder(taco::IndexVar i, taco::IndexVar j) const {
