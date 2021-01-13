@@ -6,7 +6,7 @@
 #ifndef TACO_TENSOR_T_DEFINED
 #define TACO_TENSOR_T_DEFINED
 
-#include <cstdint>
+#include <stdint.h>
 
 typedef enum { taco_mode_dense, taco_mode_sparse } taco_mode_t;
 

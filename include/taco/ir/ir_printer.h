@@ -106,6 +106,7 @@ protected:
 
   void doIndent();
   void printBinOp(Expr a, Expr b, std::string op, Precedence precedence);
+  bool needsParentheses(Precedence precedence);
 
   std::string keywordString(std::string);
   std::string commentString(std::string);

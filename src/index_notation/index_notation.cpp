@@ -1815,6 +1815,7 @@ std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
 
 // class TensorVar
 struct TensorVar::Content {
+  int id;
   string name;
   Type type;
   Format format;
@@ -1834,25 +1835,32 @@ TensorVar::TensorVar(const Type& type)
 }
 
 TensorVar::TensorVar(const std::string& name, const Type& type)
-    : TensorVar(name, type, createDenseFormat(type), MemoryLocation::Default) {
+: TensorVar(-1, name, type, createDenseFormat(type)) {
 }
 
 TensorVar::TensorVar(const Type& type, const Format& format)
-    : TensorVar(util::uniqueName('A'), type, format, MemoryLocation::Default) {
+    : TensorVar(-1, util::uniqueName('A'), type, format) {
 }
 
-TensorVar::TensorVar(const string& name, const Type& type,
-                     const Format& format)
-    : TensorVar(name, type, format, MemoryLocation::Default) {
+TensorVar::TensorVar(const string& name, const Type& type, const Format& format)
+    : TensorVar(-1, name, type, format) {
 }
 
-TensorVar::TensorVar(const string& name, const Type& type, const Format& format,
-                      const MemoryLocation memoryLocation)
+TensorVar::TensorVar(const string& name, const Type& type, const Format& format, const MemoryLocation memoryLocation)
+    : TensorVar(-1 , name, type, format, memoryLocation) {
+}
+
+TensorVar::TensorVar(const int& id, const string& name, const Type& type, const Format& format, const MemoryLocation memoryLocation)
     : content(new Content) {
+  content->id = id;
   content->name = name;
   content->type = type;
   content->format = format;
   content->memoryLocation = memoryLocation;
+}
+
+int TensorVar::getId() const {
+  return content->id;
 }
 
 std::string TensorVar::getName() const {

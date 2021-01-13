@@ -876,13 +876,16 @@ struct TensorBase::Content {
   bool               needsAssemble;
   bool               needsCompute;
   std::vector<std::weak_ptr<TensorBase::Content>> dependentTensors;
+  unsigned int       uniqueId;
 
   Content(std::string name, Datatype dataType, const std::vector<int>& dimensions,
           Format format, MemoryLocation memoryLocation)
       : dataType(dataType), dimensions(dimensions),
         storage(TensorStorage(dataType, dimensions, format)),
-        tensorVar(TensorVar(name, Type(dataType,convert(dimensions)),
-                            format, memoryLocation)) {}
+        tensorVar(TensorVar(util::getUniqueId(), name, Type(dataType,convert(dimensions)),
+                            format, memoryLocation)) {
+          uniqueId = tensorVar.getId();
+        }
 };
 
 // ------------------------------------------------------------

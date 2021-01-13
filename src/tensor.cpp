@@ -555,6 +555,33 @@ void TensorBase::compile() {
   taco_uassert(assignment.defined())
       << error::compile_without_expr;
 
+  struct CollisionFinder : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+
+    std::map<std::string,const TensorVar> tensorvars;
+
+    CollisionFinder() :tensorvars() {}
+
+    void visit(const AccessNode* node) {
+      Access access(node);
+      const TensorVar new_tensorvar = access.getTensorVar();
+      const std::string new_name = new_tensorvar.getName();
+      if(new_tensorvar.getId() != -1) {
+        auto found = tensorvars.find(new_name);
+        if(found != tensorvars.end() && found->second.getId() != -1) {
+          const TensorVar found_tensorvar = found->second;
+          taco_uassert(new_tensorvar.getId() == found_tensorvar.getId())
+              << error::compile_tensor_name_collision << " " << new_name;
+        } else {
+          tensorvars.insert(std::pair<std::string,const TensorVar>(new_name, new_tensorvar));
+        }
+      }
+    }
+  };
+  CollisionFinder dupes = CollisionFinder();
+  assignment.getLhs().accept(&dupes);
+  assignment.accept(&dupes);
+
   IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
   stmt = reorderLoopsTopologically(stmt);
   stmt = insertTemporaries(stmt);

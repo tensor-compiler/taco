@@ -852,8 +852,12 @@ public:
   TensorVar(const std::string& name, const Type& type);
   TensorVar(const Type& type, const Format& format);
   TensorVar(const std::string& name, const Type& type, const Format& format);
-  TensorVar(const std::string& name, const Type& type, const Format& format,
-            const MemoryLocation memoryLocation);
+  TensorVar(const std::string& name, const Type& type, const Format& format, const MemoryLocation memoryLocation);
+  TensorVar(const int &id, const std::string& name, const Type& type, const Format& format,
+            const MemoryLocation memoryLocation = MemoryLocation::Default);
+
+  /// Returns the ID of the tensor variable.
+  int getId() const;
 
   /// Returns the name of the tensor variable.
   std::string getName() const;
