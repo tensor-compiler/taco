@@ -35,18 +35,17 @@ namespace taco {
     TensorVar tensorVar;
   };
 
-  struct LinalgTensorBaseNode : public LinalgExprNode {
+  struct LinalgTensorBaseNode : public LinalgVarNode {
     LinalgTensorBaseNode(TensorVar tensorVar, TensorBase *tensorBase)
-      : LinalgExprNode(tensorVar.getType().getDataType(), tensorVar.getOrder()), tensorVar(tensorVar), tensorBase(tensorBase) {}
+      : LinalgVarNode(tensorVar), tensorBase(tensorBase) {}
     LinalgTensorBaseNode(TensorVar tensorVar, TensorBase *tensorBase, bool isColVec)
-      : LinalgExprNode(tensorVar.getType().getDataType(), tensorVar.getOrder(), isColVec), tensorVar(tensorVar), tensorBase(tensorBase) {}
+      : LinalgVarNode(tensorVar, isColVec), tensorBase(tensorBase) {}
     void accept(LinalgExprVisitorStrict* v) const override {
       v->visit(this);
     }
 
     virtual void setAssignment(const LinalgAssignment& assignment) {}
 
-    TensorVar tensorVar;
     TensorBase* tensorBase;
   };
 
