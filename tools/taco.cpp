@@ -922,8 +922,6 @@ int main(int argc, char* argv[]) {
   try {
     parser->parse();
     tensor = parser->getResultTensor();
-    cout << "getResultTensor!!" << endl;
-    cout << tensor;
   } catch (parser::ParseError& e) {
     return reportError(e.getMessage(), 6);
   }
