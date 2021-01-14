@@ -2250,35 +2250,50 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
   for (Iterator& locator : locators) {
     accessibleIterators.insert(locator);
 
-    bool doLocate = true;
+    // Pull out some logic for constructing the locators for a given iterator.
+    auto addLocator = [&](const Iterator& iter) {
+      ModeFunction locate = iter.locate(coordinates(iter));
+      taco_iassert(isValue(locate.getResults()[1], true));
+      Stmt declarePosVar = VarDecl::make(iter.getPosVar(), locate.getResults()[0]);
+      result.push_back(declarePosVar);
+    };
+
+    // Look through all of the parent iterators. If any of these iterators
+    // are not accessible, we need to construct their accessors before emitting
+    // locator's accessors. This is because locator may use the ancestor's
+    // variables in its accessors. We add these ancestors into a vector and reverse
+    // it so that the highest parent in the tree's accessors get declared first.
+    std::vector<Iterator> ancestors;
     for (Iterator ancestorIterator = locator.getParent();
          !ancestorIterator.isRoot() && ancestorIterator.hasLocate();
          ancestorIterator = ancestorIterator.getParent()) {
       if (!accessibleIterators.contains(ancestorIterator)) {
-        doLocate = false;
+        // Since we're going to emit the locators for this iterator, add it to
+        // accessibleIterators so that other locators with this as an ancestor
+        // don't do the same.
+        accessibleIterators.insert(ancestorIterator);
+        ancestors.push_back(ancestorIterator);
       }
     }
+    for (auto it = ancestors.rbegin(); it != ancestors.rend(); it++) addLocator(*it);
 
-    if (doLocate) {
-      Iterator locateIterator = locator;
-      if (locateIterator.hasPosIter()) {
-        taco_iassert(!provGraph.isUnderived(locateIterator.getIndexVar()));
-        continue; // these will be recovered with separate procedure
-      }
-      do {
-        ModeFunction locate = locateIterator.locate(coordinates(locateIterator));
-        taco_iassert(isValue(locate.getResults()[1], true));
-        Stmt declarePosVar = VarDecl::make(locateIterator.getPosVar(),
-                                           locate.getResults()[0]);
-        result.push_back(declarePosVar);
-
-        if (locateIterator.isLeaf()) {
-          break;
-        }
-        
-        locateIterator = locateIterator.getChild();
-      } while (accessibleIterators.contains(locateIterator));
+    Iterator locateIterator = locator;
+    // Position iterators will be recovered with a separate procedure, so
+    // don't emit anything if locator is one.
+    if (locateIterator.hasPosIter()) {
+      taco_iassert(!provGraph.isUnderived(locateIterator.getIndexVar()));
+      continue;
     }
+
+    // Once all parent locators have been declared, add the target and all
+    // children locators.
+    do {
+      addLocator(locateIterator);
+      if (locateIterator.isLeaf()) {
+        break;
+      }
+      locateIterator = locateIterator.getChild();
+    } while (accessibleIterators.contains(locateIterator));
   }
   return result.empty() ? Stmt() : Block::make(result);
 }
