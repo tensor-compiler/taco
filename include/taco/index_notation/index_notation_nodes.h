@@ -68,6 +68,13 @@ struct NegNode : public UnaryExprNode {
   }
 };
 
+struct TransposeNode : public UnaryExprNode {
+  TransposeNode(IndexExpr operand) : UnaryExprNode(operand) {}
+
+  void accept (IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+};
 
 struct BinaryExprNode : public IndexExprNode {
   virtual std::string getOperatorString() const = 0;

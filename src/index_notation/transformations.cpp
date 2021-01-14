@@ -844,7 +844,6 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
         varOrderFromTensorLevels(tensorLevelVar.second);
   }
   const auto hardDeps = depsFromVarOrders(tensorVarOrders);
-
   struct CollectSoftDependencies : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
 

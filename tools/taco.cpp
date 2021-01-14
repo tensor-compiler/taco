@@ -11,6 +11,7 @@
 #include "taco/error.h"
 #include "taco/parser/lexer.h"
 #include "taco/parser/parser.h"
+#include "taco/parser/linalg_parser.h"
 #include "taco/parser/schedule_parser.h"
 #include "taco/storage/storage.h"
 #include "taco/ir/ir.h"
@@ -193,6 +194,15 @@ static void printUsageInfo() {
   printFlag("nthreads", "Specify number of threads for parallel execution");
   cout << endl;
   printFlag("prefix", "Specify a prefix for generated function names");
+  cout << endl;
+  printFlag("linalg", "Specify if the input should be in Linear Algebra (not index) Notation");
+  cout << endl;
+  printFlag("k=<tensor>:<order>,<isCol>",
+            "[LINALG NOTATION ONLY -linalg] Specify the shape of the linear algebra var. "
+            "Specify the number of dimensions, shape (0, 1, or 2), and an optional is col vec"
+            "flag when order == 1 (1 or 0). "
+            "Examples: A:2, A:0, A:1,1, A:1,0");
+  cout << endl;
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -212,7 +222,7 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   }
 }
 
-static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parser::Parser& parser, IndexStmt& stmt) {
+static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parser::AbstractParser& parser, IndexStmt& stmt) {
   auto findVar = [&stmt](string name) {
     ProvenanceGraph graph(stmt);
     for (auto v : graph.getAllIndexVars()) {
@@ -493,6 +503,7 @@ int main(int argc, char* argv[]) {
   bool cuda                = false;
 
   bool setSchedule         = false;
+  bool linalg              = false;
 
   ParallelSchedule sched = ParallelSchedule::Static;
   int chunkSize = 0;
@@ -520,6 +531,9 @@ int main(int argc, char* argv[]) {
   string writeKernelFilename;
   string writeTimeFilename;
   vector<string> declaredTensors;
+
+  map<string,int> linalgShapes;
+  map<string,bool> linalgVecShapes;
 
   vector<string> kernelFilenames;
 
@@ -823,6 +837,33 @@ int main(int argc, char* argv[]) {
     else if ("-prefix" == argName) {
       prefix = argValue;
     }
+    else if ("-linalg" == argName) {
+      linalg = true;
+    }
+    else if ("-k" == argName) {
+      vector<string> descriptor = util::split(argValue, ":");
+      string tensorName = descriptor[0];
+      vector<string> shapes = util::split(descriptor[1], ",");
+
+      int linalgShape = 0;
+      bool linalgVecShape = false;
+      if (shapes.size() == 1) {
+        linalgShape = std::stoi(shapes[0]);
+        taco_uassert(linalgShape >= 0 && linalgShape <= 2) << "Shape is not compatible with linalg notation" << endl;
+        if (linalgShape == 1)
+          linalgVecShape = true;
+      } else if (shapes.size() == 2) {
+        linalgShape = std::stoi(shapes[0]);
+        taco_uassert(linalgShape >= 0 && linalgShape <= 2) << "Shape is not compatible with linalg notation" << endl;
+        linalgVecShape = (bool) std::stoi(shapes[1]);
+        taco_uassert(linalgVecShape == 0 || linalgVecShape == 1) << "Vector type is not compatible with linalg notation" << endl;
+        if (linalgShape != 1 ) {
+          linalgVecShape = false;
+        }
+      }
+      linalgShapes.insert({tensorName, linalgShape});
+      linalgVecShapes.insert({tensorName, linalgVecShape});
+    }
     else {
       if (exprStr.size() != 0) {
         printUsageInfo();
@@ -872,17 +913,22 @@ int main(int argc, char* argv[]) {
   }
 
   TensorBase tensor;
-  parser::Parser parser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, 42);
+  parser::AbstractParser *parser;
+  if (linalg)
+    parser = new parser::LinalgParser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, linalgShapes, linalgVecShapes, 42);
+  else
+    parser = new parser::Parser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, 42);
+
   try {
-    parser.parse();
-    tensor = parser.getResultTensor();
+    parser->parse();
+    tensor = parser->getResultTensor();
   } catch (parser::ParseError& e) {
     return reportError(e.getMessage(), 6);
   }
 
   // Generate tensors
   for (auto& fills : tensorsFill) {
-    TensorBase tensor = parser.getTensor(fills.first);
+    TensorBase tensor = parser->getTensor(fills.first);
     util::fillTensor(tensor,fills.second);
 
     loadedTensors.insert({fills.first, tensor});
@@ -894,8 +940,8 @@ int main(int argc, char* argv[]) {
 
   // If all input tensors have been initialized then we should evaluate
   bool benchmark = true;
-  for (auto& tensor : parser.getTensors()) {
-    if (tensor.second == parser.getResultTensor()) {
+  for (auto& tensor : parser->getTensors()) {
+    if (tensor.second == parser->getResultTensor()) {
       continue;
     }
     if (!util::contains(loadedTensors, tensor.second.getName())) {
@@ -915,7 +961,7 @@ int main(int argc, char* argv[]) {
   stmt = reorderLoopsTopologically(stmt);
 
   if (setSchedule) {
-    cuda |= setSchedulingCommands(scheduleCommands, parser, stmt);
+    cuda |= setSchedulingCommands(scheduleCommands, *parser, stmt);
   }
   else {
     stmt = insertTemporaries(stmt);
@@ -980,8 +1026,8 @@ int main(int argc, char* argv[]) {
 
       // TODO: Replace this redundant parsing with just a call to set the expr
       try {
-        auto operands = parser.getTensors();
-        operands.erase(parser.getResultTensor().getName());
+        auto operands = parser->getTensors();
+        operands.erase(parser->getResultTensor().getName());
         parser::Parser parser2(exprStr, formats, dataTypes, tensorsDimensions,
                                operands, 42);
         parser2.parse();
@@ -1252,7 +1298,7 @@ int main(int argc, char* argv[]) {
     write(outputFileName, FileType::tns, tensor);
     TensorBase paramTensor;
     for (const auto &fills : tensorsFill ) {
-      paramTensor = parser.getTensor(fills.first);
+      paramTensor = parser->getTensor(fills.first);
       outputFileName = outputDirectory + "/" + paramTensor.getName() + ".tns";
       write(outputFileName, FileType::tns, paramTensor);
     }

@@ -215,6 +215,10 @@ private:
     subExpr = unarySubExpr(op);
   }
 
+  void visit(const TransposeNode* op) {
+    subExpr = unarySubExpr(op);
+  }
+
   void visit(const SqrtNode* op) {
     subExpr = unarySubExpr(op);
   }

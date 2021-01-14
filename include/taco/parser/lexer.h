@@ -23,6 +23,9 @@ enum class Token {
   mul,
   div,
   eq,
+  caretT,
+  elemMul,
+  transpose,
   eot,  // End of tokens
   error
 };

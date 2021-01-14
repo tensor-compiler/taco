@@ -54,6 +54,7 @@ Parser::Parser(string expression, const map<string,Format>& formats,
   content->defaultDimension = defaultDimension;
   content->tensors = tensors;
   content->dataTypes = dataTypes;
+
   nextToken();
 }
 

@@ -1700,6 +1700,7 @@ Stmt LowererImpl::lowerSuchThat(SuchThat suchThat) {
 
 
 Expr LowererImpl::lowerAccess(Access access) {
+
   TensorVar var = access.getTensorVar();
 
   if (isScalar(var.getType())) {
