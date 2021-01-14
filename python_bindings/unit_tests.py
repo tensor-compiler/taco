@@ -251,6 +251,10 @@ class TestIndexFuncs(unittest.TestCase):
         t1[i, j] = pt.remainder(t[i, j], 2)
         self.assertEqual(t1, arr % 2)
 
+    def test_neg(self):
+        arr = np.arange(1, 5).reshape([2, 2])
+        t = pt.from_array(arr)
+        self.assertEqual(-t, -arr)
 
 class testParsers(unittest.TestCase):
 

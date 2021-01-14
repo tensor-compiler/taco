@@ -81,7 +81,12 @@ void IndexNotationPrinter::visit(const NegNode* op) {
   Precedence precedence = Precedence::NEG;
   bool parenthesize =  precedence > parentPrecedence;
   parentPrecedence = precedence;
-  os << "-";
+  if(op->getDataType().isBool()) {
+    os << "!";
+  } else {
+    os << "-";
+  }
+
   if (parenthesize) {
     os << "(";
   }
