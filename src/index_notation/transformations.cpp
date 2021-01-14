@@ -844,13 +844,6 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
         varOrderFromTensorLevels(tensorLevelVar.second);
   }
   const auto hardDeps = depsFromVarOrders(tensorVarOrders);
-  cout << "Debug ---" << endl;
-  for (auto it = hardDeps.begin(); it != hardDeps.end(); it++) {
-    cout << it->first << ", ";
-    for (auto its = it->second.begin(); its != it->second.end(); its++) {
-      cout << *its << endl;
-    }
-  }
   struct CollectSoftDependencies : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
 

@@ -89,7 +89,7 @@ std::ostream& operator<<(std::ostream& os, const LinalgBase& linalg) {
 
   // If TensorBase exists, print the storage
   if (linalg.tensorBase != nullptr) {
-    return os << *(linalg.tensorBase) << endl;
+    return os << *(linalg.tensorBase);
   }
 
   if (!assignment.defined()) return os << getNode(linalg)->tensorVar.getName();
