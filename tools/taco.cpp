@@ -118,7 +118,8 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("s=\"<command>(<params>)\"",
             "Specify a scheduling command to apply to the generated code. "
-            "Parameters take the form of a comma-delimited list. "
+            "Parameters take the form of a comma-delimited list. See "
+            "-help=scheduling for a list of scheduling commands. "
             "Examples: split(i,i0,i1,16), precompute(A(i,j)*x(j),i,i).");
   cout << endl;
   printFlag("c",
@@ -193,6 +194,74 @@ static void printUsageInfo() {
   printFlag("nthreads", "Specify number of threads for parallel execution");
   cout << endl;
   printFlag("prefix", "Specify a prefix for generated function names");
+  cout << endl;
+  printFlag("help", "Print this usage information.");
+  cout << endl;
+  printFlag("help=scheduling",
+            "Print information on the scheduling directives that can be passed "
+            "to '-s'.");
+}
+
+static void printSchedulingHelp() {
+    cout << "Scheduling commands modify the execution of the index expression." << endl;
+    cout << "The '-s' parameter specifies one or more scheduling commands." << endl;
+    cout << "Schedules are additive; more commands can be passed by separating" << endl;
+    cout << "them with commas, or passing multiple '-s' parameters." << endl;
+    cout << endl;
+    cout << "Examples:" << endl;
+    cout << "  -s=\"precompute(A(i,j)*x(j),i,i)\"" << endl;
+    cout << "  -s=\"split(i,i0,i1,32),parallelize(i0,CPUThread,NoRaces)\"" << endl;
+    cout << endl;
+    cout << "See http://tensor-compiler.org/docs/scheduling/index.html for more examples." << endl;
+    cout << endl;
+    cout << "Commands:" << endl;
+    printFlag("s=pos(i, ipos, tensor)", "Takes in an index variable `i` "
+              "that iterates over the coordinate space of `tensor` and replaces "
+              "it with a derived index variable `ipos` that iterates over the "
+              "same iteration range, but with respect to the the position space. "
+              "The `pos` transformation is not valid for dense level formats.");
+    cout << endl;
+    printFlag("s=fuse(i, j, f)", "Takes in two index variables `i` and `j`, where "
+              "`j` is directly nested under `i`, and collapses them into a fused "
+              "index variable `f` that iterates over the product of the "
+              "coordinates `i` and `j`.");
+    cout << endl;
+    printFlag("s=split(i, i0, i1, factor)", "Splits (strip-mines) an index "
+              "variable `i` into two nested index variables `i0` and `i1`. The "
+              "size of the inner index variable `i1` is then held constant at "
+              "`factor`, which must be a positive integer.");
+    cout << endl;
+    printFlag("s=precompute(expr, i, iw)", "Leverages scratchpad memories and "
+              "reorders computations to increase locality.  Given a subexpression "
+              "`expr` to precompute, an index variable `i` to precompute over, "
+              "and an index variable `iw` (which can be the same or different as "
+              "`i`) to precompute with, the precomputed results are stored in a "
+              "temporary tensor variable.");
+    cout << endl;
+    printFlag("s=reorder(i1, i2, ...)", "Takes in a new ordering for a "
+              "set of index variables in the expression that are directly nested "
+              "in the iteration order.  The indexes are ordered from outermost "
+              "to innermost.");
+    cout << endl;
+    printFlag("s=bound(i, ib, b, type)", "Replaces an index variable `i` "
+              "with an index variable `ib` that obeys a compile-time constraint "
+              "on its iteration space, incorporating knowledge about the size or "
+              "structured sparsity pattern of the corresponding input. The "
+              "meaning of `b` depends on the `type`. Possible bound types are: "
+              "MinExact, MinConstraint, MaxExact, MaxConstraint.");
+    cout << endl;
+    printFlag("s=unroll(index, factor)", "Unrolls the loop corresponding to an "
+              "index variable `i` by `factor` number of iterations, where "
+              "`factor` is a positive integer.");
+    cout << endl;
+    printFlag("s=parallelize(i, u, strat)", "tags an index variable `i` for "
+              "parallel execution on hardware type `u`. Data races are handled by "
+              "an output race strategy `strat`. Since the other transformations "
+              "expect serial code, parallelize must come last in a series of "
+              "transformations.  Possible parallel hardware units are: "
+              "NotParallel, GPUBlock, GPUWarp, GPUThread, CPUThread, CPUVector. "
+              "Possible output race strategies are: "
+              "IgnoreRaces, NoRaces, Atomics, Temporary, ParallelReduction.");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -536,7 +605,15 @@ int main(int argc, char* argv[]) {
     if (argparts.size() == 2)
       argValue = argparts[1];
 
-    if ("-f" == argName) {
+    if ("-help" == argName) {
+        if(argValue == "scheduling") {
+            printSchedulingHelp();
+        } else {
+            printUsageInfo();
+        }
+        return 0;
+    }
+    else if ("-f" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
       if (descriptor.size() < 2 || descriptor.size() > 4) {
         return reportError("Incorrect format descriptor", 4);
