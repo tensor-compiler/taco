@@ -385,6 +385,20 @@ struct Isomorphic : public IndexNotationVisitorStrict {
     eq = true;
   }
 
+  void visit(const AssembleNode* anode) {
+    if (!isa<AssembleNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<AssembleNode>(bStmt.ptr);
+    if (!check(anode->queries, bnode->queries) ||
+        !check(anode->compute, bnode->compute)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
   void visit(const MultiNode* anode) {
     if (!isa<MultiNode>(bStmt.ptr)) {
       eq = false;
@@ -666,6 +680,20 @@ struct Equals : public IndexNotationVisitorStrict {
     auto bnode = to<SequenceNode>(bStmt.ptr);
     if (!equals(anode->definition, bnode->definition) ||
         !equals(anode->mutation, bnode->mutation)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const AssembleNode* anode) {
+    if (!isa<AssembleNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<AssembleNode>(bStmt.ptr);
+    if (!equals(anode->queries, bnode->queries) ||
+        !equals(anode->compute, bnode->compute)) {
       eq = false;
       return;
     }
@@ -1732,6 +1760,36 @@ template <> Sequence to<Sequence>(IndexStmt s) {
 }
 
 
+// class Assemble
+Assemble::Assemble(const AssembleNode* n) :IndexStmt(n) {
+}
+
+Assemble::Assemble(IndexStmt queries, IndexStmt compute)
+    : Assemble(new AssembleNode(queries, compute)) {
+}
+
+IndexStmt Assemble::getQueries() const {
+  return getNode(*this)->queries;
+}
+
+IndexStmt Assemble::getCompute() const {
+  return getNode(*this)->compute;
+}
+
+Assemble assemble(IndexStmt queries, IndexStmt compute) {
+  return Assemble(queries, compute);
+}
+
+template <> bool isa<Assemble>(IndexStmt s) {
+  return isa<AssembleNode>(s.ptr);
+}
+
+template <> Assemble to<Assemble>(IndexStmt s) {
+  taco_iassert(isa<Assemble>(s));
+  return Assemble(to<AssembleNode>(s.ptr));
+}
+
+
 // class Multi
 Multi::Multi(const MultiNode* n) : IndexStmt(n) {
 }
@@ -2447,7 +2505,11 @@ pair<vector<Access>,set<Access>> getResultAccesses(IndexStmt stmt)
     function<void(const SequenceNode*,Matcher*)>([&](const SequenceNode* op,
                                                      Matcher* ctx) {
       ctx->match(op->definition);
-    })
+    })//,
+    //function<void(const AssembleNode*,Matcher*)>([&](const AssembleNode* op,
+    //                                                 Matcher* ctx) {
+    //  ctx->match(op->compute);
+    //})
   );
   return {result, reduced};
 }
@@ -2778,6 +2840,10 @@ private:
   }
 
   void visit(const SequenceNode* op) {
+    taco_not_supported_yet;
+  }
+
+  void visit(const AssembleNode* op) {
     taco_not_supported_yet;
   }
 

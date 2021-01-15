@@ -31,6 +31,7 @@ struct ForallNode;
 struct WhereNode;
 struct MultiNode;
 struct SequenceNode;
+struct AssembleNode;
 struct SuchThatNode;
 
 /// Visit the nodes in an expression.  This visitor provides some type safety
@@ -65,6 +66,7 @@ public:
   virtual void visit(const ForallNode*) = 0;
   virtual void visit(const WhereNode*) = 0;
   virtual void visit(const SequenceNode*) = 0;
+  virtual void visit(const AssembleNode*) = 0;
   virtual void visit(const MultiNode*) = 0;
   virtual void visit(const SuchThatNode*) = 0;
 };
@@ -107,6 +109,7 @@ public:
   virtual void visit(const ForallNode* node);
   virtual void visit(const WhereNode* node);
   virtual void visit(const SequenceNode* node);
+  virtual void visit(const AssembleNode* node);
   virtual void visit(const MultiNode* node);
   virtual void visit(const SuchThatNode* node);
 };
@@ -176,6 +179,7 @@ private:
   RULE(WhereNode)
   RULE(MultiNode)
   RULE(SequenceNode)
+  RULE(AssembleNode)
   RULE(SuchThatNode)
 };
 

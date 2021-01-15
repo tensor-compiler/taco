@@ -10,7 +10,7 @@ DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true) {
 
 DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique) : 
     ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, false,
-                   false, true, true, false) {
+                   false, true, true, false, false) {
 }
 
 ModeFormat DenseModeFormat::copy(
@@ -69,6 +69,15 @@ Stmt DenseModeFormat::getInsertInitLevel(Expr szPrev, Expr sz,
 Stmt DenseModeFormat::getInsertFinalizeLevel(Expr szPrev, 
     Expr sz, Mode mode) const {
   return Stmt();
+}
+
+Expr DenseModeFormat::getAssembledSize(Expr prevSize, Mode mode) const {
+  return ir::Mul::make(prevSize, getWidth(mode));
+}
+
+ModeFunction DenseModeFormat::getYieldPos(Expr parentPos, 
+    std::vector<Expr> coords, Mode mode) const {
+  return locate(parentPos, coords, mode);
 }
 
 vector<Expr> DenseModeFormat::getArrays(Expr tensor, int mode, 

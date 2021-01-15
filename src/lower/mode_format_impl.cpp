@@ -80,6 +80,29 @@ std::ostream& operator<<(std::ostream&os, const AttrQuery& query) {
 }
 
 
+// class AttrQueryResult
+AttrQueryResult::AttrQueryResult(Expr resultVar, Expr resultValues) 
+    : resultVar(resultVar), resultValues(resultValues) {}
+
+Expr AttrQueryResult::getResult(const std::vector<Expr>& indices,
+                                const std::string& attr) const {
+  if (indices.empty()) {
+    return resultValues;
+  }
+
+  Expr pos = 0;
+  for (int i = 0; i < (int)indices.size(); ++i) {
+    Expr dim = GetProperty::make(resultVar, TensorProperty::Dimension, i);
+    pos = ir::Add::make(ir::Mul::make(pos, dim), indices[i]);
+  }
+  return Load::make(resultValues, pos);
+}
+
+std::ostream& operator<<(std::ostream& os, const AttrQueryResult& result) {
+  return os << result.resultVar;
+}
+
+
 // class ModeFunction
 struct ModeFunction::Content {
   Stmt body;
@@ -126,11 +149,13 @@ ModeFormatImpl::ModeFormatImpl(const std::string name, bool isFull,
                                bool isOrdered, bool isUnique, bool isBranchless, 
                                bool isCompact, bool hasCoordValIter, 
                                bool hasCoordPosIter, bool hasLocate, 
-                               bool hasInsert, bool hasAppend) :
+                               bool hasInsert, bool hasAppend, 
+                               bool hasSeqInsertEdge) :
     name(name), isFull(isFull), isOrdered(isOrdered), isUnique(isUnique),
     isBranchless(isBranchless), isCompact(isCompact),
     hasCoordValIter(hasCoordValIter), hasCoordPosIter(hasCoordPosIter),
-    hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend) {
+    hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend),
+    hasSeqInsertEdge(hasSeqInsertEdge) {
 }
 
 ModeFormatImpl::~ModeFormatImpl() {
@@ -225,6 +250,43 @@ Stmt ModeFormatImpl::getAppendInitLevel(Expr szPrev,
 
 Stmt ModeFormatImpl::getAppendFinalizeLevel(Expr szPrev,
     Expr sz, Mode mode) const {
+  return Stmt();
+}
+
+Expr ModeFormatImpl::getAssembledSize(Expr prevSize, Mode mode) const {
+  return Expr();
+}
+
+Stmt ModeFormatImpl::getSeqInitEdges(Expr prevSize, 
+    std::vector<AttrQueryResult> queries, Mode mode) const {
+  return Stmt();
+}
+
+Stmt ModeFormatImpl::getSeqInsertEdge(Expr parentPos, std::vector<Expr> coords,
+    std::vector<AttrQueryResult> queries, Mode mode) const {
+  return Stmt();
+}
+
+Stmt ModeFormatImpl::getInitCoords(Expr prevSize, 
+    std::vector<AttrQueryResult> queries, Mode mode) const {
+  return Stmt();
+}
+
+Stmt ModeFormatImpl::getInitYieldPos(Expr prevSize, Mode mode) const {
+  return Stmt();
+}
+
+ModeFunction ModeFormatImpl::getYieldPos(Expr parentPos, 
+    std::vector<Expr> coords, Mode mode) const {
+  return ModeFunction();
+}
+
+Stmt ModeFormatImpl::getInsertCoord(Expr parentPos, Expr pos, 
+    std::vector<Expr> coords, Mode mode) const {
+  return Stmt();
+}
+
+Stmt ModeFormatImpl::getFinalizeYieldPos(Expr prevSize, Mode mode) const {
   return Stmt();
 }
 

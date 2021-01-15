@@ -1155,7 +1155,7 @@ IndexStmt insertAttributeQueries(IndexStmt stmt) {
         }
       }
 
-      stmt = op;
+      stmt = IndexStmt();
     }
   };
   IndexStmt loweredQueries = LowerAttrQuery(insertedResults).lower(stmt);
@@ -1305,7 +1305,7 @@ IndexStmt insertAttributeQueries(IndexStmt stmt) {
 
   // TODO: Need to selectively insert attribute query computations based on 
   // whether they are needed when assembling result
-  return Where(stmt, loweredQueries);
+  return Assemble(loweredQueries, stmt);
 }
 
 IndexStmt scalarPromote(IndexStmt stmt) {

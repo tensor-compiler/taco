@@ -185,6 +185,17 @@ void IndexNotationRewriter::visit(const SequenceNode* op) {
   }
 }
 
+void IndexNotationRewriter::visit(const AssembleNode* op) {
+  IndexStmt queries = rewrite(op->queries);
+  IndexStmt compute = rewrite(op->compute);
+  if (queries == op->queries && compute == op->compute) {
+    stmt = op;
+  }
+  else {
+    stmt = new AssembleNode(queries, compute);
+  }
+}
+
 void IndexNotationRewriter::visit(const MultiNode* op) {
   IndexStmt stmt1 = rewrite(op->stmt1);
   IndexStmt stmt2 = rewrite(op->stmt2);
@@ -295,6 +306,10 @@ struct ReplaceRewriter : public IndexNotationRewriter {
   }
 
   void visit(const SequenceNode* op) {
+    SUBSTITUTE_STMT;
+  }
+
+  void visit(const AssembleNode* op) {
     SUBSTITUTE_STMT;
   }
 

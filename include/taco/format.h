@@ -136,6 +136,8 @@ public:
   bool hasInsert() const;
   bool hasAppend() const;
 
+  bool hasSeqInsertEdge() const;
+
   std::vector<AttrQuery> getAttrQueries(
       std::vector<IndexVar> parentCoords, 
       std::vector<IndexVar> childCoords) const;

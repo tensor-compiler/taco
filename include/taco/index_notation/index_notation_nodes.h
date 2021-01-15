@@ -273,6 +273,18 @@ struct SequenceNode : public IndexStmtNode {
   IndexStmt mutation;
 };
 
+struct AssembleNode : public IndexStmtNode {
+  AssembleNode(IndexStmt queries, IndexStmt compute)
+      : queries(queries), compute(compute) {}
+
+  void accept(IndexStmtVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  IndexStmt queries;
+  IndexStmt compute;
+};
+
 
 /// Returns true if expression e is of type E.
 template <typename E>

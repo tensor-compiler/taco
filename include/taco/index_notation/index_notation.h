@@ -52,6 +52,7 @@ struct YieldNode;
 struct ForallNode;
 struct WhereNode;
 struct SequenceNode;
+struct AssembleNode;
 struct MultiNode;
 struct SuchThatNode;
 
@@ -780,6 +781,24 @@ public:
 
 /// Create a sequence index statement.
 Sequence sequence(IndexStmt definition, IndexStmt mutation);
+
+
+class Assemble : public IndexStmt {
+public:
+  Assemble() = default;
+  Assemble(const AssembleNode*);
+  Assemble(IndexStmt queries, IndexStmt compute);
+
+  IndexStmt getQueries() const;
+  IndexStmt getCompute() const;
+
+  //std::map<TensorVar,std::vector<std::vector<TensorVar>>> getAttrQueryResults() const;
+
+  typedef AssembleNode Node;
+};
+
+/// Create an assemble index statement.
+Assemble assemble(IndexStmt queries, IndexStmt compute);
 
 
 /// A multi statement has two statements that are executed separately, and let

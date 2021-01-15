@@ -222,6 +222,12 @@ bool Iterator::hasAppend() const {
   return getMode().defined() && getMode().getModeFormat().hasAppend();
 }
 
+bool Iterator::hasSeqInsertEdge() const {
+  taco_iassert(defined());
+  if (isDimensionIterator()) return false;
+  return getMode().defined() && getMode().getModeFormat().hasSeqInsertEdge();
+}
+
 ModeFunction Iterator::coordBounds(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
   return getMode().getModeFormat().impl->coordIterBounds(coords, getMode());
@@ -318,6 +324,58 @@ Stmt Iterator::getAppendFinalizeLevel(const Expr& szPrev, const Expr& sz) const{
   taco_iassert(defined() && content->mode.defined());
   return getMode().getModeFormat().impl->getAppendFinalizeLevel(szPrev, sz,
                                                               getMode());
+}
+
+Expr Iterator::getAssembledSize(const Expr& prevSize) const {
+  taco_iassert(defined() && content->mode.defined());
+  return getMode().getModeFormat().impl->getAssembledSize(prevSize, getMode());
+}
+
+Stmt Iterator::getSeqInitEdges(const Expr& prevSize, 
+    const std::vector<AttrQueryResult>& queries) const {
+  taco_iassert(defined() && content->mode.defined());
+  return getMode().getModeFormat().impl->getSeqInitEdges(prevSize, queries, 
+                                                         getMode());
+}
+
+Stmt Iterator::getSeqInsertEdge(const Expr& parentPos, 
+    const std::vector<Expr>& coords, 
+    const std::vector<AttrQueryResult>& queries) const {
+  taco_iassert(defined() && content->mode.defined());
+  return getMode().getModeFormat().impl->getSeqInsertEdge(parentPos, coords, 
+                                                          queries, getMode());
+}
+
+Stmt Iterator::getInitCoords(const Expr& prevSize, 
+    const std::vector<AttrQueryResult>& queries) const {
+  taco_iassert(defined() && content->mode.defined());
+  return getMode().getModeFormat().impl->getInitCoords(prevSize, queries, 
+                                                       getMode());
+}
+
+Stmt Iterator::getInitYieldPos(const Expr& prevSize) const {
+  taco_iassert(defined() && content->mode.defined());
+  return getMode().getModeFormat().impl->getInitYieldPos(prevSize, getMode());
+}
+
+ModeFunction Iterator::getYieldPos(const Expr& parentPos, 
+    const std::vector<Expr>& coords) const {
+  taco_iassert(defined() && content->mode.defined());
+  return getMode().getModeFormat().impl->getYieldPos(parentPos, coords, 
+                                                     getMode());
+}
+
+Stmt Iterator::getInsertCoord(const Expr& parentPos, const Expr& pos, 
+    const std::vector<Expr>& coords) const {
+  taco_iassert(defined() && content->mode.defined());
+  return getMode().getModeFormat().impl->getInsertCoord(parentPos, pos, coords, 
+                                                        getMode());
+}
+
+Stmt Iterator::getFinalizeYieldPos(const Expr& prevSize) const {
+  taco_iassert(defined() && content->mode.defined());
+  return getMode().getModeFormat().impl->getFinalizeYieldPos(prevSize, 
+                                                             getMode());
 }
 
 bool Iterator::defined() const {

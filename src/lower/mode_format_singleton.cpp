@@ -16,7 +16,7 @@ SingletonModeFormat::SingletonModeFormat() :
 SingletonModeFormat::SingletonModeFormat(bool isFull, bool isOrdered,
                                          bool isUnique, long long allocSize) :
     ModeFormatImpl("singleton", isFull, isOrdered, isUnique, true, true,
-                   false, true, false, false, true), 
+                   false, true, false, false, true, false), 
     allocSize(allocSize) {
 }
 
@@ -109,6 +109,30 @@ Stmt SingletonModeFormat::getAppendInitLevel(Expr parentSize, Expr size,
 Stmt SingletonModeFormat::getAppendFinalizeLevel(Expr parentSize, Expr size, 
                                                  Mode mode) const {
   return Stmt();
+}
+
+Expr SingletonModeFormat::getAssembledSize(Expr prevSize, Mode mode) const {
+  return prevSize;
+}
+
+Stmt SingletonModeFormat::getInitCoords(Expr prevSize, 
+    std::vector<AttrQueryResult> queries, Mode mode) const {
+  Expr crdArray = getCoordArray(mode.getModePack());
+  return Allocate::make(crdArray, prevSize, false, Expr());
+}
+
+ModeFunction SingletonModeFormat::getYieldPos(Expr parentPos, 
+    std::vector<Expr> coords, Mode mode) const {
+  return ModeFunction(Stmt(), {parentPos});
+}
+
+Stmt SingletonModeFormat::getInsertCoord(Expr parentPos, Expr pos, 
+    std::vector<Expr> coords, Mode mode) const {
+  Expr crdArray = getCoordArray(mode.getModePack());
+  Expr stride = (int)mode.getModePack().getNumModes();
+  Expr offset = (int)mode.getPackLocation();
+  Expr loc = ir::Add::make(ir::Mul::make(parentPos, stride), offset);
+  return Store::make(crdArray, loc, coords.back());
 }
 
 std::vector<Expr> SingletonModeFormat::getArrays(Expr tensor, int mode, 

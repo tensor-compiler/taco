@@ -1069,7 +1069,7 @@ std::vector<ir::Expr> ProvenanceGraph::deriveIterBounds(IndexVar indexVar, std::
 
   std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds;
   std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds;
-  for (const IndexVar parent : getParents(indexVar)) {
+  for (const IndexVar& parent : getParents(indexVar)) {
     parentIterBounds[parent] = deriveIterBounds(parent, derivedVarOrder, underivedBounds, variableNames, iterators);
     vector<IndexVar> underivedParentAncestors = getUnderivedAncestors(parent);
     // TODO: this is okay for now because we don't need parentCoordBounds for fused taco_iassert(underivedParentAncestors.size() == 1);
@@ -1089,7 +1089,7 @@ bool ProvenanceGraph::hasCoordBounds(IndexVar indexVar) const {
 bool ProvenanceGraph::isPosVariable(taco::IndexVar indexVar) const {
   if (isUnderived(indexVar)) return false;
   if (parentRelMap.at(indexVar).getRelType() == POS) return true;
-  for (const IndexVar parent : getParents(indexVar)) {
+  for (const IndexVar& parent : getParents(indexVar)) {
     if (isPosVariable(parent)) {
       return true;
     }
@@ -1105,7 +1105,7 @@ bool ProvenanceGraph::isPosOfAccess(IndexVar indexVar, Access access) const {
   else if (parentRelMap.at(indexVar).getRelType() == FUSE) {
     return false; // lose pos of access status through fuse
   }
-  for (const IndexVar parent : getParents(indexVar)) {
+  for (const IndexVar& parent : getParents(indexVar)) {
     if (isPosOfAccess(parent, access)) {
       return true;
     }

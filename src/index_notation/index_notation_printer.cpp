@@ -264,4 +264,14 @@ void IndexNotationPrinter::visit(const SequenceNode* op) {
   os << ")";
 }
 
+void IndexNotationPrinter::visit(const AssembleNode* op) {
+  os << "assemble(";
+  if (op->queries.defined()) {
+    op->queries.accept(this);
+    os << ", ";
+  }
+  op->compute.accept(this);
+  os << ")";
+}
+
 }

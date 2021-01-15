@@ -46,6 +46,7 @@ private:
   void visit(const MultiNode* node)         { stmt = impl->lowerMulti(node); }
   void visit(const SuchThatNode* node)      { stmt = impl->lowerSuchThat(node); }
   void visit(const SequenceNode* node)      { stmt = impl->lowerSequence(node); }
+  void visit(const AssembleNode* node)      { stmt = impl->lowerAssemble(node); }
   void visit(const AccessNode* node)        { expr = impl->lowerAccess(node); }
   void visit(const LiteralNode* node)       { expr = impl->lowerLiteral(node); }
   void visit(const NegNode* node)           { expr = impl->lowerNeg(node); }
@@ -143,7 +144,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   provGraph = ProvenanceGraph(stmt);
 
-  for (const IndexVar indexVar : provGraph.getAllIndexVars()) {
+  for (const IndexVar& indexVar : provGraph.getAllIndexVars()) {
     if (iterators.modeIterators().count(indexVar)) {
       indexVarToExprMap.insert({indexVar, iterators.modeIterators()[indexVar].getIteratorVar()});
     }
@@ -289,6 +290,33 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
       Expr values = getValuesArray(result);
       Expr loc = generateValueLocExpr(assignment.getLhs());
 
+      std::vector<Stmt> accessStmts;
+
+      // TODO: emit this when only assembling as well
+      if (generateAssembleCode()) {
+        std::vector<Expr> coords;
+        Expr prevPos = 0;
+        size_t i = 0;
+        const auto resultIterators = getIterators(assignment.getLhs());
+        for (const auto& it : resultIterators) {
+          // TODO: Should only assemble levels that can be assembled together
+          //if (it == this->nextTopResultIterator) {
+          //  break;
+          //}
+
+          coords.push_back(getCoordinateVar(it));
+
+          const auto yieldPos = it.getYieldPos(prevPos, coords);
+          accessStmts.push_back(yieldPos.compute());
+          Expr pos = it.getPosVar();
+          accessStmts.push_back(VarDecl::make(pos, yieldPos[0]));
+          accessStmts.push_back(it.getInsertCoord(prevPos, pos, coords));
+
+          prevPos = pos;
+          ++i;
+        }
+      }
+
       if (!assignment.getOperator().defined()) {
         computeStmt = Store::make(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
       }
@@ -296,12 +324,17 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
         computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
       }
       taco_iassert(computeStmt.defined());
+
+      if (!accessStmts.empty()) {
+        accessStmts.push_back(computeStmt);
+        computeStmt = Block::make(accessStmts);
+      }
     }
   }
+
   // TODO: If only assembling so defer allocating value memory to the end when
   //       we'll know exactly how much we need.
   if (generateAssembleCode() || generateComputeCode()) {
-
     bool temporaryWithSparseAcceleration = util::contains(tempToIndexList, result);
     if(generateComputeCode() && !temporaryWithSparseAcceleration) {
       taco_iassert(computeStmt.defined());
@@ -1446,6 +1479,7 @@ Expr LowererImpl::getTemporarySize(Where where) {
 
 vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
   TensorVar temporary = where.getTemporary();
+  std::cout << "temp: " << temporary << std::endl;
 
   // TODO: emit as uint64 and manually emit bit pack code
   const Datatype bitGuardType = taco::Bool;
@@ -1510,6 +1544,8 @@ bool LowererImpl::canAccelerateDenseTemp(Where where) {
   TensorVar temporary = where.getTemporary();
   // (1) Temporary is dense vector
   if(!isDense(temporary.getFormat()) || temporary.getOrder() != 1) return false;
+
+  return true; // TODO: FIX THIS
 
   vector<Access> inputAccesses, resultAccesses;
   set<Access> reducedAccesses;
@@ -1626,6 +1662,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
   Stmt consumer = lower(where.getConsumer());
   if(accelarateDenseWorkSpace) {
     // We need to sort the indices array
+    std::cout << temporary << std::endl;
     Expr listOfIndices = tempToIndexList.at(temporary);
     Expr listOfIndicesSize = tempToIndexListSize.at(temporary);
     Expr sizeOfElt = ir::Sizeof::make(listOfIndices.type());
@@ -1684,6 +1721,78 @@ Stmt LowererImpl::lowerSequence(Sequence sequence) {
   Stmt definition = lower(sequence.getDefinition());
   Stmt mutation = lower(sequence.getMutation());
   return Block::make(definition, mutation);
+}
+
+
+Stmt LowererImpl::lowerAssemble(Assemble assemble) {
+  Stmt queries;
+  if (generateAssembleCode() && assemble.getQueries().defined()) {
+    queries = lower(assemble.getQueries());
+  }
+
+  const auto resultAccesses = getResultAccesses(assemble.getCompute()).first;
+
+  std::vector<Stmt> initAssembleStmts;
+  for (const auto& resultAccess : resultAccesses) {
+    Expr prevSize = 1;
+    std::vector<Expr> coords;
+    const auto resultIterators = getIterators(resultAccess);
+    const auto resultTensor = resultAccess.getTensorVar();
+    const auto resultTensorVar = getTensorVar(resultTensor);
+    const auto resultModeOrdering = resultTensor.getFormat().getModeOrdering();
+    for (const auto& resultIterator : resultIterators) {
+      if (generateAssembleCode()) {
+        if (resultIterator.hasSeqInsertEdge()) {
+          Stmt insertEdgeLoop = resultIterator.getSeqInsertEdge(
+              resultIterator.getParent().getPosVar(), coords, {});
+          auto locateCoords = coords;
+          for (auto iter = resultIterator.getParent(); !iter.isRoot(); 
+               iter = iter.getParent()) {
+            if (iter.hasLocate()) {
+              Expr dim = GetProperty::make(resultTensorVar,
+                  TensorProperty::Dimension, 
+                  resultModeOrdering[iter.getMode().getLevel() - 1]);
+              Expr pos = iter.getPosVar();
+              Stmt initPos = VarDecl::make(pos, iter.locate(locateCoords)[0]);
+              insertEdgeLoop = For::make(coords.back(), 0, dim, 1, 
+                                         Block::make(initPos, insertEdgeLoop));
+            } else {
+              taco_not_supported_yet;
+            }
+            locateCoords.pop_back();
+          }
+          initAssembleStmts.push_back(insertEdgeLoop);
+        }
+
+        Stmt initCoords = resultIterator.getInitCoords(prevSize, {});
+        initAssembleStmts.push_back(initCoords);
+      }
+
+      Stmt initYieldPos = resultIterator.getInitYieldPos(prevSize);
+      initAssembleStmts.push_back(initYieldPos);
+
+      prevSize = resultIterator.getAssembledSize(prevSize);
+      coords.push_back(getCoordinateVar(resultIterator));
+    }
+  }
+  Stmt initAssemble = Block::make(initAssembleStmts);
+
+  Stmt compute = lower(assemble.getCompute());
+
+  std::vector<Stmt> finalizeAssembleStmts;
+  for (const auto& resultAccess : resultAccesses) {
+    Expr prevSize = 1;
+    const auto resultIterators = getIterators(resultAccess);
+    for (const auto& resultIterator : resultIterators) {
+      Stmt finalizeYieldPos = resultIterator.getFinalizeYieldPos(prevSize);
+      finalizeAssembleStmts.push_back(finalizeYieldPos);
+
+      prevSize = resultIterator.getAssembledSize(prevSize);
+    }
+  }
+  Stmt finalizeAssemble = Block::make(finalizeAssembleStmts);
+
+  return Block::blanks(queries, initAssemble, compute, finalizeAssemble);
 }
 
 
