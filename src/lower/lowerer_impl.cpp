@@ -1706,9 +1706,17 @@ Expr LowererImpl::lowerAccess(Access access) {
     return getTensorVar(var);
   }
 
-  return getIterators(access).back().isUnique()
-         ? Load::make(getValuesArray(var), generateValueLocExpr(access))
-         : getReducedValueVar(access);
+
+  if (getIterators(access).back().isUnique()) {
+	  if (var.getType().getDataType() == Datatype::Bool && getIterators(access).back().isZeroless())  {
+		  return true;
+	  } else {
+		  return Load::make(getValuesArray(var), generateValueLocExpr(access));
+	  }
+  } else {
+	  return getReducedValueVar(access);
+  }
+
 }
 
 

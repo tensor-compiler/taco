@@ -230,16 +230,47 @@ string CodeGen::printTensorProperty(string varname, const GetProperty* op, bool 
 }
 
 string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
-                            bool is_output_prop) {
+                            bool is_output_prop, int flag, string output_tensor) {
   stringstream ret;
   ret << "  ";
 
   auto tensor = op->tensor.as<Var>();
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
-    ret << printType(tensor->type, true);
-    ret << " " << restrictKeyword() << " " << varname << " = (" << printType(tensor->type, true) << ")(";
-    ret << tensor->name << "->vals);\n";
+    switch(flag) {
+      case PRINT_FUNC:
+        ret << printType(tensor->type, true);
+        ret << " " << restrictKeyword() << " " << varname << " = (" << printType(tensor->type, true) << ")(";
+        ret << tensor->name << "->vals);\n";
+        break;
+      case PRINT_MEM_HOST_TO_DEV:
+        ret << "gpuErrchk(cudaMalloc((void **)&";
+        ret << tensor->name << "_dev" << "->vals, ";
+        ret << "malloc_usable_size(";
+        ret << tensor->name << "->vals)));\n";
+
+        ret << "  ";
+        ret << "cudaMemcpy(";
+        ret << tensor->name << "_dev" << "->vals, ";
+        ret << tensor->name << "->vals, ";
+        ret << "malloc_usable_size(";
+        ret << tensor->name << "->vals), ";
+        ret << "cudaMemcpyHostToDevice);\n";
+        break;
+      case PRINT_MEM_DEV_TO_HOST:
+        if(output_tensor == tensor->name) {
+          ret << "cudaMemcpy(";
+          ret << tensor->name << "->vals, ";
+          ret << tensor->name << "_dev->vals, ";
+          ret << "malloc_usable_size(";
+          ret << tensor->name << "->vals), ";
+          ret << "cudaMemcpyDevicetToHost);\n";
+          ret << "  ";
+        }
+        ret << "cudaFree(";
+        ret << tensor->name << "_dev" << "->vals);\n";
+        break;
+    }
     return ret.str();
   } else if (op->property == TensorProperty::ValuesSize) {
     ret << "int " << varname << " = " << tensor->name << "->vals_size;\n";
@@ -252,18 +283,54 @@ string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
   // for a Fixed level, ptr is an int
   // all others are int*
   if (op->property == TensorProperty::Dimension) {
-    tp = "int";
-    ret << tp << " " << varname << " = (int)(" << tensor->name
-        << "->dimensions[" << op->mode << "]);\n";
+    switch(flag) {
+      case PRINT_FUNC:
+        tp = "int";
+        ret << tp << " " << varname << " = (int)(" << tensor->name
+          << "->dimensions[" << op->mode << "]);\n";
+        break;
+      case PRINT_MEM_HOST_TO_DEV:
+        ret << tensor->name << "_dev->dimensions[" << op->mode << "] = " << tensor->name << "->dimensions[" << op->mode << "];\n";
+        break;
+    }
   } else {
     taco_iassert(op->property == TensorProperty::Indices);
     tp = "int*";
     auto nm = op->index;
-    ret << tp << " " << restrictKeyword() << " " << varname << " = ";
-    ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
-    ret << "][" << nm << "]);\n";
-  }
+    switch(flag) {
+      case PRINT_FUNC:
+        ret << tp << " " << restrictKeyword() << " " << varname << " = ";
+        ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
+        ret << "][" << nm << "]);\n";
+        break;
+      case PRINT_MEM_HOST_TO_DEV:
+        ret << "gpuErrchk(cudaMalloc((void **)&";
+        ret << tensor->name << "_dev" << "->indices[" << op->mode << "][" << nm << "], ";
+        ret << "malloc_usable_size(";
+        ret << tensor->name << "->indices[" << op->mode << "][" << nm << "])));\n";
 
+        ret << "  ";
+        ret << "cudaMemcpy(";
+        ret << tensor->name << "_dev" << "->indices[" << op->mode << "][" << nm << "], ";
+        ret << tensor->name << "->indices[" << op->mode << "][" << nm << "], ";
+        ret << "malloc_usable_size(";
+        ret << tensor->name << "->indices[" << op->mode << "][" << nm << "]), ";
+        ret << "cudaMemcpyHostToDevice);\n";
+        break;
+      case PRINT_MEM_DEV_TO_HOST:
+        if(output_tensor == tensor->name) {
+          ret << "cudaMemcpy(";
+          ret << tensor->name << "->indices[" << op->mode << "][" << nm << "], ";
+          ret << tensor->name << "->indices[" << op->mode << "][" << nm << "], ";
+          ret << "malloc_usable_size(";
+          ret << tensor->name << "_dev->indices[" << op->mode << "][" << nm << "]), ";
+          ret << "cudaMemcpyDeviceToHost);\n";
+        }
+        ret << "cudaFree(";
+        ret << tensor->name << "_dev" << "->indices[" << op->mode << "][" << nm << "]);\n";
+        break;
+    }
+  }
   return ret.str();
 }
 
@@ -312,7 +379,7 @@ string CodeGen::pointTensorProperty(std::string varname) {
 
 // helper to print declarations
 string CodeGen::printDecls(map<Expr, string, ExprCompare> varMap,
-                           vector<Expr> inputs, vector<Expr> outputs) {
+                           vector<Expr> inputs, vector<Expr> outputs, int flag, string output_tensor) {
   stringstream ret;
   unordered_set<string> propsAlreadyGenerated;
 
@@ -367,7 +434,7 @@ string CodeGen::printDecls(map<Expr, string, ExprCompare> varMap,
         break; 
       }
     } else {
-      ret << unpackTensorProperty(varMap[prop], prop, isOutputProp);
+      ret << unpackTensorProperty(varMap[prop], prop, isOutputProp, flag, output_tensor);
     }
     propsAlreadyGenerated.insert(varMap[prop]);
   }

@@ -291,7 +291,7 @@ void CodeGen_C::visit(const Function* func) {
   localVars = varFinder.localVars;
 
   // Print variable declarations
-  out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << endl;
+  out << printDecls(varFinder.varDecls, func->inputs, func->outputs, PRINT_FUNC, "") << endl;
 
   if (emittingCoroutine) {
     out << printContextDeclAndInit(varMap, localVars, numYields, func->name)

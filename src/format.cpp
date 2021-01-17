@@ -182,6 +182,11 @@ bool ModeFormat::hasProperties(const std::vector<Property>& properties) const {
           return false;
         }
         break;
+      case ZEROLESS:
+        if (!isZeroless()) {
+          return false;
+        }
+        break;	
       case NOT_FULL:
         if (isFull()) {
           return false;
@@ -207,6 +212,11 @@ bool ModeFormat::hasProperties(const std::vector<Property>& properties) const {
           return false;
         }
         break;
+      case NOT_ZEROLESS:
+        if (isZeroless()) {
+          return false;
+        }
+        break;	
     }
   }
   return true;
@@ -235,6 +245,11 @@ bool ModeFormat::isBranchless() const {
 bool ModeFormat::isCompact() const {
   taco_iassert(defined());
   return impl->isCompact;
+}
+
+bool ModeFormat::isZeroless() const {
+  taco_iassert(defined());
+  return impl->isZeroless;
 }
 
 bool ModeFormat::hasCoordValIter() const {
