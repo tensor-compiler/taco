@@ -1050,17 +1050,21 @@ IndexStmt insertAttributeQueries(IndexStmt stmt) {
   // used to compute attribute queries
   std::set<TensorVar> insertedResults;  
 
+  Assemble::AttrQueryResults queryResults;
   struct LowerAttrQuery : public IndexNotationRewriter {
     using IndexNotationRewriter::rewrite;
 
+    Assemble::AttrQueryResults& queryResults;
     std::set<TensorVar>& insertedResults;
     std::vector<TensorVar> results;
     IndexStmt epilog;
 
-    LowerAttrQuery(std::set<TensorVar>& insertedResults) : 
-        insertedResults(insertedResults) {}
+    LowerAttrQuery(Assemble::AttrQueryResults& queryResults, 
+                   std::set<TensorVar>& insertedResults) : 
+        queryResults(queryResults), insertedResults(insertedResults) {}
 
     IndexStmt lower(IndexStmt stmt) {
+      queryResults = Assemble::AttrQueryResults();
       results = getResults(stmt);
       epilog = IndexStmt();
       stmt = IndexNotationRewriter::rewrite(stmt);
@@ -1091,6 +1095,9 @@ IndexStmt insertAttributeQueries(IndexStmt stmt) {
         return;
       }
       // TODO: check assign is not reduction
+
+      queryResults[resultTensor] = 
+          std::vector<std::vector<TensorVar>>(resultTensor.getOrder());
 
       const auto indices = resultAccess.getIndexVars();
       const auto modeFormats = resultTensor.getFormat().getModeFormats();
@@ -1142,6 +1149,8 @@ IndexStmt insertAttributeQueries(IndexStmt stmt) {
                   epilog = forall(coord, epilog);
                 }
                 insertedResults.insert(queryResult);
+
+                queryResults[resultTensor][i] = {queryResult};
                 return;
               }
               case AttrQuery::IDENTITY:
@@ -1158,7 +1167,8 @@ IndexStmt insertAttributeQueries(IndexStmt stmt) {
       stmt = IndexStmt();
     }
   };
-  IndexStmt loweredQueries = LowerAttrQuery(insertedResults).lower(stmt);
+  IndexStmt loweredQueries = 
+      LowerAttrQuery(queryResults, insertedResults).lower(stmt);
   std::cout << loweredQueries << std::endl;
 
   struct ReduceToAssign : public IndexNotationRewriter {
@@ -1305,7 +1315,9 @@ IndexStmt insertAttributeQueries(IndexStmt stmt) {
 
   // TODO: Need to selectively insert attribute query computations based on 
   // whether they are needed when assembling result
-  return Assemble(loweredQueries, stmt);
+  //return Where(stmt, loweredQueries);
+  //return Multi(loweredQueries, stmt);
+  return Assemble(loweredQueries, stmt, queryResults);
 }
 
 IndexStmt scalarPromote(IndexStmt stmt) {

@@ -1764,8 +1764,9 @@ template <> Sequence to<Sequence>(IndexStmt s) {
 Assemble::Assemble(const AssembleNode* n) :IndexStmt(n) {
 }
 
-Assemble::Assemble(IndexStmt queries, IndexStmt compute)
-    : Assemble(new AssembleNode(queries, compute)) {
+Assemble::Assemble(IndexStmt queries, IndexStmt compute, 
+                   AttrQueryResults results)
+    : Assemble(new AssembleNode(queries, compute, results)) {
 }
 
 IndexStmt Assemble::getQueries() const {
@@ -1776,8 +1777,13 @@ IndexStmt Assemble::getCompute() const {
   return getNode(*this)->compute;
 }
 
-Assemble assemble(IndexStmt queries, IndexStmt compute) {
-  return Assemble(queries, compute);
+const Assemble::AttrQueryResults& Assemble::getAttrQueryResults() const {
+  return getNode(*this)->results;
+}
+
+Assemble assemble(IndexStmt queries, IndexStmt compute, 
+                  Assemble::AttrQueryResults results) {
+  return Assemble(queries, compute, results);
 }
 
 template <> bool isa<Assemble>(IndexStmt s) {
@@ -2471,6 +2477,11 @@ std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
                                                   Matcher* ctx) {
       ctx->match(op->consumer);
       ctx->match(op->producer);
+    }),
+    function<void(const AssembleNode*,Matcher*)>([&](const AssembleNode* op,
+                                                  Matcher* ctx) {
+      ctx->match(op->compute);
+      ctx->match(op->queries);
     })
   );
   return temporaries;

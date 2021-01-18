@@ -192,7 +192,7 @@ void IndexNotationRewriter::visit(const AssembleNode* op) {
     stmt = op;
   }
   else {
-    stmt = new AssembleNode(queries, compute);
+    stmt = new AssembleNode(queries, compute, op->results);
   }
 }
 

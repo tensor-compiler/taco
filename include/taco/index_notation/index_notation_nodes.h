@@ -274,8 +274,9 @@ struct SequenceNode : public IndexStmtNode {
 };
 
 struct AssembleNode : public IndexStmtNode {
-  AssembleNode(IndexStmt queries, IndexStmt compute)
-      : queries(queries), compute(compute) {}
+  AssembleNode(IndexStmt queries, IndexStmt compute, 
+               Assemble::AttrQueryResults results)
+      : queries(queries), compute(compute), results(results) {}
 
   void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
@@ -283,6 +284,7 @@ struct AssembleNode : public IndexStmtNode {
 
   IndexStmt queries;
   IndexStmt compute;
+  Assemble::AttrQueryResults results;
 };
 
 

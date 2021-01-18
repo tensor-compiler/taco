@@ -785,20 +785,23 @@ Sequence sequence(IndexStmt definition, IndexStmt mutation);
 
 class Assemble : public IndexStmt {
 public:
+  typedef std::map<TensorVar,std::vector<std::vector<TensorVar>>> AttrQueryResults;
+
   Assemble() = default;
   Assemble(const AssembleNode*);
-  Assemble(IndexStmt queries, IndexStmt compute);
+  Assemble(IndexStmt queries, IndexStmt compute, AttrQueryResults results);
 
   IndexStmt getQueries() const;
   IndexStmt getCompute() const;
 
-  //std::map<TensorVar,std::vector<std::vector<TensorVar>>> getAttrQueryResults() const;
+  const AttrQueryResults& getAttrQueryResults() const;
 
   typedef AssembleNode Node;
 };
 
 /// Create an assemble index statement.
-Assemble assemble(IndexStmt queries, IndexStmt compute);
+Assemble assemble(IndexStmt queries, IndexStmt compute, 
+                  Assemble::AttrQueryResults results);
 
 
 /// A multi statement has two statements that are executed separately, and let

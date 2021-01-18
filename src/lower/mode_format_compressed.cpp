@@ -216,8 +216,7 @@ Stmt CompressedModeFormat::getSeqInsertEdge(Expr parentPos,
     Mode mode) const {
   Expr posArray = getPosArray(mode.getModePack());
   Expr prevPos = Load::make(posArray, parentPos);
-  //Expr nnz = queries["nnz"].getResult(coords, "nnz");
-  Expr nnz = 0; // TODO: FIX THIS
+  Expr nnz = queries[0].getResult(coords, "nnz");
   Expr pos = ir::Add::make(prevPos, nnz);
   return Store::make(posArray, ir::Add::make(parentPos, 1), pos);
 }

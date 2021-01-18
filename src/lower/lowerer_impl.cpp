@@ -118,6 +118,8 @@ LowererImpl::lower(IndexStmt stmt, string name,
   vector<TensorVar> results = getResults(stmt);
   vector<TensorVar> arguments = getArguments(stmt);
   vector<TensorVar> temporaries = getTemporaries(stmt);
+  std::cout << "temps:" << util::join(temporaries) << std::endl;
+  std::cout << "results:" << util::join(results) << std::endl;
 
   // Create datastructure needed for temporary workspace hoisting/reuse
   temporaryInitialization = getTemporaryLocations(stmt);
@@ -1742,9 +1744,18 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
     const auto resultModeOrdering = resultTensor.getFormat().getModeOrdering();
     for (const auto& resultIterator : resultIterators) {
       if (generateAssembleCode()) {
+        const size_t resultLevel = resultIterator.getMode().getLevel() - 1;
+        const auto queryResultVars = 
+            assemble.getAttrQueryResults().at(resultTensor)[resultLevel];
+        std::vector<AttrQueryResult> queryResults;
+        for (const auto& queryResultVar : queryResultVars) {
+          queryResults.emplace_back(getTensorVar(queryResultVar), 
+                                    getValuesArray(queryResultVar));
+        }
+
         if (resultIterator.hasSeqInsertEdge()) {
           Stmt insertEdgeLoop = resultIterator.getSeqInsertEdge(
-              resultIterator.getParent().getPosVar(), coords, {});
+              resultIterator.getParent().getPosVar(), coords, queryResults);
           auto locateCoords = coords;
           for (auto iter = resultIterator.getParent(); !iter.isRoot(); 
                iter = iter.getParent()) {
@@ -1764,7 +1775,7 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
           initAssembleStmts.push_back(insertEdgeLoop);
         }
 
-        Stmt initCoords = resultIterator.getInitCoords(prevSize, {});
+        Stmt initCoords = resultIterator.getInitCoords(prevSize, queryResults);
         initAssembleStmts.push_back(initCoords);
       }
 
@@ -1773,6 +1784,13 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
 
       prevSize = resultIterator.getAssembledSize(prevSize);
       coords.push_back(getCoordinateVar(resultIterator));
+    }
+
+    if (generateAssembleCode()) {
+      // TODO: call calloc if not compact or not zeroless
+      Expr valuesArr = getValuesArray(resultTensor);
+      Stmt initValues = Allocate::make(valuesArr, prevSize);
+      initAssembleStmts.push_back(initValues);
     }
   }
   Stmt initAssemble = Block::make(initAssembleStmts);
