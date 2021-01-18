@@ -410,7 +410,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
       if (isa<ir::Literal>(ir::simplify(iterBounds[0])) && ir::simplify(iterBounds[0]).as<ir::Literal>()->equalsScalar(0)) {
         guardCondition = maxGuard;
       }
-      ir::Stmt guard = ir::IfThenElse::make(guardCondition, ir::Break::make());
+      ir::Stmt guard = ir::IfThenElse::make(guardCondition, ir::Continue::make());
       recoverySteps.push_back(guard);
     }
 
@@ -438,7 +438,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
       }
       if (!hasDirectDivBound) {
           Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]),
-                                        Break::make());
+                                        Continue::make());
           recoverySteps.push_back(guard);
       }
     }

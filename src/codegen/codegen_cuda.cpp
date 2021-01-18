@@ -1142,7 +1142,7 @@ void CodeGen_CUDA::visit(const Sqrt* op) {
   stream << ")";
 }
 
-void CodeGen_CUDA::visit(const Break*) {
+void CodeGen_CUDA::visit(const Continue*) {
   doIndent();
   if(!isHostFunction && deviceFunctionLoopDepth == 0) {
     // can't break out of kernel
