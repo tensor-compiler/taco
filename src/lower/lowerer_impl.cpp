@@ -121,6 +121,8 @@ LowererImpl::lower(IndexStmt stmt, string name,
   std::cout << "temps:" << util::join(temporaries) << std::endl;
   std::cout << "results:" << util::join(results) << std::endl;
 
+  assembledByUngroupedInsert = getAssembledByUngroupedInsertion(stmt);
+
   // Create datastructure needed for temporary workspace hoisting/reuse
   temporaryInitialization = getTemporaryLocations(stmt);
 
@@ -294,8 +296,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
 
       std::vector<Stmt> accessStmts;
 
-      // TODO: emit this when only assembling as well
-      if (generateAssembleCode()) {
+      if (generateAssembleCode() && isAssembledByUngroupedInsertion(result)) {
         std::vector<Expr> coords;
         Expr prevPos = 0;
         size_t i = 0;
@@ -392,13 +393,17 @@ Stmt LowererImpl::lowerYield(Yield yield) {
 }
 
 
-static pair<vector<Iterator>, vector<Iterator>>
-splitAppenderAndInserters(const vector<Iterator>& results) {
+pair<vector<Iterator>, vector<Iterator>>
+LowererImpl::splitAppenderAndInserters(const vector<Iterator>& results) {
   vector<Iterator> appenders;
   vector<Iterator> inserters;
 
   // TODO: Choose insert when the current forall is nested inside a reduction
   for (auto& result : results) {
+    if (isAssembledByUngroupedInsertion(result.getTensor())) {
+      continue;
+    }
+
     taco_iassert(result.hasAppend() || result.hasInsert())
         << "Results must support append or insert";
 
@@ -1732,7 +1737,12 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
     queries = lower(assemble.getQueries());
   }
 
-  const auto resultAccesses = getResultAccesses(assemble.getCompute()).first;
+  const auto& attrQueryResults = assemble.getAttrQueryResults();
+  auto resultAccesses = getResultAccesses(assemble.getCompute()).first;
+  std::remove_if(resultAccesses.begin(), resultAccesses.end(), 
+      [&](const auto& access) {
+          return !util::contains(attrQueryResults, access.getTensorVar()); }
+  );
 
   std::vector<Stmt> initAssembleStmts;
   for (const auto& resultAccess : resultAccesses) {
@@ -1746,7 +1756,7 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
       if (generateAssembleCode()) {
         const size_t resultLevel = resultIterator.getMode().getLevel() - 1;
         const auto queryResultVars = 
-            assemble.getAttrQueryResults().at(resultTensor)[resultLevel];
+            attrQueryResults.at(resultTensor)[resultLevel];
         std::vector<AttrQueryResult> queryResults;
         for (const auto& queryResultVar : queryResultVars) {
           queryResults.emplace_back(getTensorVar(queryResultVar), 
@@ -2075,7 +2085,10 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
 
   std::vector<Stmt> result;
   for (auto& write : writes) {
-    if (write.getTensorVar().getOrder() == 0) continue;
+    if (write.getTensorVar().getOrder() == 0 || 
+        isAssembledByUngroupedInsertion(write.getTensorVar())) {
+      continue;
+    }
 
     std::vector<Stmt> initArrays;
 
@@ -2173,7 +2186,10 @@ ir::Stmt LowererImpl::finalizeResultArrays(std::vector<Access> writes) {
 
   std::vector<Stmt> result;
   for (auto& write : writes) {
-    if (write.getTensorVar().getOrder() == 0) continue;
+    if (write.getTensorVar().getOrder() == 0 || 
+        isAssembledByUngroupedInsertion(write.getTensorVar())) {
+      continue;
+    }
 
     const auto iterators = getIterators(write);
     taco_iassert(!iterators.empty());
@@ -2809,6 +2825,20 @@ Expr LowererImpl::checkThatNoneAreExhausted(std::vector<Iterator> iterators)
   return (!result.empty())
          ? taco::ir::conjunction(result)
          : Lt::make(iterators[0].getIteratorVar(), iterators[0].getEndVar());
+}
+
+
+bool LowererImpl::isAssembledByUngroupedInsertion(TensorVar result) {
+  return util::contains(assembledByUngroupedInsert, result);
+}
+
+bool LowererImpl::isAssembledByUngroupedInsertion(Expr result) {
+  for (const auto& tensor : assembledByUngroupedInsert) {
+    if (getTensorVar(tensor) == result) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }

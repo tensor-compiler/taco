@@ -978,6 +978,10 @@ std::vector<TensorVar> getTemporaries(IndexStmt stmt);
 /// Returns the temporaries in the index statement, in the order they appear.
 std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt);
 
+/// Returns the results in the index statement that should be assembled by 
+/// ungrouped insertion.
+std::vector<TensorVar> getAssembledByUngroupedInsertion(IndexStmt stmt);
+
 /// Returns the tensors in the index statement.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);
 

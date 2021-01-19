@@ -374,12 +374,18 @@ protected:
   /// Create statements to append positions to result modes.
   ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
 
-
   /// Create an expression to index into a tensor value array.
   ir::Expr generateValueLocExpr(Access access) const;
 
   /// Expression that evaluates to true if none of the iteratators are exhausted
   ir::Expr checkThatNoneAreExhausted(std::vector<Iterator> iterators);
+
+  bool isAssembledByUngroupedInsertion(TensorVar result);
+
+  bool isAssembledByUngroupedInsertion(ir::Expr result);
+
+  std::pair<std::vector<Iterator>,std::vector<Iterator>>
+  splitAppenderAndInserters(const std::vector<Iterator>& results);
 
 private:
   bool assemble;
@@ -387,6 +393,8 @@ private:
 
   int markAssignsAtomicDepth = 0;
   ParallelUnit atomicParallelUnit;
+
+  std::vector<TensorVar> assembledByUngroupedInsert;
 
   /// Map used to hoist temporary workspace initialization
   std::map<Forall, Where> temporaryInitialization;

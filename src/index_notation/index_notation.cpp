@@ -2421,6 +2421,7 @@ vector<TensorVar> getArguments(IndexStmt stmt) {
   return result;
 }
 
+
 std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt) {
   map<Forall, Where> temporaryLocs;
   Forall f = Forall();
@@ -2436,6 +2437,7 @@ std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt) {
         );
   return temporaryLocs;
 }
+
 
 std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
   vector<TensorVar> temporaries;
@@ -2485,6 +2487,22 @@ std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
     })
   );
   return temporaries;
+}
+
+
+std::vector<TensorVar> getAssembledByUngroupedInsertion(IndexStmt stmt) {
+  std::vector<TensorVar> results;
+  match(stmt,
+    function<void(const AssembleNode*,Matcher*)>([&](const AssembleNode* op,
+                                                  Matcher* ctx) {
+      for (const auto& result : op->results) {
+        results.push_back(result.first);
+      }
+      ctx->match(op->queries);
+      ctx->match(op->compute);
+    })
+  );
+  return results;
 }
 
 
