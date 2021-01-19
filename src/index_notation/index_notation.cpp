@@ -791,9 +791,8 @@ static void check(Assignment assignment) {
   auto freeVars = assignment.getLhs().getIndexVars();
   auto indexExpr = assignment.getRhs();
   auto shape = tensorVar.getType().getShape();
-  taco_uassert(error::dimensionsTypecheck(freeVars, indexExpr, shape))
-      << error::expr_dimension_mismatch << " "
-      << error::dimensionTypecheckErrors(freeVars, indexExpr, shape);
+  auto typecheck = error::dimensionsTypecheck(freeVars, indexExpr, shape);
+  taco_uassert(typecheck.first) << error::expr_dimension_mismatch << " " << typecheck.second;
 }
 
 Assignment Access::operator=(const IndexExpr& expr) {
@@ -2016,9 +2015,9 @@ static bool isValid(Assignment assignment, string* reason) {
   auto result = lhs.getTensorVar();
   auto freeVars = lhs.getIndexVars();
   auto shape = result.getType().getShape();
-  if(!error::dimensionsTypecheck(freeVars, rhs, shape)) {
-    *reason = error::expr_dimension_mismatch + " " +
-              error::dimensionTypecheckErrors(freeVars, rhs, shape);
+  auto typecheck = error::dimensionsTypecheck(freeVars, rhs, shape);
+  if (!typecheck.first) {
+    *reason = error::expr_dimension_mismatch + " " + typecheck.second;
     return false;
   }
   return true;
