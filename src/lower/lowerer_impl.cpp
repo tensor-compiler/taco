@@ -301,9 +301,6 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
       }
 
       if (whereTempsNeedZero.find(assignment) != whereTempsNeedZero.end()) {
-        cout << "ASSIGNMENT HERE" << endl;
-        cout << assignment;
-        cout << endl;
         auto temporary = whereTempsNeedZero[assignment];
         auto tempVar = this->temporaryArrays[temporary].values;
         auto tempLoc = generateValueLocExpr(this->temporaryConsumerAccess[temporary]);
@@ -495,11 +492,6 @@ Stmt LowererImpl::lowerForall(Forall forall)
     }
     // Emit dimension coordinate iteration loop
     else if (iterator.isDimensionIterator()) {
-      if (compute) {
-        cout << "DIM FORALL HERE" << endl;
-        cout << forall;
-        cout << endl;
-      }
 
       loops = lowerForallDimension(forall, point.locators(),
                                    inserters, appenders, reducedAccesses, recoveryStmt);
@@ -518,8 +510,6 @@ Stmt LowererImpl::lowerForall(Forall forall)
   }
   // Emit general loops to merge multiple iterators
   else {
-    if (compute)
-    cout << "LATTICE FORALL HERE" << endl;
     std::vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(forall.getIndexVar());
     taco_iassert(underivedAncestors.size() == 1); // TODO: add support for fused coordinate of pos loop
     loops = lowerMergeLattice(lattice, underivedAncestors[0],
@@ -850,15 +840,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
-  cout << "BODY\n" << body << endl;
-  for (auto it = locators.begin(); it != locators.end(); it++) {
-    cout << it->getIndexVar() << ", ";
-  }
-  cout << endl;
-  for (auto it = inserters.begin(); it != inserters.end(); it++) {
-    cout << it->getIndexVar() << ", ";
-  }
-  cout << endl;
+
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
   }
@@ -979,8 +961,6 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
                                       set<Access> reducedAccesses,
                                       ir::Stmt recoveryStmt)
 {
-  cout << "FUSED FORALL HERE" << endl;
-  cout << forall;
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
   Stmt declareCoordinate = Stmt();
   if (provGraph.isCoordVariable(forall.getIndexVar())) {
@@ -1417,9 +1397,6 @@ Stmt LowererImpl::lowerWhere(Where where) {
     );
 
     if (prodAssign != IndexStmt() && consumeAssign != IndexStmt()) {
-      cout << "WHERE HERE" << endl;
-      cout << where;
-      cout << endl;
       whereTempsNeedZero[consumeAssign] = where.getTemporary();
     }
   }

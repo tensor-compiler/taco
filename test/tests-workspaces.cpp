@@ -36,7 +36,7 @@ TEST(workspaces, tile_vecElemMul_NoTail) {
              .split(i_bounded, i0, i1, 4)
              .precompute(precomputedExpr, i1, i1, precomputed);
    
-    cout << stmt << endl;
+  cout << stmt << endl;
 
   A.compile(stmt);
   A.assemble();
@@ -210,7 +210,7 @@ TEST(workspaces, tile_dot_NoTail) {
   IndexStmt stmt = B.getAssignment().concretize();
   stmt = stmt.fuse(i, j, f);
    
-    cout << stmt << endl;
+  cout << stmt << endl;
 
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt compute = lower(stmt, "compute",  true, true);
