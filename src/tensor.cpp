@@ -830,6 +830,7 @@ void TensorBase::compileSource(std::string source) {
   }
   content->module->setSource(source + "\n" + ss.str());
   content->module->compile();
+  setNeedsCompile(false);
 }
 
 TensorBase::HelperFuncsCache TensorBase::helperFunctions;
