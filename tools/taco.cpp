@@ -916,8 +916,16 @@ int main(int argc, char* argv[]) {
     printCompute = true;
   }
 
-  // Load tensors
+  // pre-parse expression, to determine existence and order of loaded tensors
   map<string,TensorBase> loadedTensors;
+  TensorBase temp_tensor;
+  parser::Parser temp_parser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, 42);
+  try {
+    temp_parser.parse();
+    temp_tensor = temp_parser.getResultTensor();
+  } catch (parser::ParseError& e) {
+    return reportError(e.getMessage(), 6);
+  }
 
   // Load tensors
   for (auto& tensorNames : inputFilenames) {
@@ -928,7 +936,32 @@ int main(int argc, char* argv[]) {
       return reportError("Loaded tensors can only be type double", 7);
     }
 
-    Format format = util::contains(formats, name) ? formats.at(name) : Dense;
+    // make sure the tensor exists in the expression (and stash its order)
+    int found_tensor_order;
+    bool found = false;
+    for (auto a : getArgumentAccesses(temp_tensor.getAssignment().concretize())) {
+      if (a.getTensorVar().getName() == name) {
+        found_tensor_order = a.getIndexVars().size();
+        found = true;
+        break;
+      }
+    }
+    if(found == false) {
+      return reportError("Cannot load '" + filename + "': no tensor '" + name + "' found in expression", 8);
+    }
+
+    Format format;
+    if(util::contains(formats, name)) {
+      // format of this tensor is specified on the command line, use it
+      format = formats.at(name);
+    } else {
+      // create a dense default format of the correct order
+      std::vector<ModeFormat> modes;
+      for(int i = 0; i < found_tensor_order; i++) {
+        modes.push_back(Dense);
+      }
+      format = Format({ModeFormatPack(modes)});
+    }
     TensorBase tensor;
     TOOL_BENCHMARK_TIMER(tensor = read(filename,format,false),
                          name+" file read:", timevalue);
