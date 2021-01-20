@@ -7,6 +7,9 @@
 #include "taco/util/name_generator.h"
 #include "taco/tensor.h"
 
+#include "codegen/codegen.h"
+#include "taco/lower/lower.h"
+
 using namespace taco;
 
 static const Dimension n, m, o;
@@ -351,6 +354,14 @@ TEST(schedule, workspace_spmspm) {
   E.insert({2,1}, 180.0);
   E.pack();
   ASSERT_TENSOR_EQ(E,A);
+
+  auto stmt = A.getAssignment().concretize();
+    cout << stmt << endl;
+
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+    ir::Stmt compute = lower(stmt, "compute",  true, true);
+    codegen->compile(compute, true);
+
 }
 
 }

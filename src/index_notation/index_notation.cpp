@@ -2368,6 +2368,27 @@ std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt) {
   return temporaryLocs;
 }
 
+std::map<TensorVar, Access> getTemporaryConsumerAccess(IndexStmt stmt) {
+  map<TensorVar, Access> temporaryConsumerAccess;
+  Where where = Where();
+  bool isConsumer = false;
+  match(stmt,
+        function<void(const WhereNode*, Matcher*)>([&](const WhereNode* w, Matcher* ctx) {
+          where = w;
+          isConsumer = true;
+          ctx->match(w->consumer);
+          isConsumer = false;
+          ctx->match(w->producer);
+        }),
+        function<void(const AccessNode*, Matcher*)>([&](const AccessNode* a, Matcher* ctx) {
+          if (isConsumer && where.defined() && where.getTemporary() == a->tensorVar) {
+            temporaryConsumerAccess.insert({where.getTemporary(), Access(a)});
+          }
+        })
+  );
+  return temporaryConsumerAccess;
+}
+
 std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
   vector<TensorVar> temporaries;
   bool firstAssignment = true;

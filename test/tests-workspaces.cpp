@@ -186,3 +186,34 @@ TEST(workspaces, tile_denseMatMul) {
 //  codegen->compile(compute, false);
   
 }
+
+
+TEST(workspaces, tile_dot_NoTail) {
+  
+
+  Tensor<double> B("B", {16, 16}, {Dense, Dense});
+  Tensor<double> C("C", {16, 16}, {Dense, Dense});
+
+  for (int i = 0; i < 16; i++) {
+    for (int j = 0; j < 16; j++) {
+      B.insert({i, j}, (double) i+j);
+    }
+  }
+
+  B.pack();
+  C.pack();
+
+  IndexVar i("i"), j("j"), f("f");
+
+  B(i,j) = C(i,j);
+
+  IndexStmt stmt = B.getAssignment().concretize();
+  stmt = stmt.fuse(i, j, f);
+   
+    cout << stmt << endl;
+
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  true, true);
+  codegen->compile(compute, true);
+
+}

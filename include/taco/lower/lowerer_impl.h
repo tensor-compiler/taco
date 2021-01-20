@@ -367,6 +367,7 @@ private:
 
   /// Map used to hoist temporary workspace initialization
   std::map<Forall, Where> temporaryInitialization;
+  std::map<TensorVar, Access> temporaryConsumerAccess;
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
@@ -399,6 +400,7 @@ private:
   std::vector<ir::Stmt> whereConsumers;
   std::vector<TensorVar> whereTemps;
   std::map<TensorVar, const AccessNode *> whereTempsToResult;
+  std::map<Assignment, TensorVar> whereTempsNeedZero;
 
   bool captureNextLocatePos = false;
   ir::Stmt capturedLocatePos; // used for whereConsumer when want to replicate same locating

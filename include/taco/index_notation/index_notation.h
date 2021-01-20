@@ -963,6 +963,9 @@ std::vector<TensorVar> getTemporaries(IndexStmt stmt);
 /// Returns the temporaries in the index statement, in the order they appear.
 std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt);
 
+/// Returns the temporary and its corresponding consumer-side load access on the RHS.
+std::map<TensorVar, Access> getTemporaryConsumerAccess(IndexStmt stmt);
+
 /// Returns the tensors in the index statement.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);
 

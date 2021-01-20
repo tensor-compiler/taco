@@ -120,6 +120,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   // Create datastructure needed for temporary workspace hoisting/reuse
   temporaryInitialization = getTemporaryLocations(stmt);
+  temporaryConsumerAccess = getTemporaryConsumerAccess(stmt);
 
   // Convert tensor results and arguments IR variables
   map<TensorVar, Expr> resultVars;
@@ -297,6 +298,19 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
       }
       else {
         computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
+      }
+
+      if (whereTempsNeedZero.find(assignment) != whereTempsNeedZero.end()) {
+        cout << "ASSIGNMENT HERE" << endl;
+        cout << assignment;
+        cout << endl;
+        auto temporary = whereTempsNeedZero[assignment];
+        auto tempVar = this->temporaryArrays[temporary].values;
+        auto tempLoc = generateValueLocExpr(this->temporaryConsumerAccess[temporary]);
+        // FIXME: using loc might not be the correct location to zero out
+        ir::Stmt zeroTemp = Store::make(tempVar, tempLoc, ir::Literal::zero(temporary.getType().getDataType()));
+
+        computeStmt = Block::make(computeStmt, zeroTemp);
       }
       taco_iassert(computeStmt.defined());
       return computeStmt;
@@ -481,6 +495,12 @@ Stmt LowererImpl::lowerForall(Forall forall)
     }
     // Emit dimension coordinate iteration loop
     else if (iterator.isDimensionIterator()) {
+      if (compute) {
+        cout << "DIM FORALL HERE" << endl;
+        cout << forall;
+        cout << endl;
+      }
+
       loops = lowerForallDimension(forall, point.locators(),
                                    inserters, appenders, reducedAccesses, recoveryStmt);
     }
@@ -498,6 +518,8 @@ Stmt LowererImpl::lowerForall(Forall forall)
   }
   // Emit general loops to merge multiple iterators
   else {
+    if (compute)
+    cout << "LATTICE FORALL HERE" << endl;
     std::vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(forall.getIndexVar());
     taco_iassert(underivedAncestors.size() == 1); // TODO: add support for fused coordinate of pos loop
     loops = lowerMergeLattice(lattice, underivedAncestors[0],
@@ -828,7 +850,15 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
-
+  cout << "BODY\n" << body << endl;
+  for (auto it = locators.begin(); it != locators.end(); it++) {
+    cout << it->getIndexVar() << ", ";
+  }
+  cout << endl;
+  for (auto it = inserters.begin(); it != inserters.end(); it++) {
+    cout << it->getIndexVar() << ", ";
+  }
+  cout << endl;
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
   }
@@ -949,6 +979,8 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
                                       set<Access> reducedAccesses,
                                       ir::Stmt recoveryStmt)
 {
+  cout << "FUSED FORALL HERE" << endl;
+  cout << forall;
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
   Stmt declareCoordinate = Stmt();
   if (provGraph.isCoordVariable(forall.getIndexVar())) {
@@ -1366,8 +1398,31 @@ Stmt LowererImpl::lowerWhere(Where where) {
     }
   }
 
-  if (!temporaryHoisted)
+  if (!temporaryHoisted) {
     temporaryValuesInitFree = codeToInitializeTemporary(where);
+  } else {
+    auto prodAssign = IndexStmt();
+    match(where.getProducer(),
+          std::function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
+            if (op->op.defined()) {
+              prodAssign = op;
+            }
+          })
+    );
+    Assignment consumeAssign = to<Assignment>(IndexStmt());
+    match(where.getConsumer(),
+          std::function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
+            consumeAssign = Assignment(op);
+          })
+    );
+
+    if (prodAssign != IndexStmt() && consumeAssign != IndexStmt()) {
+      cout << "WHERE HERE" << endl;
+      cout << where;
+      cout << endl;
+      whereTempsNeedZero[consumeAssign] = where.getTemporary();
+    }
+  }
 
   Stmt initializeTemporary = temporaryValuesInitFree[0];
   Stmt freeTemporary = temporaryValuesInitFree[1];
@@ -1379,6 +1434,8 @@ Stmt LowererImpl::lowerWhere(Where where) {
             }
         })
   );
+
+
 
   Stmt consumer = lower(where.getConsumer());
   whereConsumers.push_back(consumer);
