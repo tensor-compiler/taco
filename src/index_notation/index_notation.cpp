@@ -1560,6 +1560,17 @@ IndexStmt IndexStmt::unroll(IndexVar i, size_t unrollFactor) const {
   return UnrollLoop(i, unrollFactor).rewrite(*this);
 }
 
+IndexStmt IndexStmt::assemble(TensorVar result, 
+                              AssembleStrategy strategy) const {
+  string reason;
+  IndexStmt transformed = 
+      SetAssembleStrategy(result, strategy).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
 std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
   if (!expr.defined()) return os << "IndexStmt()";
   IndexNotationPrinter printer(os);

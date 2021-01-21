@@ -584,7 +584,7 @@ void IRPrinter::visit(const Sort* op) {
   stream << "qsort(";
   parentPrecedence = Precedence::CALL;
   acceptJoin(this, stream, op->args, ", ");
-  stream << ");";
+  stream << ", cmp);";
   stream << endl;
 }
 

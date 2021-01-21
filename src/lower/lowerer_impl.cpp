@@ -1542,61 +1542,73 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
 // 2) There is only one value on the right hand side of the consumer
 //    -- We would need to handle sparse acceleration in the merge lattices for multiple operands on the RHS
 // 3) There are no reduced accesses
-// 4) The left hand side of the where consumer is sparse
+// 4) The left hand side of the where consumer is sparse TODO: update this
 // 5) CPU Code is being generated (TEMPORARY - This should be removed)
 //    -- The sorting calls and calloc call in lower where are CPU specific. We could map calloc to a cudaMalloc
 //       and use a library like CUB to emit the sort. CUB support is built into CUDA 11 but not prior versions
 //       of CUDA so in that case, we'd probably need to include the CUB headers in the generated code.
-bool LowererImpl::canAccelerateDenseTemp(Where where) {
+std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
+  // TODO: TEMPORARY -- Needs to be removed
+  if(should_use_CUDA_codegen()) {
+    return std::make_pair(false, false);
+  }
+
   TensorVar temporary = where.getTemporary();
   // (1) Temporary is dense vector
-  if(!isDense(temporary.getFormat()) || temporary.getOrder() != 1) return false;
-
-  return true; // TODO: FIX THIS
+  if(!isDense(temporary.getFormat()) || temporary.getOrder() != 1) {
+    return std::make_pair(false, false);
+  }
 
   vector<Access> inputAccesses, resultAccesses;
   set<Access> reducedAccesses;
 
   inputAccesses = getArgumentAccesses(where.getConsumer());
   // (2) Multiple operands in inputs (need lattice to reason about iteration)
-  if(inputAccesses.size() > 1 || inputAccesses.empty()) return false;
+  if(inputAccesses.size() > 1 || inputAccesses.empty()) {
+    return std::make_pair(false, false);
+  }
 
   std::tie(resultAccesses, reducedAccesses) = getResultAccesses(where.getConsumer());
   // (3) Contains reduced accesses
-  if(!reducedAccesses.empty()) return false;
+  if(!reducedAccesses.empty()) {
+    return std::make_pair(false, false);
+  }
 
   // no or multiple results?
-  if(resultAccesses.size() > 1 || resultAccesses.empty()) return false;
+  if(resultAccesses.size() > 1 || resultAccesses.empty()) {
+    return std::make_pair(false, false);
+  }
 
   // (4) Level of result is sparse
   // No check for size of tempVar since we enforced the temporary is a vector and if there is only one RHS value,
   // it must (should?) be the temporary
   std::vector<IndexVar> tempVar = inputAccesses[0].getIndexVars();
 
-  // Get vars in result.
+  // Get index vars in result.
   std::vector<IndexVar> resultVars = resultAccesses[0].getIndexVars();
   auto it = std::find(resultVars.begin(), resultVars.end(), tempVar[0]);
-  int index = it != resultVars.end()? (int)(it - resultVars.begin()): -1;
 
-  // Var used in input is not in result? Probably would fail earlier but here just in case.
-  if(index == -1) return false;
+  if (it == resultVars.end()) {
+    return std::make_pair(true, false);
+  }
 
-  int modeIndex = resultAccesses[0].getTensorVar().getFormat().getModeOrdering()[index];
-  ModeFormat varFmt = resultAccesses[0].getTensorVar().getFormat().getModeFormats()[modeIndex];
+  int index = (int)(it - resultVars.begin());
+  TensorVar resultTensor = resultAccesses[0].getTensorVar();
+  int modeIndex = resultTensor.getFormat().getModeOrdering()[index];
+  ModeFormat varFmt = resultTensor.getFormat().getModeFormats()[modeIndex];
 
   // Actual check for condition (4). If the current mode is full, no optimizations necessary
-  if(varFmt.isFull()) return false;
+  if(varFmt.isFull()) {
+    return std::make_pair(false, false);
+  }
 
-  // TODO: TEMPORARY -- Needs to be removed
-  if(should_use_CUDA_codegen()) return false;
-
-  return true;
+  return std::make_pair(true, varFmt.isOrdered());
 }
 
 vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
   TensorVar temporary = where.getTemporary();
 
-  bool accelerateDense = canAccelerateDenseTemp(where);
+  bool accelerateDense = canAccelerateDenseTemp(where).first;
 
   Stmt freeTemporary = Stmt();
   Stmt initializeTemporary = Stmt();
@@ -1641,7 +1653,9 @@ vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
 
 Stmt LowererImpl::lowerWhere(Where where) {
   TensorVar temporary = where.getTemporary();
-  bool accelarateDenseWorkSpace = canAccelerateDenseTemp(where);
+  bool accelerateDenseWorkSpace, sortAccelerator;
+  std::tie(accelerateDenseWorkSpace, sortAccelerator) = 
+      canAccelerateDenseTemp(where);
 
   // Declare and initialize the where statement's temporary
   vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
@@ -1652,8 +1666,9 @@ Stmt LowererImpl::lowerWhere(Where where) {
     }
   }
 
-  if (!temporaryHoisted)
+  if (!temporaryHoisted) {
     temporaryValuesInitFree = codeToInitializeTemporary(where);
+  }
 
   Stmt initializeTemporary = temporaryValuesInitFree[0];
   Stmt freeTemporary = temporaryValuesInitFree[1];
@@ -1667,20 +1682,18 @@ Stmt LowererImpl::lowerWhere(Where where) {
   );
 
   Stmt consumer = lower(where.getConsumer());
-  if(accelarateDenseWorkSpace) {
+  if (accelerateDenseWorkSpace && sortAccelerator) {
     // We need to sort the indices array
-    std::cout << temporary << std::endl;
     Expr listOfIndices = tempToIndexList.at(temporary);
     Expr listOfIndicesSize = tempToIndexListSize.at(temporary);
     Expr sizeOfElt = ir::Sizeof::make(listOfIndices.type());
-    Expr cmpName = ir::Var::make("cmp", Int());
-    Stmt sortCall = ir::Sort::make( {listOfIndices, listOfIndicesSize, sizeOfElt, cmpName});
+    Stmt sortCall = ir::Sort::make({listOfIndices, listOfIndicesSize, sizeOfElt});
     consumer = Block::make(sortCall, consumer);
   }
 
   // Now that temporary allocations are hoisted, we always need to emit an initialization loop before entering the
   // producer but only if there is no dense acceleration
-  if(generateComputeCode() && !isScalar(temporary.getType()) && !accelarateDenseWorkSpace) {
+  if (generateComputeCode() && !isScalar(temporary.getType()) && !accelerateDenseWorkSpace) {
     // TODO: We only actually need to do this if:
     //      1) We use the temporary multiple times
     //      2) The PRODUCER RHS is sparse(not full). (Guarantees that old values are overwritten before consuming)
@@ -1707,7 +1720,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
   }
 
   Stmt producer = lower(where.getProducer());
-  if(accelarateDenseWorkSpace) {
+  if (accelerateDenseWorkSpace) {
     const Expr indexListSizeExpr = tempToIndexListSize.at(temporary);
     const Stmt indexListSizeDecl = VarDecl::make(indexListSizeExpr, ir::Literal::make(0));
     initializeTemporary = Block::make(indexListSizeDecl, initializeTemporary);

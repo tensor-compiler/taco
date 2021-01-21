@@ -640,6 +640,8 @@ public:
   /// integer number of iterations
   /// Preconditions: unrollFactor is a positive nonzero integer
   IndexStmt unroll(IndexVar i, size_t unrollFactor) const;
+
+  IndexStmt assemble(TensorVar result, AssembleStrategy strategy) const;
 };
 
 /// Check if two index statements are isomorphic.

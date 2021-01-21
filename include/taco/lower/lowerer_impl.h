@@ -1,6 +1,7 @@
 #ifndef TACO_LOWERER_IMPL_H
 #define TACO_LOWERER_IMPL_H
 
+#include <utility>
 #include <vector>
 #include <map>
 #include <set>
@@ -348,7 +349,7 @@ protected:
 
   /// Returns true iff the temporary used in the where statement is dense and sparse iteration over that
   /// temporary can be automaticallty supported by the compiler.
-  bool canAccelerateDenseTemp(Where where);
+  std::pair<bool,bool> canAccelerateDenseTemp(Where where);
 
   /// Initializes a temporary workspace
   std::vector<ir::Stmt> codeToInitializeTemporary(Where where);

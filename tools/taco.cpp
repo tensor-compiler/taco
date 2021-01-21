@@ -362,6 +362,7 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
 
       TensorVar workspace("workspace", Type(Float64, {dim}), Dense);
       stmt = stmt.precompute(visitor.expr, orig, pre, workspace);
+      std::cout << "stmt: " << stmt << std::endl;
 
     } else if (command == "reorder") {
       taco_uassert(scheduleCommand.size() > 1) << "'reorder' scheduling directive needs at least 2 parameters: reorder(outermost, ..., innermost)";
@@ -453,6 +454,36 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       }
 
       stmt = stmt.parallelize(findVar(i), parallel_unit, output_race_strategy);
+
+    } else if (command == "assemble") {
+      taco_uassert(scheduleCommand.size() == 2) 
+          << "'assemble' scheduling directive takes 2 parameters: "
+          << "assemble(tensor, strategy)";
+
+      string tensor = scheduleCommand[0];
+      string strategy = scheduleCommand[1];
+
+      TensorVar result;
+      for (auto a : getResultAccesses(stmt).first) {
+        if (a.getTensorVar().getName() == tensor) {
+          result = a.getTensorVar();
+          break;
+        }
+      }
+      taco_uassert(result.defined()) << "Unable to find result tensor '"
+                                     << tensor << "'";
+
+      AssembleStrategy assemble_strategy;
+      if (strategy == "append") {
+        assemble_strategy = AssembleStrategy::Append;
+      } else if (strategy == "insert") {
+        assemble_strategy = AssembleStrategy::Insert;
+      } else {
+        taco_uerror << "Assemble strategy not defined.";
+        goto end;
+      }
+
+      stmt = stmt.assemble(result, assemble_strategy);
 
     } else {
       taco_uerror << "Unknown scheduling function \"" << command << "\"";
@@ -913,15 +944,13 @@ int main(int argc, char* argv[]) {
   IndexStmt stmt =
       makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
   stmt = reorderLoopsTopologically(stmt);
-  stmt = insertTemporaries(stmt);
-  stmt = insertAttributeQueries(stmt);
-  stmt = parallelizeOuterLoop(stmt);
+  stmt = insertTemporaries(stmt); // TODO: move back down
 
   if (setSchedule) {
     cuda |= setSchedulingCommands(scheduleCommands, parser, stmt);
   }
   else {
-    stmt = insertTemporaries(stmt);
+    //stmt = insertTemporaries(stmt);
     stmt = parallelizeOuterLoop(stmt);
   }
 

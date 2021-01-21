@@ -27,6 +27,12 @@ enum class BoundType {
   MinExact, MinConstraint, MaxExact, MaxConstraint
 };
 extern const char *BoundType_NAMES[];
+
+enum class AssembleStrategy {
+  Append, Insert
+};
+extern const char *AssembleStrategy_NAMES[];
+
 }
 
 #endif //TACO_IR_TAGS_H
