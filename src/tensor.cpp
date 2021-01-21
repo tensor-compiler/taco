@@ -595,7 +595,10 @@ void TensorBase::compile(taco::IndexStmt stmt, bool assembleWhileCompute) {
 
   content->assembleFunc = lower(stmtToCompile, "assemble", true, false);
   content->computeFunc = lower(stmtToCompile, "compute",  assembleWhileCompute, true);
-  content->module->reset();
+  // If we have to recompile the kernel, we need to create a new Module. Since
+  // the module we are holding on to could have been retrieved from the cache,
+  // we can't modify it.
+  content->module = make_shared<Module>();
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();
