@@ -166,10 +166,22 @@ public:
   /// of a tensor mode.
   bool isWindowed() const;
 
+  /// isStrided returns true if this iterator has a stride != 1. Currently
+  /// only windowed iterators can have strides.
+  bool isStrided() const;
+
   /// getWindow{Lower,Upper}Bound return the {Lower,Upper} bound of the
   /// window that this iterator operates over.
   ir::Expr getWindowLowerBound() const;
   ir::Expr getWindowUpperBound() const;
+
+  /// getStride returns an Expr holding the stride that this iterator is
+  /// configured with.
+  ir::Expr getStride() const;
+
+  /// getWindowVar returns a Var specific to thw window that this iterator
+  /// is operating over. It can be used as temporary storage.
+  ir::Expr getWindowVar() const;
 
   friend bool operator==(const Iterator&, const Iterator&);
   friend bool operator<(const Iterator&, const Iterator&);
@@ -184,7 +196,7 @@ private:
 
   friend class Iterators;
   /// setWindowBounds sets the window bounds of this iterator.
-  void setWindowBounds(ir::Expr lo, ir::Expr hi);
+  void setWindowBounds(ir::Expr lo, ir::Expr hi, ir::Expr stride);
 };
 
 /**
