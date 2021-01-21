@@ -477,6 +477,7 @@ struct AccessTensorNode : public AccessNode {
           "slice upper bound must be <= tensor dimension (" << tensor.getDimension(i) << ")";
         this->windowedModes[i].lo = lo;
         this->windowedModes[i].hi = hi;
+        this->windowedModes[i].stride = wvar->getStride();
       });
     }
     // Initialize this->indexVars.
@@ -628,7 +629,7 @@ void TensorBase::compile(taco::IndexStmt stmt, bool assembleWhileCompute) {
 
   content->assembleFunc = lower(stmtToCompile, "assemble", true, false);
   content->computeFunc = lower(stmtToCompile, "compute",  assembleWhileCompute, true);
-  content->module->reset();
+  content->module = make_shared<Module>();
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();

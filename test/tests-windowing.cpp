@@ -240,3 +240,52 @@ TEST(windowing, assignment) {
     testFn({Dense, x});
   }
 }
+
+TEST(windowing, stride) {
+  auto dim = 10;
+  Tensor<int> expectedAdd("expectedAdd", {2, 2}, {Dense, Dense});
+  expectedAdd.insert({0, 0}, 0); expectedAdd.insert({0, 1}, 10);
+  expectedAdd.insert({1, 0}, 10); expectedAdd.insert({1, 1}, 20);
+  expectedAdd.pack();
+  Tensor<int> expectedAssign("expectedAssign", {2, 2}, {Dense, Dense});
+  expectedAssign.insert({0, 0}, 0); expectedAssign.insert({0, 1}, 5);
+  expectedAssign.insert({1, 0}, 5); expectedAssign.insert({1, 1}, 10);
+  expectedAssign.pack();
+
+  Tensor<int> expectedMul("expectedMul", {2, 2}, {Dense, Dense});
+  expectedMul.insert({0, 0}, 0); expectedMul.insert({0, 1}, 25);
+  expectedMul.insert({1, 0}, 25); expectedMul.insert({1, 1}, 100);
+  expectedMul.pack();
+
+  for (auto& x : {Dense, Sparse}) {
+    for (auto& y : {Dense, Sparse}) {
+      Tensor<int> a("a", {dim, dim}, {Dense, x});
+      Tensor<int> b("b", {dim, dim}, {Dense, y});
+      Tensor<int> c("c", {2, 2}, {Dense, Dense});
+      for (int i = 0; i < dim; i++) {
+        for (int j = 0; j < dim; j++) {
+          a.insert({i, j}, i+j);
+          b.insert({i, j}, i+j);
+        }
+      }
+      a.pack(); b.pack();
+
+      IndexVar i("i"), j("j");
+
+      // Test a strided assignment.
+      c(i, j) = a(i(0, 10, 5), j(0, 10, 5));
+      c.evaluate();
+      ASSERT_TRUE(equals(c, expectedAssign)) << c << endl << expectedAssign << endl << x << " " << y << endl;
+
+      // Test a strided addition.
+      c(i, j) = a(i(0, 10, 5), j(0, 10, 5)) + b(i(0, 10, 5), j(0, 10, 5));
+      c.evaluate();
+      ASSERT_TRUE(equals(c, expectedAdd)) << c << endl << expectedAdd << endl;
+
+      // Test a strided multiplication.
+      c(i, j) = a(i(0, 10, 5), j(0, 10, 5)) * b(i(0, 10, 5), j(0, 10, 5));
+      c.evaluate();
+      ASSERT_TRUE(equals(c, expectedMul)) << c << endl << expectedMul << endl;
+    }
+  }
+}

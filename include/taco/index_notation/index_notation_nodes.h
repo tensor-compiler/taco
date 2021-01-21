@@ -33,8 +33,9 @@ struct AccessNode : public IndexExprNode {
   struct Window {
     int lo;
     int hi;
+    int stride;
     friend bool operator==(const Window& a, const Window& b) {
-      return a.lo == b.lo && a.hi == b.hi;
+      return a.lo == b.lo && a.hi == b.hi && a.stride == b.stride;
     }
   };
   std::map<int, Window> windowedModes;
