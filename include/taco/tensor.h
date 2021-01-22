@@ -413,6 +413,21 @@ public:
 
   void compile(IndexStmt stmt, bool assembleWhileCompute=false);
 
+  /// debugCompileSource can be used to edit TACO generated code (to add prints
+  /// or assertions etc) and use the TACO machinery to execute the edited code.
+  /// debugCompileSource takes in a string libPrefix that is the path to a
+  /// group of TACO generated files. In particular, TACO generates files like
+  /// path/prefix.{c, h, ...}. In this case, libPrefix should equal "path/prefix".
+  /// An example workflow is as follows:
+  ///    Tensor a; Tensor b; IndexVar i;
+  ///    a(i) = b(i);
+  ///    // a.compile(); Compile the expression once to generate code.
+  ///    a.debugCompileSource("/tmp/....");
+  ///    a.evaluate();
+  // TODO (rohany): This should only get compiled in a test/debug build, but
+  //  I'm not sure that we have the flags set up to do this.
+  void debugCompileSource(std::string libPrefix);
+
   /// Assemble the tensor storage, including index and value arrays.
   void assemble();
 

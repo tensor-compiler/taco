@@ -25,6 +25,12 @@ public:
 
   /// Compile the source into a library, returning its full path
   std::string compile();
+
+  /// Compile the sources at the given prefix and link the compiled code. A
+  /// libPrefix is of the form path/prefix, where files path/prefix.{c, h} are
+  /// present. debugCompileSourceFile can be used to recompile an existing
+  /// generated code file with handwritten changes to debug.
+  void debugCompileSourceFile(std::string libPrefix);
   
   /// Compile the module into a source file located at the specified location
   /// path and prefix.  The generated source will be path/prefix.{.c|.bc, .h}
@@ -82,6 +88,12 @@ private:
   
   void setJITLibname();
   void setJITTmpdir();
+
+  /// compileAndLink compiles the files at prefix into a library file named
+  /// output, and dynamically links output into the TACO process. libPrefix
+  /// is of the form path/prefix, where files path/prefix.{c, cu, h, cpp}
+  /// are placed to be compiled.
+  void compileAndLink(std::string libPrefix, std::string output);
 };
 
 } // namespace ir

@@ -116,52 +116,62 @@ void writeShims(vector<Stmt> funcs, string path, string prefix) {
 string Module::compile() {
   string prefix = tmpdir+libname;
   string fullpath = prefix + ".so";
-  
-  string cc;
-  string cflags;
-  string file_ending;
-  string shims_file;
-  if (should_use_CUDA_codegen()) {
-    cc = util::getFromEnv("TACO_NVCC", "nvcc");
-    cflags = util::getFromEnv("TACO_NVCCFLAGS",
-    get_default_CUDA_compiler_flags());
-    file_ending = ".cu";
-    shims_file = prefix + "_shims.cpp";
-  }
-  else {
-    cc = util::getFromEnv(target.compiler_env, target.compiler);
-    cflags = util::getFromEnv("TACO_CFLAGS",
-    "-O3 -ffast-math -std=c99") + " -shared -fPIC";
-#if USE_OPENMP
-    cflags += " -fopenmp";
-#endif
-    file_ending = ".c";
-    shims_file = "";
-  }
-  
-  string cmd = cc + " " + cflags + " " +
-    prefix + file_ending + " " + shims_file + " " + 
-    "-o " + fullpath + " -lm";
 
   // open the output file & write out the source
   compileToSource(tmpdir, libname);
   
   // write out the shims
   writeShims(funcs, tmpdir, libname);
-  
-  // now compile it
+
+  this->compileAndLink(prefix, fullpath);
+
+  return fullpath;
+}
+
+void Module::compileAndLink(std::string libPrefix, std::string output) {
+  // Construct the command to compile the source files.
+  string cc;
+  string cflags;
+  string file_ending;
+  string shims_file;
+  if (should_use_CUDA_codegen()) {
+    cc = util::getFromEnv("TACO_NVCC", "nvcc");
+    cflags = util::getFromEnv("TACO_NVCCFLAGS", get_default_CUDA_compiler_flags());
+    file_ending = ".cu";
+    shims_file = libPrefix + "_shims.cpp";
+  }
+  else {
+    cc = util::getFromEnv(target.compiler_env, target.compiler);
+    cflags = util::getFromEnv("TACO_CFLAGS", "-O3 -ffast-math -std=c99") + " -shared -fPIC";
+#if USE_OPENMP
+    cflags += " -fopenmp";
+#endif
+    file_ending = ".c";
+    shims_file = "";
+  }
+
+  auto cmd = cc + " " + cflags + " " +
+             libPrefix + file_ending + " " + shims_file + " " +
+             "-o " + output + " -lm";
+
+  // Execute the compilation command.
   int err = system(cmd.data());
   taco_uassert(err == 0) << "Compilation command failed:\n" << cmd
     << "\nreturned " << err;
 
-  // use dlsym() to open the compiled library
+  // Use dlsym() to dynamically link the compiled library.
   if (lib_handle) {
+    // Close the existing handle one is open already.
     dlclose(lib_handle);
   }
-  lib_handle = dlopen(fullpath.data(), RTLD_NOW | RTLD_LOCAL);
-  taco_uassert(lib_handle) << "Failed to load generated code";
 
-  return fullpath;
+  lib_handle = dlopen(output.data(), RTLD_NOW | RTLD_LOCAL);
+  taco_uassert(lib_handle) << "Failed to load generated code";
+}
+
+void Module::debugCompileSourceFile(string libPrefix) {
+  // Directly compile the files at the target libPrefix.
+  this->compileAndLink(libPrefix, libPrefix + ".so");
 }
 
 void Module::setSource(string source) {

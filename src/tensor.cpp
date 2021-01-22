@@ -573,6 +573,7 @@ void TensorBase::compile() {
   stmt = parallelizeOuterLoop(stmt);
   compile(stmt, content->assembleWhileCompute);
 }
+
 void TensorBase::compile(taco::IndexStmt stmt, bool assembleWhileCompute) {
   if (!needsCompile()) {
     return;
@@ -600,6 +601,14 @@ void TensorBase::compile(taco::IndexStmt stmt, bool assembleWhileCompute) {
   content->module->addFunction(content->computeFunc);
   content->module->compile();
   cacheComputeKernel(concretizedAssign, content->module);
+}
+
+void TensorBase::debugCompileSource(std::string libPrefix) {
+  // We're directly compiling user provided source, so mark compilation as done.
+  this->setNeedsCompile(false);
+  // Make a new module and compile the source.
+  content->module = make_shared<Module>();
+  content->module->debugCompileSourceFile(libPrefix);
 }
 
 taco_tensor_t* TensorBase::getTacoTensorT() {
