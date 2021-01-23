@@ -674,6 +674,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
     Assemble::AttrQueryResults& queryResults;
     std::set<TensorVar>& insertedResults;
     std::vector<TensorVar> results;
+    std::vector<TensorVar> arguments;
     IndexStmt epilog;
 
     LowerAttrQuery(Assemble::AttrQueryResults& queryResults, 
@@ -683,9 +684,10 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
     IndexStmt lower(IndexStmt stmt) {
       queryResults = Assemble::AttrQueryResults();
       results = getResults(stmt);
+      arguments = getArguments(stmt);
       epilog = IndexStmt();
       stmt = IndexNotationRewriter::rewrite(stmt);
-      stmt = scalarPromote(stmt);
+      //stmt = scalarPromote(stmt);
       if (epilog.defined()) {
         stmt = Where(epilog, stmt);
       }
@@ -705,11 +707,13 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
     }
 
     void visit(const AssignmentNode* op) {
+      IndexExpr rhs = rewrite(op->rhs);
+
       const auto resultAccess = op->lhs;
       const auto resultTensor = resultAccess.getTensorVar();
       
       if (!util::contains(results, resultTensor)) {
-        stmt = op;
+        stmt = (rhs != op->rhs) ? Assignment(op->lhs, rhs, op->op) : op;
         return;
       }
       // TODO: check assign is not reduction
@@ -756,7 +760,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
                                    attr.params.end());
                 std::vector<Dimension> dedupDims(dedupCoords.size());
                 TensorVar dedupTmp(modeName + "_dedup", Type(Bool, dedupDims));
-                stmt = Assignment(dedupTmp(dedupCoords), neq(op->rhs, 0.0), Add());
+                stmt = Assignment(dedupTmp(dedupCoords), neq(rhs, 0.0), Add());
                 insertedResults.insert(dedupTmp);
 
                 const auto resultName = modeName + "_" + attr.label;
@@ -783,6 +787,11 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       }
 
       stmt = IndexStmt();
+    }
+
+    void visit(const AccessNode* op) {
+      expr = util::contains(arguments, op->tensorVar) ? 
+             Access(op->tensorVar, op->indexVars, true) : op;
     }
   };
   IndexStmt loweredQueries = 

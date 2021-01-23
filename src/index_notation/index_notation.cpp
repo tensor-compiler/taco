@@ -34,7 +34,7 @@ using namespace std;
 namespace taco {
 
 // class IndexExpr
-IndexExpr::IndexExpr(TensorVar var) : IndexExpr(new AccessNode(var,{})) {
+IndexExpr::IndexExpr(TensorVar var) : IndexExpr(new AccessNode(var,{},false)) {
 }
 
 IndexExpr::IndexExpr(char val) : IndexExpr(new LiteralNode(val)) {
@@ -774,8 +774,9 @@ IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
 Access::Access(const AccessNode* n) : IndexExpr(n) {
 }
 
-Access::Access(const TensorVar& tensor, const std::vector<IndexVar>& indices)
-    : Access(new AccessNode(tensor, indices)) {
+Access::Access(const TensorVar& tensor, const std::vector<IndexVar>& indices,
+               bool isAccessingStructure)
+    : Access(new AccessNode(tensor, indices, isAccessingStructure)) {
 }
 
 const TensorVar& Access::getTensorVar() const {
@@ -784,6 +785,10 @@ const TensorVar& Access::getTensorVar() const {
 
 const std::vector<IndexVar>& Access::getIndexVars() const {
   return getNode(*this)->indexVars;
+}
+
+bool Access::isAccessingStructure() const {
+  return getNode(*this)->isAccessingStructure;
 }
 
 static void check(Assignment assignment) {
@@ -1976,14 +1981,14 @@ const Access TensorVar::operator()(const std::vector<IndexVar>& indices) const {
   taco_uassert((int)indices.size() == getOrder()) <<
       "A tensor of order " << getOrder() << " must be indexed with " <<
       getOrder() << " variables, but is indexed with:  " << util::join(indices);
-  return Access(new AccessNode(*this, indices));
+  return Access(new AccessNode(*this, indices, false));
 }
 
 Access TensorVar::operator()(const std::vector<IndexVar>& indices) {
   taco_uassert((int)indices.size() == getOrder()) <<
       "A tensor of order " << getOrder() << " must be indexed with " <<
       getOrder() << " variables, but is indexed with:  " << util::join(indices);
-  return Access(new AccessNode(*this, indices));
+  return Access(new AccessNode(*this, indices, false));
 }
 
 Assignment TensorVar::operator=(IndexExpr expr) {

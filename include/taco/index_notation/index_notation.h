@@ -220,13 +220,16 @@ public:
   Access() = default;
   Access(const Access&) = default;
   Access(const AccessNode*);
-  Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={});
+  Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={}, 
+         bool isAccessingStructure = false);
 
   /// Return the Access expression's TensorVar.
   const TensorVar &getTensorVar() const;
 
   /// Returns the index variables used to index into the Access's TensorVar.
   const std::vector<IndexVar>& getIndexVars() const;
+
+  bool isAccessingStructure() const;
 
   /// Assign the result of an expression to a left-hand-side tensor access.
   /// ```

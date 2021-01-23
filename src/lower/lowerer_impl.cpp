@@ -1548,6 +1548,7 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
 //       and use a library like CUB to emit the sort. CUB support is built into CUDA 11 but not prior versions
 //       of CUDA so in that case, we'd probably need to include the CUB headers in the generated code.
 std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
+  std::cout << "checking: " << where << std::endl;
   // TODO: TEMPORARY -- Needs to be removed
   if(should_use_CUDA_codegen()) {
     return std::make_pair(false, false);
@@ -1583,6 +1584,8 @@ std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
   // No check for size of tempVar since we enforced the temporary is a vector and if there is only one RHS value,
   // it must (should?) be the temporary
   std::vector<IndexVar> tempVar = inputAccesses[0].getIndexVars();
+  std::cout << util::join(provGraph.getChildren(tempVar[0])) << std::endl;
+  std::cout << util::join(provGraph.getParents(tempVar[0])) << std::endl;
 
   // Get index vars in result.
   std::vector<IndexVar> resultVars = resultAccesses[0].getIndexVars();
@@ -1850,6 +1853,10 @@ Stmt LowererImpl::lowerSuchThat(SuchThat suchThat) {
 
 
 Expr LowererImpl::lowerAccess(Access access) {
+  if (access.isAccessingStructure()) {
+    return true;
+  }
+
   TensorVar var = access.getTensorVar();
 
   if (isScalar(var.getType())) {

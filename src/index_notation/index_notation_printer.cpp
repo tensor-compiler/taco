@@ -20,6 +20,9 @@ void IndexNotationPrinter::print(const IndexStmt& expr) {
 
 void IndexNotationPrinter::visit(const AccessNode* op) {
   os << op->tensorVar.getName();
+  if (op->isAccessingStructure) {
+    os << "_struct";
+  }
   if (op->indexVars.size() > 0) {
     os << "(" << util::join(op->indexVars,",") << ")";
   }
