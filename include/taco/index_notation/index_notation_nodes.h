@@ -17,8 +17,10 @@ namespace taco {
 struct AccessNode : public IndexExprNode {
   AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices, 
              bool isAccessingStructure)
-      : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), 
-        indexVars(indices), isAccessingStructure(isAccessingStructure) {}
+      : IndexExprNode(isAccessingStructure? Bool :
+                      tensorVar.getType().getDataType()), 
+        tensorVar(tensorVar), indexVars(indices), 
+        isAccessingStructure(isAccessingStructure) {}
 
   void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);

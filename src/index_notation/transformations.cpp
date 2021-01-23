@@ -675,6 +675,8 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
     std::set<TensorVar>& insertedResults;
     std::vector<TensorVar> results;
     std::vector<TensorVar> arguments;
+    std::vector<TensorVar> temps;
+    std::map<TensorVar,TensorVar> tempReplacements;
     IndexStmt epilog;
 
     LowerAttrQuery(Assemble::AttrQueryResults& queryResults, 
@@ -682,9 +684,16 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
         queryResults(queryResults), insertedResults(insertedResults) {}
 
     IndexStmt lower(IndexStmt stmt) {
-      queryResults = Assemble::AttrQueryResults();
       results = getResults(stmt);
       arguments = getArguments(stmt);
+      temps = getTemporaries(stmt);
+      for (const auto& tmp : temps) {
+        tempReplacements[tmp] = TensorVar("q" + tmp.getName(), 
+                                          Type(Bool, tmp.getType().getShape()), 
+                                          tmp.getFormat());
+      }
+
+      queryResults = Assemble::AttrQueryResults();
       epilog = IndexStmt();
       stmt = IndexNotationRewriter::rewrite(stmt);
       //stmt = scalarPromote(stmt);
@@ -713,7 +722,8 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       const auto resultTensor = resultAccess.getTensorVar();
       
       if (!util::contains(results, resultTensor)) {
-        stmt = (rhs != op->rhs) ? Assignment(op->lhs, rhs, op->op) : op;
+        Access lhs = to<Access>(rewrite(op->lhs));
+        stmt = (rhs != op->rhs) ? Assignment(lhs, rhs, op->op) : op;
         return;
       }
       // TODO: check assign is not reduction
@@ -760,7 +770,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
                                    attr.params.end());
                 std::vector<Dimension> dedupDims(dedupCoords.size());
                 TensorVar dedupTmp(modeName + "_dedup", Type(Bool, dedupDims));
-                stmt = Assignment(dedupTmp(dedupCoords), neq(rhs, 0.0), Add());
+                stmt = Assignment(dedupTmp(dedupCoords), rhs, Add());
                 insertedResults.insert(dedupTmp);
 
                 const auto resultName = modeName + "_" + attr.label;
@@ -790,8 +800,16 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
     }
 
     void visit(const AccessNode* op) {
-      expr = util::contains(arguments, op->tensorVar) ? 
-             Access(op->tensorVar, op->indexVars, true) : op;
+      if (util::contains(arguments, op->tensorVar)) {
+        expr = Access(op->tensorVar, op->indexVars, true);
+        std::cout << "replacing " << IndexExpr(op) << " with " << expr << std::endl;
+        return;
+      } else if (util::contains(temps, op->tensorVar)) {
+        expr = Access(tempReplacements[op->tensorVar], op->indexVars);
+        return;
+      }
+
+      expr = op;
     }
   };
   IndexStmt loweredQueries = 
