@@ -426,26 +426,6 @@ Iterators::Iterators()
 }
 
 
-static std::map<TensorVar, ir::Expr> createIRTensorVars(IndexStmt stmt)
-{
-  std::map<TensorVar, ir::Expr> tensorVars;
-
-  // Create result and parameter variables
-  vector<TensorVar> results = getResults(stmt);
-  vector<TensorVar> arguments = getArguments(stmt);
-  vector<TensorVar> temporaries = getTemporaries(stmt);
-
-  // Convert tensor results, arguments and temporaries to IR variables
-  map<TensorVar, Expr> resultVars;
-  vector<Expr> resultsIR = createVars(results, &resultVars);
-  tensorVars.insert(resultVars.begin(), resultVars.end());
-  vector<Expr> argumentsIR = createVars(arguments, &tensorVars);
-  vector<Expr> temporariesIR = createVars(temporaries, &tensorVars);
-
-  return tensorVars;
-}
-
-
 Iterators::Iterators(IndexStmt stmt) : Iterators(stmt, createIRTensorVars(stmt))
 {
 }

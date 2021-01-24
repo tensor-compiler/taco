@@ -1011,6 +1011,10 @@ std::vector<ir::Expr> createVars(const std::vector<TensorVar>& tensorVars,
                                  std::map<TensorVar, ir::Expr>* vars, 
                                  bool isParameter=false);
 
+/// Convert index notation tensor variables in the index statement to IR 
+/// pointer variables.
+std::map<TensorVar,ir::Expr> createIRTensorVars(IndexStmt stmt);
+
 
 /// Simplify an index expression by setting the zeroed Access expressions to
 /// zero and then propagating and removing zeroes.

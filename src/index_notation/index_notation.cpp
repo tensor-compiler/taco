@@ -2653,6 +2653,25 @@ vector<ir::Expr> createVars(const vector<TensorVar>& tensorVars,
   return irVars;
 }
 
+std::map<TensorVar,ir::Expr> createIRTensorVars(IndexStmt stmt)
+{
+  std::map<TensorVar,ir::Expr> tensorVars;
+
+  // Create result and parameter variables
+  vector<TensorVar> results = getResults(stmt);
+  vector<TensorVar> arguments = getArguments(stmt);
+  vector<TensorVar> temporaries = getTemporaries(stmt);
+
+  // Convert tensor results, arguments and temporaries to IR variables
+  map<TensorVar, ir::Expr> resultVars;
+  vector<ir::Expr> resultsIR = createVars(results, &resultVars);
+  tensorVars.insert(resultVars.begin(), resultVars.end());
+  vector<ir::Expr> argumentsIR = createVars(arguments, &tensorVars);
+  vector<ir::Expr> temporariesIR = createVars(temporaries, &tensorVars);
+
+  return tensorVars;
+}
+
 struct Zero : public IndexNotationRewriterStrict {
 public:
   Zero(const set<Access>& zeroed) : zeroed(zeroed) {}

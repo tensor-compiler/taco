@@ -349,7 +349,29 @@ struct ReplaceIndexVars : public IndexNotationRewriter {
     }
   }
 
-  // TODO: Replace in assignments
+  void visit(const AssignmentNode* op) {
+    IndexExpr rhs = rewrite(op->rhs);
+    Access lhs = to<Access>(rewrite(op->lhs));
+    if (rhs == op->rhs && lhs == op->lhs) {
+      stmt = op;
+    }
+    else {
+      stmt = new AssignmentNode(lhs, rhs, op->op);
+    }
+  }
+
+  void visit(const ForallNode* op) {
+    IndexStmt s = rewrite(op->stmt);
+    IndexVar iv = util::contains(substitutions, op->indexVar) 
+                ? substitutions.at(op->indexVar) : op->indexVar;
+    if (s == op->stmt && iv == op->indexVar) {
+      stmt = op;
+    }
+    else {
+      stmt = new ForallNode(iv, s, op->parallel_unit, op->output_race_strategy, 
+                            op->unrollFactor);
+    }
+  }
 };
 
 struct ReplaceTensorVars : public IndexNotationRewriter {
@@ -402,6 +424,11 @@ IndexStmt replace(IndexStmt stmt,
 IndexStmt replace(IndexStmt stmt,
                   const std::map<TensorVar,TensorVar>& substitutions) {
   return ReplaceTensorVars(substitutions).rewrite(stmt);
+}
+
+IndexStmt replace(IndexStmt stmt,
+                  const std::map<IndexVar,IndexVar>& substitutions) {
+  return ReplaceIndexVars(substitutions).rewrite(stmt);
 }
 
 }

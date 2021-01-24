@@ -128,5 +128,9 @@ IndexStmt replace(IndexStmt stmt,
 IndexStmt replace(IndexStmt stmt,
                   const std::map<TensorVar,TensorVar>& substitutions);
 
+/// Rewrites the statement to replace an index variable with a new variable.
+IndexStmt replace(IndexStmt stmt,
+                  const std::map<IndexVar,IndexVar>& substitutions);
+
 }
 #endif

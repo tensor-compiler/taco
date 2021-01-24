@@ -483,12 +483,19 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
     Parallelize parallelize;
     ProvenanceGraph provGraph;
+    map<TensorVar,ir::Expr> tensorVars;
+    vector<ir::Expr> assembledByUngroupedInsert;
     set<IndexVar> definedIndexVars;
     set<ParallelUnit> parentParallelUnits;
     std::string reason = "";
 
     IndexStmt rewriteParallel(IndexStmt stmt) {
       provGraph = ProvenanceGraph(stmt);
+      tensorVars = createIRTensorVars(stmt);
+      assembledByUngroupedInsert.clear();
+      for (const auto& result : getAssembledByUngroupedInsertion(stmt)) {
+        assembledByUngroupedInsert.push_back(tensorVars[result]);
+      }
       return rewrite(stmt);
     }
 
@@ -496,7 +503,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
       Forall foralli(node);
       IndexVar i = parallelize.geti();
 
-      Iterators iterators(foralli);
+      Iterators iterators(foralli, tensorVars);
       definedIndexVars.insert(foralli.getIndexVar());
       MergeLattice lattice = MergeLattice::make(foralli, iterators, provGraph, definedIndexVars);
       // Precondition 3: No parallelization of variables under a reduction
@@ -517,6 +524,9 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
         // Precondition 2: Every result iterator must have insert capability
         for (Iterator iterator : lattice.results()) {
+          if (util::contains(assembledByUngroupedInsert, iterator.getTensor())) {
+            continue;
+          }
           while (true) {
             if (!iterator.hasInsert()) {
               reason = "Precondition failed: The output tensor must allow inserts";
@@ -614,6 +624,34 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
       }
       IndexNotationRewriter::visit(node);
     }
+
+    void visit(const AssembleNode* op) {
+      IndexVar i = parallelize.geti();
+      IndexStmt queries = util::contains(op->queries.getIndexVars(), i) 
+                        ? rewrite(op->queries) : op->queries;
+      IndexStmt compute = util::contains(op->compute.getIndexVars(), i) 
+                        ? rewrite(op->compute) : op->compute;
+      if (queries == op->queries && compute == op->compute) {
+        stmt = op;
+      }
+      else {
+        stmt = new AssembleNode(queries, compute, op->results);
+      }
+    }
+
+    void visit(const WhereNode* op) {
+      IndexVar i = parallelize.geti();
+      IndexStmt producer = util::contains(op->producer.getIndexVars(), i) 
+                        ? rewrite(op->producer) : op->producer;
+      IndexStmt consumer = util::contains(op->consumer.getIndexVars(), i) 
+                        ? rewrite(op->consumer) : op->consumer;
+      if (producer == op->producer && consumer == op->consumer) {
+        stmt = op;
+      }
+      else {
+        stmt = new WhereNode(consumer, producer);
+      }
+    }
   };
 
   ParallelizeRewriter rewriter;
@@ -662,6 +700,12 @@ AssembleStrategy SetAssembleStrategy::getAssembleStrategy() const {
 
 IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
   INIT_REASON(reason);
+
+  std::map<IndexVar,IndexVar> ivReplacements;
+  for (const auto& indexVar : getIndexVars(stmt)) {
+    ivReplacements[indexVar] = IndexVar("q" + indexVar.getName());
+  }
+  IndexStmt loweredQueries = replace(stmt, ivReplacements);
 
   // Tracks all tensors that correspond to attribute query results or that are 
   // used to compute attribute queries
@@ -812,8 +856,8 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       expr = op;
     }
   };
-  IndexStmt loweredQueries = 
-      LowerAttrQuery(queryResults, insertedResults).lower(stmt);
+  loweredQueries = 
+      LowerAttrQuery(queryResults, insertedResults).lower(loweredQueries);
   std::cout << loweredQueries << std::endl;
 
   struct ReduceToAssign : public IndexNotationRewriter {
@@ -956,6 +1000,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
   std::cout << loweredQueries << std::endl;
   
   //loweredQueries = parallelizeOuterLoop(loweredQueries);
+  //stmt = parallelizeOuterLoop(stmt);
   //std::cout << loweredQueries << std::endl;
 
   return Assemble(loweredQueries, stmt, queryResults);
