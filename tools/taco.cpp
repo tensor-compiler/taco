@@ -375,7 +375,7 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       stmt = stmt.reorder(reorderedVars);
 
     } else if (command == "bound") {
-      taco_uassert(scheduleCommand.size() == 2) << "'bound' scheduling directive takes 4 parameters: bound(i, i1, bound, type)";
+      taco_uassert(scheduleCommand.size() == 4) << "'bound' scheduling directive takes 4 parameters: bound(i, i1, bound, type)";
       string i, i1, type;
       size_t bound;
       i  = scheduleCommand[0];

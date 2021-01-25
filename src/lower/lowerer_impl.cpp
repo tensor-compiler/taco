@@ -548,8 +548,11 @@ Stmt LowererImpl::lowerForall(Forall forall)
     }
 
     // For now, this only works when consuming a single workspace.
-    bool canAccelWithSparseIteration = inParallelLoopDepth == 0 && provGraph.isFullyDerived(iterator.getIndexVar()) &&
-                                       iterator.isDimensionIterator() && locators.size() == 1;
+    //bool canAccelWithSparseIteration = inParallelLoopDepth == 0 && provGraph.isFullyDerived(iterator.getIndexVar()) &&
+    //                                   iterator.isDimensionIterator() && locators.size() == 1;
+    bool canAccelWithSparseIteration = 
+        provGraph.isFullyDerived(iterator.getIndexVar()) && 
+        iterator.isDimensionIterator() && locators.size() == 1;
     if (canAccelWithSparseIteration) {
       bool indexListsExist = false;
       // We are iterating over a dimension and locating into a temporary with a tracker to keep indices. Instead, we
@@ -980,13 +983,12 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     Stmt declareVar = VarDecl::make(coordinate, Load::make(indexList, loopVar));
     Stmt body = lowerForallBody(coordinate, forall.getStmt(), locators, inserters, appenders, reducedAccesses);
     Stmt resetGuard = ir::Store::make(bitGuard, coordinate, ir::Literal::make(false), markAssignsAtomicDepth > 0, atomicParallelUnit);
-    body = Block::make(declareVar, body, resetGuard);
 
     if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
       markAssignsAtomicDepth--;
     }
 
-    body = Block::make({recoveryStmt, body});
+    body = Block::make(declareVar, recoveryStmt, body, resetGuard);
 
     Stmt posAppend = generateAppendPositions(appenders);
 
