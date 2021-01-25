@@ -244,5 +244,11 @@ void IRVisitor::visit(const Sort* op) {
     e.accept(this);
 }
 
+void IRVisitor::visit(const Ternary* op) {
+  op->cond.accept(this);
+  op->whenTrue.accept(this);
+  op->whenFalse.accept(this);
+}
+
 }  // namespace ir
 }  // namespace taco

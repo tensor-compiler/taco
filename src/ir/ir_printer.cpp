@@ -593,6 +593,19 @@ void IRPrinter::visit(const Sort* op) {
   stream << endl;
 }
 
+void IRPrinter::visit(const Ternary* op) {
+  // Add an outer parenthesis.
+  stream << "(";
+
+  stream << "(";
+  op->cond.accept(this);
+  stream << ") ? ";
+  op->whenTrue.accept(this);
+  stream << " : ";
+  op->whenFalse.accept(this);
+
+  stream << ")";
+}
 
 void IRPrinter::resetNameCounters() {
   // seed the unique names with all C99 keywords

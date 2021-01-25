@@ -746,8 +746,9 @@ IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
 Access::Access(const AccessNode* n) : IndexExpr(n) {
 }
 
-Access::Access(const TensorVar& tensor, const std::vector<IndexVar>& indices, const std::map<int, AccessWindow>& windows)
-    : Access(new AccessNode(tensor, indices, windows)) {
+Access::Access(const TensorVar& tensor, const std::vector<IndexVar>& indices,
+               const std::map<int, AccessWindow>& windows, const std::function<ir::Expr(ir::Expr)>& filter)
+    : Access(new AccessNode(tensor, indices, windows, filter)) {
 }
 
 const TensorVar& Access::getTensorVar() const {
@@ -775,6 +776,19 @@ int Access::getWindowLowerBound(int mode) const {
 int Access::getWindowUpperBound(int mode) const {
   taco_iassert(this->isModeWindowed(mode));
   return getNode(*this)->windowedModes.at(mode).hi;
+}
+
+Access Access::operator|(const std::function<ir::Expr(ir::Expr)>& f) {
+  return Access(getNode(*this)->applyFilter(f));
+}
+
+bool Access::hasFilter() const {
+  return bool(getNode(*this)->filter);
+}
+
+std::function<ir::Expr(ir::Expr)> Access::getFilter() const {
+  taco_iassert(this->hasFilter());
+  return getNode(*this)->filter;
 }
 
 static void check(Assignment assignment) {

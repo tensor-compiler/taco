@@ -70,6 +70,7 @@ protected:
   virtual void visit(const GetProperty*);
   virtual void visit(const Sort*);
   virtual void visit(const Break*);
+  virtual void visit(const Ternary*);
 
   std::ostream &stream;
   int indent;

@@ -873,6 +873,15 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
   
   return gp;
 }
+
+Expr Ternary::make(Expr cond, Expr whenTrue, Expr whenFalse) {
+  // TODO (rohany): Add in checks to make sure whenTrue and whenFalse have the same type.
+  auto node = new Ternary;
+  node->cond = cond;
+  node->whenTrue = whenTrue;
+  node->whenFalse = whenFalse;
+  return node;
+}
   
 // visitor methods
 template<> void ExprNode<Literal>::accept(IRVisitorStrict *v)
@@ -969,6 +978,8 @@ template<> void StmtNode<Sort>::accept(IRVisitorStrict *v)
   const { v->visit((const Sort*)this); }
 template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
   const { v->visit((const Break*)this); }
+template<> void ExprNode<Ternary>::accept(IRVisitorStrict *v)
+  const { v->visit((const Ternary*)this); }
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {

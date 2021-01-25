@@ -223,7 +223,8 @@ public:
   Access() = default;
   Access(const Access&) = default;
   Access(const AccessNode*);
-  Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={}, const std::map<int, AccessWindow>& windows={});
+  Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={},
+         const std::map<int, AccessWindow>& windows={}, const std::function<ir::Expr(ir::Expr)>& filter={});
 
   /// Return the Access expression's TensorVar.
   const TensorVar &getTensorVar() const;
@@ -241,6 +242,12 @@ public:
   int getWindowLowerBound(int mode) const;
   int getWindowUpperBound(int mode) const;
 
+  /// hasFilter returns if this Access has a value filter applied.
+  bool hasFilter() const;
+
+  /// getFilter returns the filter applied to this Access.
+  std::function<ir::Expr(ir::Expr)> getFilter() const;
+
   /// Assign the result of an expression to a left-hand-side tensor access.
   /// ```
   /// a(i) = b(i) * c(i);
@@ -251,7 +258,7 @@ public:
   Assignment operator=(const Access&);
 
   /// Must disambiguate TensorVar as it can be implicitly converted to IndexExpr
-  /// and AccesExpr.
+  /// and AccessExpr.
   Assignment operator=(const TensorVar&);
 
   /// Accumulate the result of an expression to a left-hand-side tensor access.
@@ -259,6 +266,17 @@ public:
   /// a(i) += B(i,j) * c(j);
   /// ```
   Assignment operator+=(const IndexExpr&);
+
+  /// Apply a value filter to an access. This has the effect of treating values
+  /// in the access that do not pass the filter as 0.
+  /// ```
+  /// // A filter val != 1;
+  /// auto filter = [](ir::Expr val) { return ir::Neq::make(val, ir::Literal::make(1)); };
+  /// a(i) = b(i) | filter; // Copy values of b to a that are != 1.
+  /// ```
+  /// TODO (rohany): This will have to be constrained when fill values are not equal to 0,
+  ///  and when the fill value isn't an identity / annihilator for the operation.
+  Access operator|(const std::function<ir::Expr(ir::Expr)>& f);
 
   typedef AccessNode Node;
 };

@@ -26,8 +26,10 @@ struct AccessWindow {
 };
 
 struct AccessNode : public IndexExprNode {
-  AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices, const std::map<int, AccessWindow>& windows={})
-      : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices), windowedModes(windows) {}
+  AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices,
+             const std::map<int, AccessWindow>& windows={}, const std::function<ir::Expr(ir::Expr)> filter={})
+      : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar),
+        indexVars(indices), windowedModes(windows), filter(filter) {}
 
   void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
@@ -35,9 +37,20 @@ struct AccessNode : public IndexExprNode {
 
   virtual void setAssignment(const Assignment& assignment) {}
 
+  // applyFilter returns a new AccessNode with the given filter applied. It is a
+  // virtual method so that classes derived from AccessNode can return the correct
+  // derived class rather than an AccessNode parent class.
+  virtual AccessNode* applyFilter(const std::function<ir::Expr(ir::Expr)>& f) const {
+    return new AccessNode(this->tensorVar, this->indexVars, this->windowedModes, f);
+  };
+
   TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
   std::map<int, AccessWindow> windowedModes;
+
+  // TODO (rohany): Make this be able to hold multiple filters.
+  // TODO (rohany): Extract the function type into a typedef.
+  std::function<ir::Expr(ir::Expr)> filter;
 
 protected:
   /// Initialize an AccessNode with just a TensorVar. If this constructor is used,

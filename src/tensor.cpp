@@ -509,6 +509,13 @@ struct AccessTensorNode : public AccessNode {
 
     tensor.setAssignment(assign);
   }
+
+  virtual AccessNode* applyFilter(const std::function<ir::Expr(ir::Expr)>& f) const {
+    auto node = new AccessTensorNode(this->tensor, indexVars);
+    node->windowedModes = this->windowedModes;
+    node->filter = f;
+    return node;
+  }
 };
 
 const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const {

@@ -1761,9 +1761,18 @@ Expr LowererImpl::lowerAccess(Access access) {
     return getTensorVar(var);
   }
 
-  return getIterators(access).back().isUnique()
-         ? Load::make(getValuesArray(var), generateValueLocExpr(access))
-         : getReducedValueVar(access);
+  if (getIterators(access).back().isUnique()) {
+    auto load = Load::make(getValuesArray(var), generateValueLocExpr(access));
+    // If the access is filtered, apply the filter and potentially return the
+    // zero value if the filter returns false.
+    // TODO (rohany): We could remove this duplicate load by having this function
+    //  instead return a Stmt and an Expr.
+    if (access.hasFilter()) {
+      return Ternary::make(access.getFilter()(load), load, ir::Literal::make(0));
+    }
+    return load;
+  }
+  return getReducedValueVar(access);
 }
 
 

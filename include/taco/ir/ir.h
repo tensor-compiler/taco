@@ -67,7 +67,8 @@ enum class IRNodeType {
   GetProperty,
   Continue,
   Sort,
-  Break
+  Break,
+  Ternary
 };
 
 enum class TensorProperty {
@@ -769,6 +770,19 @@ struct GetProperty : public ExprNode<GetProperty> {
                    int index, std::string name);
   
   static const IRNodeType _type_info = IRNodeType::GetProperty;
+};
+
+/** A ternary operator.
+ * This is an expression that performs some branching -- b ? x : y.
+ */
+struct Ternary : public ExprNode<Ternary> {
+  Expr cond;
+  Expr whenTrue;
+  Expr whenFalse;
+
+  static Expr make(Expr cond, Expr whenTrue, Expr whenFalse);
+
+  static const IRNodeType _type_info = IRNodeType::Ternary;
 };
 
 template <typename E>

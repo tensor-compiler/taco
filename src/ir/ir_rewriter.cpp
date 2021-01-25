@@ -501,5 +501,16 @@ void IRRewriter::visit(const Sort* op) {
   }
 }
 
+void IRRewriter::visit(const Ternary* op) {
+  auto cond = rewrite(op->cond);
+  auto whenTrue = rewrite(op->whenTrue);
+  auto whenFalse = rewrite(op->whenFalse);
+  if (cond == op->cond && whenTrue == op->whenTrue && whenFalse == op->whenFalse) {
+    expr = op;
+  } else {
+    expr = Ternary::make(cond, whenTrue, whenFalse);
+  }
+}
+
 
 }}
