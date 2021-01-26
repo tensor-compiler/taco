@@ -32,15 +32,6 @@ void Module::setJITLibname() {
     libname[i] = chars[rand() % chars.length()];
 }
 
-void Module::reset() {
-  funcs.clear();
-  moduleFromUserSource = false;
-  header.str("");
-  header.clear();
-  source.str("");
-  source.clear();
-}
-
 void Module::addFunction(Stmt func) {
   funcs.push_back(func);
 }

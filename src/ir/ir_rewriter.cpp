@@ -447,6 +447,10 @@ void IRRewriter::visit(const BlankLine* op) {
   stmt = op;
 }
 
+void IRRewriter::visit(const Continue* op) {
+  stmt = op;
+}
+
 void IRRewriter::visit(const Break* op) {
   stmt = op;
 }

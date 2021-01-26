@@ -105,7 +105,7 @@ std::ostream& operator<<(std::ostream&, const ModeFunction&);
 class ModeFormatImpl {
 public:
   ModeFormatImpl(std::string name, bool isFull, bool isOrdered, bool isUnique, 
-                 bool isBranchless, bool isCompact, bool hasCoordValIter, 
+		 bool isBranchless, bool isCompact, bool isZeroless, bool hasCoordValIter, 
                  bool hasCoordPosIter, bool hasLocate, bool hasInsert, 
                  bool hasAppend, bool hasSeqInsertEdge);
 
@@ -244,7 +244,8 @@ public:
   const bool isUnique;
   const bool isBranchless;
   const bool isCompact;
-
+  const bool isZeroless;
+  
   const bool hasCoordValIter;
   const bool hasCoordPosIter;
   const bool hasLocate;

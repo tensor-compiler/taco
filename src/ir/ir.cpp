@@ -786,6 +786,11 @@ Stmt BlankLine::make() {
   return new BlankLine;
 }
 
+// Continue
+Stmt Continue::make() {
+  return new Continue;
+}
+
 // Break
 Stmt Break::make() {
   return new Break;
@@ -954,14 +959,16 @@ template<> void StmtNode<Comment>::accept(IRVisitorStrict *v)
     const { v->visit((const Comment*)this); }
 template<> void StmtNode<BlankLine>::accept(IRVisitorStrict *v)
     const { v->visit((const BlankLine*)this); }
-template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
-  const { v->visit((const Break*)this); }
+template<> void StmtNode<Continue>::accept(IRVisitorStrict *v)
+  const { v->visit((const Continue*)this); }
 template<> void StmtNode<Print>::accept(IRVisitorStrict *v)
     const { v->visit((const Print*)this); }
 template<> void ExprNode<GetProperty>::accept(IRVisitorStrict *v)
     const { v->visit((const GetProperty*)this); }
 template<> void StmtNode<Sort>::accept(IRVisitorStrict *v)
   const { v->visit((const Sort*)this); }
+template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
+  const { v->visit((const Break*)this); }
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {

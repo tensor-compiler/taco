@@ -5,18 +5,20 @@ using namespace taco::ir;
 
 namespace taco {
 
-DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true) {
+DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true, false) {
 }
 
-DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique) : 
-    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, false,
-                   false, true, true, false, false) {
+DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique, 
+                                 const bool isZeroless) : 
+    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, isZeroless, 
+                   false, false, true, true, false, false) {
 }
 
 ModeFormat DenseModeFormat::copy(
     std::vector<ModeFormat::Property> properties) const {
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
+  bool isZeroless = this->isZeroless;  
   for (const auto property : properties) {
     switch (property) {
       case ModeFormat::ORDERED:
@@ -31,11 +33,18 @@ ModeFormat DenseModeFormat::copy(
       case ModeFormat::NOT_UNIQUE:
         isUnique = false;
         break;
+      case ModeFormat::ZEROLESS:
+        isZeroless = true;
+        break;
+      case ModeFormat::NOT_ZEROLESS:
+        isZeroless = false;
+        break;	
       default:
         break;
     }
   }
-  return ModeFormat(std::make_shared<DenseModeFormat>(isOrdered, isUnique));
+  return ModeFormat(
+      std::make_shared<DenseModeFormat>(isOrdered, isUnique, isZeroless));  
 }
 
 ModeFunction DenseModeFormat::locate(ir::Expr parentPos,

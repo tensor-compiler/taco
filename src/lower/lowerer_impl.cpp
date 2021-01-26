@@ -453,13 +453,31 @@ Stmt LowererImpl::lowerForall(Forall forall)
       if (isa<ir::Literal>(ir::simplify(iterBounds[0])) && ir::simplify(iterBounds[0]).as<ir::Literal>()->equalsScalar(0)) {
         guardCondition = maxGuard;
       }
-      ir::Stmt guard = ir::IfThenElse::make(guardCondition, ir::Break::make());
+      ir::Stmt guard = ir::IfThenElse::make(guardCondition, ir::Continue::make());
       recoverySteps.push_back(guard);
     }
 
     Expr recoveredValue = provGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
     taco_iassert(indexVarToExprMap.count(varToRecover));
     recoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
+
+    // After we've recovered this index variable, some iterators are now
+    // accessible for use when declaring locator access variables. So, generate
+    // the accessors for those locator variables as part of the recovery process.
+    // This is necessary after a fuse transformation, for example: If we fuse
+    // two index variables (i, j) into f, then after we've generated the loop for
+    // f, all locate accessors for i and j are now available for use.
+    std::vector<Iterator> itersForVar;
+    for (auto& iters : iterators.levelIterators()) {
+      // Collect all level iterators that have locate and iterate over
+      // the recovered index variable.
+      if (iters.second.getIndexVar() == varToRecover && iters.second.hasLocate()) {
+        itersForVar.push_back(iters.second);
+      }
+    }
+    // Finally, declare all of the collected iterators' position access variables.
+    recoverySteps.push_back(this->declLocatePosVars(itersForVar));
+
     // place underived guard
     std::vector<ir::Expr> iterBounds = provGraph.deriveIterBounds(varToRecover, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
     if (forallNeedsUnderivedGuards && underivedBounds.count(varToRecover) &&
@@ -481,7 +499,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
       }
       if (!hasDirectDivBound) {
           Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]),
-                                        Break::make());
+                                        Continue::make());
           recoverySteps.push_back(guard);
       }
     }
@@ -1899,9 +1917,15 @@ Expr LowererImpl::lowerAccess(Access access) {
     return getTensorVar(var);
   }
 
-  return getIterators(access).back().isUnique()
-         ? Load::make(getValuesArray(var), generateValueLocExpr(access))
-         : getReducedValueVar(access);
+  if (getIterators(access).back().isUnique()) {
+    if (var.getType().getDataType() == Datatype::Bool && getIterators(access).back().isZeroless())  {
+      return true;
+    } else {
+      return Load::make(getValuesArray(var), generateValueLocExpr(access));
+    }
+  } else {
+    return getReducedValueVar(access);
+  }
 }
 
 
@@ -2474,7 +2498,6 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
         if (locateIterator.isLeaf()) {
           break;
         }
-        
         locateIterator = locateIterator.getChild();
       } while (accessibleIterators.contains(locateIterator));
     }

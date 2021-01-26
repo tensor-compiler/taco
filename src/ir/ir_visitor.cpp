@@ -228,6 +228,9 @@ void IRVisitor::visit(const Comment*) {
 void IRVisitor::visit(const BlankLine*) {
 }
 
+void IRVisitor::visit(const Continue*) {
+}
+
 void IRVisitor::visit(const Break*) {
 }
 

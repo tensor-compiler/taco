@@ -65,8 +65,9 @@ enum class IRNodeType {
   BlankLine,
   Print,
   GetProperty,
-  Break,
-  Sort
+  Continue,
+  Sort,
+  Break
 };
 
 enum class TensorProperty {
@@ -719,7 +720,14 @@ struct BlankLine : public StmtNode<BlankLine> {
   static const IRNodeType _type_info = IRNodeType::BlankLine;
 };
 
-/** Breaks current loop */
+/** Continues past current iteration of current loop */
+struct Continue : public StmtNode<Continue> {
+  static Stmt make();
+
+  static const IRNodeType _type_info = IRNodeType::Continue;
+};
+
+/** Breaks out of the current loop */
 struct Break : public StmtNode<Break> {
   static Stmt make();
 

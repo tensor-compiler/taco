@@ -192,6 +192,12 @@ bool Iterator::isCompact() const {
   return getMode().defined() && getMode().getModeFormat().isCompact();
 }
 
+bool Iterator::isZeroless() const {
+  taco_iassert(defined());
+  if (isDimensionIterator()) return false;
+  return getMode().defined() && getMode().getModeFormat().isZeroless();
+}
+
 bool Iterator::hasCoordIter() const {
   taco_iassert(defined());
   if (isDimensionIterator()) return false;
