@@ -9,7 +9,7 @@ class SingletonModeFormat : public ModeFormatImpl {
 public:
   SingletonModeFormat();
   SingletonModeFormat(bool isFull, bool isOrdered,
-                      bool isUnique, long long allocSize = DEFAULT_ALLOC_SIZE);
+                      bool isUnique, bool isZeroless, long long allocSize = DEFAULT_ALLOC_SIZE);
 
   ~SingletonModeFormat() override {}
 
