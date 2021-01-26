@@ -1070,11 +1070,14 @@ int main(int argc, char* argv[]) {
     " */";
 
   vector<ir::Stmt> packs;
-  for (auto a : getArgumentAccesses(stmt)) {
+  std::set<TensorVar> generatedPack;
+  for (auto a : getArgumentAccesses(tensor.getAssignment())) {
     TensorVar tensor = a.getTensorVar();
-    if (tensor.getOrder() == 0) {
+    if (tensor.getOrder() == 0 || util::contains(generatedPack, tensor)) {
       continue;
     }
+
+    generatedPack.insert(tensor);
 
     std::string tensorName = tensor.getName();
     std::vector<IndexVar> indexVars = a.getIndexVars();
@@ -1084,7 +1087,7 @@ int main(int argc, char* argv[]) {
   }
 
   ir::Stmt unpack;
-  for (auto a : getResultAccesses(stmt).first) {
+  for (auto a : getResultAccesses(tensor.getAssignment()).first) {
     TensorVar tensor = a.getTensorVar();
     if (tensor.getOrder() == 0) {
       continue;

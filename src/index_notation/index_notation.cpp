@@ -2549,11 +2549,11 @@ pair<vector<Access>,set<Access>> getResultAccesses(IndexStmt stmt)
     function<void(const SequenceNode*,Matcher*)>([&](const SequenceNode* op,
                                                      Matcher* ctx) {
       ctx->match(op->definition);
-    })//,
-    //function<void(const AssembleNode*,Matcher*)>([&](const AssembleNode* op,
-    //                                                 Matcher* ctx) {
-    //  ctx->match(op->compute);
-    //})
+    }),
+    function<void(const AssembleNode*,Matcher*)>([&](const AssembleNode* op,
+                                                     Matcher* ctx) {
+      ctx->match(op->compute);
+    })
   );
   return {result, reduced};
 }

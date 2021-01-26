@@ -271,115 +271,118 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
 Stmt LowererImpl::lowerAssignment(Assignment assignment)
 {
-  TensorVar result = assignment.getLhs().getTensorVar();
-  Stmt computeStmt;
   Expr rhs = lower(assignment.getRhs());
 
-  if (generateComputeCode()) {
-    Expr var = getTensorVar(result);
+  taco_iassert(generateAssembleCode() || generateComputeCode());
 
-    // Assignment to scalar variables.
-    if (isScalar(result.getType())) {
+  Stmt computeStmt;
+  TensorVar result = assignment.getLhs().getTensorVar();
+  Expr var = getTensorVar(result);
+
+  // Assignment to scalar variables.
+  if (isScalar(result.getType())) {
+    if (generateComputeCode()) {
+      bool useAtomics = markAssignsAtomicDepth > 0 && 
+                        !util::contains(whereTemps, result);
       if (!assignment.getOperator().defined()) {
-        return Assign::make(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result), atomicParallelUnit);
+        computeStmt = Assign::make(var, rhs, useAtomics, atomicParallelUnit);
         // TODO: we don't need to mark all assigns/stores just when scattering/reducing
       }
       else {
         taco_iassert(isa<taco::Add>(assignment.getOperator()));
-        return compoundAssign(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result), atomicParallelUnit);
+        computeStmt = compoundAssign(var, rhs, useAtomics, atomicParallelUnit);
       }
     }
-    // Assignments to tensor variables (non-scalar).
-    else {
-      Expr values = getValuesArray(result);
-      Expr loc = generateValueLocExpr(assignment.getLhs());
+  }
+  // Assignments to tensor variables (non-scalar).
+  else {
+    Expr values = getValuesArray(result);
+    Expr loc = generateValueLocExpr(assignment.getLhs());
 
-      std::vector<Stmt> accessStmts;
+    std::vector<Stmt> accessStmts;
 
-      if (generateAssembleCode() && isAssembledByUngroupedInsertion(result)) {
-        std::vector<Expr> coords;
-        Expr prevPos = 0;
-        size_t i = 0;
-        const auto resultIterators = getIterators(assignment.getLhs());
-        for (const auto& it : resultIterators) {
-          // TODO: Should only assemble levels that can be assembled together
-          //if (it == this->nextTopResultIterator) {
-          //  break;
-          //}
+    if (isAssembledByUngroupedInsertion(result)) {
+      std::vector<Expr> coords;
+      Expr prevPos = 0;
+      size_t i = 0;
+      const auto resultIterators = getIterators(assignment.getLhs());
+      for (const auto& it : resultIterators) {
+        // TODO: Should only assemble levels that can be assembled together
+        //if (it == this->nextTopResultIterator) {
+        //  break;
+        //}
 
-          coords.push_back(getCoordinateVar(it));
+        coords.push_back(getCoordinateVar(it));
 
-          const auto yieldPos = it.getYieldPos(prevPos, coords);
-          accessStmts.push_back(yieldPos.compute());
-          Expr pos = it.getPosVar();
-          accessStmts.push_back(VarDecl::make(pos, yieldPos[0]));
+        const auto yieldPos = it.getYieldPos(prevPos, coords);
+        accessStmts.push_back(yieldPos.compute());
+        Expr pos = it.getPosVar();
+        accessStmts.push_back(VarDecl::make(pos, yieldPos[0]));
+
+        if (generateAssembleCode()) {
           accessStmts.push_back(it.getInsertCoord(prevPos, pos, coords));
-
-          prevPos = pos;
-          ++i;
         }
-      }
 
+        prevPos = pos;
+        ++i;
+      }
+    }
+
+    if (generateComputeCode()) {
+      bool useAtomics = (markAssignsAtomicDepth > 0);
       if (!assignment.getOperator().defined()) {
-        computeStmt = Store::make(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
+        computeStmt = Store::make(values, loc, rhs, useAtomics, 
+                                  atomicParallelUnit);
       }
       else {
-        computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
+        computeStmt = compoundStore(values, loc, rhs, useAtomics, 
+                                    atomicParallelUnit);
       }
       taco_iassert(computeStmt.defined());
+    }
 
-      if (!accessStmts.empty()) {
-        accessStmts.push_back(computeStmt);
-        computeStmt = Block::make(accessStmts);
-      }
+    if (!accessStmts.empty()) {
+      accessStmts.push_back(computeStmt);
+      computeStmt = Block::make(accessStmts);
     }
   }
 
   // TODO: If only assembling so defer allocating value memory to the end when
   //       we'll know exactly how much we need.
-  if (generateAssembleCode() || generateComputeCode()) {
-    bool temporaryWithSparseAcceleration = util::contains(tempToIndexList, result);
-    if(generateComputeCode() && !temporaryWithSparseAcceleration) {
-      taco_iassert(computeStmt.defined());
-      return computeStmt;
+  bool temporaryWithSparseAcceleration = util::contains(tempToIndexList, result);
+  if(generateComputeCode() && !temporaryWithSparseAcceleration) {
+    taco_iassert(computeStmt.defined());
+    return computeStmt;
+  }
+
+  if(temporaryWithSparseAcceleration) {
+    Expr values = getValuesArray(result);
+    Expr loc = generateValueLocExpr(assignment.getLhs());
+    Stmt initialStorage = computeStmt;
+    if(assignment.getOperator().defined()) {
+      // computeStmt is a compund stmt so we need to emit an initial store into the temporary
+      initialStorage =  Store::make(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
     }
 
-    if(temporaryWithSparseAcceleration) {
-      Expr values = getValuesArray(result);
-      Expr loc = generateValueLocExpr(assignment.getLhs());
-      Stmt initialStorage = computeStmt;
-      if(assignment.getOperator().defined()) {
-        // computeStmt is a compund stmt so we need to emit an initial store into the temporary
-        initialStorage =  Store::make(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
-      }
+    Expr bitGuardArr = tempToBitGuard.at(result);
+    Expr indexList = tempToIndexList.at(result);
+    Expr indexListSize = tempToIndexListSize.at(result);
 
-      Expr bitGuardArr = tempToBitGuard.at(result);
-      Expr indexList = tempToIndexList.at(result);
-      Expr indexListSize = tempToIndexListSize.at(result);
+    Stmt markBitGuardAsTrue = Store::make(bitGuardArr, loc, ir::Literal::make(true), markAssignsAtomicDepth > 0, atomicParallelUnit);
+    Stmt trackIndex = Store::make(indexList, indexListSize, loc, markAssignsAtomicDepth > 0, atomicParallelUnit);
+    Expr incrementSize = ir::Add::make(indexListSize, ir::Literal::make(1));
+    Stmt incrementStmt = Assign::make(indexListSize, incrementSize, markAssignsAtomicDepth > 0, atomicParallelUnit);
 
-      Stmt markBitGuardAsTrue = Store::make(bitGuardArr, loc, ir::Literal::make(true), markAssignsAtomicDepth > 0, atomicParallelUnit);
-      Stmt trackIndex = Store::make(indexList, indexListSize, loc, markAssignsAtomicDepth > 0, atomicParallelUnit);
-      Expr incrementSize = ir::Add::make(indexListSize, ir::Literal::make(1));
-      Stmt incrementStmt = Assign::make(indexListSize, incrementSize, markAssignsAtomicDepth > 0, atomicParallelUnit);
-
-      Stmt firstWriteAtIndex = Block::make(initialStorage, trackIndex, markBitGuardAsTrue, incrementStmt);
-      if(!generateComputeCode()) {
-        firstWriteAtIndex = Block::make(trackIndex, markBitGuardAsTrue, incrementStmt);
-      }
-
-      Expr readBitGuard = Load::make(bitGuardArr, loc);
-      Stmt finalStmt = IfThenElse::make(ir::Neg::make(readBitGuard), firstWriteAtIndex, computeStmt);
-      return finalStmt;
+    Stmt firstWriteAtIndex = Block::make(initialStorage, trackIndex, markBitGuardAsTrue, incrementStmt);
+    if(!generateComputeCode()) {
+      firstWriteAtIndex = Block::make(trackIndex, markBitGuardAsTrue, incrementStmt);
     }
 
-    return Stmt();
+    Expr readBitGuard = Load::make(bitGuardArr, loc);
+    computeStmt = IfThenElse::make(ir::Neg::make(readBitGuard), firstWriteAtIndex, computeStmt);
   }
-  // We're neither assembling or computing so we emit nothing.
-  else {
-    return Stmt();
-  }
-  taco_unreachable;
-  return Stmt();
+
+  return computeStmt;
 }
 
 
@@ -1750,17 +1753,45 @@ Stmt LowererImpl::lowerSequence(Sequence sequence) {
 
 
 Stmt LowererImpl::lowerAssemble(Assemble assemble) {
-  Stmt queries;
+  Stmt queries, freeQueryResults;
   if (generateAssembleCode() && assemble.getQueries().defined()) {
+    std::vector<Stmt> allocStmts, freeStmts;
+    const auto queryAccesses = getResultAccesses(assemble.getQueries()).first;
+    for (const auto& queryAccess : queryAccesses) {
+      const auto queryResult = queryAccess.getTensorVar();
+      Expr values = ir::Var::make(queryResult.getName(),
+                                  queryResult.getType().getDataType(),
+                                  true, false);
+
+      TemporaryArrays arrays;
+      arrays.values = values;
+      this->temporaryArrays.insert({queryResult, arrays});
+    
+      Stmt declResult = VarDecl::make(values, ir::Literal::make(0));
+      allocStmts.push_back(declResult);
+
+      const auto indexVars = queryAccess.getIndexVars();
+      taco_iassert(util::all(indexVars, 
+          [&](const auto& var) { return provGraph.isUnderived(var); }));
+      Expr size = 1;
+      for (const auto& indexVar : indexVars) {
+        size = ir::Mul::make(size, getDimension(indexVar));
+      }
+      Stmt allocResult = Allocate::make(values, size);
+      allocStmts.push_back(allocResult);
+
+      Stmt freeResult = Free::make(values);
+      freeStmts.push_back(freeResult);
+    }
+    Stmt allocResults = Block::make(allocStmts);
+    freeQueryResults = Block::make(freeStmts);
+
     queries = lower(assemble.getQueries());
+    queries = Block::blanks(allocResults, queries);
   }
 
-  const auto& attrQueryResults = assemble.getAttrQueryResults();
-  auto resultAccesses = getResultAccesses(assemble.getCompute()).first;
-  std::remove_if(resultAccesses.begin(), resultAccesses.end(), 
-      [&](const auto& access) {
-          return !util::contains(attrQueryResults, access.getTensorVar()); }
-  );
+  const auto& queryResults = assemble.getAttrQueryResults();
+  const auto resultAccesses = getResultAccesses(assemble.getCompute()).first;
 
   std::vector<Stmt> initAssembleStmts;
   for (const auto& resultAccess : resultAccesses) {
@@ -1773,8 +1804,7 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
     for (const auto& resultIterator : resultIterators) {
       if (generateAssembleCode()) {
         const size_t resultLevel = resultIterator.getMode().getLevel() - 1;
-        const auto queryResultVars = 
-            attrQueryResults.at(resultTensor)[resultLevel];
+        const auto queryResultVars = queryResults.at(resultTensor)[resultLevel];
         std::vector<AttrQueryResult> queryResults;
         for (const auto& queryResultVar : queryResultVars) {
           queryResults.emplace_back(getTensorVar(queryResultVar), 
@@ -1838,7 +1868,11 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
   }
   Stmt finalizeAssemble = Block::make(finalizeAssembleStmts);
 
-  return Block::blanks(queries, initAssemble, compute, finalizeAssemble);
+  return Block::blanks(queries, 
+                       initAssemble, 
+                       compute, 
+                       finalizeAssemble, 
+                       freeQueryResults);
 }
 
 
