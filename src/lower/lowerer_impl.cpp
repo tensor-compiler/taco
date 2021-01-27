@@ -1075,9 +1075,14 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   if (underivedAncestors.size() > 1) {
     // each underived ancestor is initialized to min coordinate bound
     IndexVar posIteratorVar;
+#if TACO_ASSERTS
     bool hasIteratorAncestor = provGraph.getPosIteratorAncestor(
         iterator.getIndexVar(), &posIteratorVar);
     taco_iassert(hasIteratorAncestor);
+#else /* !TACO_ASSERTS */
+    provGraph.getPosIteratorAncestor(
+        iterator.getIndexVar(), &posIteratorVar);
+#endif /* TACO_ASSERTS */
     // get pos variable then search for leveliterators to find the corresponding iterator
 
     Iterator posIterator;
