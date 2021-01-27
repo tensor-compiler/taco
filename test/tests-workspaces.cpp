@@ -12,9 +12,9 @@ using namespace taco;
 
 TEST(workspaces, tile_vecElemMul_NoTail) {
   
-  Tensor<double> A("A", {16}, {Dense});
-  Tensor<double> B("B", {16}, {Dense});
-  Tensor<double> C("C", {16}, {Dense});
+  Tensor<double> A("A", {16}, Format{Dense});
+  Tensor<double> B("B", {16}, Format{Dense});
+  Tensor<double> C("C", {16}, Format{Dense});
 
   for (int i = 0; i < 16; i++) {
       A.insert({i}, (double) i);
@@ -42,7 +42,7 @@ TEST(workspaces, tile_vecElemMul_NoTail) {
   A.assemble();
   A.compute();
 
-  Tensor<double> expected("expected", {16}, {Dense});
+  Tensor<double> expected("expected", {16}, Format{Dense});
   expected(i) = B(i) * C(i);
   expected.compile();
   expected.assemble();
@@ -52,9 +52,9 @@ TEST(workspaces, tile_vecElemMul_NoTail) {
 
 TEST(workspaces, tile_vecElemMul_Tail1) {
   
-  Tensor<double> A("A", {16}, {Dense});
-  Tensor<double> B("B", {16}, {Dense});
-  Tensor<double> C("C", {16}, {Dense});
+  Tensor<double> A("A", {16}, Format{Dense});
+  Tensor<double> B("B", {16}, Format{Dense});
+  Tensor<double> C("C", {16}, Format{Dense});
 
   for (int i = 0; i < 16; i++) {
       A.insert({i}, (double) i);
@@ -80,7 +80,7 @@ TEST(workspaces, tile_vecElemMul_Tail1) {
   A.assemble();
   A.compute();
 
-  Tensor<double> expected("expected", {16}, {Dense});
+  Tensor<double> expected("expected", {16}, Format{Dense});
   expected(i) = B(i) * C(i);
   expected.compile();
   expected.assemble();
@@ -90,9 +90,9 @@ TEST(workspaces, tile_vecElemMul_Tail1) {
 
 TEST(workspaces, tile_vecElemMul_Tail2) {
   
-  Tensor<double> A("A", {17}, {Dense});
-  Tensor<double> B("B", {17}, {Dense});
-  Tensor<double> C("C", {17}, {Dense});
+  Tensor<double> A("A", {17}, Format{Dense});
+  Tensor<double> B("B", {17}, Format{Dense});
+  Tensor<double> C("C", {17}, Format{Dense});
 
   for (int i = 0; i < 17; i++) {
       A.insert({i}, (double) i);
@@ -118,7 +118,7 @@ TEST(workspaces, tile_vecElemMul_Tail2) {
   A.assemble();
   A.compute();
 
-  Tensor<double> expected("expected", {17}, {Dense});
+  Tensor<double> expected("expected", {17}, Format{Dense});
   expected(i) = B(i) * C(i);
   expected.compile();
   expected.assemble();
@@ -139,9 +139,9 @@ TEST(workspaces, tile_vecElemMul_Tail2) {
 
 TEST(workspaces, tile_denseMatMul) {
   
-  Tensor<double> A("A", {16}, {Dense});
-  Tensor<double> B("B", {16}, {Dense});
-  Tensor<double> C("C", {16}, {Dense});
+  Tensor<double> A("A", {16}, Format{Dense});
+  Tensor<double> B("B", {16}, Format{Dense});
+  Tensor<double> C("C", {16}, Format{Dense});
 
   for (int i = 0; i < 16; i++) {
       A.insert({i}, (double) i);
@@ -167,7 +167,7 @@ TEST(workspaces, tile_denseMatMul) {
   A.assemble();
   A.compute();
 
-  Tensor<double> expected("expected", {16}, {Dense});
+  Tensor<double> expected("expected", {16}, Format{Dense});
   expected(i) = B(i) * C(i);
   expected.compile();
   expected.assemble();
