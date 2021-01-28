@@ -1424,8 +1424,7 @@ void CodeGen_CUDA::visit(const Store* op) {
       } else if (isa<Add>(op->data)) {
         auto add = to<Add>(op->data);
         taco_iassert(isa<Load>(add->a));
-        auto load = to<Load>(add->a);
-        taco_iassert(load->arr == op->arr && load->loc == op->loc);
+        taco_iassert(to<Load>(add->a)->arr == op->arr && to<Load>(add->a)->loc == op->loc);
         if (deviceFunctionLoopDepth == 0 || op->atomic_parallel_unit == ParallelUnit::GPUWarp) {
           // use atomicAddWarp
           doIndent();
@@ -1454,8 +1453,7 @@ void CodeGen_CUDA::visit(const Store* op) {
       } else if (isa<BitOr>(op->data)) {
         auto bitOr = to<BitOr>(op->data);
         taco_iassert(isa<Load>(bitOr->a));
-        auto load = to<Load>(bitOr->a);
-        taco_iassert(load->arr == op->arr && load->loc == op->loc);
+        taco_iassert(to<Load>(bitOr->a)->arr == op->arr && to<Load>(bitOr->a)->loc == op->loc);
 
         doIndent();
         stream << "atomicOr(&";
