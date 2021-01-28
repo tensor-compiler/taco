@@ -5,7 +5,8 @@ endif()
 project(taco)
 option(CUDA "Build for NVIDIA GPU (CUDA must be preinstalled)" OFF)
 option(PYTHON "Build TACO for python environment" OFF)
-option(OPENMP" Build with OpenMP execution support" OFF)
+option(OPENMP "Build with OpenMP execution support" OFF)
+option(COVERAGE "Build with code coverage analysis" OFF)
 if(CUDA)
   message("-- Searching for CUDA Installation")
   find_package(CUDA REQUIRED)
@@ -75,6 +76,15 @@ if(OPENMP)
   set(C_CXX_FLAGS "-fopenmp ${C_CXX_FLAGS}")
 endif(OPENMP)
 
+if(COVERAGE)
+  find_program(PATH_TO_GCOVR gcovr REQUIRED)
+  # add coverage tooling to build flags
+  set(C_CXX_FLAGS "${C_CXX_FLAGS} -g -fprofile-arcs -ftest-coverage")
+  # name the coverage files "foo.gcno", not "foo.cpp.gcno"
+  set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE 1)
+  message("-- Code coverage analysis (gcovr) enabled")
+endif(COVERAGE)
+
 set(C_CXX_FLAGS "${C_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${C_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${C_CXX_FLAGS} -std=c++14")
@@ -103,3 +113,23 @@ if(PYTHON)
 endif(PYTHON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmissing-declarations")
 add_custom_target(src DEPENDS apps)
+
+if(COVERAGE)
+  # code coverage analysis target
+  add_custom_target(gcovr
+    COMMAND mkdir -p coverage
+    COMMAND ${CMAKE_MAKE_PROGRAM} test
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  )
+  add_custom_command(TARGET gcovr
+    COMMAND echo "Running gcovr..."
+    COMMAND ${PATH_TO_GCOVR} -r ${CMAKE_SOURCE_DIR} --html --html-details -o coverage/index.html ${CMAKE_BINARY_DIR}
+    COMMAND echo "See coverage/index.html for coverage information."
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  )
+  add_dependencies(gcovr taco-test)
+  if(PYTHON)
+    add_dependencies(gcovr core_modules)
+  endif(PYTHON)
+  set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES coverage)
+endif(COVERAGE)
