@@ -1920,6 +1920,10 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
         }
 
         if (resultIterator.hasSeqInsertEdge()) {
+          Stmt initEdges = resultIterator.getSeqInitEdges(prevSize,
+                                                          queryResults);
+          initAssembleStmts.push_back(initEdges);
+
           Stmt insertEdgeLoop = resultIterator.getSeqInsertEdge(
               resultIterator.getParent().getPosVar(), coords, queryResults);
           auto locateCoords = coords;
