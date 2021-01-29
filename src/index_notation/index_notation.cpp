@@ -185,6 +185,10 @@ struct Isomorphic : public IndexNotationVisitorStrict {
         return;
       }
     }
+    if (anode->isAccessingStructure != bnode->isAccessingStructure) {
+      eq = false;
+      return;
+    }
     eq = true;
   }
 
@@ -486,6 +490,10 @@ struct Equals : public IndexNotationVisitorStrict {
         eq = false;
         return;
       }
+    }
+    if (anode->isAccessingStructure != bnode->isAccessingStructure) {
+      eq = false;
+      return;
     }
     eq = true;
   }
@@ -2502,6 +2510,21 @@ std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
     })
   );
   return temporaries;
+}
+
+
+std::vector<TensorVar> getAttrQueryResults(IndexStmt stmt) {
+  std::vector<TensorVar> results;
+  match(stmt,
+    function<void(const AssembleNode*,Matcher*)>([&](const AssembleNode* op,
+                                                  Matcher* ctx) {
+      const auto queryResults = getResults(op->queries);
+      results.insert(results.end(), queryResults.begin(), queryResults.end());
+      ctx->match(op->queries);
+      ctx->match(op->compute);
+    })
+  );
+  return results;
 }
 
 

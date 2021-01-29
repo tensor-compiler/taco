@@ -392,10 +392,12 @@ private:
   bool assemble;
   bool compute;
 
+  std::set<TensorVar> needCompute;
+
   int markAssignsAtomicDepth = 0;
   ParallelUnit atomicParallelUnit;
 
-  std::vector<TensorVar> assembledByUngroupedInsert;
+  std::set<TensorVar> assembledByUngroupedInsert;
 
   /// Map used to hoist temporary workspace initialization
   std::map<Forall, Where> temporaryInitialization;

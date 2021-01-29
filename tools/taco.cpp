@@ -665,6 +665,9 @@ int main(int argc, char* argv[]) {
           case 'u':
             modeTypes.push_back(ModeFormat::Sparse(ModeFormat::NOT_UNIQUE));
             break;
+          case 'z':
+            modeTypes.push_back(ModeFormat::Sparse(ModeFormat::ZEROLESS));
+            break;
           case 'c':
             modeTypes.push_back(ModeFormat::Singleton(ModeFormat::NOT_UNIQUE));
             break;

@@ -4,6 +4,7 @@
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_visitor.h"
+#include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/ir/ir.h"
 #include "ir/ir_generators.h"
 #include "taco/ir/ir_visitor.h"
@@ -105,6 +106,81 @@ static bool hasStores(Stmt stmt) {
   return stmt.defined() && FindStores().hasStores(stmt);
 }
 
+static void getDependentTensors(IndexStmt stmt, std::set<TensorVar>& tensors) {
+  std::set<TensorVar> prev;
+  do {
+    prev = tensors;
+    match(stmt,
+      function<void(const AssignmentNode*, Matcher*)>([&](
+          const AssignmentNode* n, Matcher* m) {
+        if (util::contains(tensors, n->lhs.getTensorVar())) {
+          const auto arguments = getArguments(Assignment(n));
+          tensors.insert(arguments.begin(), arguments.end());
+        }
+      })
+    );
+  } while (prev != tensors);
+}
+
+static bool needComputeValues(IndexStmt stmt, TensorVar tensor) {
+  if (tensor.getType().getDataType() != Bool) {
+    return true;
+  }
+
+  struct ReturnsTrue : public IndexExprRewriterStrict {
+    void visit(const AccessNode* op) {
+      if (op->isAccessingStructure) {
+        expr = op;
+      }
+    }
+
+    void visit(const LiteralNode* op) {
+      if (op->getDataType() == Bool && op->getVal<bool>()) {
+        expr = op;
+      }
+    }
+
+    void visit(const NegNode* op) {
+      expr = rewrite(op->a);
+    }
+
+    void visit(const AddNode* op) {
+      if (rewrite(op->a).defined() || rewrite(op->b).defined()) {
+        expr = op;
+      }
+    }
+
+    void visit(const MulNode* op) {
+      if (rewrite(op->a).defined() && rewrite(op->b).defined()) {
+        expr = op;
+      }
+    }
+
+    void visit(const CastNode* op) {
+      expr = rewrite(op->a);
+    }
+
+    void visit(const SqrtNode* op) {}
+    void visit(const SubNode* op) {}
+    void visit(const DivNode* op) {}
+    void visit(const CallIntrinsicNode* op) {}
+    void visit(const ReductionNode* op) {}
+  };
+
+  bool needComputeValue = false;
+  match(stmt,
+    function<void(const AssignmentNode*, Matcher*)>([&](
+        const AssignmentNode* n, Matcher* m) {
+      if (n->lhs.getTensorVar() == tensor && 
+          !ReturnsTrue().rewrite(n->rhs).defined()) {
+        needComputeValue = true;
+      }
+    })
+  );
+
+  return needComputeValue;
+}
+
 Stmt
 LowererImpl::lower(IndexStmt stmt, string name, 
                    bool assemble, bool compute, bool pack, bool unpack)
@@ -118,10 +194,19 @@ LowererImpl::lower(IndexStmt stmt, string name,
   vector<TensorVar> results = getResults(stmt);
   vector<TensorVar> arguments = getArguments(stmt);
   vector<TensorVar> temporaries = getTemporaries(stmt);
-  std::cout << "temps:" << util::join(temporaries) << std::endl;
-  std::cout << "results:" << util::join(results) << std::endl;
 
-  assembledByUngroupedInsert = getAssembledByUngroupedInsertion(stmt);
+  needCompute = {};
+  if (generateAssembleCode()) {
+    const auto attrQueryResults = getAttrQueryResults(stmt);
+    needCompute.insert(attrQueryResults.begin(), attrQueryResults.end());
+  }
+  if (generateComputeCode()) {
+    needCompute.insert(results.begin(), results.end());
+  }
+  getDependentTensors(stmt, needCompute);
+
+  assembledByUngroupedInsert = util::toSet(
+      getAssembledByUngroupedInsertion(stmt));
 
   // Create datastructure needed for temporary workspace hoisting/reuse
   temporaryInitialization = getTemporaryLocations(stmt);
@@ -281,7 +366,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
 
   // Assignment to scalar variables.
   if (isScalar(result.getType())) {
-    if (generateComputeCode()) {
+    if (util::contains(needCompute, result)) {
       bool useAtomics = markAssignsAtomicDepth > 0 && 
                         !util::contains(whereTemps, result);
       if (!assignment.getOperator().defined()) {
@@ -328,7 +413,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
       }
     }
 
-    if (generateComputeCode()) {
+    if (util::contains(needCompute, result) && values.defined()) {
       bool useAtomics = (markAssignsAtomicDepth > 0);
       if (!assignment.getOperator().defined()) {
         computeStmt = Store::make(values, loc, rhs, useAtomics, 
@@ -350,19 +435,14 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
   // TODO: If only assembling so defer allocating value memory to the end when
   //       we'll know exactly how much we need.
   bool temporaryWithSparseAcceleration = util::contains(tempToIndexList, result);
-  if(generateComputeCode() && !temporaryWithSparseAcceleration) {
+  if (generateComputeCode() && !temporaryWithSparseAcceleration) {
     taco_iassert(computeStmt.defined());
     return computeStmt;
   }
 
-  if(temporaryWithSparseAcceleration) {
+  if (temporaryWithSparseAcceleration) {
     Expr values = getValuesArray(result);
     Expr loc = generateValueLocExpr(assignment.getLhs());
-    Stmt initialStorage = computeStmt;
-    if(assignment.getOperator().defined()) {
-      // computeStmt is a compund stmt so we need to emit an initial store into the temporary
-      initialStorage =  Store::make(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
-    }
 
     Expr bitGuardArr = tempToBitGuard.at(result);
     Expr indexList = tempToIndexList.at(result);
@@ -373,13 +453,22 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
     Expr incrementSize = ir::Add::make(indexListSize, ir::Literal::make(1));
     Stmt incrementStmt = Assign::make(indexListSize, incrementSize, markAssignsAtomicDepth > 0, atomicParallelUnit);
 
-    Stmt firstWriteAtIndex = Block::make(initialStorage, trackIndex, markBitGuardAsTrue, incrementStmt);
-    if(!generateComputeCode()) {
-      firstWriteAtIndex = Block::make(trackIndex, markBitGuardAsTrue, incrementStmt);
+    Stmt firstWriteAtIndex = Block::make(trackIndex, markBitGuardAsTrue, incrementStmt);
+    if (util::contains(needCompute, result) && values.defined()) {
+      Stmt initialStorage = computeStmt;
+      if (assignment.getOperator().defined()) {
+        // computeStmt is a compund stmt so we need to emit an initial store 
+        // into the temporary
+        initialStorage =  Store::make(values, loc, rhs, 
+                                      markAssignsAtomicDepth > 0, 
+                                      atomicParallelUnit);
+      }
+      firstWriteAtIndex = Block::make(initialStorage, firstWriteAtIndex);
     }
 
     Expr readBitGuard = Load::make(bitGuardArr, loc);
-    computeStmt = IfThenElse::make(ir::Neg::make(readBitGuard), firstWriteAtIndex, computeStmt);
+    computeStmt = IfThenElse::make(ir::Neg::make(readBitGuard), 
+                                   firstWriteAtIndex, computeStmt);
   }
 
   return computeStmt;
@@ -1649,12 +1738,13 @@ vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
       freeTemporary = initAndFree[1];
     }
 
-    if (generateComputeCode()) {
-      Expr values = ir::Var::make(temporary.getName(),
-                                  temporary.getType().getDataType(),
-                                  true, false);
-      taco_iassert(temporary.getType().getOrder() == 1) << " Temporary order was "
-                                                        << temporary.getType().getOrder();  // TODO
+    Expr values;
+    if (util::contains(needCompute, temporary) && 
+        needComputeValues(where, temporary)) {
+      values = ir::Var::make(temporary.getName(),
+                             temporary.getType().getDataType(), true, false);
+      taco_iassert(temporary.getType().getOrder() == 1) 
+          << " Temporary order was " << temporary.getType().getOrder();  // TODO
       Expr size = getTemporarySize(where);
 
       // no decl needed for shared memory
@@ -1664,15 +1754,15 @@ vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
       }
       Stmt allocate = Allocate::make(values, size);
 
-      /// Make a struct object that lowerAssignment and lowerAccess can read
-      /// temporary value arrays from.
-      TemporaryArrays arrays;
-      arrays.values = values;
-      this->temporaryArrays.insert({temporary, arrays});
-
       freeTemporary = Block::make(freeTemporary, Free::make(values));
       initializeTemporary = Block::make(decl, initializeTemporary, allocate);
     }
+
+    /// Make a struct object that lowerAssignment and lowerAccess can read
+    /// temporary value arrays from.
+    TemporaryArrays arrays;
+    arrays.values = values;
+    this->temporaryArrays.insert({temporary, arrays});
   }
   return {initializeTemporary, freeTemporary};
 }
@@ -1719,7 +1809,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
 
   // Now that temporary allocations are hoisted, we always need to emit an initialization loop before entering the
   // producer but only if there is no dense acceleration
-  if (generateComputeCode() && !isScalar(temporary.getType()) && !accelerateDenseWorkSpace) {
+  if (util::contains(needCompute, temporary) && !isScalar(temporary.getType()) && !accelerateDenseWorkSpace) {
     // TODO: We only actually need to do this if:
     //      1) We use the temporary multiple times
     //      2) The PRODUCER RHS is sparse(not full). (Guarantees that old values are overwritten before consuming)
@@ -1918,10 +2008,12 @@ Expr LowererImpl::lowerAccess(Access access) {
   }
 
   if (getIterators(access).back().isUnique()) {
-    if (var.getType().getDataType() == Datatype::Bool && getIterators(access).back().isZeroless())  {
+    if (var.getType().getDataType() == Datatype::Bool && 
+        getIterators(access).back().isZeroless())  {
       return true;
     } else {
-      return Load::make(getValuesArray(var), generateValueLocExpr(access));
+      const auto vals = getValuesArray(var);
+      return vals.defined() ? Load::make(vals, generateValueLocExpr(access)) : true;
     }
   } else {
     return getReducedValueVar(access);
