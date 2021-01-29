@@ -697,7 +697,7 @@ TEST_STMT(where_matrix_vector_mul,
   }
 )
 
-TEST_STMT(DISABLED_where_spmm,
+TEST_STMT(where_spmm,
   forall(i,
          where(forall(j,
                       A(i,j) = w(j)),
@@ -705,8 +705,8 @@ TEST_STMT(DISABLED_where_spmm,
                       forall(j,
                              w(j) += B(i,k) * C(k,j))))),
   Values(
-//         Formats({{A,Format({dense,dense})},
-//                  {B,Format({dense,dense})}, {C,Format({dense,dense})}}),
+         Formats({{A,Format({dense,dense})},
+                  {B,Format({dense,dense})}, {C,Format({dense,dense})}}),
          Formats({{A,Format({dense,sparse})},
                   {B,Format({dense,sparse})}, {C,Format({dense,sparse})}})
          ),
