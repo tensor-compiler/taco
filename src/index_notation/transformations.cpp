@@ -794,7 +794,6 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
         for (const auto& query: 
             modeFormats[i].getAttrQueries(parentCoords, childCoords)) {
           const auto& groupBy = query.getGroupBy();
-          std::cout << query << std::endl;
           taco_iassert(query.getAttrs().size() == 1);  // TODO: support multiple aggregations in single query
 
           std::vector<Dimension> queryDims;
@@ -846,7 +845,6 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
     void visit(const AccessNode* op) {
       if (util::contains(arguments, op->tensorVar)) {
         expr = Access(op->tensorVar, op->indexVars, true);
-        std::cout << "replacing " << IndexExpr(op) << " with " << expr << std::endl;
         return;
       } else if (util::contains(temps, op->tensorVar)) {
         expr = Access(tempReplacements[op->tensorVar], op->indexVars);
@@ -858,7 +856,6 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
   };
   loweredQueries = 
       LowerAttrQuery(queryResults, insertedResults).lower(loweredQueries);
-  std::cout << loweredQueries << std::endl;
 
   struct ReduceToAssign : public IndexNotationRewriter {
     using IndexNotationRewriter::visit;
@@ -891,7 +888,6 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
     }
   };
   loweredQueries = ReduceToAssign(insertedResults).rewrite(loweredQueries);
-  std::cout << loweredQueries << std::endl;
 
   std::set<TensorVar> inlinedResults;
   struct InlineTemporaries : public IndexNotationRewriter {
@@ -954,7 +950,6 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
     }
   };
   loweredQueries = InlineTemporaries(insertedResults, inlinedResults).rewrite(loweredQueries);
-  std::cout << loweredQueries << std::endl;
         
   struct EliminateRedundantReduce : public IndexNotationRewriter {
     using IndexNotationRewriter::rewrite;
@@ -997,11 +992,6 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
     }
   };
   loweredQueries = EliminateRedundantReduce(inlinedResults).rewrite(loweredQueries);
-  std::cout << loweredQueries << std::endl;
-  
-  //loweredQueries = parallelizeOuterLoop(loweredQueries);
-  //stmt = parallelizeOuterLoop(stmt);
-  //std::cout << loweredQueries << std::endl;
 
   return Assemble(loweredQueries, stmt, queryResults);
 }
