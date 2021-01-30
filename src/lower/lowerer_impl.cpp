@@ -1701,7 +1701,11 @@ std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
 
   // Get index vars in result.
   std::vector<IndexVar> resultVars = resultAccesses[0].getIndexVars();
-  auto it = std::find(resultVars.begin(), resultVars.end(), tempVar[0]);
+  auto it = std::find_if(resultVars.begin(), resultVars.end(), 
+      [&](const auto& resultVar) {
+          return resultVar == tempVar[0] || 
+                 provGraph.isDerivedFrom(tempVar[0], resultVar);
+  });
 
   if (it == resultVars.end()) {
     return std::make_pair(true, false);
@@ -1712,11 +1716,13 @@ std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
   int modeIndex = resultTensor.getFormat().getModeOrdering()[index];
   ModeFormat varFmt = resultTensor.getFormat().getModeFormats()[modeIndex];
 
-  // Actual check for condition (4). If the current mode is full, no optimizations necessary
+  // Actual check for condition (4). If the current mode is full, no 
+  // optimizations necessary
   if(varFmt.isFull()) {
     return std::make_pair(false, false);
   }
 
+  // Only need to sort the workspace if the result needs to be ordered
   return std::make_pair(true, varFmt.isOrdered());
 }
 
