@@ -615,8 +615,8 @@ INSTANTIATE_TEST_CASE_P(hashmap, merge_lattice,
         )
 );
 
-Op intersectAdd("intersectAdd", GeneralAdd(), IntersectGen());
-Op intersectAddDeMorgan("intersectAddDeMorgan", GeneralAdd(), IntersectGenDeMorgan());
+Func intersectAdd("intersectAdd", GeneralAdd(), IntersectGen());
+Func intersectAddDeMorgan("intersectAddDeMorgan", GeneralAdd(), IntersectGenDeMorgan());
 
 INSTANTIATE_TEST_CASE_P(deMorganIntersect, merge_lattice,
                         Values(
@@ -666,7 +666,7 @@ INSTANTIATE_TEST_CASE_P(deMorganIntersect, merge_lattice,
                         )
 );
 
-Op complementIntersect("complementIntersect", GeneralAdd(), ComplementIntersect());
+Func complementIntersect("complementIntersect", GeneralAdd(), ComplementIntersect());
 
 INSTANTIATE_TEST_CASE_P(complementIntersect, merge_lattice,
                         Values(
@@ -776,7 +776,7 @@ INSTANTIATE_TEST_CASE_P(complementIntersect, merge_lattice,
 );
 
 
-Op complementUnion("complementUnion", GeneralAdd(), ComplementUnion());
+Func complementUnion("complementUnion", GeneralAdd(), ComplementUnion());
 INSTANTIATE_TEST_CASE_P(complementUnion, merge_lattice,
                         Values(
                                 Test(forall(i, rd = complementUnion(s1, s2)),
@@ -908,7 +908,7 @@ INSTANTIATE_TEST_CASE_P(complementUnion, merge_lattice,
                         )
 );
 
-Op xorOp("xor", GeneralAdd(), xorGen());
+Func xorOp("xor", GeneralAdd(), xorGen());
 INSTANTIATE_TEST_CASE_P(xorLattice, merge_lattice,
                         Values(Test(forall(i, rd = xorOp(s1, s2)),
                                     MergeLattice({MergePoint({it(s1), it(s2)},
@@ -991,7 +991,7 @@ INSTANTIATE_TEST_CASE_P(xorLattice, merge_lattice,
                         )
 );
 
-Op identity("identity", identityFunc(), fullSpaceGen());
+Func identity("identity", identityFunc(), fullSpaceGen());
 INSTANTIATE_TEST_CASE_P(singleCompUnion, merge_lattice,
                         Values(Test(forall(i, rd = identity(s1)),
                                     MergeLattice({MergePoint({it(s1), i},
@@ -1017,9 +1017,9 @@ INSTANTIATE_TEST_CASE_P(singleCompUnion, merge_lattice,
                         )
 );
 
-Op emptyIdentity("emptyIdentity", identityFunc(), emptyGen());
-Op intersectEdgeCase("intersectEdgeCase", GeneralAdd(), intersectEdge());
-Op unionEdgeCase("unionEdgeCase", GeneralAdd(), unionEdge());
+Func emptyIdentity("emptyIdentity", identityFunc(), emptyGen());
+Func intersectEdgeCase("intersectEdgeCase", GeneralAdd(), intersectEdge());
+Func unionEdgeCase("unionEdgeCase", GeneralAdd(), unionEdge());
 INSTANTIATE_TEST_CASE_P(edgeCases, merge_lattice,
                         Values(Test(forall(i, rd = emptyIdentity(s1)),
                                     MergeLattice({MergePoint({it(s1)},

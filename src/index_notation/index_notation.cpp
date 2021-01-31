@@ -242,12 +242,12 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = true;
   }
 
-  void visit(const TensorOpNode* anode) {
-    if (!isa<TensorOpNode>(bExpr.ptr)) {
+  void visit(const CallNode* anode) {
+    if (!isa<CallNode>(bExpr.ptr)) {
       eq = false;
       return;
     }
-    auto bnode = to<TensorOpNode>(bExpr.ptr);
+    auto bnode = to<CallNode>(bExpr.ptr);
 
     // Properties
     if (anode->properties.size() != bnode->properties.size()) {
@@ -447,7 +447,7 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = true;
   }
 
-  static bool checkRegionDefinitions(const TensorOpNode* anode, const TensorOpNode* bnode) {
+  static bool checkRegionDefinitions(const CallNode* anode, const CallNode* bnode) {
     // Check region definitions
     if (anode->regionDefinitions.size() != bnode->regionDefinitions.size()) {
       return false;
@@ -479,14 +479,14 @@ struct Equals : public IndexNotationVisitorStrict {
 
   /// Checks if the iteration algebra structure is the same and the ordering of the index expressions
   /// nested under regions is the same for each op node.
-  static bool checkIterationAlg(const TensorOpNode* anode, const TensorOpNode* bnode) {
+  static bool checkIterationAlg(const CallNode* anode, const CallNode* bnode) {
     // Check IterationAlgebra structures
     if(!algStructureEqual(anode->iterAlg, bnode->iterAlg)) {
       return false;
     }
 
     struct OrderChecker : public IterationAlgebraVisitor {
-      explicit OrderChecker(const TensorOpNode* op) : op(op) {}
+      explicit OrderChecker(const CallNode* op) : op(op) {}
 
       std::vector<size_t>& check() {
         op->iterAlg.accept(this);
@@ -504,7 +504,7 @@ struct Equals : public IndexNotationVisitorStrict {
       }
 
       std::vector<size_t> ordering;
-      const TensorOpNode* op;
+      const CallNode* op;
     };
 
     std::vector<size_t> aOrdering = OrderChecker(anode).check();
@@ -885,49 +885,49 @@ template <> Cast to<Cast>(IndexExpr e) {
   return Cast(to<CastNode>(e.ptr));
 }
 
-// class TensorOp, most construction should happen from tensor_operator.h
-TensorOp::TensorOp(const TensorOpNode* n) : IndexExpr(n) {
+// class Call, most construction should happen from tensor_operator.h
+Call::Call(const CallNode* n) : IndexExpr(n) {
 }
 
-TensorOp::TensorOp(const TensorOpNode *n, std::string name) : IndexExpr(n), name(name) {
+Call::Call(const CallNode *n, std::string name) : IndexExpr(n), name(name) {
 }
 
-const std::vector<IndexExpr>& TensorOp::getArgs() const {
+const std::vector<IndexExpr>& Call::getArgs() const {
   return getNode(*this)->args;
 }
 
-const TensorOpNode::opImpl TensorOp::getFunc() const {
+const CallNode::OpImpl Call::getFunc() const {
   return getNode(*this)->defaultLowerFunc;
 }
 
-const IterationAlgebra& TensorOp::getAlgebra() const {
+const IterationAlgebra& Call::getAlgebra() const {
   return getNode(*this)->iterAlg;
 }
 
-const std::vector<Property>& TensorOp::getProperties() const {
+const std::vector<Property>& Call::getProperties() const {
   return getNode(*this)->properties;
 }
 
-const std::string TensorOp::getName() const {
+const std::string Call::getName() const {
   return getNode(*this)->name;
 }
 
-const std::map<std::vector<int>, TensorOpNode::opImpl> TensorOp::getDefs() const {
+const std::map<std::vector<int>, CallNode::OpImpl> Call::getDefs() const {
   return getNode(*this)->regionDefinitions;
 }
 
-const std::vector<int>& TensorOp::getDefinedArgs() const {
+const std::vector<int>& Call::getDefinedArgs() const {
   return getNode(*this)->definedRegions;
 }
 
 
-template <> bool isa<TensorOp>(IndexExpr e) {
-  return isa<TensorOpNode>(e.ptr);
+template <> bool isa<Call>(IndexExpr e) {
+  return isa<CallNode>(e.ptr);
 }
 
-template <> TensorOp to<TensorOp>(IndexExpr e) {
-  taco_iassert(isa<TensorOp>(e));
-  return TensorOp(to<TensorOpNode>(e.ptr));
+template <> Call to<Call>(IndexExpr e) {
+  taco_iassert(isa<Call>(e));
+  return Call(to<CallNode>(e.ptr));
 }
 
 // class CallIntrinsic
@@ -2585,7 +2585,7 @@ private:
     }
   }
 
-  void visit(const TensorOpNode* op) {
+  void visit(const CallNode* op) {
     std::vector<IndexExpr> args;
     std::vector<IndexExpr> rewrittenArgs;
     std::vector<int> definedArgs;
@@ -2632,8 +2632,8 @@ private:
     if (rewritten) {
       const std::map<IndexExpr, IndexExpr> subs = util::zipToMap(op->args, rewrittenArgs);
       IterationAlgebra newAlg = replaceAlgIndexExprs(op->iterAlg, subs);
-      expr = new TensorOpNode(op->name, args, op->defaultLowerFunc, newAlg, op->properties,
-                              op->regionDefinitions, definedArgs);
+      expr = new CallNode(op->name, args, op->defaultLowerFunc, newAlg, op->properties,
+                          op->regionDefinitions, definedArgs);
     }
     else {
       expr = op;
@@ -2861,7 +2861,7 @@ struct fillValueInferrer : IndexExprRewriterStrict {
       expr = IndexExpr();
     }
 
-    virtual void visit(const TensorOpNode* op) {
+    virtual void visit(const CallNode* op) {
       Annihilator annihilator = findProperty<Annihilator>(op->properties);
       if(annihilator.defined()) {
         IndexExpr e = annihilator.annihilates(op->args);

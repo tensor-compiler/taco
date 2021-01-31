@@ -206,10 +206,10 @@ INSTANTIATE_TEST_CASE_P(separate_reductions, concrete,
 
 
 
-Op scOr("Or", OrImpl(), {Annihilator((bool)1), Identity((bool)0)});
-Op scAnd("And", AndImpl(), {Annihilator((bool)0), Identity((bool)0)});
+Func scOr("Or", OrImpl(), {Annihilator((bool)1), Identity((bool)0)});
+Func scAnd("And", AndImpl(), {Annihilator((bool)0), Identity((bool)0)});
 
-Op bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
+Func bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
 INSTANTIATE_TEST_CASE_P(tensorOpConcrete, concrete,
               Values(ConcreteTest(a(i) = Reduction(scOr(), j, bfsMaskOp(scAnd(B(i, j), c(j)), c(i))),
                                   forall(i,

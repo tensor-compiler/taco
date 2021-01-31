@@ -57,7 +57,7 @@ private:
   void visit(const SqrtNode* node)          { expr = impl->lowerSqrt(node); }
   void visit(const CastNode* node)          { expr = impl->lowerCast(node); }
   void visit(const CallIntrinsicNode* node) { expr = impl->lowerCallIntrinsic(node); }
-  void visit(const TensorOpNode* node)      { expr = impl->lowerTensorOp(node); }
+  void visit(const CallNode* node)      { expr = impl->lowerTensorOp(node); }
   void visit(const ReductionNode* node)  {
     taco_ierror << "Reduction nodes not supported in concrete index notation";
   }
@@ -277,9 +277,9 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
           return addAssign(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result),
                            atomicParallelUnit);
         }
-        taco_iassert(isa<taco::TensorOp>(assignment.getOperator()));
+        taco_iassert(isa<taco::Call>(assignment.getOperator()));
 
-        TensorOp op = to<TensorOp>(assignment.getOperator());
+        Call op = to<Call>(assignment.getOperator());
         Expr assignOp = op.getFunc()({var, rhs});
         Stmt assign = Assign::make(var, assignOp, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result),
                                    atomicParallelUnit);
@@ -303,9 +303,9 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
           computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
         } else {
 
-          taco_iassert(isa<taco::TensorOp>(assignment.getOperator()));
+          taco_iassert(isa<taco::Call>(assignment.getOperator()));
 
-          TensorOp op = to<TensorOp>(assignment.getOperator());
+          Call op = to<Call>(assignment.getOperator());
           Expr assignOp = op.getFunc()({Load::make(values, loc), rhs});
           computeStmt = Store::make(values, loc, assignOp,
                                     markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result),
@@ -1735,7 +1735,7 @@ Expr LowererImpl::lowerCallIntrinsic(CallIntrinsic call) {
 }
 
 
-Expr LowererImpl::lowerTensorOp(TensorOp op) {
+Expr LowererImpl::lowerTensorOp(Call op) {
   auto definedArgs = op.getDefinedArgs();
   std::vector<Expr> args;
 

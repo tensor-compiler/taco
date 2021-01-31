@@ -13,55 +13,56 @@
 
 namespace taco {
 
-class Op {
+class Func {
+// TODO: RENAME
+using OpImpl = CallNode::OpImpl;
+using AlgebraImpl = CallNode::AlgebraImpl;
 
-using opImpl = TensorOpNode::opImpl;
-using algebraImpl = TensorOpNode::algebraImpl;
-
+// TODO: Make this part of callNode and call. Add generateIterationAlgebra() and generateImplementation() functions
 public:
   // Full construction
-  Op(opImpl lowererFunc, algebraImpl algebraFunc, std::vector<Property> properties,
-     std::map<std::vector<int>, opImpl> specialDefinitions = {});
+  Func(OpImpl lowererFunc, AlgebraImpl algebraFunc, std::vector<Property> properties,
+       std::map<std::vector<int>, OpImpl> specialDefinitions = {});
 
-  Op(std::string name, opImpl lowererFunc, algebraImpl algebraFunc, std::vector<Property> properties,
-     std::map<std::vector<int>, opImpl> specialDefinitions = {});
+  Func(std::string name, OpImpl lowererFunc, AlgebraImpl algebraFunc, std::vector<Property> properties,
+       std::map<std::vector<int>, OpImpl> specialDefinitions = {});
 
   // Construct without specifying algebra
-  Op(std::string name, opImpl lowererFunc, std::vector<Property> properties,
-     std::map<std::vector<int>, opImpl> specialDefinitions  = {});
+  Func(std::string name, OpImpl lowererFunc, std::vector<Property> properties,
+       std::map<std::vector<int>, OpImpl> specialDefinitions  = {});
 
-  Op(opImpl lowererFunc, std::vector<Property> properties,
-     std::map<std::vector<int>, opImpl> specialDefinitions = {});
+  Func(OpImpl lowererFunc, std::vector<Property> properties,
+       std::map<std::vector<int>, OpImpl> specialDefinitions = {});
 
   // Construct without properties
-  Op(std::string name, opImpl lowererFunc, algebraImpl algebraFunc,
-     std::map<std::vector<int>, opImpl> specialDefinitions = {});
+  Func(std::string name, OpImpl lowererFunc, AlgebraImpl algebraFunc,
+       std::map<std::vector<int>, OpImpl> specialDefinitions = {});
 
-  Op(opImpl lowererFunc, algebraImpl algebraFunc, std::map<std::vector<int>, opImpl> specialDefinitions = {});
+  Func(OpImpl lowererFunc, AlgebraImpl algebraFunc, std::map<std::vector<int>, OpImpl> specialDefinitions = {});
 
   // Construct without algebra or properties
-  Op(std::string name, opImpl lowererFunc, std::map<std::vector<int>, opImpl> specialDefinitions = {});
+  Func(std::string name, OpImpl lowererFunc, std::map<std::vector<int>, OpImpl> specialDefinitions = {});
 
-  explicit Op(opImpl lowererFunc, std::map<std::vector<int>, opImpl> specialDefinitions = {});
+  explicit Func(OpImpl lowererFunc, std::map<std::vector<int>, OpImpl> specialDefinitions = {});
 
   template<typename... IndexExprs>
-  TensorOp operator()(IndexExprs&&... exprs) {
+  Call operator()(IndexExprs&&... exprs) {
     std::vector<IndexExpr> actualArgs{exprs...};
 
     IterationAlgebra nodeAlgebra = algebraFunc == nullptr? inferAlgFromProperties(actualArgs): algebraFunc(actualArgs);
 
-    TensorOpNode* op = new TensorOpNode(name, actualArgs, lowererFunc, nodeAlgebra, properties,
-                                        regionDefinitions);
+    CallNode* op = new CallNode(name, actualArgs, lowererFunc, nodeAlgebra, properties,
+                                regionDefinitions);
 
-    return TensorOp(op);
+    return Call(op);
   }
 
 private:
   std::string name;
-  opImpl lowererFunc;
-  algebraImpl algebraFunc;
+  OpImpl lowererFunc;
+  AlgebraImpl algebraFunc;
   std::vector<Property> properties;
-  std::map<std::vector<int>, opImpl> regionDefinitions;
+  std::map<std::vector<int>, OpImpl> regionDefinitions;
 
   IterationAlgebra inferAlgFromProperties(const std::vector<IndexExpr>& exprs);
 

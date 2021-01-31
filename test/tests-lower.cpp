@@ -1582,7 +1582,7 @@ TEST_STMT(vector_not,
 
 // Test tensorOps
 
-Op testOp("testOp", MulAdd(), BC_BD_CD());
+Func testOp("testOp", MulAdd(), BC_BD_CD());
 
 TEST_STMT(testOp1,
           forall(i,
@@ -1606,7 +1606,7 @@ TEST_STMT(testOp1,
 )
 
 
-Op specialOp("specialOp", GeneralAdd(), BC_BD_CD(), {{{0,1}, MulRegionDef()}, {{0,2}, SubRegionDef()}});
+Func specialOp("specialOp", GeneralAdd(), BC_BD_CD(), {{{0, 1}, MulRegionDef()}, {{0, 2}, SubRegionDef()}});
 TEST_STMT(lowerSpecialRegions1,
           forall(i,
                      forall(j,
@@ -1630,7 +1630,7 @@ TEST_STMT(lowerSpecialRegions1,
           }
 )
 
-Op compUnion("compUnion", GeneralAdd(), ComplementUnion());
+Func compUnion("compUnion", GeneralAdd(), ComplementUnion());
 TEST_STMT(lowerCompUnion,
           forall(i,
                  forall(j,
@@ -1655,9 +1655,9 @@ TEST_STMT(lowerCompUnion,
           }
 )
 
-Op scOr("Or", OrImpl(), {Annihilator((double)1), Identity(Literal((double)0))});
-Op scAnd("And", AndImpl(), {Annihilator((double)0), Identity((double)1)});
-Op bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
+Func scOr("Or", OrImpl(), {Annihilator((double)1), Identity(Literal((double)0))});
+Func scAnd("And", AndImpl(), {Annihilator((double)0), Identity((double)1)});
+Func bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
 
 TEST_STMT(BoolRing,
           forall(i,
@@ -1710,8 +1710,8 @@ TEST_STMT(BoolRing3,
           }
 )
 
-Op customMin("Min", MinImpl(), {Identity(std::numeric_limits<double>::infinity()) });
-Op Plus("Plus", GeneralAdd(), {Annihilator(std::numeric_limits<double>::infinity())});
+Func customMin("Min", MinImpl(), {Identity(std::numeric_limits<double>::infinity()) });
+Func Plus("Plus", GeneralAdd(), {Annihilator(std::numeric_limits<double>::infinity())});
 
 static TensorVar a_inf("a", vectype, Format(), std::numeric_limits<double>::infinity());
 static TensorVar c_inf("c", vectype, Format(), std::numeric_limits<double>::infinity());
@@ -1734,7 +1734,7 @@ TEST_STMT(MinPlusRing,
           }
 )
 
-Op sparsify("sparsify", identityFunc(), [](const std::vector<IndexExpr>& v) {return Union(v[0], Complement(v[1]));});
+Func sparsify("sparsify", identityFunc(), [](const std::vector<IndexExpr>& v) {return Union(v[0], Complement(v[1]));});
 
 TEST_STMT(SparsifyTest,
           forall(i,
@@ -1751,6 +1751,23 @@ TEST_STMT(SparsifyTest,
           }
 )
 
+Func xorOp("xor", GeneralAdd(), xorGen());
+
+TEST_STMT(XorTest,
+          forall(i,
+                 c(i) = xorOp(a(i), b(i))
+          ),
+          Values(
+                  Formats({{a, Format({sparse})}, {b, Format({sparse})}, {c, Format({sparse})} })
+          ),
+          {
+            TestCase(
+            {{a, {{{0}, 3.0}, {{2}, 4.0}, {{4}, 2.0}}},
+             {b, {{{1}, 5.0}, {{2}, 4.0}, {{4}, 2.0}}}},
+
+            {{c, {{{0}, 3.0}, {{1}, 5.0}}}})
+          }
+)
 
 
 }}

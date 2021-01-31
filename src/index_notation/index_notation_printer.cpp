@@ -157,7 +157,7 @@ static inline void acceptJoin(IndexNotationPrinter* printer,
   }
 }
 
-void IndexNotationPrinter::visit(const TensorOpNode* op) {
+void IndexNotationPrinter::visit(const CallNode* op) {
   parentPrecedence = Precedence::FUNC;
   os << op->name << "(";
   acceptJoin(this, os, op->args, ", ");
@@ -190,7 +190,7 @@ void IndexNotationPrinter::visit(const ReductionNode* op) {
       reductionName = "reduction(" + node->getOperatorString() + ")";
     }
 
-    void visit(const TensorOpNode* node) {
+    void visit(const CallNode* node) {
       reductionName = node->name + "Reduce";
     }
   };
@@ -213,7 +213,7 @@ void IndexNotationPrinter::visit(const AssignmentNode* op) {
       operatorName = node->getOperatorString();
     }
 
-    void visit(const TensorOpNode* node) {
+    void visit(const CallNode* node) {
       operatorName = node->name;
     }
   };

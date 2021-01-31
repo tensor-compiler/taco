@@ -107,7 +107,7 @@ void IndexNotationRewriter::visit(const CastNode* op) {
   }
 }
 
-void IndexNotationRewriter::visit(const TensorOpNode* op) {
+void IndexNotationRewriter::visit(const CallNode* op) {
   std::vector<IndexExpr> args;
   bool rewritten = false;
   for(auto& arg : op->args) {
@@ -121,8 +121,8 @@ void IndexNotationRewriter::visit(const TensorOpNode* op) {
   if (rewritten) {
     const std::map<IndexExpr, IndexExpr> subs = util::zipToMap(op->args, args);
     IterationAlgebra newAlg = replaceAlgIndexExprs(op->iterAlg, subs);
-    expr = new TensorOpNode(op->name, args, op->defaultLowerFunc, newAlg, op->properties,
-                            op->regionDefinitions);
+    expr = new CallNode(op->name, args, op->defaultLowerFunc, newAlg, op->properties,
+                        op->regionDefinitions);
   }
   else {
     expr = op;
@@ -304,7 +304,7 @@ struct ReplaceRewriter : public IndexNotationRewriter {
     SUBSTITUTE_EXPR;
   }
 
-  void visit(const TensorOpNode* op) {
+  void visit(const CallNode* op) {
     SUBSTITUTE_EXPR;
   }
 

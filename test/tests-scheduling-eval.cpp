@@ -27,7 +27,7 @@ void printToFile(string filename, IndexStmt stmt) {
   mkdir(file_path.c_str(), 0777);
 
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  ir::Stmt compute = lower(stmt, "compute",  true, true);
   codegen->compile(compute, true);
 
   ofstream source_file;
@@ -1730,16 +1730,18 @@ TEST(scheduling_eval, bfsPullScheduled) {
   int NUM_J = numVertices;
   float SPARSITY = .3;
 
-  Tensor<uint16_t> A("A", {NUM_I, NUM_J}, CSR);
-  Tensor<uint16_t> x("x", {NUM_J}, {Dense});
+  Tensor<uint16_t> A("A", {NUM_I, NUM_J}, CSC);
+  Tensor<uint16_t> x("x", {NUM_J}, {Sparse});
+  Tensor<uint16_t> m("mask", {NUM_J}, {Dense});
   Tensor<uint16_t> y("y", {NUM_I}, {Dense});
+  Tensor<int> step("step");
 
   uint16_t one = 1;
   uint16_t zero = 0;
 
-  Op scOr("Or", OrImpl(), {Annihilator(one), Identity(zero)});
-  Op scAnd("And", AndImpl(), {Annihilator(zero), Identity(one)});
-  Op bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
+  Func scOr("Or", OrImpl(), {Annihilator(one), Identity(zero)});
+  Func scAnd("And", AndImpl(), {Annihilator(zero), Identity(one)});
+  Func bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
 
   srand(120);
   for (int i = 0; i < NUM_I; i++) {
@@ -1762,80 +1764,29 @@ TEST(scheduling_eval, bfsPullScheduled) {
 
   x.pack();
   A.pack();
+  m.pack();
 
-  y(i) = Reduction(scOr(), j, bfsMaskOp(scAnd(A(i, j), x(j)), x(i)));
-
+  y(i) = Reduction(scOr(), j, scAnd(A(i, j), x(j)));
   IndexStmt stmt = y.getAssignment().concretize();
-  stmt = scheduleSpMVCPU(stmt);
 
-  //printToFile("spmv_cpu", stmt);
-
+  stmt = stmt.reorder(i,j)
+             .parallelize(j, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::Atomics);
+  printToFile("bfs_push", stmt);
   y.compile(stmt);
   y.assemble();
   y.compute();
+
+  Tensor<uint16_t> s("s", {NUM_J}, {Sparse});
+  Tensor<uint16_t> d("d", {NUM_J}, {dense});
+
+  Func sparsifyOp("sparsify", identityFunc(), ComplementUnion());
+  s(i) = sparsifyOp(d(i), i);
+  IndexStmt sparsify = s.getAssignment().concretize();
+  printToFile("sparsify", sparsify);
 
 
   Tensor<uint16_t> expected("expected", {NUM_I}, {Dense});
-  expected(i) = Reduction(scOr(), j, bfsMaskOp(scAnd(A(i, j), x(j)), x(i)));
-  expected.compile();
-  expected.assemble();
-  expected.compute();
-  ASSERT_TENSOR_EQ(expected, y);
-}
-
-TEST(scheduling_eval, bfsPushScheduled) {
-  if (should_use_CUDA_codegen()) {
-    return;
-  }
-  constexpr int numVertices = 30;
-  int NUM_I = numVertices;
-  int NUM_J = numVertices;
-  float SPARSITY = .3;
-
-  Tensor<int> A("A", {NUM_I, NUM_J}, CSC);
-  Tensor<int> x("x", {NUM_J}, {compressed});
-  Tensor<int> y("y", {NUM_I}, {Dense});
-
-  int one = 1;
-  int zero = 0;
-
-  Op scOr("Or", BitOrImpl(), {Annihilator(one), Identity(zero)});
-  Op scAnd("And", AndImpl(), {Annihilator(zero), Identity(one)});
-  Op bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
-
-  srand(120);
-  for (int i = 0; i < NUM_I; i++) {
-    for (int j = 0; j < NUM_J; j++) {
-      float rand_float = (float)rand()/(float)(RAND_MAX);
-      if (rand_float < SPARSITY) {
-        A.insert({i, j}, one);
-      }
-    }
-  }
-
-  for (int j = 0; j < NUM_J; j++) {
-    float rand_float = (float)rand()/(float)(RAND_MAX);
-    if (rand_float < SPARSITY) {
-      x.insert({j}, one);
-    }
-  }
-
-  x.pack();
-  A.pack();
-  y(i) = Reduction(scOr(), j, scAnd(A(i, j), x(j)));
-
-  IndexStmt stmt = y.getAssignment().concretize();
-  stmt = stmt.reorder(i, j)
-             .parallelize(j, ParallelUnit::CPUThread, OutputRaceStrategy::Atomics);
-
-  //printToFile("spmv_cpu", stmt);
-
-  y.compile(stmt);
-  y.assemble();
-  y.compute();
-
-  Tensor<int> expected("expected", {NUM_I}, {Dense});
-  expected(i) = Reduction(scOr(), j, scAnd(A(i, j), x(j)));
+  expected(i) = Reduction(scOr(), j, bfsMaskOp(scAnd(A(i, j), x(j)), m(i)));
   expected.compile();
   expected.assemble();
   expected.compute();

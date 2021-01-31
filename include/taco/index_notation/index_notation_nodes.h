@@ -175,20 +175,20 @@ struct CallIntrinsicNode : public IndexExprNode {
   std::vector<IndexExpr> args;
 };
 
-struct TensorOpNode : public IndexExprNode {
-  typedef std::function<ir::Expr(const std::vector<ir::Expr>&)> opImpl;
-  typedef std::function<IterationAlgebra(const std::vector<IndexExpr>&)> algebraImpl;
+struct CallNode : public IndexExprNode {
+  typedef std::function<ir::Expr(const std::vector<ir::Expr>&)> OpImpl;
+  typedef std::function<IterationAlgebra(const std::vector<IndexExpr>&)> AlgebraImpl;
 
-  TensorOpNode(std::string name, const std::vector<IndexExpr>& args, opImpl lowerFunc,
-               const IterationAlgebra& iterAlg,
-               const std::vector<Property>& properties,
-               const std::map<std::vector<int>, opImpl>& regionDefinitions,
-               const std::vector<int>& definedRegions);
+  CallNode(std::string name, const std::vector<IndexExpr>& args, OpImpl lowerFunc,
+           const IterationAlgebra& iterAlg,
+           const std::vector<Property>& properties,
+           const std::map<std::vector<int>, OpImpl>& regionDefinitions,
+           const std::vector<int>& definedRegions);
 
-  TensorOpNode(std::string name, const std::vector<IndexExpr>& args, opImpl lowerFunc,
-               const IterationAlgebra& iterAlg,
-               const std::vector<Property>& properties,
-               const std::map<std::vector<int>, opImpl>& regionDefinitions);
+  CallNode(std::string name, const std::vector<IndexExpr>& args, OpImpl lowerFunc,
+           const IterationAlgebra& iterAlg,
+           const std::vector<Property>& properties,
+           const std::map<std::vector<int>, OpImpl>& regionDefinitions);
 
   void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
@@ -196,16 +196,16 @@ struct TensorOpNode : public IndexExprNode {
 
   std::string name;
   std::vector<IndexExpr> args;
-  opImpl defaultLowerFunc;
+  OpImpl defaultLowerFunc;
   IterationAlgebra iterAlg;
   std::vector<Property> properties;
-  std::map<std::vector<int>, opImpl> regionDefinitions;
+  std::map<std::vector<int>, OpImpl> regionDefinitions;
 
   // Needed to track which inputs have been exhausted so the lowerer can know which lower func to use
   std::vector<int> definedRegions;
 
 private:
-  static Datatype inferReturnType(opImpl f, const std::vector<IndexExpr>& inputs) {
+  static Datatype inferReturnType(OpImpl f, const std::vector<IndexExpr>& inputs) {
     std::function<ir::Expr(IndexExpr)> getExprs = [](IndexExpr arg) { return ir::Var::make("t", arg.getDataType()); };
     std::vector<ir::Expr> exprs = util::map(inputs, getExprs);
 

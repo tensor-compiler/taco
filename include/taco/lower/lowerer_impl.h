@@ -220,7 +220,7 @@ protected:
   virtual ir::Expr lowerIndexVar(IndexVar var);
 
   /// Lower a generic tensor operation expression
-  virtual ir::Expr lowerTensorOp(TensorOp op);
+  virtual ir::Expr lowerTensorOp(Call op);
 
   /// Lower a concrete index variable statement.
   ir::Stmt lower(IndexStmt stmt);

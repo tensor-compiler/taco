@@ -32,7 +32,7 @@ protected:
   virtual void visit(const MulNode* op) = 0;
   virtual void visit(const DivNode* op) = 0;
   virtual void visit(const CastNode* op) = 0;
-  virtual void visit(const TensorOpNode* op) = 0;
+  virtual void visit(const CallNode* op) = 0;
   virtual void visit(const CallIntrinsicNode* op) = 0;
   virtual void visit(const ReductionNode* op) = 0;
   virtual void visit(const IndexVarNode* op) = 0;
@@ -95,7 +95,7 @@ protected:
   virtual void visit(const MulNode* op);
   virtual void visit(const DivNode* op);
   virtual void visit(const CastNode* op);
-  virtual void visit(const TensorOpNode* op);
+  virtual void visit(const CallNode* op);
   virtual void visit(const CallIntrinsicNode* op);
   virtual void visit(const ReductionNode* op);
   virtual void visit(const IndexVarNode* op);

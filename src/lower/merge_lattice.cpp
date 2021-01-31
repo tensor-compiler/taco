@@ -267,7 +267,7 @@ private:
     lattice = build(expr->a);
   }
 
-  void visit(const TensorOpNode* expr) {
+  void visit(const CallNode* expr) {
     taco_iassert(expr->iterAlg.defined()) << "Algebra must be defined" << endl;
     lattice = build(expr->iterAlg);
 

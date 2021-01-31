@@ -261,7 +261,7 @@ private:
     subExpr = binarySubExpr(op);
   }
 
-  void visit(const TensorOpNode* op) {
+  void visit(const CallNode* op) {
     taco_not_supported_yet;
   }
 

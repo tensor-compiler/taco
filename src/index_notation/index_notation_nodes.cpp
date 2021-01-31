@@ -29,18 +29,18 @@ CallIntrinsicNode::CallIntrinsicNode(const std::shared_ptr<Intrinsic>& func,
       func(func), args(args) {
 }
 
-// class TensorOpNode
-  TensorOpNode::TensorOpNode(std::string name, const std::vector<IndexExpr>& args, opImpl defaultLowerFunc,
-                             const IterationAlgebra &iterAlg, const std::vector<Property> &properties,
-                             const std::map<std::vector<int>, opImpl>& regionDefinitions)
-          : TensorOpNode(name, args, defaultLowerFunc, iterAlg, properties, regionDefinitions, definedIndices(args)){
+// class CallNode
+  CallNode::CallNode(std::string name, const std::vector<IndexExpr>& args, OpImpl defaultLowerFunc,
+                     const IterationAlgebra &iterAlg, const std::vector<Property> &properties,
+                     const std::map<std::vector<int>, OpImpl>& regionDefinitions)
+          : CallNode(name, args, defaultLowerFunc, iterAlg, properties, regionDefinitions, definedIndices(args)){
   }
 
-// class TensorOpNode
-TensorOpNode::TensorOpNode(std::string name, const std::vector<IndexExpr>& args, opImpl defaultLowerFunc,
-                           const IterationAlgebra &iterAlg, const std::vector<Property> &properties,
-                           const std::map<std::vector<int>, opImpl>& regionDefinitions,
-                           const std::vector<int>& definedRegions)
+// class CallNode
+CallNode::CallNode(std::string name, const std::vector<IndexExpr>& args, OpImpl defaultLowerFunc,
+                   const IterationAlgebra &iterAlg, const std::vector<Property> &properties,
+                   const std::map<std::vector<int>, OpImpl>& regionDefinitions,
+                   const std::vector<int>& definedRegions)
     : IndexExprNode(inferReturnType(defaultLowerFunc, args)), name(name), args(args), defaultLowerFunc(defaultLowerFunc),
       iterAlg(applyDemorgan(iterAlg)), properties(properties), regionDefinitions(regionDefinitions),
       definedRegions(definedRegions) {
@@ -54,7 +54,7 @@ TensorOpNode::TensorOpNode(std::string name, const std::vector<IndexExpr>& args,
 // class ReductionNode
 ReductionNode::ReductionNode(IndexExpr op, IndexVar var, IndexExpr a)
     : IndexExprNode(a.getDataType()), op(op), var(var), a(a) {
-  taco_iassert(isa<BinaryExprNode>(op.ptr) || isa<TensorOpNode>(op.ptr));
+  taco_iassert(isa<BinaryExprNode>(op.ptr) || isa<CallNode>(op.ptr));
 }
 
 IndexVarNode::IndexVarNode(const std::string& name, const Datatype& type) 

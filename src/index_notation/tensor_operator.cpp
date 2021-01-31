@@ -3,50 +3,50 @@
 namespace taco {
 
 // Full construction
-Op::Op(opImpl lowererFunc, algebraImpl algebraFunc, std::vector<Property> properties,
-       std::map<std::vector<int>, opImpl> specialDefinitions)
-       : name(util::uniqueName("Op")), lowererFunc(lowererFunc), algebraFunc(algebraFunc),
+Func::Func(OpImpl lowererFunc, AlgebraImpl algebraFunc, std::vector<Property> properties,
+           std::map<std::vector<int>, OpImpl> specialDefinitions)
+       : name(util::uniqueName("Func")), lowererFunc(lowererFunc), algebraFunc(algebraFunc),
          properties(properties), regionDefinitions(specialDefinitions) {
 }
 
-Op::Op(std::string name, opImpl lowererFunc, algebraImpl algebraFunc, std::vector<Property> properties,
-       std::map<std::vector<int>, opImpl> specialDefinitions)
+Func::Func(std::string name, OpImpl lowererFunc, AlgebraImpl algebraFunc, std::vector<Property> properties,
+           std::map<std::vector<int>, OpImpl> specialDefinitions)
        : name(name), lowererFunc(lowererFunc), algebraFunc(algebraFunc), properties(properties),
          regionDefinitions(specialDefinitions) {
 }
 
 // Construct without specifying algebra
-Op::Op(std::string name, opImpl lowererFunc, std::vector<Property> properties,
-       std::map<std::vector<int>, opImpl> specialDefinitions)
-       : Op(name, lowererFunc, nullptr, properties, specialDefinitions) {
+Func::Func(std::string name, OpImpl lowererFunc, std::vector<Property> properties,
+           std::map<std::vector<int>, OpImpl> specialDefinitions)
+       : Func(name, lowererFunc, nullptr, properties, specialDefinitions) {
 }
 
-Op::Op(opImpl lowererFunc, std::vector<Property> properties,
-       std::map<std::vector<int>, opImpl> specialDefinitions)
-       : Op(util::uniqueName("Op"), lowererFunc, nullptr, properties, specialDefinitions) {
+Func::Func(OpImpl lowererFunc, std::vector<Property> properties,
+           std::map<std::vector<int>, OpImpl> specialDefinitions)
+       : Func(util::uniqueName("Func"), lowererFunc, nullptr, properties, specialDefinitions) {
 }
 
 // Construct without properties
-Op::Op(std::string name, opImpl lowererFunc, algebraImpl algebraFunc,
-       std::map<std::vector<int>, opImpl> specialDefinitions)
-       : Op(name, lowererFunc, algebraFunc, {}, specialDefinitions) {
+Func::Func(std::string name, OpImpl lowererFunc, AlgebraImpl algebraFunc,
+           std::map<std::vector<int>, OpImpl> specialDefinitions)
+       : Func(name, lowererFunc, algebraFunc, {}, specialDefinitions) {
 }
 
-Op::Op(opImpl lowererFunc, algebraImpl algebraFunc,
-       std::map<std::vector<int>, opImpl> specialDefinitions) :
-        Op(util::uniqueName("Op"), lowererFunc, algebraFunc, {}, specialDefinitions) {
+Func::Func(OpImpl lowererFunc, AlgebraImpl algebraFunc,
+           std::map<std::vector<int>, OpImpl> specialDefinitions) :
+        Func(util::uniqueName("Func"), lowererFunc, algebraFunc, {}, specialDefinitions) {
 }
 
 // Construct without algebra or properties
-Op::Op(std::string name, opImpl lowererFunc, std::map<std::vector<int>, opImpl> specialDefinitions)
-       : Op(name, lowererFunc, nullptr, specialDefinitions) {
+Func::Func(std::string name, OpImpl lowererFunc, std::map<std::vector<int>, OpImpl> specialDefinitions)
+       : Func(name, lowererFunc, nullptr, specialDefinitions) {
 }
 
-Op::Op(opImpl lowererFunc, std::map<std::vector<int>, opImpl> specialDefinitions)
-       : Op(lowererFunc, nullptr, specialDefinitions) {
+Func::Func(OpImpl lowererFunc, std::map<std::vector<int>, OpImpl> specialDefinitions)
+       : Func(lowererFunc, nullptr, specialDefinitions) {
 }
 
-IterationAlgebra Op::inferAlgFromProperties(const std::vector<IndexExpr>& exprs) {
+IterationAlgebra Func::inferAlgFromProperties(const std::vector<IndexExpr>& exprs) {
   if(properties.empty()) {
     return constructDefaultAlgebra(exprs);
   }
@@ -74,7 +74,7 @@ IterationAlgebra Op::inferAlgFromProperties(const std::vector<IndexExpr>& exprs)
 }
 
 // Constructs an algebra that iterates over the entire space
-IterationAlgebra Op::constructDefaultAlgebra(const std::vector<IndexExpr>& exprs) {
+IterationAlgebra Func::constructDefaultAlgebra(const std::vector<IndexExpr>& exprs) {
   if(exprs.empty()) return Region();
 
   IterationAlgebra tensorsRegions(exprs[0]);
@@ -86,7 +86,7 @@ IterationAlgebra Op::constructDefaultAlgebra(const std::vector<IndexExpr>& exprs
   return Union(tensorsRegions, background);
 }
 
-IterationAlgebra Op::constructAnnihilatorAlg(const std::vector<IndexExpr> &args, taco::Annihilator annihilator) {
+IterationAlgebra Func::constructAnnihilatorAlg(const std::vector<IndexExpr> &args, taco::Annihilator annihilator) {
   if(args.size () < 2) {
     return IterationAlgebra();
   }
@@ -120,7 +120,7 @@ IterationAlgebra Op::constructAnnihilatorAlg(const std::vector<IndexExpr> &args,
   return alg;
 }
 
-IterationAlgebra Op::constructIdentityAlg(const std::vector<IndexExpr> &args, taco::Identity identity) {
+IterationAlgebra Func::constructIdentityAlg(const std::vector<IndexExpr> &args, taco::Identity identity) {
   if(args.size() < 2) {
     return IterationAlgebra();
   }

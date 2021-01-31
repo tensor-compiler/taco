@@ -50,7 +50,7 @@ struct SubNode;
 struct MulNode;
 struct DivNode;
 struct CastNode;
-struct TensorOpNode;
+struct CallNode;
 struct CallIntrinsicNode;
 struct ReductionNode;
 struct IndexVarNode;
@@ -406,11 +406,11 @@ public:
 };
 
 /// A call to an operator
-class TensorOp: public IndexExpr {
+class Call: public IndexExpr {
 public:
-  TensorOp() = default;
-  TensorOp(const TensorOpNode*);
-  TensorOp(const TensorOpNode*, std::string name);
+  Call() = default;
+  Call(const CallNode*);
+  Call(const CallNode*, std::string name);
 
   const std::vector<IndexExpr>& getArgs() const;
   const std::function<ir::Expr(const std::vector<ir::Expr>&)> getFunc() const;
@@ -420,7 +420,7 @@ public:
   const std::map<std::vector<int>, std::function<ir::Expr(const std::vector<ir::Expr>&)>> getDefs() const;
   const std::vector<int>& getDefinedArgs() const;
 
-  typedef TensorOpNode Node;
+  typedef CallNode Node;
 
 private:
   std::string name;
