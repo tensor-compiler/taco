@@ -72,6 +72,54 @@ TEST(scheduling, splitIndexStmt) {
   ASSERT_TRUE(equals(a(i) = b(i), i2Forall.getStmt()));
 }
 
+TEST(scheduling, fuseDenseLoops) {
+  auto dim = 4;
+  Tensor<int> A("A", {dim, dim, dim}, {Dense, Dense, Dense});
+  Tensor<int> B("B", {dim, dim, dim}, {Dense, Dense, Dense});
+  Tensor<int> expected("expected", {dim, dim, dim}, {Dense, Dense, Dense});
+  IndexVar f("f"), g("g");
+  for (int i = 0; i < dim; i++) {
+    for (int j = 0; j < dim; j++) {
+      for (int k = 0; k < dim; k++) {
+        A.insert({i, j, k}, i + j + k);
+        B.insert({i, j, k}, i + j + k);
+        expected.insert({i, j, k}, 2 * (i + j + k));
+      }
+    }
+  }
+  A.pack();
+  B.pack();
+  expected.pack();
+
+  // Helper function to evaluate the target statement and verify the results.
+  // It takes in a function that applies some scheduling transforms to the
+  // input IndexStmt, and applies to the point-wise tensor addition below.
+  // The test is structured this way as TACO does its best to avoid re-compilation
+  // whenever possible. I.e. changing the stmt that a tensor is compiled with
+  // doesn't cause compilation to occur again.
+  auto testFn = [&](std::function<IndexStmt(IndexStmt)> modifier) {
+    Tensor<int> C("C", {dim, dim, dim}, {Dense, Dense, Dense});
+    C(i, j, k) = A(i, j, k) + B(i, j, k);
+    auto stmt = C.getAssignment().concretize();
+    C.compile(modifier(stmt));
+    C.evaluate();
+    ASSERT_TRUE(equals(C, expected)) << endl << C << endl << expected << endl;
+  };
+
+  // First, a sanity check with no transformations.
+  testFn([](IndexStmt stmt) { return stmt; });
+  // Next, fuse the outer two loops. This tests the original bug in #355.
+  testFn([&](IndexStmt stmt) {
+    return stmt.fuse(i, j, f);
+  });
+  // Lastly, fuse all of the loops into a single loop. This ensures that
+  // locators with a chain of ancestors have all of their dependencies
+  // generated in a valid ordering.
+  testFn([&](IndexStmt stmt) {
+    return stmt.fuse(i, j, f).fuse(f, k, g);
+  });
+}
+
 TEST(scheduling, lowerDenseMatrixMul) {
   Tensor<double> A("A", {4, 4}, {Dense, Dense});
   Tensor<double> B("B", {4, 4}, {Dense, Dense});
@@ -114,8 +162,8 @@ TEST(scheduling, lowerDenseMatrixMul) {
 }
 
 TEST(scheduling, lowerSparseCopy) {
-  Tensor<double> A("A", {8}, {Sparse});
-  Tensor<double> C("C", {8}, {Dense});
+  Tensor<double> A("A", {8}, Format({Sparse}));
+  Tensor<double> C("C", {8}, Format({Dense}));
 
   for (int i = 0; i < 8; i++) {
     if (i % 2 == 0) {
@@ -136,7 +184,7 @@ TEST(scheduling, lowerSparseCopy) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected("expected", {8}, {Dense});
+  Tensor<double> expected("expected", {8}, Format({Dense}));
   expected(i) = A(i);
   expected.compile();
   expected.assemble();
@@ -149,9 +197,9 @@ TEST(scheduling, lowerSparseCopy) {
 }
 
 TEST(scheduling, lowerSparseMulDense) {
-  Tensor<double> A("A", {8}, {Sparse});
-  Tensor<double> B("B", {8}, {Dense});
-  Tensor<double> C("C", {8}, {Dense});
+  Tensor<double> A("A", {8}, Format({Sparse}));
+  Tensor<double> B("B", {8}, Format({Dense}));
+  Tensor<double> C("C", {8}, Format({Dense}));
 
   for (int i = 0; i < 8; i++) {
     if (i % 2 == 0) {
@@ -174,7 +222,7 @@ TEST(scheduling, lowerSparseMulDense) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected("expected", {8}, {Dense});
+  Tensor<double> expected("expected", {8}, Format({Dense}));
   expected(i) = A(i) * B(i);
   expected.compile();
   expected.assemble();
@@ -187,9 +235,9 @@ TEST(scheduling, lowerSparseMulDense) {
 }
 
 TEST(scheduling, lowerSparseMulSparse) {
-  Tensor<double> A("A", {8}, {Sparse});
-  Tensor<double> B("B", {8}, {Sparse});
-  Tensor<double> C("C", {8}, {Dense});
+  Tensor<double> A("A", {8}, Format({Sparse}));
+  Tensor<double> B("B", {8}, Format({Sparse}));
+  Tensor<double> C("C", {8}, Format({Dense}));
 
   for (int i = 0; i < 8; i++) {
     if (i % 2 == 0) {
@@ -214,7 +262,7 @@ TEST(scheduling, lowerSparseMulSparse) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected("expected", {8}, {Dense});
+  Tensor<double> expected("expected", {8}, Format({Dense}));
   expected(i) = A(i) * B(i);
   expected.compile();
   expected.assemble();
@@ -227,9 +275,9 @@ TEST(scheduling, lowerSparseMulSparse) {
 }
 
 TEST(scheduling, lowerSparseAddSparse) {
-  Tensor<double> A("A", {8}, {Sparse});
-  Tensor<double> B("B", {8}, {Sparse});
-  Tensor<double> C("C", {8}, {Dense});
+  Tensor<double> A("A", {8}, Format({Sparse}));
+  Tensor<double> B("B", {8}, Format({Sparse}));
+  Tensor<double> C("C", {8}, Format({Dense}));
 
   for (int i = 0; i < 8; i++) {
     if (i % 2 == 0) {
@@ -254,7 +302,7 @@ TEST(scheduling, lowerSparseAddSparse) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected("expected", {8}, {Dense});
+  Tensor<double> expected("expected", {8}, Format({Dense}));
   expected(i) = A(i) + B(i);
   expected.compile();
   expected.assemble();
@@ -270,7 +318,7 @@ TEST(scheduling, lowerSparseAddSparse) {
 TEST(scheduling, lowerSparseMatrixMul) {
   Tensor<double> A("A", {8, 8}, CSR);
   Tensor<double> B("B", {8, 8}, CSC);
-  Tensor<double> C("C", {8, 8}, {Dense, Dense});
+  Tensor<double> C("C", {8, 8}, Format({Dense, Dense}));
 
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
@@ -318,8 +366,8 @@ TEST(scheduling, lowerSparseMatrixMul) {
 }
 
 TEST(scheduling, parallelizeAtomicReduction) {
-  Tensor<double> A("A", {8}, {Sparse});
-  Tensor<double> B("B", {8}, {Dense});
+  Tensor<double> A("A", {8}, Format({Sparse}));
+  Tensor<double> B("B", {8}, Format({Dense}));
   Tensor<double> C("C");
 
   for (int i = 0; i < 8; i++) {
@@ -365,8 +413,8 @@ TEST(scheduling, parallelizeAtomicReduction) {
 }
 
 TEST(scheduling, parallelizeTemporaryReduction) {
-  Tensor<double> A("A", {8}, {Sparse});
-  Tensor<double> B("B", {8}, {Dense});
+  Tensor<double> A("A", {8}, Format({Sparse}));
+  Tensor<double> B("B", {8}, Format({Dense}));
   Tensor<double> C("C");
 
   for (int i = 0; i < 8; i++) {
@@ -412,9 +460,9 @@ TEST(scheduling, parallelizeTemporaryReduction) {
 }
 
 TEST(scheduling, multilevel_tiling) {
-  Tensor<double> A("A", {8}, {Sparse});
-  Tensor<double> B("B", {8}, {Sparse});
-  Tensor<double> C("C", {8}, {Dense});
+  Tensor<double> A("A", {8}, Format({Sparse}));
+  Tensor<double> B("B", {8}, Format({Sparse}));
+  Tensor<double> C("C", {8}, Format({Dense}));
 
   for (int i = 0; i < 8; i++) {
     A.insert({i}, (double) i);
@@ -426,7 +474,7 @@ TEST(scheduling, multilevel_tiling) {
   A.pack();
   B.pack();
 
-  Tensor<double> expected("expected", {8}, {Dense});
+  Tensor<double> expected("expected", {8}, Format({Dense}));
   expected(i) = A(i) * B(i);
   expected.compile();
   expected.assemble();
@@ -474,7 +522,7 @@ TEST(scheduling, multilevel_tiling) {
 }
 
 TEST(scheduling, pos_noop) {
-  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> A("A", {8}, Format({Sparse}));
   Tensor<double> C("C");
 
   for (int i = 0; i < 8; i++) {
@@ -508,9 +556,9 @@ TEST(scheduling, pos_noop) {
 }
 
 TEST(scheduling, pos_mul_dense) {
-  Tensor<double> A("A", {8}, {Sparse});
-  Tensor<double> B("B", {8}, {Dense});
-  Tensor<double> C("C", {8}, {Dense});
+  Tensor<double> A("A", {8}, Format({Sparse}));
+  Tensor<double> B("B", {8}, Format({Dense}));
+  Tensor<double> C("C", {8}, Format({Dense}));
 
   for (int i = 0; i < 8; i++) {
     if (i % 2 == 0) {
@@ -536,7 +584,7 @@ TEST(scheduling, pos_mul_dense) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected("expected", {8}, {Dense});
+  Tensor<double> expected("expected", {8}, Format({Dense}));
   expected(i) = A(i) * B(i);
   expected.compile();
   expected.assemble();
@@ -545,9 +593,9 @@ TEST(scheduling, pos_mul_dense) {
 }
 
 TEST(scheduling, pos_mul_sparse) {
-  Tensor<double> A("A", {8}, {Sparse});
-  Tensor<double> B("B", {8}, {Sparse});
-  Tensor<double> C("C", {8}, {Dense});
+  Tensor<double> A("A", {8}, Format({Sparse}));
+  Tensor<double> B("B", {8}, Format({Sparse}));
+  Tensor<double> C("C", {8}, Format({Dense}));
 
   for (int i = 0; i < 8; i++) {
     if (i % 2 == 0) {
@@ -575,7 +623,7 @@ TEST(scheduling, pos_mul_sparse) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected("expected", {8}, {Dense});
+  Tensor<double> expected("expected", {8}, Format({Dense}));
   expected(i) = A(i) * B(i);
   expected.compile();
   expected.assemble();
@@ -584,9 +632,9 @@ TEST(scheduling, pos_mul_sparse) {
 }
 
 TEST(scheduling, pos_mul_dense_split) {
-  Tensor<double> A("A", {8}, {Sparse});
-  Tensor<double> B("B", {8}, {Dense});
-  Tensor<double> C("C", {8}, {Dense});
+  Tensor<double> A("A", {8}, Format({Sparse}));
+  Tensor<double> B("B", {8}, Format({Dense}));
+  Tensor<double> C("C", {8}, Format({Dense}));
 
   for (int i = 0; i < 8; i++) {
     if (i % 2 == 0) {
@@ -612,7 +660,7 @@ TEST(scheduling, pos_mul_dense_split) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected("expected", {8}, {Dense});
+  Tensor<double> expected("expected", {8}, Format({Dense}));
   expected(i) = A(i) * B(i);
   expected.compile();
   expected.assemble();
@@ -621,9 +669,9 @@ TEST(scheduling, pos_mul_dense_split) {
 }
 
 TEST(scheduling, pos_tile_coord_and_pos) {
-  Tensor<double> A("A", {8}, {Sparse});
-  Tensor<double> B("B", {8}, {Dense});
-  Tensor<double> C("C", {8}, {Dense});
+  Tensor<double> A("A", {8}, Format({Sparse}));
+  Tensor<double> B("B", {8}, Format({Dense}));
+  Tensor<double> C("C", {8}, Format({Dense}));
 
   for (int i = 0; i < 8; i++) {
     if (i % 2 == 0) {
@@ -650,7 +698,7 @@ TEST(scheduling, pos_tile_coord_and_pos) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected("expected", {8}, {Dense});
+  Tensor<double> expected("expected", {8}, Format({Dense}));
   expected(i) = A(i) * B(i);
   expected.compile();
   expected.assemble();
@@ -671,8 +719,8 @@ TEST(scheduling, spmv_warp_per_row) {
   const int iSIZE = 1024;
   const int jSIZE = 1024;
   Tensor<double> A("A", {iSIZE, jSIZE}, CSR);
-  Tensor<double> x("x", {jSIZE}, {Dense});
-  Tensor<double> y("y", {iSIZE}, {Dense});
+  Tensor<double> x("x", {jSIZE}, Format({Dense}));
+  Tensor<double> y("y", {iSIZE}, Format({Dense}));
 
   for (int i = 0; i < iSIZE; i++) {
     for (int j = 0; j < jSIZE; j++) {
@@ -709,7 +757,7 @@ TEST(scheduling, spmv_warp_per_row) {
   y.assemble();
   y.compute();
 
-  Tensor<double> expected("expected", {iSIZE}, {Dense});
+  Tensor<double> expected("expected", {iSIZE}, Format({Dense}));
   expected(i) = A(i, j) * x(j);
   stmt = expected.getAssignment().concretize();
   expected.compile(stmt);
@@ -719,34 +767,34 @@ TEST(scheduling, spmv_warp_per_row) {
 }
 
 TEST(scheduling, dense_pos_error) {
-  Tensor<double> x("x", {8}, {Dense});
-  Tensor<double> y("y", {8}, {Dense});
+  Tensor<double> x("x", {8}, Format({Dense}));
+  Tensor<double> y("y", {8}, Format({Dense}));
   IndexVar i("i"), ipos("ipos");
   y(i) = x(i);
 
   IndexStmt stmt = y.getAssignment().concretize();
-  ASSERT_DEATH(stmt.pos(i, ipos, x(i)), "Pos transformation is not valid for dense formats, the coordinate space should be transformed instead");
+  ASSERT_THROW(stmt.pos(i, ipos, x(i)), taco::TacoException);
 }
 
 TEST(scheduling, pos_var_not_in_access) {
-  Tensor<double> x("x", {8}, {Dense});
-  Tensor<double> y("y", {8}, {Dense});
+  Tensor<double> x("x", {8}, Format({Dense}));
+  Tensor<double> y("y", {8}, Format({Dense}));
   IndexVar i("i"), ipos("ipos"), j("j");
   y(i) = x(i);
 
   IndexStmt stmt = y.getAssignment().concretize();
-  ASSERT_DEATH(stmt.pos(j, ipos, x(i)), "Index variable j does not appear in access: x[(]i[)]");
+  ASSERT_THROW(stmt.pos(j, ipos, x(i)), taco::TacoException);
 }
 
 TEST(scheduling, pos_wrong_access) {
-  Tensor<double> x("x", {8}, {Dense});
-  Tensor<double> y("y", {8}, {Dense});
+  Tensor<double> x("x", {8}, Format({Dense}));
+  Tensor<double> y("y", {8}, Format({Dense}));
   IndexVar i("i"), ipos("ipos"), j("j");
   y(i) = x(i);
 
   IndexStmt stmt = y.getAssignment().concretize();
-  ASSERT_DEATH(stmt.pos(i, ipos, x(j)), "Access: x[(]j[)] does not appear in index statement as an argument");
-  ASSERT_DEATH(stmt.pos(i, ipos, y(i)), "Access: y[(]i[)] does not appear in index statement as an argument");
+  ASSERT_THROW(stmt.pos(i, ipos, x(j)), taco::TacoException);
+  ASSERT_THROW(stmt.pos(i, ipos, y(i)), taco::TacoException);
 }
 
 TEST(scheduling_eval_test, spmv_fuse) {
@@ -760,8 +808,8 @@ TEST(scheduling_eval_test, spmv_fuse) {
   int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
   int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
   Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
-  Tensor<double> x("x", {NUM_J}, {Dense});
-  Tensor<double> y("y", {NUM_I}, {Dense});
+  Tensor<double> x("x", {NUM_J}, Format({Dense}));
+  Tensor<double> y("y", {NUM_I}, Format({Dense}));
 
   srand(59393);
   for (int i = 0; i < NUM_I; i++) {
@@ -803,7 +851,7 @@ TEST(scheduling_eval_test, spmv_fuse) {
   y.assemble();
   y.compute();
 
-  Tensor<double> expected("expected", {NUM_I}, {Dense});
+  Tensor<double> expected("expected", {NUM_I}, Format({Dense}));
   expected(i) = A(i, j) * x(j);
   expected.compile();
   expected.assemble();

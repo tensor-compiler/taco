@@ -101,12 +101,47 @@ void writeTNS(std::string filename, const TensorBase& tensor) {
   file.close();
 }
 
-void writeTNS(std::ostream& stream, const TensorBase& tensor) {
-  for (auto& value : iterate<double>(tensor)) {
+template<typename T>
+static void writeTypedTNS(std::ostream& stream, const TensorBase& tensor) {
+  for (auto& value : iterate<T>(tensor)) {
     for (int k = 0; k < tensor.getOrder(); ++k) {
       stream << value.first[k]+1 << " ";
     }
     stream << value.second << endl;
+  }
+}
+
+template<typename T>
+static void writeCharTNS(std::ostream& stream, const TensorBase& tensor) {
+  for (auto& value : iterate<T>(tensor)) {
+    for (int k = 0; k < tensor.getOrder(); ++k) {
+      stream << value.first[k]+1 << " ";
+    }
+    stream << static_cast<int>(value.second) << endl;
+  }
+}
+
+
+void writeTNS(std::ostream& stream, const TensorBase& tensor) {
+  switch(tensor.getComponentType().getKind()) {
+    case Datatype::Bool: writeTypedTNS<bool>(stream, tensor); break;
+    case Datatype::UInt8: writeCharTNS<uint8_t>(stream, tensor); break;
+    case Datatype::UInt16: writeTypedTNS<uint16_t>(stream, tensor); break;
+    case Datatype::UInt32: writeTypedTNS<uint32_t>(stream, tensor); break;
+    case Datatype::UInt64: writeTypedTNS<uint64_t>(stream, tensor); break;
+    case Datatype::UInt128: writeTypedTNS<unsigned long long>(stream, tensor); break;
+    case Datatype::Int8: writeCharTNS<int8_t>(stream, tensor); break;
+    case Datatype::Int16: writeTypedTNS<int16_t>(stream, tensor); break;
+    case Datatype::Int32: writeTypedTNS<int32_t>(stream, tensor); break;
+    case Datatype::Int64: writeTypedTNS<int64_t>(stream, tensor); break;
+    case Datatype::Int128: writeTypedTNS<long long>(stream, tensor); break;
+    case Datatype::Float32: writeTypedTNS<float>(stream, tensor); break;
+    case Datatype::Float64: writeTypedTNS<double>(stream, tensor); break;
+    case Datatype::Complex64: writeTypedTNS<std::complex<float>>(stream, tensor); break;
+    case Datatype::Complex128: writeTypedTNS<std::complex<double>>(stream, tensor); break;
+    case Datatype::Undefined: taco_ierror; break;
+    default:
+      taco_unreachable;
   }
 }
 

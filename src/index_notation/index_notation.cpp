@@ -106,6 +106,478 @@ std::ostream& operator<<(std::ostream& os, const IndexExpr& expr) {
   return os;
 }
 
+static bool checkRegionDefinitions(const CallNode* anode, const CallNode* bnode) {
+  // Check region definitions
+  if (anode->regionDefinitions.size() != bnode->regionDefinitions.size()) {
+    return false;
+  }
+
+  auto& aDefs = anode->regionDefinitions;
+  auto& bDefs = bnode->regionDefinitions;
+  for (auto itA = aDefs.begin(), itB = bDefs.begin(); itA != aDefs.end(); ++itA, ++itB) {
+    if(itA->first != itB->first) {
+      return false;
+    }
+
+    std::vector<IndexExpr> aArgs;
+    std::vector<IndexExpr> bArgs;
+    for(int idx : itA->first) {
+      taco_iassert((size_t)idx < anode->args.size()); // We already know anode->args.size == bnode->args.size
+      aArgs.push_back(anode->args[idx]);
+      bArgs.push_back(bnode->args[idx]);
+    }
+
+    // TODO lower and check IR
+    if(!util::targetPtrEqual(itA->second, itB->second)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/// Checks if the iteration algebra structure is the same and the ordering of the index expressions
+/// nested under regions is the same for each op node.
+static bool checkIterationAlg(const CallNode* anode, const CallNode* bnode) {
+  // Check IterationAlgebra structures
+  if(!algStructureEqual(anode->iterAlg, bnode->iterAlg)) {
+    return false;
+  }
+
+  struct OrderChecker : public IterationAlgebraVisitor {
+    explicit OrderChecker(const CallNode* op) : op(op) {}
+
+    std::vector<size_t>& check() {
+      op->iterAlg.accept(this);
+      return ordering;
+    }
+
+    using IterationAlgebraVisitor::visit;
+
+    void visit(const RegionNode* region) {
+      const IndexExpr& e = region->expr();
+      auto it = std::find(op->args.begin(), op->args.end(), e);
+      taco_iassert(it != op->args.end()) << "Iteration algebra region expressions must be in arguments";
+      size_t loc = it - op->args.begin();
+      ordering.push_back(loc);
+    }
+
+    std::vector<size_t> ordering;
+    const CallNode* op;
+  };
+
+  std::vector<size_t> aOrdering = OrderChecker(anode).check();
+  std::vector<size_t> bOrdering = OrderChecker(bnode).check();
+  return aOrdering == bOrdering;
+}
+
+struct Isomorphic : public IndexNotationVisitorStrict {
+  bool eq = false;
+  IndexExpr bExpr;
+  IndexStmt bStmt;
+  std::map<TensorVar,TensorVar> isoATensor, isoBTensor;
+  std::map<IndexVar,IndexVar> isoAVar, isoBVar;
+
+  bool check(IndexExpr a, IndexExpr b) {
+    if (!a.defined() && !b.defined()) {
+      return true;
+    }
+    if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+      return false;
+    }
+    this->bExpr = b;
+    a.accept(this);
+    return eq;
+  }
+
+  bool check(IndexStmt a, IndexStmt b) {
+    if (!a.defined() && !b.defined()) {
+      return true;
+    }
+    if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+      return false;
+    }
+    this->bStmt = b;
+    a.accept(this);
+    return eq;
+  }
+
+  bool check(TensorVar a, TensorVar b) {
+    if (!util::contains(isoBTensor, a) && !util::contains(isoATensor, b)) {
+      if (a.getType() != b.getType() || a.getFormat() != b.getFormat()) {
+        return false;
+      }
+      isoBTensor.insert({a, b});
+      isoATensor.insert({b, a});
+      return true;
+    }
+    if (!util::contains(isoBTensor, a) || !util::contains(isoATensor, b)) {
+      return false;
+    }
+    return (isoBTensor[a] == b) && (isoATensor[b] == a);
+  }
+
+  bool check(IndexVar a, IndexVar b) {
+    if (!util::contains(isoBVar, a) && !util::contains(isoAVar, b)) {
+      isoBVar.insert({a, b});
+      isoAVar.insert({b, a});
+      return true;
+    }
+    if (!util::contains(isoBVar, a) || !util::contains(isoAVar, b)) {
+      return false;
+    }
+    return (isoBVar[a] == b) && (isoAVar[b] == a);
+  }
+
+  using IndexNotationVisitorStrict::visit;
+
+  void visit(const IndexVarNode* anode) {
+    if(!isa<IndexVarNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+
+    auto bnode = to<IndexVarNode>(bExpr.ptr);
+    if(anode != bnode) {
+      eq = false;
+      return;
+    }
+
+    eq = true;
+  }
+
+  void visit(const AccessNode* anode) {
+    if (!isa<AccessNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<AccessNode>(bExpr.ptr);
+    if (!check(anode->tensorVar, bnode->tensorVar)) {
+      eq = false;
+      return;
+    }
+    if (anode->indexVars.size() != bnode->indexVars.size()) {
+      eq = false;
+      return;
+    }
+    for (size_t i = 0; i < anode->indexVars.size(); i++) {
+      if (!check(anode->indexVars[i], bnode->indexVars[i])) {
+        eq = false;
+        return;
+      }
+    }
+    eq = true;
+  }
+
+  void visit(const LiteralNode* anode) {
+    if (!isa<LiteralNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<LiteralNode>(bExpr.ptr);
+    if (anode->getDataType() != bnode->getDataType()) {
+      eq = false;
+      return;
+    }
+    if (memcmp(anode->val,bnode->val,anode->getDataType().getNumBytes()) != 0) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  template <class T>
+  bool unaryIsomorphic(const T* anode, IndexExpr b) {
+    if (!isa<T>(b.ptr)) {
+      return false;
+    }
+    auto bnode = to<T>(b.ptr);
+    if (!check(anode->a, bnode->a)) {
+      return false;
+    }
+    return true;
+  }
+
+  void visit(const NegNode* anode) {
+    eq = unaryIsomorphic(anode, bExpr);
+  }
+
+  void visit(const SqrtNode* anode) {
+    eq = unaryIsomorphic(anode, bExpr);
+  }
+
+  template <class T>
+  bool binaryIsomorphic(const T* anode, IndexExpr b) {
+    if (!isa<T>(b.ptr)) {
+      return false;
+    }
+    auto bnode = to<T>(b.ptr);
+    if (!check(anode->a, bnode->a) || !check(anode->b, bnode->b)) {
+      return false;
+    }
+    return true;
+  }
+
+  void visit(const AddNode* anode) {
+    eq = binaryIsomorphic(anode, bExpr);
+  }
+
+  void visit(const SubNode* anode) {
+    eq = binaryIsomorphic(anode, bExpr);
+  }
+
+  void visit(const MulNode* anode) {
+    eq = binaryIsomorphic(anode, bExpr);
+  }
+
+  void visit(const DivNode* anode) {
+    eq = binaryIsomorphic(anode, bExpr);
+  }
+
+  void visit(const CastNode* anode) {
+    if (!isa<CastNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CastNode>(bExpr.ptr);
+    if (anode->getDataType() != bnode->getDataType() ||
+        !check(anode->a, bnode->a)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const CallIntrinsicNode* anode) {
+    if (!isa<CallIntrinsicNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CallIntrinsicNode>(bExpr.ptr);
+    if (anode->func->getName() != bnode->func->getName() ||
+        anode->args.size() != bnode->args.size()) {
+      eq = false;
+      return;
+    }
+    for (size_t i = 0; i < anode->args.size(); ++i) {
+      if (!check(anode->args[i], bnode->args[i])) {
+        eq = false;
+        return;
+      }
+    }
+    eq = true;
+  }
+
+  void visit(const ReductionNode* anode) {
+    if (!isa<ReductionNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<ReductionNode>(bExpr.ptr);
+    if (!check(anode->op, bnode->op) ||
+        !check(anode->var, bnode->var) ||
+        !check(anode->a, bnode->a)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const AssignmentNode* anode) {
+    if (!isa<AssignmentNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<AssignmentNode>(bStmt.ptr);
+    if (!check(anode->lhs, bnode->lhs) ||
+        !check(anode->rhs, bnode->rhs) ||
+        !check(anode->op, bnode->op)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const YieldNode* anode) {
+    if (!isa<YieldNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<YieldNode>(bStmt.ptr);
+    if (anode->indexVars.size() != bnode->indexVars.size()) {
+      eq = false;
+      return;
+    }
+    for (size_t i = 0; i < anode->indexVars.size(); i++) {
+      if (!check(anode->indexVars[i], bnode->indexVars[i])) {
+        eq = false;
+        return;
+      }
+    }
+    if (!check(anode->expr, bnode->expr)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const ForallNode* anode) {
+    if (!isa<ForallNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<ForallNode>(bStmt.ptr);
+    if (!check(anode->indexVar, bnode->indexVar) ||
+        !check(anode->stmt, bnode->stmt) ||
+        anode->parallel_unit != bnode->parallel_unit ||
+        anode->output_race_strategy != bnode->output_race_strategy ||
+        anode->unrollFactor != bnode->unrollFactor) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const WhereNode* anode) {
+    if (!isa<WhereNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<WhereNode>(bStmt.ptr);
+    if (!check(anode->consumer, bnode->consumer) ||
+        !check(anode->producer, bnode->producer)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const SequenceNode* anode) {
+    if (!isa<SequenceNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<SequenceNode>(bStmt.ptr);
+    if (!check(anode->definition, bnode->definition) ||
+        !check(anode->mutation, bnode->mutation)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const MultiNode* anode) {
+    if (!isa<MultiNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<MultiNode>(bStmt.ptr);
+    if (!check(anode->stmt1, bnode->stmt1) ||
+        !check(anode->stmt2, bnode->stmt2)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const SuchThatNode* anode) {
+    if (!isa<SuchThatNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<SuchThatNode>(bStmt.ptr);
+    if (!check(anode->stmt, bnode->stmt) ||
+         anode->predicate != bnode->predicate) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const CallNode* anode) {
+    if (!isa<CallNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CallNode>(bExpr.ptr);
+
+    // Properties
+    if (anode->properties.size() != bnode->properties.size()) {
+      eq = false;
+      return;
+    }
+
+    for(const auto& a_prop : anode->properties) {
+      bool found = false;
+      for(const auto& b_prop : bnode->properties) {
+        if(a_prop.equals(b_prop)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        eq = false;
+        return;
+      }
+    }
+
+    // Exhausted regions
+    if (anode->definedRegions != bnode->definedRegions) {
+      eq = false;
+      return;
+    }
+
+    // Lower function
+    // TODO: For now just check that the function pointers are the same.
+    if(!util::targetPtrEqual(anode->defaultLowerFunc, bnode->defaultLowerFunc)) {
+      eq = false;
+      return;
+    }
+
+    // Check arguments
+    if (anode->args.size() != bnode->args.size()) {
+      eq = false;
+      return;
+    }
+
+    for (size_t i = 0; i < anode->args.size(); ++i) {
+      if (!check(anode->args[i], bnode->args[i])) {
+        eq = false;
+        return;
+      }
+    }
+
+    // Algebra
+    if (!checkIterationAlg(anode, bnode)) {
+      eq = false;
+      return;
+    }
+
+    // Special definitions
+    eq = checkRegionDefinitions(anode, bnode);
+  }
+};
+
+bool isomorphic(IndexExpr a, IndexExpr b) {
+  if (!a.defined() && !b.defined()) {
+    return true;
+  }
+  if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+    return false;
+  }
+  return Isomorphic().check(a,b);
+}
+
+bool isomorphic(IndexStmt a, IndexStmt b) {
+  if (!a.defined() && !b.defined()) {
+    return true;
+  }
+  if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+    return false;
+  }
+  return Isomorphic().check(a,b);
+}
+
 struct Equals : public IndexNotationVisitorStrict {
   bool eq = false;
   IndexExpr bExpr;
@@ -150,7 +622,7 @@ struct Equals : public IndexNotationVisitorStrict {
       eq = false;
       return;
     }
-    if (anode->indexVars.size() != anode->indexVars.size()) {
+    if (anode->indexVars.size() != bnode->indexVars.size()) {
       eq = false;
       return;
     }
@@ -311,7 +783,7 @@ struct Equals : public IndexNotationVisitorStrict {
       return;
     }
     auto bnode = to<CallIntrinsicNode>(bExpr.ptr);
-    if (anode->func->getName() != bnode->func->getName() || 
+    if (anode->func->getName() != bnode->func->getName() ||
         anode->args.size() != bnode->args.size()) {
       eq = false;
       return;
@@ -331,7 +803,9 @@ struct Equals : public IndexNotationVisitorStrict {
       return;
     }
     auto bnode = to<ReductionNode>(bExpr.ptr);
-    if (!(equals(anode->op, bnode->op) && equals(anode->a, bnode->a))) {
+    if (!equals(anode->op, bnode->op) ||
+        anode->var != bnode->var ||
+        !equals(anode->a, bnode->a)) {
       eq = false;
       return;
     }
@@ -358,7 +832,7 @@ struct Equals : public IndexNotationVisitorStrict {
       return;
     }
     auto bnode = to<YieldNode>(bStmt.ptr);
-    if (anode->indexVars.size() != anode->indexVars.size()) {
+    if (anode->indexVars.size() != bnode->indexVars.size()) {
       eq = false;
       return;
     }
@@ -368,7 +842,7 @@ struct Equals : public IndexNotationVisitorStrict {
         return;
       }
     }
-    if (!equals(anode->expr, bnode->expr)) { 
+    if (!equals(anode->expr, bnode->expr)) {
       eq = false;
       return;
     }
@@ -384,7 +858,8 @@ struct Equals : public IndexNotationVisitorStrict {
     if (anode->indexVar != bnode->indexVar ||
         !equals(anode->stmt, bnode->stmt) ||
         anode->parallel_unit != bnode->parallel_unit ||
-        anode->output_race_strategy != bnode->output_race_strategy) {
+        anode->output_race_strategy != bnode->output_race_strategy ||
+        anode->unrollFactor != bnode->unrollFactor) {
       eq = false;
       return;
     }
@@ -446,74 +921,19 @@ struct Equals : public IndexNotationVisitorStrict {
     }
     eq = true;
   }
-
-  static bool checkRegionDefinitions(const CallNode* anode, const CallNode* bnode) {
-    // Check region definitions
-    if (anode->regionDefinitions.size() != bnode->regionDefinitions.size()) {
-      return false;
-    }
-
-    auto& aDefs = anode->regionDefinitions;
-    auto& bDefs = bnode->regionDefinitions;
-    for (auto itA = aDefs.begin(), itB = bDefs.begin(); itA != aDefs.end(); ++itA, ++itB) {
-      if(itA->first != itB->first) {
-        return false;
-      }
-
-      std::vector<IndexExpr> aArgs;
-      std::vector<IndexExpr> bArgs;
-      for(int idx : itA->first) {
-        taco_iassert((size_t)idx < anode->args.size()); // We already know anode->args.size == bnode->args.size
-        aArgs.push_back(anode->args[idx]);
-        bArgs.push_back(bnode->args[idx]);
-      }
-
-      // TODO lower and check IR
-      if(!util::targetPtrEqual(itA->second, itB->second)) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  /// Checks if the iteration algebra structure is the same and the ordering of the index expressions
-  /// nested under regions is the same for each op node.
-  static bool checkIterationAlg(const CallNode* anode, const CallNode* bnode) {
-    // Check IterationAlgebra structures
-    if(!algStructureEqual(anode->iterAlg, bnode->iterAlg)) {
-      return false;
-    }
-
-    struct OrderChecker : public IterationAlgebraVisitor {
-      explicit OrderChecker(const CallNode* op) : op(op) {}
-
-      std::vector<size_t>& check() {
-        op->iterAlg.accept(this);
-        return ordering;
-      }
-
-      using IterationAlgebraVisitor::visit;
-
-      void visit(const RegionNode* region) {
-        const IndexExpr& e = region->expr();
-        auto it = std::find(op->args.begin(), op->args.end(), e);
-        taco_iassert(it != op->args.end()) << "Iteration algebra region expressions must be in arguments";
-        size_t loc = it - op->args.begin();
-        ordering.push_back(loc);
-      }
-
-      std::vector<size_t> ordering;
-      const CallNode* op;
-    };
-
-    std::vector<size_t> aOrdering = OrderChecker(anode).check();
-    std::vector<size_t> bOrdering = OrderChecker(bnode).check();
-    return aOrdering == bOrdering;
-  }
 };
 
 bool equals(IndexExpr a, IndexExpr b) {
+  if (!a.defined() && !b.defined()) {
+    return true;
+  }
+  if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+    return false;
+  }
+  return Equals().check(a,b);
+}
+
+bool equals(IndexStmt a, IndexStmt b) {
   if (!a.defined() && !b.defined()) {
     return true;
   }
@@ -565,9 +985,8 @@ static void check(Assignment assignment) {
   auto freeVars = assignment.getLhs().getIndexVars();
   auto indexExpr = assignment.getRhs();
   auto shape = tensorVar.getType().getShape();
-  taco_uassert(error::dimensionsTypecheck(freeVars, indexExpr, shape))
-      << error::expr_dimension_mismatch << " "
-      << error::dimensionTypecheckErrors(freeVars, indexExpr, shape);
+  auto typecheck = error::dimensionsTypecheck(freeVars, indexExpr, shape);
+  taco_uassert(typecheck.first) << error::expr_dimension_mismatch << " " << typecheck.second;
 }
 
 Assignment Access::operator=(const IndexExpr& expr) {
@@ -934,8 +1353,8 @@ template <> Call to<Call>(IndexExpr e) {
 CallIntrinsic::CallIntrinsic(const CallIntrinsicNode* n) : IndexExpr(n) {
 }
 
-CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func,  
-                             const std::vector<IndexExpr>& args) 
+CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func,
+                             const std::vector<IndexExpr>& args)
     : CallIntrinsic(new CallIntrinsicNode(func, args)) {
 }
 
@@ -1383,16 +1802,6 @@ IndexStmt IndexStmt::unroll(IndexVar i, size_t unrollFactor) const {
   return UnrollLoop(i, unrollFactor).rewrite(*this);
 }
 
-bool equals(IndexStmt a, IndexStmt b) {
-  if (!a.defined() && !b.defined()) {
-    return true;
-  }
-  if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
-    return false;
-  }
-  return Equals().check(a,b);
-}
-
 std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
   if (!expr.defined()) return os << "IndexStmt()";
   IndexNotationPrinter printer(os);
@@ -1460,7 +1869,7 @@ template <> Assignment to<Assignment>(IndexStmt s) {
 Yield::Yield(const YieldNode* n) : IndexStmt(n) {
 }
 
-Yield::Yield(const std::vector<IndexVar>& indexVars, IndexExpr expr) 
+Yield::Yield(const std::vector<IndexVar>& indexVars, IndexExpr expr)
     : Yield(new YieldNode(indexVars, expr)) {
 }
 
@@ -1534,6 +1943,7 @@ Where::Where(IndexStmt consumer, IndexStmt producer)
 IndexStmt Where::getConsumer() {
   return getNode(*this)->consumer;
 }
+
 
 IndexStmt Where::getProducer() {
   return getNode(*this)->producer;
@@ -1701,6 +2111,7 @@ std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
 
 // class TensorVar
 struct TensorVar::Content {
+  int id;
   string name;
   Type type;
   Format format;
@@ -1720,19 +2131,28 @@ TensorVar::TensorVar(const Type& type, const Literal& fill)
 }
 
 TensorVar::TensorVar(const std::string& name, const Type& type, const Literal& fill)
-: TensorVar(name, type, createDenseFormat(type), fill) {
+: TensorVar(-1, name, type, createDenseFormat(type), fill) {
 }
 
 TensorVar::TensorVar(const Type& type, const Format& format, const Literal& fill)
-    : TensorVar(util::uniqueName('A'), type, format, fill) {
+    : TensorVar(-1, util::uniqueName('A'), type, format, fill) {
 }
 
 TensorVar::TensorVar(const string& name, const Type& type, const Format& format, const Literal& fill)
+    : TensorVar(-1, name, type, createDenseFormat(type), fill) {
+}
+
+TensorVar::TensorVar(const int& id, const string& name, const Type& type, const Format& format, const Literal& fill)
     : content(new Content) {
+  content->id = id;
   content->name = name;
   content->type = type;
   content->format = format;
   content->fill = fill.defined()? fill : Literal::zero(type.getDataType());
+}
+
+int TensorVar::getId() const {
+  return content->id;
 }
 
 std::string TensorVar::getName() const {
@@ -1838,9 +2258,9 @@ static bool isValid(Assignment assignment, string* reason) {
   auto result = lhs.getTensorVar();
   auto freeVars = lhs.getIndexVars();
   auto shape = result.getType().getShape();
-  if(!error::dimensionsTypecheck(freeVars, rhs, shape)) {
-    *reason = error::expr_dimension_mismatch + " " +
-              error::dimensionTypecheckErrors(freeVars, rhs, shape);
+  auto typecheck = error::dimensionsTypecheck(freeVars, rhs, shape);
+  if (!typecheck.first) {
+    *reason = error::expr_dimension_mismatch + " " + typecheck.second;
     return false;
   }
   return true;
@@ -2013,8 +2433,23 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
         return;
       }
 
+      // Handles derived vars on RHS with underived vars on LHS.
+      Assignment assignPtrWrapper = Assignment(op);
+      std::vector<IndexVar> possibleReductionVars = assignPtrWrapper.getReductionVars();
+      std::vector<IndexVar> freeVars = assignPtrWrapper.getFreeVars();
+      std::set<IndexVar> freeVarsSet(freeVars.begin(), freeVars.end());
+
+      int numReductionVars = 0;
+      for(const auto& reductionVar : possibleReductionVars) {
+        std::vector<IndexVar> underivedParents = provGraph.getUnderivedAncestors(reductionVar);
+        for(const auto& parent : underivedParents) {
+          if(!util::contains(freeVarsSet, parent)) {
+            ++numReductionVars;
+          }
+        }
+      }
       // allow introducing precompute loops where we set a temporary to values instead of +=
-      if (Assignment(op).getReductionVars().size() > 0 &&
+      if (numReductionVars > 0 &&
           op->op == IndexExpr() && !inWhereProducer) {
         *reason = "reduction variables in concrete notation must be dominated "
                   "by compound assignments (such as +=)";
@@ -2241,41 +2676,58 @@ vector<TensorVar> getArguments(IndexStmt stmt) {
 
 bool allForFreeLoopsBeforeAllReductionLoops(IndexStmt stmt) {
 
-  struct LoopOrderGetter : IndexNotationVisitor {
+    struct LoopOrderGetter : IndexNotationVisitor {
 
-    std::vector<IndexVar> loopOrder;
-    std::set<IndexVar> freeVars;
+      std::vector<IndexVar> loopOrder;
+      std::set<IndexVar> freeVars;
 
-    using IndexNotationVisitor::visit;
-    void visit(const AssignmentNode *op) {
-      for(const auto& var : op->lhs.getIndexVars()) {
-        freeVars.insert(var);
+      using IndexNotationVisitor::visit;
+
+      void visit(const AssignmentNode *op) {
+        for (const auto &var : op->lhs.getIndexVars()) {
+          freeVars.insert(var);
+        }
+        IndexNotationVisitor::visit(op);
       }
-      IndexNotationVisitor::visit(op);
-    }
 
-    void visit(const ForallNode *op) {
-      loopOrder.push_back(op->indexVar);
-      IndexNotationVisitor::visit(op);
-    }
-  };
-
-
-  LoopOrderGetter getter;
-  getter.visit(stmt);
-
-  bool seenReductionVar = false;
-  for(auto& var : getter.loopOrder) {
-    if(util::contains(getter.freeVars, var)) {
-      if(seenReductionVar) {
-        // A reduction loop came before a loop over a free var
-        return false;
+      void visit(const ForallNode *op) {
+        loopOrder.push_back(op->indexVar);
+        IndexNotationVisitor::visit(op);
       }
-    } else {
-      seenReductionVar = true;
+    };
+
+
+    LoopOrderGetter getter;
+    getter.visit(stmt);
+
+    bool seenReductionVar = false;
+    for (auto &var : getter.loopOrder) {
+      if (util::contains(getter.freeVars, var)) {
+        if (seenReductionVar) {
+          // A reduction loop came before a loop over a free var
+          return false;
+        }
+      } else {
+        seenReductionVar = true;
+      }
     }
+    return true;
   }
-  return true;
+
+std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt) {
+  map<Forall, Where> temporaryLocs;
+  Forall f = Forall();
+  match(stmt,
+        function<void(const ForallNode*, Matcher*)>([&](const ForallNode* op, Matcher* ctx) {
+          f = op;
+          ctx->match(op->stmt);
+        }),
+          function<void(const WhereNode*, Matcher*)>([&](const WhereNode* w, Matcher* ctx) {
+            if (!(f == IndexStmt()))
+              temporaryLocs.insert({f, Where(w)});
+          })
+        );
+  return temporaryLocs;
 }
 
 std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
@@ -2439,12 +2891,13 @@ std::vector<IndexVar> getReductionVars(IndexStmt stmt) {
 }
 
 vector<ir::Expr> createVars(const vector<TensorVar>& tensorVars,
-                            map<TensorVar, ir::Expr>* vars) {
+                            map<TensorVar, ir::Expr>* vars, 
+                            bool isParameter) {
   taco_iassert(vars != nullptr);
   vector<ir::Expr> irVars;
   for (auto& var : tensorVars) {
     ir::Expr irVar = ir::Var::make(var.getName(), var.getType().getDataType(),
-                                   true, true);
+                                   true, true, isParameter);
     irVars.push_back(irVar);
     vars->insert({var, irVar});
   }
@@ -2771,6 +3224,8 @@ IndexStmt zero(IndexStmt stmt, const std::set<Access>& zeroed) {
   return Zero(zeroed).rewrite(stmt);
 }
 
+// Attempts to infer the fill value of a given expression. If we cannot infer the value, an empty expression
+// is returned
 struct fillValueInferrer : IndexExprRewriterStrict {
   public:
     virtual void visit(const AccessNode* op) {
@@ -2884,7 +3339,8 @@ struct fillValueInferrer : IndexExprRewriterStrict {
     }
 
     virtual void visit(const CallIntrinsicNode*) {
-
+      // TODO Implement or remove this
+      taco_not_supported_yet;
     }
 
     virtual void visit(const ReductionNode*) {
@@ -2912,5 +3368,36 @@ bool hasNoForAlls(IndexStmt stmt) {
   return noForAlls;
 }
 
+IndexStmt generatePackStmt(TensorVar tensor, 
+                           std::string otherName, Format otherFormat, 
+                           std::vector<IndexVar> indexVars, 
+                           bool otherIsOnRight) { 
 
+  const Type type = tensor.getType();
+  TensorVar other(otherName, type, otherFormat);
+
+  const Format format = tensor.getFormat();
+  IndexStmt packStmt = otherIsOnRight ? 
+                       (tensor(indexVars) = other(indexVars)) : 
+                       (other(indexVars) = tensor(indexVars));
+
+  for (int i = format.getOrder() - 1; i >= 0; --i) {
+    int mode = format.getModeOrdering()[i];
+    packStmt = forall(indexVars[mode], packStmt);
+  }
+
+  return packStmt; 
+}
+
+IndexStmt generatePackCOOStmt(TensorVar tensor, 
+                              std::vector<IndexVar> indexVars, bool otherIsOnRight) {
+
+  const std::string tensorName = tensor.getName();
+  const Format format = tensor.getFormat();
+
+  const Format bufferFormat = COO(format.getOrder(), false, true, false, 
+                                  format.getModeOrdering());
+
+  return generatePackStmt(tensor, tensorName + "_COO", bufferFormat, indexVars, otherIsOnRight);
+}
 }

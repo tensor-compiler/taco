@@ -8,27 +8,27 @@ namespace taco {
 class DenseModeFormat : public ModeFormatImpl {
 public:
   DenseModeFormat();
-  DenseModeFormat(const bool isOrdered, const bool isUnique);
+  DenseModeFormat(const bool isOrdered, const bool isUnique, const bool isZeroless);
 
-  virtual ~DenseModeFormat() {}
+  ~DenseModeFormat() override {}
 
-  virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const;
+  ModeFormat copy(std::vector<ModeFormat::Property> properties) const override;
   
-  virtual ModeFunction locate(ir::Expr parentPos, std::vector<ir::Expr> coords,
-                              Mode mode) const;
+  ModeFunction locate(ir::Expr parentPos, std::vector<ir::Expr> coords,
+                      Mode mode) const override;
 
-  virtual ir::Stmt getInsertCoord(ir::Expr p, const std::vector<ir::Expr>& i, 
-                                  Mode mode) const;
-  virtual ir::Expr getWidth(Mode mode) const;
-  virtual ir::Stmt getInsertInitCoords(ir::Expr pBegin, ir::Expr pEnd, 
-                                       Mode mode) const;
-  virtual ir::Stmt getInsertInitLevel(ir::Expr szPrev, ir::Expr sz, 
-                                      Mode mode) const;
-  virtual ir::Stmt getInsertFinalizeLevel(ir::Expr szPrev, ir::Expr sz, 
-                                          Mode mode) const;
+  ir::Stmt getInsertCoord(ir::Expr p, const std::vector<ir::Expr>& i, 
+                          Mode mode) const override;
+  ir::Expr getWidth(Mode mode) const override;
+  ir::Stmt getInsertInitCoords(ir::Expr pBegin, ir::Expr pEnd, 
+                               Mode mode) const override;
+  ir::Stmt getInsertInitLevel(ir::Expr szPrev, ir::Expr sz, 
+                              Mode mode) const override;
+  ir::Stmt getInsertFinalizeLevel(ir::Expr szPrev, ir::Expr sz, 
+                                  Mode mode) const override;
   
-  virtual std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode, 
-                                          int level) const;
+  std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode, 
+                                  int level) const override;
 
 protected:
   ir::Expr getSizeArray(ModePack pack) const;

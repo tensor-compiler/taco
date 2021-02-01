@@ -16,10 +16,11 @@ class Format;
 void readFile(std::istream &hbfile,
               int* nrow, int* ncol,
               int** colptr, int** rowind, double** values);
+template<typename T>
 void writeFile(std::ostream &hbfile, std::string key,
                int nrow, int ncol, int nnzero,
                int ptrsize, int indsize, int valsize,
-               int* colptr, int* rowind, double* values);
+               int* colptr, int* rowind, T* values);
 
 void readHeader(std::istream &hbfile,
                 std::string* title, std::string* key,
@@ -38,8 +39,11 @@ void readIndices(std::istream &hbfile, int linesize, int indices[]);
 void writeIndices(std::ostream &hbfile, int indsize,
                   int linesize, int indices[]);
 void readValues(std::istream &hbfile, int linesize, double values[]);
+
+template<typename T>
 void writeValues(std::ostream &hbfile, int valuesize,
-                 int valperline, double values[]);
+                             int valperline, T values[]);
+
 // Useless for Taco
 void readRHS();
 void writeRHS();

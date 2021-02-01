@@ -23,43 +23,88 @@ email list where we post announcements, RFCs, and notifications of API
 changes, or the [taco-discuss](https://lists.csail.mit.edu/mailman/listinfo/taco-discuss)
 email list for open discussions and questions.
 
-TL;DR build taco using cmake. Run `taco-test` in the `bin` directory.
+TL;DR build taco using CMake. Run `make test`.
 
 
-# Build and test 
+# Build and test
 ![Build and Test](https://github.com/RSenApps/taco/workflows/Build%20and%20Test/badge.svg?branch=master)
 
-Build taco using CMake 2.8.3 or greater:
+Build taco using CMake 2.8.12 or greater:
 
     cd <taco-directory>
     mkdir build
     cd build
     cmake -DCMAKE_BUILD_TYPE=Release ..
     make -j8
-  
-To build taco with support for parallel execution (using OpenMP), use the following cmake line with the instructions above:
+
+## Building Python API
+To build taco with the Python API (pytaco), add `-DPYTHON=ON` to the cmake line above. For example:
+
+    cmake -DCMAKE_BUILD_TYPE=Release -DPYTHON=ON ..
+
+You will then need to add the pytaco module to PYTHONPATH:
+
+    export PYTHONPATH=<taco-directory>/build/lib:$PYTHONPATH
+
+pytaco requires NumPy and SciPy to be installed.
+
+## Building for OpenMP
+To build taco with support for parallel execution (using OpenMP), add `-DOPENMP=ON` to the cmake line above. For example:
 
     cmake -DCMAKE_BUILD_TYPE=Release -DOPENMP=ON ..
 
-To build taco for NVIDIA CUDA, use the following cmake line with the instructions above:
+## Building for CUDA
+To build taco for NVIDIA CUDA, add `-DCUDA=ON` to the cmake line above. For example:
 
     cmake -DCMAKE_BUILD_TYPE=Release -DCUDA=ON ..
 
 Please also make sure that you have CUDA installed properly and that the following environment variables are set correctly:
-    
+
     export PATH=/usr/local/cuda/bin:$PATH
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/cuda/lib64:$LIBRARY_PATH
-    
-If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag
 
-Run the test suite:
+If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag.
+
+## Running tests
+To run all tests:
+
+    cd <taco-directory>/build
+    make test
+
+Tests can be run in parallel by setting `CTEST_PARALLEL_LEVEL=<n>` in the environment (which runs `<n>` tests in parallel).
+
+To run the C++ test suite individually:
 
     cd <taco-directory>
     ./build/bin/taco-test
 
+To run the Python test suite individually:
 
-# Library Example
+    cd <taco-directory>
+    python3 build/python_bindings/unit_tests.py
+
+
+## Code coverage analysis
+
+To enable code coverage analysis, configure with `-DCOVERAGE=ON`.  This requires
+the `gcovr` tool to be installed in your PATH.
+
+For best results, the build type should be set to `Debug`.  For example:
+
+    cmake -DCMAKE_BUILD_TYPE=Debug -DCOVERAGE=ON ..
+
+Then to run code coverage analysis:
+
+    make gcovr
+
+This will run the test suite and produce some coverage analysis.  This process
+requires that the tests pass, so any failures must be fixed first.
+If all goes well, coverage results will be output to the `coverage/` folder.
+See `coverage/index.html` for a high level report, and click individual files
+to see the line-by-line results.
+
+# Library example
 
 The following sparse tensor-times-vector multiplication example in C++
 shows how to use the taco library.
@@ -100,6 +145,7 @@ A.compute();
 std::cout << A << std::endl;
 ```
 
+
 # Code generation tools
 
 If you just need to compute a single tensor kernel you can use the
@@ -110,7 +156,7 @@ the same effect:
     cd <taco-directory>
     ./build/bin/taco
     Usage: taco [options] <index expression>
-    
+
     Examples:
       taco "a(i) = b(i) + c(i)"                            # Dense vector add
       taco "a(i) = b(i) + c(i)" -f=b:s -f=c:s -f=a:s       # Sparse vector add

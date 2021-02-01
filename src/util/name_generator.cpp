@@ -22,6 +22,10 @@ string uniqueName(const string& prefix) {
   return prefix + to_string(uniqueCount());
 }
 
+int getUniqueId() {
+  return uniqueCount();
+}
+
 
 // class NameGenerator
 NameGenerator::NameGenerator() {

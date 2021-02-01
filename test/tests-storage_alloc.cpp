@@ -46,7 +46,8 @@ TEST_P(alloc, storage) {
   Tensor<double> tensor = GetParam().tensor;
   packOperands(tensor);
 
-  tensor.compile(GetParam().assembleWhileCompute);
+  tensor.setAssembleWhileCompute(GetParam().assembleWhileCompute);
+  tensor.compile();
   tensor.assemble();
   tensor.compute();
 
@@ -56,7 +57,7 @@ TEST_P(alloc, storage) {
 }
 
 IndexVar i("i"), j("j"), m("m"), n("n"), k("k"), l("l");
-ModeFormat SparseSmall(std::make_shared<CompressedModeFormat>(false, true, true, 
+ModeFormat SparseSmall(std::make_shared<CompressedModeFormat>(false, true, true, false,
                                                           32));
 
 IndexArray dlab_indices() {

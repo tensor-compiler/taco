@@ -37,6 +37,9 @@ struct TensorStorage::Content {
 
     taco_iassert(fill.getDataType() == componentType) << "Fill value must be of same type as data array";
     taco_iassert(order <= INT_MAX && componentType.getNumBits() <= INT_MAX);
+    taco_uassert(order == format.getOrder()) <<
+        "The number of format mode types (" << format.getOrder() << ") " <<
+        "must match the tensor order (" << dimensions.size() << ").";
     vector<int32_t> dimensionsInt32(order);
     vector<int32_t> modeOrdering(order);
     vector<taco_mode_t> modeTypes(order);

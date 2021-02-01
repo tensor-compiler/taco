@@ -439,91 +439,8 @@ struct ReplaceReductionExpr : public IndexNotationRewriter {
 };
 
 
-// int tj = 0; ... tj += rhs; ... lhs = rhs (reduces atomics)
-struct IntroduceScalarTemp : public IndexNotationRewriter {
-  using IndexNotationRewriter::visit;
-  ProvenanceGraph provGraph;
-
-  set<const AssignmentNode*> handledAssignments;
-  set<const AssignmentNode*> assignmentsIndexedByNestedLoop;
-
-  IndexStmt introduceScalarTemp(IndexStmt stmt, ProvenanceGraph provGraph) {
-    this->provGraph = provGraph;
-    return rewrite(stmt);
-  }
-
-  void visit(const WhereNode *op) {
-    IndexStmt producer = op->producer; // don't apply transformation to producers
-    IndexStmt consumer = rewrite(op->consumer);
-
-    if (producer == op->producer && consumer == op->consumer) {
-      stmt = op;
-    }
-    else {
-      stmt = new WhereNode(consumer, producer);
-    }
-  }
-
-  void visit(const ForallNode *node) {
-    Forall foralli(node);
-    IndexVar i = foralli.getIndexVar();
-
-    vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(i);
-    vector<const AssignmentNode *> reducedAssignments;
-    match(foralli.getStmt(),
-          function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
-            vector<IndexVar> reductionVars = Assignment(node).getReductionVars();
-            for (auto underived : underivedAncestors) {
-              bool reducedByI = find(reductionVars.begin(), reductionVars.end(), underived) != reductionVars.end();
-              if (reducedByI) {
-                reducedAssignments.push_back(node);
-                break;
-              }
-            }
-            bool reducedByI = find(reductionVars.begin(), reductionVars.end(), i) != reductionVars.end();
-            if (reducedByI) { // can be indexed by non-underived if temporary
-              reducedAssignments.push_back(node);
-            }
-          })
-    );
-    if (reducedAssignments.size() > 0) {
-      IndexStmt transformed_stmt = forall(i, rewrite(foralli.getStmt()), foralli.getParallelUnit(),
-                                          foralli.getOutputRaceStrategy(), foralli.getUnrollFactor());
-      for (auto assignment : reducedAssignments) {
-        if (handledAssignments.count(assignment) || assignmentsIndexedByNestedLoop.count(assignment)) {
-          continue;
-        }
-        handledAssignments.insert(assignment); // TODO: apply at higher levels  than just bottom-most loop
-        TensorVar t(string("t") + foralli.getIndexVar().getName(), Type(assignment->lhs.getDataType()));
-        IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, t}})).rewrite(
-                transformed_stmt);
-        taco_iassert(isa<Forall>(producer));
-        IndexStmt consumer = Assignment(assignment->lhs, t, assignment->op);
-        transformed_stmt = where(consumer, producer);
-      }
-      stmt = transformed_stmt;
-    }
-    else {
-      IndexNotationRewriter::visit(node);
-    }
-    match(foralli.getStmt(),
-          function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
-            vector<IndexVar> freeVars = Assignment(node).getFreeVars();
-            for (auto underived : underivedAncestors) {
-              bool indexedByI = find(freeVars.begin(), freeVars.end(), underived) != freeVars.end();
-              if (indexedByI) {
-                assignmentsIndexedByNestedLoop.insert(node);
-                break;
-              }
-            }
-            bool indexedByI = find(freeVars.begin(), freeVars.end(), i) != freeVars.end();
-            if (indexedByI) {
-              assignmentsIndexedByNestedLoop.insert(node);
-            }
-          })
-    );
-  }
-};
+IndexStmt scalarPromote(IndexStmt stmt, ProvenanceGraph provGraph, 
+                        bool isWholeStmt, bool promoteScalar);
 
 // class Parallelize
 struct Parallelize::Content {
@@ -676,8 +593,13 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
         }
 
         if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
-          // want to avoid extra atomics by accumulating variable and then reducing at end
-          stmt = forall(i, IntroduceScalarTemp().introduceScalarTemp(foralli.getStmt(), provGraph), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
+          // want to avoid extra atomics by accumulating variable and then 
+          // reducing at end
+          IndexStmt body = scalarPromote(foralli.getStmt(), provGraph, 
+                                         false, true);
+          stmt = forall(i, body, parallelize.getParallelUnit(), 
+                        parallelize.getOutputRaceStrategy(), 
+                        foralli.getUnrollFactor());
           return;
         }
 
@@ -984,6 +906,149 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
   return rewriter.rewrite(stmt);
 }
 
+IndexStmt scalarPromote(IndexStmt stmt, ProvenanceGraph provGraph, 
+                        bool isWholeStmt, bool promoteScalar) {
+  std::map<Access,const ForallNode*> hoistLevel;
+  std::map<Access,IndexExpr> reduceOp;
+  struct FindHoistLevel : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+
+    std::map<Access,const ForallNode*>& hoistLevel;
+    std::map<Access,IndexExpr>& reduceOp;
+    std::map<Access,std::set<IndexVar>> hoistIndices;
+    std::set<IndexVar> derivedIndices;
+    std::set<IndexVar> indices;
+    const ProvenanceGraph& provGraph;
+    const bool isWholeStmt;
+    const bool promoteScalar;
+    
+    FindHoistLevel(std::map<Access,const ForallNode*>& hoistLevel,
+                   std::map<Access,IndexExpr>& reduceOp,
+                   const ProvenanceGraph& provGraph,
+                   bool isWholeStmt, bool promoteScalar) : 
+        hoistLevel(hoistLevel), reduceOp(reduceOp), provGraph(provGraph),
+        isWholeStmt(isWholeStmt), promoteScalar(promoteScalar) {}
+
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      IndexVar i = foralli.getIndexVar();
+
+      // Don't allow hoisting out of forall's for GPU warp and block reduction
+      if (foralli.getParallelUnit() == ParallelUnit::GPUWarpReduction || 
+          foralli.getParallelUnit() == ParallelUnit::GPUBlockReduction) {
+        FindHoistLevel findHoistLevel(hoistLevel, reduceOp, provGraph, false, 
+                                      promoteScalar);
+        foralli.getStmt().accept(&findHoistLevel);
+        return;
+      }
+
+      std::vector<Access> resultAccesses;
+      std::tie(resultAccesses, std::ignore) = getResultAccesses(foralli);
+      for (const auto& resultAccess : resultAccesses) {
+        if (!promoteScalar && resultAccess.getIndexVars().empty()) {
+          continue;
+        }
+
+        std::set<IndexVar> resultIndices(resultAccess.getIndexVars().begin(),
+                                         resultAccess.getIndexVars().end());
+        if (std::includes(indices.begin(), indices.end(), 
+                          resultIndices.begin(), resultIndices.end()) &&
+            !util::contains(hoistLevel, resultAccess)) {
+          hoistLevel[resultAccess] = node;
+          hoistIndices[resultAccess] = indices;
+          if (!isWholeStmt || resultIndices != derivedIndices) {
+            reduceOp[resultAccess] = IndexExpr();
+          }
+        }
+      }
+
+      auto newIndices = provGraph.newlyRecoverableParents(i, derivedIndices);
+      newIndices.push_back(i);
+      derivedIndices.insert(newIndices.begin(), newIndices.end());
+
+      const auto underivedIndices = getIndexVars(foralli);
+      for (const auto& newIndex : newIndices) {
+        if (util::contains(underivedIndices, newIndex)) {
+          indices.insert(newIndex);
+        }
+      }
+
+      IndexNotationVisitor::visit(node);
+
+      for (const auto& newIndex : newIndices) {
+        indices.erase(newIndex);
+        derivedIndices.erase(newIndex);
+      }
+    }
+
+    void visit(const AssignmentNode* op) {
+      if (util::contains(hoistLevel, op->lhs) && 
+          hoistIndices[op->lhs] == indices) {
+        hoistLevel.erase(op->lhs);
+      }
+      if (util::contains(reduceOp, op->lhs)) {
+        reduceOp[op->lhs] = op->op;
+      }
+    }
+  };
+  FindHoistLevel findHoistLevel(hoistLevel, reduceOp, provGraph, isWholeStmt, 
+                                promoteScalar);
+  stmt.accept(&findHoistLevel);
+  
+  struct HoistWrites : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    const std::map<Access,const ForallNode*>& hoistLevel;
+    const std::map<Access,IndexExpr>& reduceOp;
+
+    HoistWrites(const std::map<Access,const ForallNode*>& hoistLevel,
+                const std::map<Access,IndexExpr>& reduceOp) : 
+        hoistLevel(hoistLevel), reduceOp(reduceOp) {}
+
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      IndexVar i = foralli.getIndexVar();
+      IndexStmt body = rewrite(foralli.getStmt());
+
+      std::vector<IndexStmt> consumers;
+      for (const auto& resultAccess : hoistLevel) {
+        if (resultAccess.second == node) {
+          // This assumes the index expression yields at most one result tensor; 
+          // will not work correctly if there are multiple results.
+          TensorVar resultVar = resultAccess.first.getTensorVar();
+          TensorVar val("t" + i.getName() + resultVar.getName(), 
+                        Type(resultVar.getType().getDataType(), {}));
+          body = ReplaceReductionExpr(
+              map<Access,Access>({{resultAccess.first, val()}})).rewrite(body);
+
+          IndexExpr op = util::contains(reduceOp, resultAccess.first) 
+                       ? reduceOp.at(resultAccess.first) : IndexExpr();
+          IndexStmt consumer = Assignment(Access(resultAccess.first), val(), op);
+          consumers.push_back(consumer);
+        }
+      }
+
+      if (body == foralli.getStmt()) {
+        taco_iassert(consumers.empty());
+        stmt = node;
+        return;
+      }
+
+      stmt = forall(i, body, foralli.getParallelUnit(),
+                    foralli.getOutputRaceStrategy(), foralli.getUnrollFactor());
+      for (const auto& consumer : consumers) {
+        stmt = where(consumer, stmt);
+      }
+    }
+  };
+  HoistWrites hoistWrites(hoistLevel, reduceOp);
+  return hoistWrites.rewrite(stmt);
+}
+
+IndexStmt scalarPromote(IndexStmt stmt) {
+  return scalarPromote(stmt, ProvenanceGraph(stmt), true, false);
+}
+
 static bool compare(std::vector<IndexVar> vars1, std::vector<IndexVar> vars2) {
   return vars1 == vars2;
 }
@@ -1050,17 +1115,19 @@ static IndexStmt optimizeSpMM(IndexStmt stmt) {
     return stmt;
   }
 
+  // I think we can to linear combination of rows as long as there are no permutations in the format and the
+  // level formats are ordered. The i -> k -> j loops should iterate over the data structures without issue.
   TensorVar B = Baccess.getTensorVar();
-  if (B.getFormat().getModeFormats()[0].getName() != "dense" ||
-      B.getFormat().getModeFormats()[1].getName() != "compressed" ||
+  if (!B.getFormat().getModeFormats()[0].isOrdered() ||
+      !B.getFormat().getModeFormats()[1].isOrdered() ||
       B.getFormat().getModeOrdering()[0] != 0 ||
       B.getFormat().getModeOrdering()[1] != 1) {
     return stmt;
   }
 
   TensorVar C = Caccess.getTensorVar();
-  if (C.getFormat().getModeFormats()[0].getName() != "dense" ||
-      C.getFormat().getModeFormats()[1].getName() != "compressed" ||
+  if (!C.getFormat().getModeFormats()[0].isOrdered() ||
+      !C.getFormat().getModeFormats()[1].isOrdered() ||
       C.getFormat().getModeOrdering()[0] != 0 ||
       C.getFormat().getModeOrdering()[1] != 1) {
     return stmt;
@@ -1068,7 +1135,8 @@ static IndexStmt optimizeSpMM(IndexStmt stmt) {
 
   // It's an SpMM statement so return an optimized SpMM statement
   TensorVar w("w",
-              Type(Float64, {A.getType().getShape().getDimension(1)}),
+              Type(A.getType().getDataType(), 
+              {A.getType().getShape().getDimension(1)}),
               taco::dense);
   return forall(i,
                 where(forall(j,

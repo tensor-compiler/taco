@@ -12,6 +12,7 @@
 #include "taco/ir/ir.h"
 #include "taco/ir/simplify.h"
 #include "ir/ir_generators.h"
+#include "taco/ir/ir_printer.h"
 
 #include "taco/lower/lowerer_impl.h"
 #include "taco/lower/iterator.h"
@@ -42,12 +43,13 @@ std::shared_ptr<LowererImpl> Lowerer::getLowererImpl() {
   return impl;
 }
 
-ir::Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute,
+ir::Stmt lower(IndexStmt stmt, std::string name, 
+               bool assemble, bool compute, bool pack, bool unpack,
                Lowerer lowerer) {
   string reason;
   taco_iassert(isLowerable(stmt, &reason))
       << "Not lowerable, because " << reason << ": " << stmt;
-  ir::Stmt lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute);
+  ir::Stmt lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute, pack, unpack);
 
   // TODO: re-enable this
   // std::string messages;

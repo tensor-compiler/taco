@@ -241,7 +241,7 @@ protected:
 
   virtual void visit(const Var *op) {
     if (varMap.count(op) == 0 && !inBlock) {
-      varMap[op] = codeGen->genUniqueName(op->name);
+      varMap[op] = op->is_ptr? op->name : codeGen->genUniqueName(op->name);
     }
   }
 
@@ -1143,7 +1143,7 @@ void CodeGen_CUDA::visit(const Sqrt* op) {
   stream << ")";
 }
 
-void CodeGen_CUDA::visit(const Break*) {
+void CodeGen_CUDA::visit(const Continue*) {
   doIndent();
   if(!isHostFunction && deviceFunctionLoopDepth == 0) {
     // can't break out of kernel
@@ -1220,8 +1220,9 @@ void CodeGen_CUDA::visit(const Yield* op) {
 
 // Need to handle some binary ops so that we can add the necessary casts if complex
 // Because c++ does not properly handle double * std::complex<float> or std::complex<float> * std::complex<double>
+// Based on IRPrinter::printBinOp
 void CodeGen_CUDA::printBinCastedOp(Expr a, Expr b, string op, Precedence precedence) {
-  bool parenthesize = precedence > parentPrecedence;
+  bool parenthesize = needsParentheses(precedence);
   if (parenthesize) {
     stream << "(";
   }
@@ -1424,8 +1425,7 @@ void CodeGen_CUDA::visit(const Store* op) {
       } else if (isa<Add>(op->data)) {
         auto add = to<Add>(op->data);
         taco_iassert(isa<Load>(add->a));
-        auto load = to<Load>(add->a);
-        taco_iassert(load->arr == op->arr && load->loc == op->loc);
+        taco_iassert(to<Load>(add->a)->arr == op->arr && to<Load>(add->a)->loc == op->loc);
         if (deviceFunctionLoopDepth == 0 || op->atomic_parallel_unit == ParallelUnit::GPUWarp) {
           // use atomicAddWarp
           doIndent();
@@ -1454,8 +1454,7 @@ void CodeGen_CUDA::visit(const Store* op) {
       } else if (isa<BitOr>(op->data)) {
         auto bitOr = to<BitOr>(op->data);
         taco_iassert(isa<Load>(bitOr->a));
-        auto load = to<Load>(bitOr->a);
-        taco_iassert(load->arr == op->arr && load->loc == op->loc);
+        taco_iassert(to<Load>(bitOr->a)->arr == op->arr && to<Load>(bitOr->a)->loc == op->loc);
 
         doIndent();
         stream << "atomicOr(&";

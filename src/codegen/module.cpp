@@ -32,15 +32,6 @@ void Module::setJITLibname() {
     libname[i] = chars[rand() % chars.length()];
 }
 
-void Module::reset() {
-  funcs.clear();
-  moduleFromUserSource = false;
-  header.str("");
-  header.clear();
-  source.str("");
-  source.clear();
-}
-
 void Module::addFunction(Stmt func) {
   funcs.push_back(func);
 }
@@ -122,7 +113,7 @@ string Module::compile() {
   string file_ending;
   string shims_file;
   if (should_use_CUDA_codegen()) {
-    cc = "nvcc";
+    cc = util::getFromEnv("TACO_NVCC", "nvcc");
     cflags = util::getFromEnv("TACO_NVCCFLAGS",
     get_default_CUDA_compiler_flags());
     file_ending = ".cu";
@@ -132,12 +123,12 @@ string Module::compile() {
     cc = util::getFromEnv(target.compiler_env, target.compiler);
     cflags = util::getFromEnv("TACO_CFLAGS",
     "-O3 -ffast-math -std=c99") + " -shared -fPIC";
+#if USE_OPENMP
+    cflags += " -fopenmp";
+#endif
     file_ending = ".c";
     shims_file = "";
   }
-#if USE_OPENMP
-  cflags += " -fopenmp";
-#endif
   
   string cmd = cc + " " + cflags + " " +
     prefix + file_ending + " " + shims_file + " " + 

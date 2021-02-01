@@ -171,6 +171,9 @@ public:
   friend std::ostream& operator<<(std::ostream&, const IndexExpr&);
 };
 
+/// Check if two index expressions are isomorphic.
+bool isomorphic(IndexExpr, IndexExpr);
+
 /// Compare two index expressions by value.
 bool equals(IndexExpr, IndexExpr);
 
@@ -222,6 +225,7 @@ template <typename SubType> SubType to(IndexExpr);
 class Access : public IndexExpr {
 public:
   Access() = default;
+  Access(const Access&) = default;
   Access(const AccessNode*);
   Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={});
 
@@ -695,6 +699,9 @@ public:
   IndexStmt unroll(IndexVar i, size_t unrollFactor) const;
 };
 
+/// Check if two index statements are isomorphic.
+bool isomorphic(IndexStmt, IndexStmt);
+
 /// Compare two index statments by value.
 bool equals(IndexStmt, IndexStmt);
 
@@ -876,6 +883,11 @@ public:
   TensorVar(const std::string& name, const Type& type, const Literal& fill = Literal());
   TensorVar(const Type& type, const Format& format, const Literal& fill = Literal());
   TensorVar(const std::string& name, const Type& type, const Format& format, const Literal& fill = Literal());
+  TensorVar(const int &id, const std::string& name, const Type& type, const Format& format,
+            const Literal& fill = Literal());
+
+  /// Returns the ID of the tensor variable.
+  int getId() const;
 
   /// Returns the name of the tensor variable.
   std::string getName() const;
@@ -986,6 +998,10 @@ bool allForFreeLoopsBeforeAllReductionLoops(IndexStmt stmt);
   /// Returns the temporaries in the index statement, in the order they appear.
 std::vector<TensorVar> getTemporaries(IndexStmt stmt);
 
+// [Olivia]
+/// Returns the temporaries in the index statement, in the order they appear.
+std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt);
+
 /// Returns the tensors in the index statement.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);
 
@@ -1007,7 +1023,8 @@ std::vector<IndexVar> getReductionVars(IndexStmt stmt);
 
 /// Convert index notation tensor variables to IR pointer variables.
 std::vector<ir::Expr> createVars(const std::vector<TensorVar>& tensorVars,
-                               std::map<TensorVar, ir::Expr>* vars);
+                                 std::map<TensorVar, ir::Expr>* vars, 
+                                 bool isParameter=false);
 
 
 /// Simplify an index expression by setting the zeroed Access expressions to
@@ -1025,5 +1042,17 @@ IndexExpr inferFill(IndexExpr);
 /// Returns true if there are no forall nodes in the indexStmt. Used to check
 /// if the last loop is being lowered.
 bool hasNoForAlls(IndexStmt);
+
+/// Create an `other` tensor with the given name and format,
+/// and return tensor(indexVars) = other(indexVars) if otherIsOnRight,
+/// and otherwise returns other(indexVars) = tensor(indexVars).
+IndexStmt generatePackStmt(TensorVar tensor,
+                           std::string otherName, Format otherFormat, 
+                           std::vector<IndexVar> indexVars, bool otherIsOnRight);
+
+/// Same as generatePackStmt, where otherFormat is COO.
+IndexStmt generatePackCOOStmt(TensorVar tensor, 
+                              std::vector<IndexVar> indexVars, bool otherIsOnRight);
+
 }
 #endif

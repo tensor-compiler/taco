@@ -243,7 +243,8 @@ bool Literal::equalsScalar(double scalar) const {
   return false;
 }
 
-Expr Var::make(std::string name, Datatype type, bool is_ptr, bool is_tensor) {
+Expr Var::make(std::string name, Datatype type, 
+               bool is_ptr, bool is_tensor, bool is_parameter) {
   Var *var = new Var;
   var->type = type;
   var->name = name;
@@ -251,6 +252,7 @@ Expr Var::make(std::string name, Datatype type, bool is_ptr, bool is_tensor) {
   // TODO: is_ptr and is_tensor should be part of type
   var->is_ptr = is_ptr;
   var->is_tensor = is_tensor;
+  var->is_parameter = is_parameter;
 
   return var;
 }
@@ -786,14 +788,14 @@ Stmt BlankLine::make() {
   return new BlankLine;
 }
 
-// Break
-Stmt Break::make() {
-  return new Break;
-}
-
 // Continue
 Stmt Continue::make() {
   return new Continue;
+}
+
+// Break
+Stmt Break::make() {
+  return new Break;
 }
 
 // Print
@@ -820,6 +822,13 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode,
     gp->type = Int();
   
   return gp;
+}
+
+// Sort
+Stmt Sort::make(std::vector<Expr> args) {
+  Sort* sort = new Sort;
+  sort->args = args;
+  return sort;
 }
 
 
@@ -955,14 +964,16 @@ template<> void StmtNode<Comment>::accept(IRVisitorStrict *v)
     const { v->visit((const Comment*)this); }
 template<> void StmtNode<BlankLine>::accept(IRVisitorStrict *v)
     const { v->visit((const BlankLine*)this); }
-template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
-  const { v->visit((const Break*)this); }
 template<> void StmtNode<Continue>::accept(IRVisitorStrict *v)
   const { v->visit((const Continue*)this); }
 template<> void StmtNode<Print>::accept(IRVisitorStrict *v)
     const { v->visit((const Print*)this); }
 template<> void ExprNode<GetProperty>::accept(IRVisitorStrict *v)
     const { v->visit((const GetProperty*)this); }
+template<> void StmtNode<Sort>::accept(IRVisitorStrict *v)
+  const { v->visit((const Sort*)this); }
+template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
+  const { v->visit((const Break*)this); }
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {

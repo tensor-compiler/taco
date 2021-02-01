@@ -97,6 +97,41 @@ const string cHeaders =
   "  }\n"
   "  return lowerBound;\n"
   "}\n"
+  "taco_tensor_t* init_taco_tensor_t(int32_t order, int32_t csize,\n"
+  "                                  int32_t* dimensions, int32_t* mode_ordering,\n"
+  "                                  taco_mode_t* mode_types) {\n"
+  "  taco_tensor_t* t = (taco_tensor_t *) malloc(sizeof(taco_tensor_t));\n"
+  "  t->order         = order;\n"
+  "  t->dimensions    = (int32_t *) malloc(order * sizeof(int32_t));\n"
+  "  t->mode_ordering = (int32_t *) malloc(order * sizeof(int32_t));\n"
+  "  t->mode_types    = (taco_mode_t *) malloc(order * sizeof(taco_mode_t));\n"
+  "  t->indices       = (uint8_t ***) malloc(order * sizeof(uint8_t***));\n"
+  "  t->csize         = csize;\n"
+  "  for (int32_t i = 0; i < order; i++) {\n"
+  "    t->dimensions[i]    = dimensions[i];\n"
+  "    t->mode_ordering[i] = mode_ordering[i];\n"
+  "    t->mode_types[i]    = mode_types[i];\n"
+  "    switch (t->mode_types[i]) {\n"
+  "      case taco_mode_dense:\n"
+  "        t->indices[i] = (uint8_t **) malloc(1 * sizeof(uint8_t **));\n"
+  "        break;\n"
+  "      case taco_mode_sparse:\n"
+  "        t->indices[i] = (uint8_t **) malloc(2 * sizeof(uint8_t **));\n"
+  "        break;\n"
+  "    }\n"
+  "  }\n"
+  "  return t;\n"
+  "}\n"
+  "void deinit_taco_tensor_t(taco_tensor_t* t) {\n"
+  "  for (int i = 0; i < t->order; i++) {\n"
+  "    free(t->indices[i]);\n"
+  "  }\n"
+  "  free(t->indices);\n"
+  "  free(t->dimensions);\n"
+  "  free(t->mode_ordering);\n"
+  "  free(t->mode_types);\n"
+  "  free(t);\n"
+  "}\n"
   "#endif\n";
 } // anonymous namespace
 
@@ -148,7 +183,7 @@ protected:
 
   virtual void visit(const Var *op) {
     if (varMap.count(op) == 0) {
-      varMap[op] = codeGen->genUniqueName(op->name);
+      varMap[op] = op->is_ptr? op->name : codeGen->genUniqueName(op->name);
     }
   }
 
@@ -156,6 +191,7 @@ protected:
     if (!util::contains(localVars, op->var)) {
       localVars.push_back(op->var);
     }
+    op->var.accept(this);
     op->rhs.accept(this);
   }
 
@@ -227,9 +263,15 @@ void CodeGen_C::visit(const Function* func) {
   funcName = func->name;
   labelCount = 0;
 
+  resetUniqueNameCounters();
+  FindVars inputVarFinder(func->inputs, {}, this);
+  func->body.accept(&inputVarFinder);
+  FindVars outputVarFinder({}, func->outputs, this);
+  func->body.accept(&outputVarFinder);
+
   // output function declaration
   doIndent();
-  out << printFuncName(func);
+  out << printFuncName(func, inputVarFinder.varDecls, outputVarFinder.varDecls);
 
   // if we're just generating a header, this is all we need to do
   if (outputKind == HeaderGen) {
@@ -479,7 +521,9 @@ void CodeGen_C::visit(const Allocate* op) {
   }
   stream << "sizeof(" << elementType << ")";
   stream << " * ";
+  parentPrecedence = MUL;
   op->num_elements.accept(this);
+  parentPrecedence = TOP;
   stream << ");";
     stream << endl;
 }

@@ -53,7 +53,8 @@ public:
   virtual ~LowererImpl() = default;
 
   /// Lower an index statement to an IR function.
-  ir::Stmt lower(IndexStmt stmt, std::string name,  bool assemble, bool compute);
+  ir::Stmt lower(IndexStmt stmt, std::string name, 
+                 bool assemble, bool compute, bool pack, bool unpack);
 
 protected:
 
@@ -80,6 +81,17 @@ protected:
                                         MergeLattice caseLattice,
                                         std::set<Access> reducedAccesses,
                                         ir::Stmt recoveryStmt);
+
+  /// Lower a forall that iterates over all the coordinates in the forall index
+  /// var's dimension, and locates tensor positions from the locate iterators.
+  virtual ir::Stmt lowerForallDenseAcceleration(Forall forall,
+                                                std::vector<Iterator> locaters,
+                                                std::vector<Iterator> inserters,
+                                                std::vector<Iterator> appenders,
+                                                MergeLattice caseLattice,
+                                                std::set<Access> reducedAccesses,
+                                                ir::Stmt recoveryStmt);
+
 
   /// Lower a forall that iterates over the coordinates in the iterator, and
   /// locates tensor positions from the locate iterators.
@@ -341,17 +353,29 @@ protected:
   ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coord, IndexVar coordinateVar);
   ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar);
 
+  /// Returns true iff the temporary used in the where statement is dense and sparse iteration over that
+  /// temporary can be automaticallty supported by the compiler.
+  bool canAccelerateDenseTemp(Where where);
+
+  /// Initializes a temporary workspace
+  std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
+
+  /// Gets the size of a temporary tensorVar in the where statement
+  ir::Expr getTemporarySize(Where where);
+
+  /// Initializes helper arrays to give dense workspaces sparse acceleration
+  std::vector<ir::Stmt> codeToInitializeDenseAcceleratorArrays(Where where);
 
   /// Recovers a derived indexvar from an underived variable.
   ir::Stmt codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar indexVar, bool emitVarDecl);
 
-    /// Conditionally increment iterator position variables.
+  /// Conditionally increment iterator position variables.
   ir::Stmt codeToIncIteratorVars(ir::Expr coordinate, IndexVar coordinateVar,
           std::vector<Iterator> iterators, std::vector<Iterator> mergers);
 
   ir::Stmt codeToLoadCoordinatesFromPosIterators(std::vector<Iterator> iterators, bool declVars);
 
-    /// Create statements to append coordinate to result modes.
+  /// Create statements to append coordinate to result modes.
   ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
 
   /// Create statements to append positions to result modes.
@@ -421,6 +445,9 @@ private:
   int markAssignsAtomicDepth = 0;
   ParallelUnit atomicParallelUnit;
 
+  /// Map used to hoist temporary workspace initialization
+  std::map<Forall, Where> temporaryInitialization;
+
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
 
@@ -428,6 +455,15 @@ private:
     ir::Expr values;
   };
   std::map<TensorVar, TemporaryArrays> temporaryArrays;
+
+  /// Map form temporary to indexList var if accelerating dense workspace
+  std::map<TensorVar, ir::Expr> tempToIndexList;
+
+  /// Map form temporary to indexListSize if accelerating dense workspace
+  std::map<TensorVar, ir::Expr> tempToIndexListSize;
+
+  /// Map form temporary to bitGuard var if accelerating dense workspace
+  std::map<TensorVar, ir::Expr> tempToBitGuard;
 
   /// Map from result tensors to variables tracking values array capacity.
   std::map<ir::Expr, ir::Expr> capacityVars;

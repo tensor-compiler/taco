@@ -324,8 +324,8 @@ TEST(scheduling_eval, test_spmvCPU_temp) {
   int NUM_J = 1039/10;
   float SPARSITY = .3;
   Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
-  Tensor<double> x("x", {NUM_J}, {Dense});
-  Tensor<double> y("y", {NUM_I}, {Dense});
+  Tensor<double> x("x", {NUM_J}, Format({Dense}));
+  Tensor<double> y("y", {NUM_I}, Format({Dense}));
 
   srand(4353);
   for (int i = 0; i < NUM_I; i++) {
@@ -363,7 +363,7 @@ TEST(scheduling_eval, test_spmvCPU_temp) {
   y.assemble();
   y.compute();
 
-  Tensor<double> expected("expected", {NUM_I}, {Dense});
+  Tensor<double> expected("expected", {NUM_I}, Format({Dense}));
   expected(i) = A(i, j) * x(j);
   expected.compile();
   expected.assemble();
@@ -380,8 +380,8 @@ TEST(scheduling_eval, example_spmvCPU_splitpos) {
   float SPARSITY = .3;
   int CHUNK_SIZE = 16;
   Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
-  Tensor<double> x("x", {NUM_J}, {Dense});
-  Tensor<double> y("y", {NUM_I}, {Dense});
+  Tensor<double> x("x", {NUM_J}, Format({Dense}));
+  Tensor<double> y("y", {NUM_I}, Format({Dense}));
 
   srand(53535);
   for (int i = 0; i < NUM_I; i++) {
@@ -416,7 +416,7 @@ TEST(scheduling_eval, example_spmvCPU_splitpos) {
   y.assemble();
   y.compute();
 
-  Tensor<double> expected("expected", {NUM_I}, {Dense});
+  Tensor<double> expected("expected", {NUM_I}, Format({Dense}));
   expected(i) = A(i, j) * x(j);
   expected.compile();
   expected.assemble();
@@ -543,8 +543,8 @@ TEST(scheduling_eval, spmvCPU) {
   int NUM_J = 1039/10;
   float SPARSITY = .3;
   Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
-  Tensor<double> x("x", {NUM_J}, {Dense});
-  Tensor<double> y("y", {NUM_I}, {Dense});
+  Tensor<double> x("x", {NUM_J}, Format({Dense}));
+  Tensor<double> y("y", {NUM_I}, Format({Dense}));
 
   srand(120);
   for (int i = 0; i < NUM_I; i++) {
@@ -575,7 +575,7 @@ TEST(scheduling_eval, spmvCPU) {
   y.assemble();
   y.compute();
 
-  Tensor<double> expected("expected", {NUM_I}, {Dense});
+  Tensor<double> expected("expected", {NUM_I}, Format({Dense}));
   expected(i) = A(i, j) * x(j);
   expected.compile();
   expected.assemble();
@@ -593,7 +593,7 @@ TEST(scheduling_eval, ttvCPU) {
   float SPARSITY = .3;
   Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense}); // TODO: change to sparse outputs
   Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
-  Tensor<double> c("c", {NUM_K}, {Dense});
+  Tensor<double> c("c", {NUM_K}, Format({Dense}));
 
   srand(9536);
   for (int i = 0; i < NUM_I; i++) {
@@ -758,8 +758,8 @@ TEST(scheduling_eval, spmvGPU) {
   int NUM_J = 1039/10;
   float SPARSITY = .01;
   Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
-  Tensor<double> x("x", {NUM_J}, {Dense});
-  Tensor<double> y("y", {NUM_I}, {Dense});
+  Tensor<double> x("x", {NUM_J}, Format({Dense}));
+  Tensor<double> y("y", {NUM_I}, Format({Dense}));
 
   srand(94353);
   for (int i = 0; i < NUM_I; i++) {
@@ -790,7 +790,7 @@ TEST(scheduling_eval, spmvGPU) {
   y.assemble();
   y.compute();
 
-  Tensor<double> expected("expected", {NUM_I}, {Dense});
+  Tensor<double> expected("expected", {NUM_I}, Format({Dense}));
   expected(i) = A(i, j) * x(j);
   expected.compile();
   expected.assemble();
@@ -1024,7 +1024,7 @@ TEST(scheduling_eval, ttvGPU) {
   float SPARSITY = .3;
   Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense}); // TODO: change to sparse outputs
   Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
-  Tensor<double> c("c", {NUM_K}, {Dense});
+  Tensor<double> c("c", {NUM_K}, Format({Dense}));
 
   srand(35325);
   for (int i = 0; i < NUM_I; i++) {
@@ -1202,8 +1202,8 @@ TEST(generate_evaluation_files, DISABLED_cpu) {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
     Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
-    Tensor<double> x("x", {NUM_J}, {Dense});
-    Tensor<double> y("y", {NUM_I}, {Dense});
+    Tensor<double> x("x", {NUM_J}, Format({Dense}));
+    Tensor<double> y("y", {NUM_I}, Format({Dense}));
     y(i) = A(i, j) * x(j);
     IndexStmt stmt = y.getAssignment().concretize();
     bool isFirst = true;
@@ -1270,7 +1270,7 @@ TEST(generate_evaluation_files, DISABLED_cpu) {
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
     Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense}); // TODO: change to sparse outputs
     Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
-    Tensor<double> c("c", {NUM_K}, {Dense});
+    Tensor<double> c("c", {NUM_K}, Format({Dense}));
     A(i,j) = B(i,j,k) * c(k);
     IndexStmt stmt = A.getAssignment().concretize();
     bool isFirst = true;
@@ -1514,8 +1514,8 @@ TEST(generate_evaluation_files, DISABLED_gpu) {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
     Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
-    Tensor<double> x("x", {NUM_J}, {Dense});
-    Tensor<double> y("y", {NUM_I}, {Dense});
+    Tensor<double> x("x", {NUM_J}, Format({Dense}));
+    Tensor<double> y("y", {NUM_I}, Format({Dense}));
     IndexExpr precomputed = A(i, j) * x(j);
     y(i) = precomputed;
     IndexStmt stmt = y.getAssignment().concretize();
@@ -1542,8 +1542,8 @@ TEST(generate_evaluation_files, DISABLED_gpu) {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
     Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
-    Tensor<double> x("x", {NUM_J}, {Dense});
-    Tensor<double> y("y", {NUM_I}, {Dense});
+    Tensor<double> x("x", {NUM_J}, Format({Dense}));
+    Tensor<double> y("y", {NUM_I}, Format({Dense}));
     IndexExpr precomputed = A(i, j) * x(j);
     y(i) = precomputed;
     IndexStmt stmt = y.getAssignment().concretize();
@@ -1615,7 +1615,7 @@ TEST(generate_evaluation_files, DISABLED_gpu) {
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
     Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense}); // TODO: change to sparse outputs
     Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
-    Tensor<double> c("c", {NUM_K}, {Dense});
+    Tensor<double> c("c", {NUM_K}, Format({Dense}));
     IndexExpr precomputedExpr = B(i,j,k) * c(k);
     A(i,j) = precomputedExpr;
     IndexStmt stmt = A.getAssignment().concretize();
@@ -1698,8 +1698,8 @@ TEST(generate_figures, DISABLED_cpu) {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
     Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
-    Tensor<double> x("x", {NUM_J}, {Dense});
-    Tensor<double> y("y", {NUM_I}, {Dense});
+    Tensor<double> x("x", {NUM_J}, Format({Dense}));
+    Tensor<double> y("y", {NUM_I}, Format({Dense}));
     y(i) = A(i, j) * x(j);
     IndexStmt stmt = y.getAssignment().concretize();
     bool isFirst = true;

@@ -65,8 +65,9 @@ enum class IRNodeType {
   BlankLine,
   Print,
   GetProperty,
-  Break,
-  Continue
+  Continue,
+  Sort,
+  Break
 };
 
 enum class TensorProperty {
@@ -266,9 +267,10 @@ struct Var : public ExprNode<Var> {
   std::string name;
   bool is_ptr;
   bool is_tensor;
+  bool is_parameter; 
 
   static Expr make(std::string name, Datatype type, bool is_ptr=false, 
-                   bool is_tensor=false);
+                   bool is_tensor=false, bool is_parameter=false);
 
   static const IRNodeType _type_info = IRNodeType::Var;
 };
@@ -729,18 +731,25 @@ struct BlankLine : public StmtNode<BlankLine> {
   static const IRNodeType _type_info = IRNodeType::BlankLine;
 };
 
-/** Breaks current loop */
+/** Continues past current iteration of current loop */
+struct Continue : public StmtNode<Continue> {
+  static Stmt make();
+
+  static const IRNodeType _type_info = IRNodeType::Continue;
+};
+
+/** Breaks out of the current loop */
 struct Break : public StmtNode<Break> {
   static Stmt make();
 
   static const IRNodeType _type_info = IRNodeType::Break;
 };
 
-/** Continues to the next iteration of the current loop */
-struct Continue : public StmtNode<Continue> {
-  static Stmt make();
+struct Sort : public StmtNode<Sort> {
+  std::vector<Expr> args;
+  static Stmt make(std::vector<Expr> args);
 
-  static const IRNodeType _type_info = IRNodeType::Continue;
+  static const IRNodeType _type_info = IRNodeType::Sort;
 };
 
 /** A print statement.

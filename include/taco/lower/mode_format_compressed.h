@@ -9,32 +9,32 @@ class CompressedModeFormat : public ModeFormatImpl {
 public:
   CompressedModeFormat();
   CompressedModeFormat(bool isFull, bool isOrdered,
-                       bool isUnique, long long allocSize = DEFAULT_ALLOC_SIZE);
+                       bool isUnique, bool isZeroless, long long allocSize = DEFAULT_ALLOC_SIZE);
 
-  virtual ~CompressedModeFormat() {}
+  ~CompressedModeFormat() override {}
 
-  virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const;
+  ModeFormat copy(std::vector<ModeFormat::Property> properties) const override;
   
-  virtual ModeFunction posIterBounds(ir::Expr parentPos, Mode mode) const;
-  virtual ModeFunction posIterAccess(ir::Expr pos, std::vector<ir::Expr> coords,
-                                     Mode mode) const;
+  ModeFunction posIterBounds(ir::Expr parentPos, Mode mode) const override;
+  ModeFunction posIterAccess(ir::Expr pos, std::vector<ir::Expr> coords,
+                                     Mode mode) const override;
 
-  virtual ModeFunction coordBounds(ir::Expr parentPos, Mode mode) const;
+  ModeFunction coordBounds(ir::Expr parentPos, Mode mode) const override;
   
-  virtual ir::Stmt getAppendCoord(ir::Expr pos, ir::Expr coord, 
-                                  Mode mode) const; 
-  virtual ir::Stmt getAppendEdges(ir::Expr parentPos, ir::Expr posBegin, 
-                                  ir::Expr posEnd, Mode mode) const;
-  virtual ir::Expr getSize(ir::Expr parentSize, Mode mode) const;
-  virtual ir::Stmt getAppendInitEdges(ir::Expr parentPosBegin, 
-                                      ir::Expr parentPosEnd, Mode mode) const;
-  virtual ir::Stmt getAppendInitLevel(ir::Expr parentSize, ir::Expr size, 
-                                      Mode mode) const;
-  virtual ir::Stmt getAppendFinalizeLevel(ir::Expr parentSize, ir::Expr size, 
-                                          Mode mode) const;
+  ir::Stmt getAppendCoord(ir::Expr pos, ir::Expr coord, 
+                          Mode mode) const override;
+  ir::Stmt getAppendEdges(ir::Expr parentPos, ir::Expr posBegin, 
+                          ir::Expr posEnd, Mode mode) const override;
+  ir::Expr getSize(ir::Expr parentSize, Mode mode) const override;
+  ir::Stmt getAppendInitEdges(ir::Expr parentPosBegin, 
+                              ir::Expr parentPosEnd, Mode mode) const override;
+  ir::Stmt getAppendInitLevel(ir::Expr parentSize, ir::Expr size, 
+                              Mode mode) const override;
+  ir::Stmt getAppendFinalizeLevel(ir::Expr parentSize, ir::Expr size, 
+                                  Mode mode) const override;
 
-  virtual std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode, 
-                                          int level) const;
+  std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode, 
+                                  int level) const override;
 
 protected:
   ir::Expr getPosArray(ModePack pack) const;
@@ -42,6 +42,8 @@ protected:
 
   ir::Expr getPosCapacity(Mode mode) const;
   ir::Expr getCoordCapacity(Mode mode) const;
+
+  bool equals(const ModeFormatImpl& other) const override;
 
   const long long allocSize;
 };

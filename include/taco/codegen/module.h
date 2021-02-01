@@ -21,8 +21,6 @@ public:
     setJITTmpdir();
   }
 
-  void reset();
-
   /// Compile the source into a library, returning its full path
   std::string compile();
   

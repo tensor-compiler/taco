@@ -197,6 +197,12 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt);
 IndexStmt reorderLoopsTopologically(IndexStmt stmt);
 
 /**
+ * Performs scalar promotion so that reductions are done by accumulating into 
+ * scalar temporaries whenever possible.
+ */
+IndexStmt scalarPromote(IndexStmt stmt);
+
+/**
  * Insert where statements with temporaries into the following statements kinds:
  * 1. The result is a is scattered into but does not support random insert.
  */

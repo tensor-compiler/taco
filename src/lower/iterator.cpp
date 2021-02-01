@@ -191,6 +191,12 @@ bool Iterator::isCompact() const {
   return getMode().defined() && getMode().getModeFormat().isCompact();
 }
 
+bool Iterator::isZeroless() const {
+  taco_iassert(defined());
+  if (isDimensionIterator()) return false;
+  return getMode().defined() && getMode().getModeFormat().isZeroless();
+}
+
 bool Iterator::hasCoordIter() const {
   taco_iassert(defined());
   if (isDimensionIterator()) return false;
@@ -421,7 +427,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
       taco_iassert(util::contains(tensorVars, n->tensorVar));
       Expr tensorIR = tensorVars.at(n->tensorVar);
       Format format = n->tensorVar.getFormat();
-      createAccessIterators(Access(n), format, tensorIR, provGraph);
+      this->createAccessIterators(Access(n), format, tensorIR, provGraph);
     }),
     function<void(const AssignmentNode*, Matcher*)>([&](auto n, auto m) {
       m->match(n->rhs);

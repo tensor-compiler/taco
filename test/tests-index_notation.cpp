@@ -18,6 +18,10 @@ static TensorVar a("a", vectorType), b("b", vectorType), c("c", vectorType),
 static Type matrixType(Float64, {3,3});
 static TensorVar A("A", matrixType), B("B", matrixType), C("C", matrixType);
 
+static Type largeMatrixType(Float64, {4,4});
+static TensorVar D("D", largeMatrixType), E("E", largeMatrixType),
+                 F("F", largeMatrixType), G("G", largeMatrixType, CSR);
+
 static Type tensorType(Float64, {3,3,3});
 static TensorVar S("S", tensorType), T("T", tensorType);
 
@@ -129,6 +133,53 @@ TEST(notation, makeReductionNotation) {
                      makeReductionNotation(as = B(i,j)*C(i,j)));
   ASSERT_NOTATION_EQ(a(i) = sum(j, B(i,j)*c(j)),
                      makeReductionNotation(a(i)=B(i,j)*c(j)));
+}
+
+TEST(notation, isomorphic) {
+  ASSERT_TRUE(isomorphic(A(i,j) = B(i,j) + C(i,j), A(i,j) = B(i,j) + C(i,j)));
+  ASSERT_TRUE(isomorphic(A(i,j) = B(i,j) + C(i,j), B(i,j) = C(i,j) + A(i,j)));
+  ASSERT_TRUE(isomorphic(A(i,j) = B(i,j) + C(i,j), A(i,k) = B(i,k) + C(i,k)));
+  ASSERT_TRUE(isomorphic(A(i,j) = B(i,j) + C(i,j), A(j,i) = B(j,i) + C(j,i)));
+  ASSERT_FALSE(isomorphic(A(i,j) = B(i,j) + C(i,j), A(i,k) = B(i,k) + C(k,i)));
+  ASSERT_FALSE(isomorphic(A(i,j) = B(i,j) + C(i,j), A(i,k) = B(i,k) + C(i,j)));
+  ASSERT_FALSE(isomorphic(A(i,j) = B(i,j) + C(i,j), D(i,j) = E(i,j) + F(i,j)));
+  ASSERT_FALSE(isomorphic(D(i,j) = E(i,j) + F(i,j), D(i,j) = E(i,j) + G(i,j)));
+  ASSERT_TRUE(isomorphic(forall(i, forall(j, A(i,j) = B(i,j) + C(i,j))),
+                         forall(j, forall(i, A(j,i) = B(j,i) + C(j,i)))));
+  ASSERT_FALSE(isomorphic(forall(i, forall(j, A(i,j) = B(i,j) + C(i,j))),
+                          forall(i, forall(j, A(j,i) = B(j,i) + C(j,i)))));
+  ASSERT_FALSE(isomorphic(forall(i, forall(j, A(i,j) = B(i,j) + C(i,j),
+                                 ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)),
+                          forall(j, forall(i, A(j,i) = B(j,i) + C(j,i)))));
+  ASSERT_TRUE(isomorphic(sum(j, B(i,j) + C(i,j)), sum(i, B(j,i) + C(j,i))));
+  ASSERT_FALSE(isomorphic(sum(j, B(i,j) + C(i,j)), sum(j, B(j,i) + C(j,i))));
+}
+
+TEST(notation, generatePackCOOStmt) {
+  ModeFormat compressedNU = ModeFormat::Compressed(ModeFormat::NOT_UNIQUE);
+  ModeFormat singletonNU = ModeFormat::Singleton(ModeFormat::NOT_UNIQUE);
+
+  TensorVar ac("a_COO", vectorType, Format({compressedNU}));
+  ASSERT_TRUE(isomorphic(forall(i, a(i) = ac(i)), 
+                         generatePackCOOStmt(a, {i}, true)));
+  ASSERT_TRUE(isomorphic(forall(i, ac(i) = a(i)), 
+                         generatePackCOOStmt(a, {i}, false)));
+
+  TensorVar AC("A_COO", matrixType, Format({compressedNU, singletonNU}));
+  ASSERT_TRUE(isomorphic(forall(i, forall(j, A(i, j) = AC(i, j))), 
+                         generatePackCOOStmt(A, {i, j}, true)));
+  ASSERT_TRUE(isomorphic(forall(i, forall(j, AC(i, j) = A(i, j))), 
+                         generatePackCOOStmt(A, {i, j}, false)));
+  ASSERT_TRUE(isomorphic(forall(j, forall(i, A(j, i) = AC(j, i))), 
+                         generatePackCOOStmt(A, {j, i}, true)));
+
+  TensorVar SC("S_COO", tensorType, Format({compressedNU, singletonNU, singletonNU}));
+  ASSERT_TRUE(isomorphic(forall(i, forall(j, forall(k, S(i, j, k) = SC(i, j, k)))), 
+                         generatePackCOOStmt(S, {i, j, k}, true)));
+  ASSERT_TRUE(isomorphic(forall(i, forall(j, forall(k, SC(i, j, k) = S(i, j, k)))), 
+                         generatePackCOOStmt(S, {i, j, k}, false)));
+  ASSERT_TRUE(isomorphic(forall(j, forall(k, forall(i, S(j, k, i) = SC(j, k, i)))), 
+                         generatePackCOOStmt(S, {j, k, i}, true)));
 }
 
 struct ConcreteTest {

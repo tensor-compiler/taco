@@ -9,7 +9,9 @@
 #include "taco.h"
 
 #include "taco/error.h"
+#include "taco/parser/lexer.h"
 #include "taco/parser/parser.h"
+#include "taco/parser/schedule_parser.h"
 #include "taco/storage/storage.h"
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_printer.h"
@@ -27,7 +29,9 @@
 #include "taco/util/env.h"
 #include "taco/util/collections.h"
 #include "taco/cuda.h"
-#include <taco/index_notation/transformations.h>
+#include "taco/index_notation/transformations.h"
+#include "taco/index_notation/index_notation_visitor.h"
+#include "taco/index_notation/index_notation_nodes.h"
 
 using namespace std;
 using namespace taco;
@@ -96,7 +100,8 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("f=<tensor>:<format>",
             "Specify the format of a tensor in the expression. Formats are "
-            "specified per dimension using d (dense) and s (sparse). "
+            "specified per dimension using d (dense), s (sparse), "
+            "u (sparse, not unique), q (singleton), or c (singleton, not unique). "
             "All formats default to dense. "
             "The ordering of modes can also be optionally specified as a "
             "comma-delimited list of modes in the order they should be stored. "
@@ -106,10 +111,16 @@ static void printUsageInfo() {
   printFlag("t=<tensor>:<data type>",
             "Specify the data type of a tensor (defaults to double)."
             "Currently loaded tensors must be double."
-            "Available types: uint8, uint16, uint32, uint64, uchar, ushort, uint, ulong, ulonglong,"
-            "int8, int16, int32, int64, char, short, int, long, longlong,"
-            "float, double, complexfloat, complexdouble"
+            "Available types: bool, uint8, uint16, uint32, uint64, uchar, ushort,"
+            "uint, ulong, ulonglong, int8, int16, int32, int64, char, short, int,"
+            "long, longlong, float, double, complexfloat, complexdouble"
             "Examples: A:uint16, b:long and D:complexfloat.");
+  cout << endl;
+  printFlag("s=\"<command>(<params>)\"",
+            "Specify a scheduling command to apply to the generated code. "
+            "Parameters take the form of a comma-delimited list. See "
+            "-help=scheduling for a list of scheduling commands. "
+            "Examples: split(i,i0,i1,16), precompute(A(i,j)*x(j),i,i).");
   cout << endl;
   printFlag("c",
             "Generate compute kernel that simultaneously does assembly.");
@@ -181,6 +192,76 @@ static void printUsageInfo() {
   printFlag("schedule", "Specify parallel execution schedule");
   cout << endl;
   printFlag("nthreads", "Specify number of threads for parallel execution");
+  cout << endl;
+  printFlag("prefix", "Specify a prefix for generated function names");
+  cout << endl;
+  printFlag("help", "Print this usage information.");
+  cout << endl;
+  printFlag("help=scheduling",
+            "Print information on the scheduling directives that can be passed "
+            "to '-s'.");
+}
+
+static void printSchedulingHelp() {
+    cout << "Scheduling commands modify the execution of the index expression." << endl;
+    cout << "The '-s' parameter specifies one or more scheduling commands." << endl;
+    cout << "Schedules are additive; more commands can be passed by separating" << endl;
+    cout << "them with commas, or passing multiple '-s' parameters." << endl;
+    cout << endl;
+    cout << "Examples:" << endl;
+    cout << "  -s=\"precompute(A(i,j)*x(j),i,i)\"" << endl;
+    cout << "  -s=\"split(i,i0,i1,32),parallelize(i0,CPUThread,NoRaces)\"" << endl;
+    cout << endl;
+    cout << "See http://tensor-compiler.org/docs/scheduling/index.html for more examples." << endl;
+    cout << endl;
+    cout << "Commands:" << endl;
+    printFlag("s=pos(i, ipos, tensor)", "Takes in an index variable `i` "
+              "that iterates over the coordinate space of `tensor` and replaces "
+              "it with a derived index variable `ipos` that iterates over the "
+              "same iteration range, but with respect to the the position space. "
+              "The `pos` transformation is not valid for dense level formats.");
+    cout << endl;
+    printFlag("s=fuse(i, j, f)", "Takes in two index variables `i` and `j`, where "
+              "`j` is directly nested under `i`, and collapses them into a fused "
+              "index variable `f` that iterates over the product of the "
+              "coordinates `i` and `j`.");
+    cout << endl;
+    printFlag("s=split(i, i0, i1, factor)", "Splits (strip-mines) an index "
+              "variable `i` into two nested index variables `i0` and `i1`. The "
+              "size of the inner index variable `i1` is then held constant at "
+              "`factor`, which must be a positive integer.");
+    cout << endl;
+    printFlag("s=precompute(expr, i, iw)", "Leverages scratchpad memories and "
+              "reorders computations to increase locality.  Given a subexpression "
+              "`expr` to precompute, an index variable `i` to precompute over, "
+              "and an index variable `iw` (which can be the same or different as "
+              "`i`) to precompute with, the precomputed results are stored in a "
+              "temporary tensor variable.");
+    cout << endl;
+    printFlag("s=reorder(i1, i2, ...)", "Takes in a new ordering for a "
+              "set of index variables in the expression that are directly nested "
+              "in the iteration order.  The indexes are ordered from outermost "
+              "to innermost.");
+    cout << endl;
+    printFlag("s=bound(i, ib, b, type)", "Replaces an index variable `i` "
+              "with an index variable `ib` that obeys a compile-time constraint "
+              "on its iteration space, incorporating knowledge about the size or "
+              "structured sparsity pattern of the corresponding input. The "
+              "meaning of `b` depends on the `type`. Possible bound types are: "
+              "MinExact, MinConstraint, MaxExact, MaxConstraint.");
+    cout << endl;
+    printFlag("s=unroll(index, factor)", "Unrolls the loop corresponding to an "
+              "index variable `i` by `factor` number of iterations, where "
+              "`factor` is a positive integer.");
+    cout << endl;
+    printFlag("s=parallelize(i, u, strat)", "tags an index variable `i` for "
+              "parallel execution on hardware type `u`. Data races are handled by "
+              "an output race strategy `strat`. Since the other transformations "
+              "expect serial code, parallelize must come last in a series of "
+              "transformations.  Possible parallel hardware units are: "
+              "NotParallel, GPUBlock, GPUWarp, GPUThread, CPUThread, CPUVector. "
+              "Possible output race strategies are: "
+              "IgnoreRaces, NoRaces, Atomics, Temporary, ParallelReduction.");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -198,6 +279,259 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   for (int i = 2; i < argc; i++) {
     os << " " << argv[i];
   }
+}
+
+static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parser::Parser& parser, IndexStmt& stmt) {
+  auto findVar = [&stmt](string name) {
+    ProvenanceGraph graph(stmt);
+    for (auto v : graph.getAllIndexVars()) {
+      if (v.getName() == name) {
+        return v;
+      }
+    }
+
+    taco_uassert(0) << "Index variable '" << name << "' not defined in statement " << stmt;
+    abort(); // to silence a warning: control reaches end of non-void function
+  };
+
+  bool isGPU = false;
+
+  for(vector<string> scheduleCommand : scheduleCommands) {
+    string command = scheduleCommand[0];
+    scheduleCommand.erase(scheduleCommand.begin());
+
+    if (command == "pos") {
+      taco_uassert(scheduleCommand.size() == 3) << "'pos' scheduling directive takes 3 parameters: pos(i, ipos, tensor)";
+      string i, ipos, tensor;
+      i      = scheduleCommand[0];
+      ipos   = scheduleCommand[1];
+      tensor = scheduleCommand[2];
+
+      for (auto a : getArgumentAccesses(stmt)) {
+        if (a.getTensorVar().getName() == tensor) {
+          IndexVar derived(ipos);
+          stmt = stmt.pos(findVar(i), derived, a);
+          goto end;
+        }
+      }
+
+    } else if (command == "fuse") {
+      taco_uassert(scheduleCommand.size() == 3) << "'fuse' scheduling directive takes 3 parameters: fuse(i, j, f)";
+      string i, j, f;
+      i = scheduleCommand[0];
+      j = scheduleCommand[1];
+      f = scheduleCommand[2];
+
+      IndexVar fused(f);
+      stmt = stmt.fuse(findVar(i), findVar(j), fused);
+
+    } else if (command == "split") {
+      taco_uassert(scheduleCommand.size() == 4) << "'split' scheduling directive takes 4 parameters: split(i, i1, i2, splitFactor)";
+      string i, i1, i2;
+      size_t splitFactor;
+      i  = scheduleCommand[0];
+      i1 = scheduleCommand[1];
+      i2 = scheduleCommand[2];
+      taco_uassert(sscanf(scheduleCommand[3].c_str(), "%zu", &splitFactor) == 1) << "failed to parse fourth parameter to `split` directive as a size_t";
+
+      IndexVar split1(i1);
+      IndexVar split2(i2);
+      stmt = stmt.split(findVar(i), split1, split2, splitFactor);
+
+    // } else if (command == "divide") {
+    //   string i, i1, i2;
+    //   in >> i;
+    //   in >> i1;
+    //   in >> i2;
+
+    //   size_t divideFactor;
+    //   in >> divideFactor;
+
+    //   IndexVar divide1(i1);
+    //   IndexVar divide2(i2);
+    //   stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
+
+    } else if (command == "precompute") {
+      string exprStr, i, iw;
+      taco_uassert(scheduleCommand.size() == 3) << "'precompute' scheduling directive takes 3 parameters: precompute(expr, i, iw)";
+      exprStr = scheduleCommand[0];
+      i       = scheduleCommand[1];
+      iw      = scheduleCommand[2];
+
+      IndexVar orig = findVar(i);
+      IndexVar pre;
+      try {
+        pre = findVar(iw);
+      } catch (TacoException &e) {
+        pre = IndexVar(iw);
+      }
+
+      struct GetExpr : public IndexNotationVisitor {
+        using IndexNotationVisitor::visit;
+
+        string exprStr;
+        IndexExpr expr;
+
+        void setExprStr(string input) {
+          exprStr = input;
+          exprStr.erase(remove(exprStr.begin(), exprStr.end(), ' '), exprStr.end());
+        }
+
+        string toString(IndexExpr e) {
+          stringstream tempStream;
+          tempStream << e;
+          string tempStr = tempStream.str();
+          tempStr.erase(remove(tempStr.begin(), tempStr.end(), ' '), tempStr.end());
+          return tempStr;
+        }
+
+        void visit(const AccessNode* node) {
+          IndexExpr currentExpr(node);
+          if (toString(currentExpr) == exprStr) {
+            expr = currentExpr;
+          }
+          else {
+            IndexNotationVisitor::visit(node);
+          }
+        }
+
+        void visit(const UnaryExprNode* node) {
+          IndexExpr currentExpr(node);
+          if (toString(currentExpr) == exprStr) {
+            expr = currentExpr;
+          }
+          else {
+            IndexNotationVisitor::visit(node);
+          }
+        }
+
+        void visit(const BinaryExprNode* node) {
+          IndexExpr currentExpr(node);
+          if (toString(currentExpr) == exprStr) {
+            expr = currentExpr;
+          }
+          else {
+            IndexNotationVisitor::visit(node);
+          }
+        }
+      };
+
+      GetExpr visitor;
+      visitor.setExprStr(exprStr);
+      stmt.accept(&visitor);
+
+      Dimension dim;
+      auto domains = stmt.getIndexVarDomains();
+      auto it = domains.find(orig);
+      if (it != domains.end()) {
+        dim = it->second;
+      } else {
+        dim = Dimension(orig);
+      }
+
+      TensorVar workspace("workspace", Type(Float64, {dim}), Dense);
+      stmt = stmt.precompute(visitor.expr, orig, pre, workspace);
+
+    } else if (command == "reorder") {
+      taco_uassert(scheduleCommand.size() > 1) << "'reorder' scheduling directive needs at least 2 parameters: reorder(outermost, ..., innermost)";
+
+      vector<IndexVar> reorderedVars;
+      for (string var : scheduleCommand) {
+        reorderedVars.push_back(findVar(var));
+      }
+
+      stmt = stmt.reorder(reorderedVars);
+
+    } else if (command == "bound") {
+      taco_uassert(scheduleCommand.size() == 2) << "'bound' scheduling directive takes 4 parameters: bound(i, i1, bound, type)";
+      string i, i1, type;
+      size_t bound;
+      i  = scheduleCommand[0];
+      i1 = scheduleCommand[1];
+      taco_uassert(sscanf(scheduleCommand[2].c_str(), "%zu", &bound) == 1) << "failed to parse third parameter to `bound` directive as a size_t";
+      type = scheduleCommand[3];
+
+      BoundType bound_type;
+      if (type == "MinExact") {
+        bound_type = BoundType::MinExact;
+      } else if (type == "MinConstraint") {
+        bound_type = BoundType::MinConstraint;
+      } else if (type == "MaxExact") {
+        bound_type = BoundType::MaxExact;
+      } else if (type == "MaxConstraint") {
+        bound_type = BoundType::MaxConstraint;
+      } else {
+        taco_uerror << "Bound type not defined.";
+        goto end;
+      }
+
+      IndexVar bound1(i1);
+      stmt = stmt.bound(findVar(i), bound1, bound, bound_type);
+
+    } else if (command == "unroll") {
+      taco_uassert(scheduleCommand.size() == 2) << "'unroll' scheduling directive takes 2 parameters: unroll(i, unrollFactor)";
+      string i;
+      size_t unrollFactor;
+      i  = scheduleCommand[0];
+      taco_uassert(sscanf(scheduleCommand[1].c_str(), "%zu", &unrollFactor) == 1) << "failed to parse second parameter to `unroll` directive as a size_t";
+
+      stmt = stmt.unroll(findVar(i), unrollFactor);
+
+    } else if (command == "parallelize") {
+      string i, unit, strategy;
+      taco_uassert(scheduleCommand.size() == 3) << "'parallelize' scheduling directive takes 3 parameters: parallelize(i, unit, strategy)";
+      i        = scheduleCommand[0];
+      unit     = scheduleCommand[1];
+      strategy = scheduleCommand[2];
+
+      ParallelUnit parallel_unit;
+      if (unit == "NotParallel") {
+        parallel_unit = ParallelUnit::NotParallel;
+      } else if (unit == "GPUBlock") {
+        parallel_unit = ParallelUnit::GPUBlock;
+        isGPU = true;
+      } else if (unit == "GPUWarp") {
+        parallel_unit = ParallelUnit::GPUWarp;
+        isGPU = true;
+      } else if (unit == "GPUThread") {
+        parallel_unit = ParallelUnit::GPUThread;
+        isGPU = true;
+      } else if (unit == "CPUThread") {
+        parallel_unit = ParallelUnit::CPUThread;
+      } else if (unit == "CPUVector") {
+        parallel_unit = ParallelUnit::CPUVector;
+      } else {
+        taco_uerror << "Parallel hardware not defined.";
+        goto end;
+      }
+
+      OutputRaceStrategy output_race_strategy;
+      if (strategy == "IgnoreRaces") {
+        output_race_strategy = OutputRaceStrategy::IgnoreRaces;
+      } else if (strategy == "NoRaces") {
+        output_race_strategy = OutputRaceStrategy::NoRaces;
+      } else if (strategy == "Atomics") {
+        output_race_strategy = OutputRaceStrategy::Atomics;
+      } else if (strategy == "Temporary") {
+        output_race_strategy = OutputRaceStrategy::Temporary;
+      } else if (strategy == "ParallelReduction") {
+        output_race_strategy = OutputRaceStrategy::ParallelReduction;
+      } else {
+        taco_uerror << "Race strategy not defined.";
+        goto end;
+      }
+
+      stmt = stmt.parallelize(findVar(i), parallel_unit, output_race_strategy);
+
+    } else {
+      taco_uerror << "Unknown scheduling function \"" << command << "\"";
+      break;
+    }
+
+    end:;
+  }
+
+  return isGPU;
 }
 
 int main(int argc, char* argv[]) {
@@ -227,13 +561,16 @@ int main(int argc, char* argv[]) {
   bool readKernels         = false;
   bool cuda                = false;
 
+  bool setSchedule         = false;
+
   ParallelSchedule sched = ParallelSchedule::Static;
   int chunkSize = 0;
   int nthreads = 0;
+  string prefix = "";
 
   taco::util::TimeResults compileTime;
   taco::util::TimeResults assembleTime;
-  
+
   int  repeat = 1;
   taco::util::TimeResults timevalue;
 
@@ -255,6 +592,8 @@ int main(int argc, char* argv[]) {
 
   vector<string> kernelFilenames;
 
+  vector<vector<string>> scheduleCommands;
+
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
     vector<string> argparts = util::split(arg, "=");
@@ -266,7 +605,15 @@ int main(int argc, char* argv[]) {
     if (argparts.size() == 2)
       argValue = argparts[1];
 
-    if ("-f" == argName) {
+    if ("-help" == argName) {
+        if(argValue == "scheduling") {
+            printSchedulingHelp();
+        } else {
+            printUsageInfo();
+        }
+        return 0;
+    }
+    else if ("-f" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
       if (descriptor.size() < 2 || descriptor.size() > 4) {
         return reportError("Incorrect format descriptor", 4);
@@ -338,28 +685,29 @@ int main(int argc, char* argv[]) {
       string tensorName = descriptor[0];
       string typesString = descriptor[1];
       Datatype dataType;
-      if (typesString == "uint8") dataType = UInt8;
-      else if(typesString == "uint16") dataType = UInt16;
-      else if(typesString == "uint32") dataType = UInt32;
-      else if(typesString == "uint64") dataType = UInt64;
-      else if(typesString == "uchar") dataType = type<unsigned char>();
-      else if(typesString == "ushort") dataType = type<unsigned short>();
-      else if(typesString == "uint") dataType = type<unsigned int>();
-      else if(typesString == "ulong") dataType = type<unsigned long>();
-      else if(typesString == "ulonglong") dataType = type<unsigned long long>();
-      else if(typesString == "int8") dataType = Int8;
-      else if(typesString == "int16") dataType = Int16;
-      else if(typesString == "int32") dataType = Int32;
-      else if(typesString == "int64") dataType = Int64;
-      else if(typesString == "char") dataType = type<char>();
-      else if(typesString == "short") dataType = type<short>();
-      else if(typesString == "int") dataType = type<int>();
-      else if(typesString == "long") dataType = type<long>();
-      else if(typesString == "longlong") dataType = type<long long>();
-      else if(typesString == "float") dataType = Float32;
-      else if(typesString == "double") dataType = Float64;
-      else if(typesString == "complexfloat") dataType = Complex64;
-      else if(typesString == "complexdouble") dataType = Complex128;
+      if (typesString == "bool") dataType = Bool;
+      else if (typesString == "uint8") dataType = UInt8;
+      else if (typesString == "uint16") dataType = UInt16;
+      else if (typesString == "uint32") dataType = UInt32;
+      else if (typesString == "uint64") dataType = UInt64;
+      else if (typesString == "uchar") dataType = type<unsigned char>();
+      else if (typesString == "ushort") dataType = type<unsigned short>();
+      else if (typesString == "uint") dataType = type<unsigned int>();
+      else if (typesString == "ulong") dataType = type<unsigned long>();
+      else if (typesString == "ulonglong") dataType = type<unsigned long long>();
+      else if (typesString == "int8") dataType = Int8;
+      else if (typesString == "int16") dataType = Int16;
+      else if (typesString == "int32") dataType = Int32;
+      else if (typesString == "int64") dataType = Int64;
+      else if (typesString == "char") dataType = type<char>();
+      else if (typesString == "short") dataType = type<short>();
+      else if (typesString == "int") dataType = type<int>();
+      else if (typesString == "long") dataType = type<long>();
+      else if (typesString == "longlong") dataType = type<long long>();
+      else if (typesString == "float") dataType = Float32;
+      else if (typesString == "double") dataType = Float64;
+      else if (typesString == "complexfloat") dataType = Complex64;
+      else if (typesString == "complexdouble") dataType = Complex128;
       else return reportError("Incorrect format descriptor", 3);
       dataTypes.insert({tensorName, dataType});
     }
@@ -541,6 +889,17 @@ int main(int argc, char* argv[]) {
     else if ("-print-kernels" == argName) {
       printKernels = true;
     }
+    else if ("-s" == argName) {
+      setSchedule = true;
+      vector<vector<string>> parsed = parser::ScheduleParser(argValue);
+
+      taco_uassert(parsed.size() > 0) << "-s parameter got no scheduling directives?";
+      for(vector<string> directive : parsed)
+        scheduleCommands.push_back(directive);
+    }
+    else if ("-prefix" == argName) {
+      prefix = argValue;
+    }
     else {
       if (exprStr.size() != 0) {
         printUsageInfo();
@@ -557,19 +916,52 @@ int main(int argc, char* argv[]) {
     printCompute = true;
   }
 
-  // Load tensors
+  // pre-parse expression, to determine existence and order of loaded tensors
   map<string,TensorBase> loadedTensors;
+  TensorBase temp_tensor;
+  parser::Parser temp_parser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, 42);
+  try {
+    temp_parser.parse();
+    temp_tensor = temp_parser.getResultTensor();
+  } catch (parser::ParseError& e) {
+    return reportError(e.getMessage(), 6);
+  }
 
   // Load tensors
   for (auto& tensorNames : inputFilenames) {
     string name     = tensorNames.first;
     string filename = tensorNames.second;
-    
+
     if (util::contains(dataTypes, name) && dataTypes.at(name) != Float64) {
       return reportError("Loaded tensors can only be type double", 7);
     }
 
-    Format format = util::contains(formats, name) ? formats.at(name) : Dense;
+    // make sure the tensor exists in the expression (and stash its order)
+    int found_tensor_order;
+    bool found = false;
+    for (auto a : getArgumentAccesses(temp_tensor.getAssignment().concretize())) {
+      if (a.getTensorVar().getName() == name) {
+        found_tensor_order = a.getIndexVars().size();
+        found = true;
+        break;
+      }
+    }
+    if(found == false) {
+      return reportError("Cannot load '" + filename + "': no tensor '" + name + "' found in expression", 8);
+    }
+
+    Format format;
+    if(util::contains(formats, name)) {
+      // format of this tensor is specified on the command line, use it
+      format = formats.at(name);
+    } else {
+      // create a dense default format of the correct order
+      std::vector<ModeFormat> modes;
+      for(int i = 0; i < found_tensor_order; i++) {
+        modes.push_back(Dense);
+      }
+      format = Format({ModeFormatPack(modes)});
+    }
     TensorBase tensor;
     TOOL_BENCHMARK_TIMER(tensor = read(filename,format,false),
                          name+" file read:", timevalue);
@@ -621,16 +1013,6 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  if (cuda) {
-    if (!CUDA_BUILT && benchmark) {
-      return reportError("TACO must be built for CUDA (cmake -DCUDA=ON ..) to benchmark", 2);
-    }
-    set_CUDA_codegen_enabled(true);
-  }
-  else {
-    set_CUDA_codegen_enabled(false);
-  }
-
   ir::Stmt assemble;
   ir::Stmt compute;
   ir::Stmt evaluate;
@@ -641,8 +1023,26 @@ int main(int argc, char* argv[]) {
   IndexStmt stmt =
       makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
   stmt = reorderLoopsTopologically(stmt);
-  stmt = insertTemporaries(stmt);
-  stmt = parallelizeOuterLoop(stmt);
+
+  if (setSchedule) {
+    cuda |= setSchedulingCommands(scheduleCommands, parser, stmt);
+  }
+  else {
+    stmt = insertTemporaries(stmt);
+    stmt = parallelizeOuterLoop(stmt);
+  }
+
+  if (cuda) {
+    if (!CUDA_BUILT && benchmark) {
+      return reportError("TACO must be built for CUDA (cmake -DCUDA=ON ..) to benchmark", 2);
+    }
+    set_CUDA_codegen_enabled(true);
+  }
+  else {
+    set_CUDA_codegen_enabled(false);
+  }
+
+  stmt = scalarPromote(stmt);
   if (printConcrete) {
     cout << stmt << endl;
   }
@@ -654,19 +1054,19 @@ int main(int argc, char* argv[]) {
     shared_ptr<ir::Module> module(new ir::Module);
 
     TOOL_BENCHMARK_TIMER(
-      compute = lower(stmt, "compute",  computeWithAssemble, true);
-      assemble = lower(stmt, "assemble", true, false);
-      evaluate = lower(stmt, "evaluate", true, true);
+      compute = lower(stmt, prefix+"compute",  computeWithAssemble, true);
+      assemble = lower(stmt, prefix+"assemble", true, false);
+      evaluate = lower(stmt, prefix+"evaluate", true, true);
 
       module->addFunction(compute);
       module->addFunction(assemble);
       module->addFunction(evaluate);
       module->compile();
     , "Compile: ", compileTime);
-      
-    void* compute  = module->getFuncPtr("compute");
-    void* assemble = module->getFuncPtr("assemble");
-    void* evaluate = module->getFuncPtr("evaluate");
+
+    void* compute  = module->getFuncPtr(prefix+"compute");
+    void* assemble = module->getFuncPtr(prefix+"assemble");
+    void* evaluate = module->getFuncPtr(prefix+"evaluate");
     kernel = Kernel(stmt, module, evaluate, assemble, compute);
 
     tensor.compileSource(util::toString(kernel));
@@ -729,9 +1129,50 @@ int main(int argc, char* argv[]) {
     }
   }
   else {
-    compute = lower(stmt, "compute",  computeWithAssemble, true);
-    assemble = lower(stmt, "assemble", true, false);
-    evaluate = lower(stmt, "evaluate", true, true);
+    compute = lower(stmt, prefix+"compute",  computeWithAssemble, true);
+    assemble = lower(stmt, prefix+"assemble", true, false);
+    evaluate = lower(stmt, prefix+"evaluate", true, true);
+  }
+
+  string packComment =
+    "/*\n"
+    " * The `pack` functions convert coordinate and value arrays in COO format,\n"
+    " * with nonzeros sorted lexicographically by their coordinates, to the\n"
+    " * specified input format.\n"
+    " *\n"
+    " * The `unpack` function converts the specified output format to coordinate\n"
+    " * and value arrays in COO format.\n"
+    " *\n"
+    " * For both, the `_COO_pos` arrays contain two elements, where the first is 0\n"
+    " * and the second is the number of nonzeros in the tensor.\n"
+    " */";
+
+  vector<ir::Stmt> packs;
+  for (auto a : getArgumentAccesses(stmt)) {
+    TensorVar tensor = a.getTensorVar();
+    if (tensor.getOrder() == 0) {
+      continue;
+    }
+
+    std::string tensorName = tensor.getName();
+    std::vector<IndexVar> indexVars = a.getIndexVars();
+
+    IndexStmt packStmt = generatePackCOOStmt(tensor, indexVars, true);
+    packs.push_back(lower(packStmt, prefix+"pack_" + tensorName, true, true, true));
+  }
+
+  ir::Stmt unpack;
+  for (auto a : getResultAccesses(stmt).first) {
+    TensorVar tensor = a.getTensorVar();
+    if (tensor.getOrder() == 0) {
+      continue;
+    }
+
+    std::vector<IndexVar> indexVars = a.getIndexVars();
+
+    IndexStmt unpackStmt = generatePackCOOStmt(tensor, indexVars, false);
+    unpack = lower(unpackStmt, prefix+"unpack", true, true, false, true);
+    break; // should only have one result access
   }
 
   string gentext = "// Generated by the Tensor Algebra Compiler (tensor-compiler.org)";
@@ -785,6 +1226,7 @@ int main(int argc, char* argv[]) {
     if (hasPrinted) {
       cout << endl;
     }
+
     if (assemble.defined() ) {
       codegen->compile(assemble, false);
       cout << endl << endl;
@@ -797,6 +1239,20 @@ int main(int argc, char* argv[]) {
 
     if (evaluate.defined() ) {
       codegen->compile(evaluate, false);
+      cout << endl << endl;
+    }
+
+    if (unpack.defined()) {
+      cout << endl << packComment << endl;
+    }
+
+    for (auto pack : packs) {
+      codegen->compile(pack, false);
+      cout << endl << endl;
+    }
+
+    if (unpack.defined() ) {
+      codegen->compile(unpack, false);
       cout << endl << endl;
     }
 
@@ -823,7 +1279,7 @@ int main(int argc, char* argv[]) {
                << "," << timevalue.stdev << "," << timevalue.median << endl;
     filestream.close();
   }
-  
+
   if (writeCompute) {
     std::ofstream filestream;
     filestream.open(writeComputeFilename,
@@ -858,6 +1314,7 @@ int main(int argc, char* argv[]) {
     std::shared_ptr<ir::CodeGen> codegenFile =
         ir::CodeGen::init_default(filestream, ir::CodeGen::ImplementationGen);
     bool hasPrinted = false;
+
     if (compute.defined() ) {
       codegenFile->compile(compute, !hasPrinted);
       hasPrinted = true;
@@ -870,6 +1327,19 @@ int main(int argc, char* argv[]) {
       codegenFile->compile(evaluate, !hasPrinted);
       hasPrinted = true;
     }
+
+    if (unpack.defined() ) {
+      filestream << endl << packComment << endl;
+    }
+    for (auto pack : packs) {
+      codegenFile->compile(pack, !hasPrinted);
+      hasPrinted = true;
+    }
+    if (unpack.defined() ) {
+      codegenFile->compile(unpack, !hasPrinted);
+      hasPrinted = true;
+    }
+
     filestream.close();
   }
 

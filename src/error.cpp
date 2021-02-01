@@ -7,6 +7,13 @@ using namespace std;
 
 namespace taco {
 
+TacoException::TacoException(std::string msg) : message(msg) {}
+
+const char* TacoException::what() const noexcept {
+  return message.c_str();
+}
+
+
 ErrorReport::ErrorReport(const char *file, const char *func, int line,
                          bool condition, const char *conditionString,
                          Kind kind, bool warning)
@@ -52,11 +59,10 @@ ErrorReport::ErrorReport(const char *file, const char *func, int line,
   (*msg) << " ";
 }
 
-void ErrorReport::explode() {
-  std::cerr << msg->str() << endl;
+void ErrorReport::explodeWithException() {
+  TacoException e = TacoException(msg->str());
   delete msg;
-  if (warning) return;
-  abort();
+  throw e;
 }
 
 }

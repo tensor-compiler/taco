@@ -563,10 +563,15 @@ ir::Stmt FuseRelNode::recoverChild(taco::IndexVar indexVar,
   return ir::Stmt();
 }
 
+// Combine two bounds
+// if (i, j) where i in [a, b) and j in [c, d)
+// then combined bound is [a * (d - c) + c, b * (d - c) + c)
+// this results in (b - a) * (d - c) iterations while still being
+// properly offset in cases where a != 0 or c != 0
 std::vector<ir::Expr> FuseRelNode::combineParentBounds(std::vector<ir::Expr> outerParentBound, std::vector<ir::Expr> innerParentBound) const {
   ir::Expr innerSize = ir::Sub::make(innerParentBound[1], innerParentBound[0]);
   ir::Expr minBound = ir::Add::make(ir::Mul::make(outerParentBound[0], innerSize), innerParentBound[0]);
-  ir::Expr maxBound = ir::Add::make(ir::Mul::make(outerParentBound[1], innerSize), innerParentBound[1]);
+  ir::Expr maxBound = ir::Add::make(ir::Mul::make(outerParentBound[1], innerSize), innerParentBound[0]);
   return {minBound, maxBound};
 }
 
@@ -1063,7 +1068,7 @@ std::vector<ir::Expr> ProvenanceGraph::deriveIterBounds(IndexVar indexVar, std::
 
   std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds;
   std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds;
-  for (const IndexVar parent : getParents(indexVar)) {
+  for (const IndexVar& parent : getParents(indexVar)) {
     parentIterBounds[parent] = deriveIterBounds(parent, derivedVarOrder, underivedBounds, variableNames, iterators);
     vector<IndexVar> underivedParentAncestors = getUnderivedAncestors(parent);
     // TODO: this is okay for now because we don't need parentCoordBounds for fused taco_iassert(underivedParentAncestors.size() == 1);
@@ -1083,7 +1088,7 @@ bool ProvenanceGraph::hasCoordBounds(IndexVar indexVar) const {
 bool ProvenanceGraph::isPosVariable(taco::IndexVar indexVar) const {
   if (isUnderived(indexVar)) return false;
   if (parentRelMap.at(indexVar).getRelType() == POS) return true;
-  for (const IndexVar parent : getParents(indexVar)) {
+  for (const IndexVar& parent : getParents(indexVar)) {
     if (isPosVariable(parent)) {
       return true;
     }
@@ -1099,7 +1104,7 @@ bool ProvenanceGraph::isPosOfAccess(IndexVar indexVar, Access access) const {
   else if (parentRelMap.at(indexVar).getRelType() == FUSE) {
     return false; // lose pos of access status through fuse
   }
-  for (const IndexVar parent : getParents(indexVar)) {
+  for (const IndexVar& parent : getParents(indexVar)) {
     if (isPosOfAccess(parent, access)) {
       return true;
     }
