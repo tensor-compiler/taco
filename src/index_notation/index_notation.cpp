@@ -1416,9 +1416,22 @@ IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFac
 }
 
 IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const {
-  taco_not_supported_yet;
-  // mostly the same as split, but instead of splitFactor being a constant use an expression
-  return *this;
+  IndexVarRel rel = IndexVarRel(new DivideRelNode(i, i1, i2, splitFactor));
+  string reason;
+
+  // Add predicate to concrete index notation.
+  IndexStmt transformed = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  // Replace all occurrences of i with nested i1, i2.
+  transformed = Transformation(ForAllReplace({i}, {i1, i2})).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  return transformed;
 }
 
 IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
