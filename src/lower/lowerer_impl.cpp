@@ -5,6 +5,7 @@
 #include "taco/index_notation/tensor_operator.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_visitor.h"
+#include "taco/index_notation/provenance_graph.h"
 #include "taco/ir/ir.h"
 #include "ir/ir_generators.h"
 #include "taco/ir/ir_visitor.h"
@@ -524,6 +525,31 @@ Stmt LowererImpl::lowerForall(Forall forall)
                                         Continue::make());
           recoverySteps.push_back(guard);
       }
+    }
+
+    // If this index variable was divided into multiple equal chunks, then we
+    // must add an extra guard to make sure that further scheduling operations
+    // on descendent index variables exceed the bounds of each equal portion of
+    // the loop. For a concrete example, consider a loop of size 10 that is divided
+    // into two equal components -- 5 and 5. If the loop is then transformed
+    // with .split(..., 3), each inner chunk of 5 will be split into chunks of
+    // 3. Without an extra guard, the second chunk of 3 in the first group of 5
+    // may attempt to perform an iteration for the second group of 5, which is
+    // incorrect.
+    if (this->provGraph.isDivided(varToRecover)) {
+      // Collect the children iteration variables.
+      auto children = this->provGraph.getChildren(varToRecover);
+      auto outer = children[0];
+      auto inner = children[1];
+      // Find the iteration bounds of the inner variable -- that is the size
+      // that the outer loop was broken into.
+      auto bounds = this->provGraph.deriveIterBounds(inner, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+      // Use the difference between the bounds to find the size of the loop.
+      auto dimLen = ir::Sub::make(bounds[1], bounds[0]);
+      // For a variable f divided into into f1 and f2, the guard ensures that
+      // for iteration f, f should be within f1 * dimLen and (f1 + 1) * dimLen.
+      auto guard = ir::Gte::make(this->indexVarToExprMap[varToRecover], ir::Mul::make(ir::Add::make(this->indexVarToExprMap[outer], 1), dimLen));
+      recoverySteps.push_back(IfThenElse::make(guard, ir::Continue::make()));
     }
   }
   Stmt recoveryStmt = Block::make(recoverySteps);
