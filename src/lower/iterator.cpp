@@ -234,6 +234,18 @@ bool Iterator::hasSeqInsertEdge() const {
   return getMode().defined() && getMode().getModeFormat().hasSeqInsertEdge();
 }
 
+bool Iterator::hasInsertCoord() const {
+  taco_iassert(defined());
+  if (isDimensionIterator()) return false;
+  return getMode().defined() && getMode().getModeFormat().hasInsertCoord();
+}
+
+bool Iterator::isYieldPosPure() const {
+  taco_iassert(defined());
+  if (isDimensionIterator()) return false;
+  return getMode().defined() && getMode().getModeFormat().isYieldPosPure();
+}
+
 ModeFunction Iterator::coordBounds(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
   return getMode().getModeFormat().impl->coordIterBounds(coords, getMode());

@@ -81,9 +81,11 @@ public:
   bool hasInsert() const;
   bool hasAppend() const;
 
-  /// Returns whether ungrouped insertion requires explicit sequential edge 
-  /// insertion phase.
+  /// Attributes of ungrouped insertion level functions.
   bool hasSeqInsertEdge() const;
+  bool hasInsertCoord() const;
+  bool isYieldPosPure() const;
+
 
   /// Get the index variable this iterator iteratores over.
   IndexVar getIndexVar() const;

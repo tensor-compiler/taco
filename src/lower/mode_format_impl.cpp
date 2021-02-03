@@ -147,15 +147,17 @@ std::ostream& operator<<(std::ostream& os, const ModeFunction& modeFunction) {
 // class ModeTypeImpl
 ModeFormatImpl::ModeFormatImpl(const std::string name, bool isFull, 
                                bool isOrdered, bool isUnique, bool isBranchless, 
-			       bool isCompact, bool isZeroless, bool hasCoordValIter, 
-                               bool hasCoordPosIter, bool hasLocate, 
-                               bool hasInsert, bool hasAppend, 
-                               bool hasSeqInsertEdge) :
+                               bool isCompact, bool isZeroless, 
+                               bool hasCoordValIter, bool hasCoordPosIter, 
+                               bool hasLocate, bool hasInsert, bool hasAppend, 
+                               bool hasSeqInsertEdge, bool hasInsertCoord,
+                               bool isYieldPosPure) :
     name(name), isFull(isFull), isOrdered(isOrdered), isUnique(isUnique),
     isBranchless(isBranchless), isCompact(isCompact), isZeroless(isZeroless),
     hasCoordValIter(hasCoordValIter), hasCoordPosIter(hasCoordPosIter),
     hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend),
-    hasSeqInsertEdge(hasSeqInsertEdge) {
+    hasSeqInsertEdge(hasSeqInsertEdge), hasInsertCoord(hasInsertCoord),
+    isYieldPosPure(isYieldPosPure) {
 }
 
 ModeFormatImpl::~ModeFormatImpl() {

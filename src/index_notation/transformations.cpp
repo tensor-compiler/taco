@@ -525,17 +525,23 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
         // Precondition 2: Every result iterator must have insert capability
         for (Iterator iterator : lattice.results()) {
           if (util::contains(assembledByUngroupedInsert, iterator.getTensor())) {
-            continue;
-          }
-          while (true) {
-            if (!iterator.hasInsert()) {
-              reason = "Precondition failed: The output tensor must allow inserts";
-              return;
+            for (Iterator it = iterator; !it.isRoot(); it = it.getParent()) {
+              if (it.hasInsertCoord() || !it.isYieldPosPure()) {
+                reason = "Precondition failed: The output tensor does not support parallelized inserts";
+                return;
+              }
             }
-            if (iterator.isLeaf()) {
-              break;
+          } else {
+            while (true) {
+              if (!iterator.hasInsert()) {
+                reason = "Precondition failed: The output tensor must allow inserts";
+                return;
+              }
+              if (iterator.isLeaf()) {
+                break;
+              }
+              iterator = iterator.getChild();
             }
-            iterator = iterator.getChild();
           }
         }
 
@@ -701,11 +707,44 @@ AssembleStrategy SetAssembleStrategy::getAssembleStrategy() const {
 IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
   INIT_REASON(reason);
 
+  if (getAssembleStrategy() == AssembleStrategy::Append) {
+    return stmt;
+  }
+
+  bool hasSeqInsertEdge = false;
+  bool hasInsertCoord = false;
+  for (const auto& modeFormat : getResult().getFormat().getModeFormats()) {
+    if (hasSeqInsertEdge) {
+      if (modeFormat.hasSeqInsertEdge()) {
+        *reason = "Precondition failed: The output tensor does not support "
+                  "ungrouped insertion (cannot have multiple modes requiring "
+                  "non-trivial edge insertion)";
+        return IndexStmt();
+      }
+    } else {
+      hasSeqInsertEdge = (hasSeqInsertEdge || modeFormat.hasSeqInsertEdge());
+      if (modeFormat.hasSeqInsertEdge()) {
+        if (hasInsertCoord) {
+          *reason = "Precondition failed: The output tensor does not support "
+                    "ungrouped insertion (cannot have mode requiring "
+                    "non-trivial coordinate insertion above mode requiring "
+                    "non-trivial edge insertion)";
+          return IndexStmt();
+        }
+        hasSeqInsertEdge = true;
+      }
+      hasInsertCoord = (hasInsertCoord || modeFormat.hasInsertCoord());
+    }
+  }
+
   std::map<IndexVar,IndexVar> ivReplacements;
   for (const auto& indexVar : getIndexVars(stmt)) {
     ivReplacements[indexVar] = IndexVar("q" + indexVar.getName());
   }
   IndexStmt loweredQueries = replace(stmt, ivReplacements);
+
+  // FIXME: Unneeded if scalar promotion is made default when concretizing
+  loweredQueries = scalarPromote(loweredQueries);
 
   // Tracks all tensors that correspond to attribute query results or that are 
   // used to compute attribute queries
@@ -715,20 +754,21 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
   struct LowerAttrQuery : public IndexNotationRewriter {
     using IndexNotationRewriter::rewrite;
 
+    TensorVar result;
     Assemble::AttrQueryResults& queryResults;
     std::set<TensorVar>& insertedResults;
-    std::vector<TensorVar> results;
     std::vector<TensorVar> arguments;
     std::vector<TensorVar> temps;
     std::map<TensorVar,TensorVar> tempReplacements;
     IndexStmt epilog;
+    std::string reason = "";
 
-    LowerAttrQuery(Assemble::AttrQueryResults& queryResults, 
+    LowerAttrQuery(TensorVar result, Assemble::AttrQueryResults& queryResults, 
                    std::set<TensorVar>& insertedResults) : 
-        queryResults(queryResults), insertedResults(insertedResults) {}
+        result(result), queryResults(queryResults), 
+        insertedResults(insertedResults) {}
 
     IndexStmt lower(IndexStmt stmt) {
-      results = getResults(stmt);
       arguments = getArguments(stmt);
       temps = getTemporaries(stmt);
       for (const auto& tmp : temps) {
@@ -740,7 +780,6 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       queryResults = Assemble::AttrQueryResults();
       epilog = IndexStmt();
       stmt = IndexNotationRewriter::rewrite(stmt);
-      //stmt = scalarPromote(stmt);
       if (epilog.defined()) {
         stmt = Where(epilog, stmt);
       }
@@ -765,12 +804,17 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       const auto resultAccess = op->lhs;
       const auto resultTensor = resultAccess.getTensorVar();
       
-      if (!util::contains(results, resultTensor)) {
+      if (resultTensor != result) {
         Access lhs = to<Access>(rewrite(op->lhs));
         stmt = (rhs != op->rhs) ? Assignment(lhs, rhs, op->op) : op;
         return;
       }
-      // TODO: check assign is not reduction
+
+      if (op->op.defined()) {
+        reason = "Precondition failed: Ungrouped insertion not support for "
+                 "output tensors that are scattered into";
+        return;
+      }
 
       queryResults[resultTensor] = 
           std::vector<std::vector<TensorVar>>(resultTensor.getOrder());
@@ -854,8 +898,8 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       expr = op;
     }
   };
-  loweredQueries = 
-      LowerAttrQuery(queryResults, insertedResults).lower(loweredQueries);
+  LowerAttrQuery lowerer(getResult(), queryResults, insertedResults);
+  loweredQueries = lowerer.lower(loweredQueries); 
 
   struct ReduceToAssign : public IndexNotationRewriter {
     using IndexNotationRewriter::visit;

@@ -282,6 +282,16 @@ bool ModeFormat::hasSeqInsertEdge() const {
   return impl->hasSeqInsertEdge;
 }
 
+bool ModeFormat::hasInsertCoord() const {
+  taco_iassert(defined());
+  return impl->hasInsertCoord;
+}
+
+bool ModeFormat::isYieldPosPure() const {
+  taco_iassert(defined());
+  return impl->isYieldPosPure;
+}
+
 std::vector<AttrQuery> ModeFormat::getAttrQueries(
     std::vector<IndexVar> parentCoords, 
     std::vector<IndexVar> childCoords) const {

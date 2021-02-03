@@ -137,7 +137,11 @@ public:
   bool hasInsert() const;
   bool hasAppend() const;
 
+  /// Returns true if a mode format has ungrouped insertion functions with 
+  /// specific attributes, false otherwise
   bool hasSeqInsertEdge() const;
+  bool hasInsertCoord() const;
+  bool isYieldPosPure() const;
 
   std::vector<AttrQuery> getAttrQueries(
       std::vector<IndexVar> parentCoords, 

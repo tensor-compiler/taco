@@ -105,9 +105,10 @@ std::ostream& operator<<(std::ostream&, const ModeFunction&);
 class ModeFormatImpl {
 public:
   ModeFormatImpl(std::string name, bool isFull, bool isOrdered, bool isUnique, 
-		 bool isBranchless, bool isCompact, bool isZeroless, bool hasCoordValIter, 
-                 bool hasCoordPosIter, bool hasLocate, bool hasInsert, 
-                 bool hasAppend, bool hasSeqInsertEdge);
+                 bool isBranchless, bool isCompact, bool isZeroless, 
+                 bool hasCoordValIter, bool hasCoordPosIter, bool hasLocate, 
+                 bool hasInsert, bool hasAppend, bool hasSeqInsertEdge, 
+                 bool hasInsertCoord, bool isYieldPosPure);
 
   virtual ~ModeFormatImpl();
 
@@ -252,6 +253,8 @@ public:
   const bool hasInsert;
   const bool hasAppend;
   const bool hasSeqInsertEdge;
+  const bool hasInsertCoord;
+  const bool isYieldPosPure;
 
 protected:
   /// Check if other mode format is identical. Can assume that this method will 
