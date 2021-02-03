@@ -503,8 +503,9 @@ struct Load : public ExprNode<Load> {
 struct Malloc : public ExprNode<Malloc> {
 public:
   Expr size;
+  MemoryLocation memoryLocation;
 
-  static Expr make(Expr size);
+  static Expr make(Expr size, MemoryLocation memoryLocation=MemoryLocation::Default);
 
   static const IRNodeType _type_info = IRNodeType::Malloc;
 };
@@ -678,7 +679,8 @@ struct Assign : public StmtNode<Assign> {
   ParallelUnit atomic_parallel_unit;
   
   static Stmt make(Expr lhs, Expr rhs, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
-  static Stmt make(Expr lhs, Expr rhs, MemoryLocation lhsMemLoc, MemoryLocation rhsMemLoc, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
+  static Stmt make(Expr lhs, Expr rhs, MemoryLocation lhsMemLoc, MemoryLocation rhsMemLoc, bool use_atomics=false, 
+                   ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
   
   static const IRNodeType _type_info = IRNodeType::VarAssign;
 };
@@ -700,9 +702,10 @@ struct Allocate : public StmtNode<Allocate> {
   Expr old_elements; // used for realloc in CUDA
   bool is_realloc;
   bool clear; // Whether to use calloc to allocate this memory.
+  MemoryLocation memoryLocation;
   
   static Stmt make(Expr var, Expr num_elements, bool is_realloc=false,
-                   Expr old_elements=Expr(), bool clear=false);
+                   Expr old_elements=Expr(), bool clear=false, MemoryLocation memoryLocation=MemoryLocation::Default);
   
   static const IRNodeType _type_info = IRNodeType::Allocate;
 };

@@ -2715,21 +2715,37 @@ std::map<TensorVar, Where> getTemporariesWithoutReduction(IndexStmt stmt) {
   return temporaries;
 }
 
-std::map<Forall, Assignment> getForallReductions(IndexStmt stmt) {
-  map<Forall, Assignment> forallReductions;
+std::map<Forall, std::pair<int, Assignment>> getForallReductions(IndexStmt stmt) {
+  map<Forall, pair<int, Assignment>> forallReductions;
   vector<Forall> f;
+  cout << "DEBUG: GETFORALLREDUCTIONS" << endl;
   match(stmt,
         function<void(const ForallNode*, Matcher*)>([&](const ForallNode* op, Matcher* ctx) {
           f.push_back(op);
           ctx->match(op->stmt);
         }),
+        function<void(const WhereNode*, Matcher*)>([&](const WhereNode* w, Matcher* ctx) {
+//          if (isa<Assignment>(w->consumer)) {
+//            auto c = to<Assignment>(w->consumer);
+//            if (!c.getOperator().defined()) {
+//              f.clear();
+//            }
+//          }
+          ctx->match(w->consumer);
+          ctx->match(w->producer);
+        }),
         function<void(const AssignmentNode*, Matcher*)>([&](const AssignmentNode* a, Matcher* ctx) {
-          if (!f.empty() && a->op.defined()) {
-            for (auto it = f.begin(); it != f.end(); it++)
-              forallReductions.insert({Forall(*it), Assignment(a)});
-            f.clear();
-
+          cout << "ASSIGN" << endl;
+          cout << Assignment(a) << endl;
+          for (auto it = f.begin(); it != f.end(); it++) {
+            cout << *it << endl;
           }
+          cout << "end assign" << endl;
+          if (!f.empty() && a->op.defined()) {
+            for (int i = 0; i < f.size(); i++)
+              forallReductions.insert({Forall(f[i]), {i, Assignment(a)}});
+          }
+          f.clear();
 
         })
   );

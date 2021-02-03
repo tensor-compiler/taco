@@ -8,5 +8,5 @@ const char *OutputRaceStrategy_NAMES[] = {"IgnoreRaces", "NoRaces", "Atomics", "
                                           "SpatialReduction"};
 const char *BoundType_NAMES[] = {"MinExact", "MinConstraint", "MaxExact", "MaxConstraint"};
 const char *AssembleStrategy_NAMES[] = {"Append", "Insert"};
-const char *MemoryLocation_NAMES[] = {"Default", "GPUSharedMemory", "SpatialDRAM", "SpatialSRAM", "SpatialReg"};
+const char *MemoryLocation_NAMES[] = {"Default", "GPUSharedMemory", "SpatialDRAM", "SpatialSRAM", "SpatialReg", "SpatialSparseSRAM", "SpatialFIFO"};
 }

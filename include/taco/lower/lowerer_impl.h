@@ -480,7 +480,7 @@ private:
   std::map<Forall, Where> temporaryInitialization;
   std::map<TensorVar, Where> tempNoZeroInit;
   std::map<Forall, Assignment> bulkMemTransfer;
-  std::map<Forall, Assignment> forallReductions;
+  std::map<Forall, std::pair<int, Assignment>> forallReductions;
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;

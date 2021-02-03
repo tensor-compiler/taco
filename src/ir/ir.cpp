@@ -513,10 +513,11 @@ Expr Load::make(Expr arr, Expr loc) {
 }
 
 // Malloc
-Expr Malloc::make(Expr size) {
+Expr Malloc::make(Expr size, MemoryLocation memoryLocation) {
   taco_iassert(size.defined());
   Malloc *malloc = new Malloc;
   malloc->size = size;
+  malloc->memoryLocation = memoryLocation;
   return malloc;
 }
 
@@ -783,7 +784,8 @@ Stmt Yield::make(std::vector<Expr> coords, Expr val) {
 }
 
 // Allocate
-Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_elements, bool clear) {
+Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr
+                    old_elements, bool clear, MemoryLocation memoryLocation) {
   taco_iassert(var.as<GetProperty>() ||
                (var.as<Var>() && var.as<Var>()->is_ptr)) <<
       "Can only allocate memory for a pointer-typed Var";
@@ -796,6 +798,7 @@ Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_eleme
   taco_iassert(!is_realloc || old_elements.ptr != NULL);
   alloc->old_elements = old_elements;
   alloc->clear = clear;
+  alloc->memoryLocation = memoryLocation;
   return alloc;
 }
 

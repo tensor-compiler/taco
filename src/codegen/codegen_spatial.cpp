@@ -416,7 +416,15 @@ void CodeGen_Spatial::visit(const Var* op) {
 }
 
 void CodeGen_Spatial::visit(const Malloc* op) {
-  stream << "SRAM[T](";
+  auto memLoc = op->memoryLocation;
+  if (memLoc == MemoryLocation::SpatialSparseSRAM) {
+    stream << "SparseSRAM[T](";
+  } else if (memLoc == MemoryLocation::SpatialFIFO) {
+    stream << "FIFO[T](";
+  } else {
+    // MemoryLocation::Default and MemoryLocation::SpatialSRAM
+    stream << "SRAM[T](";
+  }
   parentPrecedence = Precedence::TOP;
   op->size.accept(this);
   stream << ")";
@@ -601,12 +609,14 @@ void CodeGen_Spatial::visit(const Allocate* op) {
   stream << "val ";
   op->var.accept(this);
   stream << " = ";
-  if (op->is_realloc) {
-    stream << "realloc(";
-    op->var.accept(this);
-    stream << ", ";
-  }
-  else {
+  auto memLoc = op->memoryLocation;
+
+  if (memLoc == MemoryLocation::SpatialSparseSRAM) {
+    stream << "SparseSRAM[T](";
+  } else if (memLoc == MemoryLocation::SpatialFIFO) {
+    stream << "FIFO[T](";
+  } else {
+    // MemoryLocation::Default and MemoryLocation::SpatialSRAM
     stream << "SRAM[T](";
   }
   parentPrecedence = MUL;

@@ -217,6 +217,10 @@ LowererImpl::lower(IndexStmt stmt, string name,
   tempNoZeroInit = getTemporariesWithoutReduction(stmt);
   forallReductions = getForallReductions(stmt);
 
+  for(auto it = forallReductions.begin(); it != forallReductions.end(); it++) {
+    cout << it->first << ", " << it->second.first << it->second.second << endl;
+  }
+
   // Create datastructure needed for bulk memory load/store optimization from forall
   bulkMemTransfer = getBulkMemTransfers(stmt);
 
@@ -741,7 +745,8 @@ Stmt LowererImpl::lowerForall(Forall forall)
   definedIndexVars.insert(forall.getIndexVar());
   definedIndexVarsOrdered.push_back(forall.getIndexVar());
 
-  if (forall.getParallelUnit() != ParallelUnit::NotParallel) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getParallelUnit() != ParallelUnit::Spatial) {
+    cout << "ParallelUnitSizes: " << parallelUnitSizes.count(forall.getParallelUnit()) << endl;
     taco_iassert(!parallelUnitSizes.count(forall.getParallelUnit()));
     taco_iassert(!parallelUnitIndexVars.count(forall.getParallelUnit()));
     parallelUnitIndexVars[forall.getParallelUnit()] = forall.getIndexVar();
@@ -803,7 +808,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     //                                   iterator.isDimensionIterator() && locators.size() == 1;
     bool canAccelWithSparseIteration =
         provGraph.isFullyDerived(iterator.getIndexVar()) &&
-        iterator.isDimensionIterator() && locators.size() == 1;
+        iterator.isDimensionIterator() && locators.size() == 1 && forall.getParallelUnit() == ParallelUnit::NotParallel;
     if (canAccelWithSparseIteration) {
       bool indexListsExist = false;
       // We are iterating over a dimension and locating into a temporary with a tracker to keep indices. Instead, we
@@ -857,7 +862,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   }
   definedIndexVars.erase(forall.getIndexVar());
   definedIndexVarsOrdered.pop_back();
-  if (forall.getParallelUnit() != ParallelUnit::NotParallel) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getParallelUnit() != ParallelUnit::Spatial) {
     inParallelLoopDepth--;
     taco_iassert(parallelUnitSizes.count(forall.getParallelUnit()));
     taco_iassert(parallelUnitIndexVars.count(forall.getParallelUnit()));
@@ -1205,7 +1210,13 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   if (forall.getParallelUnit() == ParallelUnit::Spatial && forall.getOutputRaceStrategy() == OutputRaceStrategy::SpatialReduction) {
     if (forallReductions.find(forall) != forallReductions.end() && isa<Assignment>(forall.getStmt())) {
       Assignment forallExpr = to<Assignment>(forall.getStmt());
-      Expr reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(), forallExpr.getLhs().getDataType());
+
+      Expr reg;
+      if (forallReductions.at(forall).first > 0)
+        reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(), forallExpr.getLhs().getDataType());
+      else
+        reg = lower(forallExpr.getLhs());
+
       Stmt regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
 
       Stmt reductionBody = lowerForallReductionBody(coordinate, forall.getStmt(),
@@ -1220,12 +1231,17 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       if (should_use_Spatial_codegen() && forallExpr.getOperator().defined()) {
         return Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, Scope::make(reductionBody, reductionExpr), true, forall.getNumChunks()));
       }
-
     }
-    else if (forallReductions.find(forall) != forallReductions.end() && !provGraph.getParents(forall.getIndexVar()).empty()) {
-        Assignment forallExpr = forallReductions.at(forall);
-        Expr reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(),
+     if (forallReductions.find(forall) != forallReductions.end() && !provGraph.getParents(forall.getIndexVar()).empty()) {
+        Assignment forallExpr = forallReductions.at(forall).second;
+
+        Expr reg;
+        if (forallReductions.at(forall).first > 0)
+          reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(),
                              forallExpr.getLhs().getDataType());
+        else
+          reg = lower(forallExpr.getLhs());
+
         Stmt regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
 
         // FIXME: reduction can only handle adds for now
@@ -1233,14 +1249,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         auto parentVar = provGraph.getParents(forall.getIndexVar())[0];
         vector<IndexVar> children = provGraph.getChildren(parentVar);
 
-        if (should_use_Spatial_codegen() && forallExpr.getOperator().defined() && children.size() < 1) {
+        if (should_use_Spatial_codegen() && forallExpr.getOperator().defined()) {
           return Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, body, true,
                                                    forall.getNumChunks()));
-        }
-        else if (should_use_Spatial_codegen() && forallExpr.getOperator().defined() && children.size() > 1) {
-          Expr reg = lower(forallExpr.getLhs());
-          return Reduce::make(coordinate, reg , bounds[0], bounds[1], 1, body, true,
-                              forall.getNumChunks());
         }
       }
   }
