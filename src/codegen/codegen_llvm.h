@@ -13,11 +13,18 @@ namespace ir{
 
 class CodeGen_LLVM : public CodeGen {
 private:
+  // LLVM stuff
+  llvm::IRBuilder<> *Builder = nullptr;
   llvm::LLVMContext Context;
+
+  // Symbol Table
+  util::ScopedMap<const std::string, llvm::Value*> symbolTable;
+
   OutputKind outputKind;
   class FindVars;
 
   llvm::StructType *tensorType;
+  llvm::Value *value; // last llvm value generated
 
 public:
   CodeGen_LLVM(std::ostream& stream, OutputKind kind) : CodeGen(stream, LLVM), outputKind(kind) { };
@@ -27,7 +34,18 @@ public:
 protected:
   using IRPrinter::visit;
 
+  // symbol table related
+  void pushSymbol(const std::string &name, llvm::Value *v);
+  llvm::Value* getSymbol(const std::string &name);
+  void pushScope();
+  void popScope();
+
+  // utils
   void init_codegen();
+  llvm::Type* llvmTypeOf(Datatype);
+
+  void codegen(const Stmt);
+  llvm::Value* codegen(const Expr);
 
   void visit(const Literal *);
   void visit(const Var *);
