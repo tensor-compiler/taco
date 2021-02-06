@@ -44,6 +44,7 @@ struct Iterator::Content {
       windowVar(_windowVar), lo(_lo), hi(_hi), stride(_stride) {};
   };
   std::unique_ptr<Window> window;
+  Iterator indexSetIterator;
 };
 
 Iterator::Iterator() : content(nullptr) {
@@ -383,6 +384,18 @@ void Iterator::setWindowBounds(ir::Expr lo, ir::Expr hi, ir::Expr stride) {
   this->content->window = std::make_unique<Content::Window>(Content::Window(lo, hi, stride, wvar));
 }
 
+bool Iterator::hasIndexSet() const {
+  return this->content->indexSetIterator.defined();
+}
+Iterator Iterator::getIndexSetIterator() const {
+  taco_iassert(this->hasIndexSet());
+  return this->content->indexSetIterator;
+}
+
+void Iterator::setIndexSetIterator(Iterator iter) {
+  this->content->indexSetIterator = iter;
+}
+
 bool operator==(const Iterator& a, const Iterator& b) {
   if (a.isDimensionIterator() && b.isDimensionIterator()) {
     return a.getIndexVar() == b.getIndexVar();
@@ -436,6 +449,22 @@ static std::map<TensorVar, ir::Expr> createIRTensorVars(IndexStmt stmt)
   vector<TensorVar> arguments = getArguments(stmt);
   vector<TensorVar> temporaries = getTemporaries(stmt);
 
+  // Create variables for index sets on result tensors.
+  for (auto& access : getResultAccesses(stmt).first) {
+    // Any accesses that have index sets will be added.
+    if (access.hasIndexSetModes()) {
+      for (size_t i = 0; i < access.getIndexVars().size(); i++) {
+        if (access.isModeIndexSet(i)) {
+          auto t = access.getModeIndexSetTensor(i);
+          if (tensorVars.count(t) == 0) {
+            ir::Expr irVar = ir::Var::make(t.getName(), t.getType().getDataType(), true, true, true);
+            tensorVars.insert({t, irVar});
+          }
+        }
+      }
+    }
+  }
+
   // Convert tensor results, arguments and temporaries to IR variables
   map<TensorVar, Expr> resultVars;
   vector<Expr> resultsIR = createVars(results, &resultVars);
@@ -477,7 +506,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
       taco_iassert(util::contains(tensorVars, n->tensorVar));
       Expr tensorIR = tensorVars.at(n->tensorVar);
       Format format = n->tensorVar.getFormat();
-      this->createAccessIterators(Access(n), format, tensorIR, provGraph);
+      this->createAccessIterators(Access(n), format, tensorIR, provGraph, tensorVars);
     }),
     function<void(const AssignmentNode*, Matcher*)>([&](auto n, auto m) {
       m->match(n->rhs);
@@ -492,9 +521,9 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 }
 
 
-void
-Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, ProvenanceGraph provGraph)
-{
+void Iterators::createAccessIterators(Access access, Format format, Expr tensorIR,
+                                      ProvenanceGraph provGraph,
+                                      const map<TensorVar, Expr> &tensorVars) {
   TensorVar tensorConcrete = access.getTensorVar();
   taco_iassert(tensorConcrete.getOrder() == format.getOrder())
       << tensorConcrete << ", Format" << format;
@@ -540,6 +569,22 @@ Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, Pr
         auto hi = ir::Literal::make(access.getWindowUpperBound(modeNumber));
         auto stride = ir::Literal::make(access.getStride(modeNumber));
         iterator.setWindowBounds(lo, hi, stride);
+      }
+      // If the access that corresponds to this iterator has an index set,
+      // then we need to construct an iterator for the index set.
+      if (access.isModeIndexSet(modeNumber)) {
+        auto tv = access.getModeIndexSetTensor(modeNumber);
+        auto tvVar = tensorVars.at(tv);
+        auto tvFormat = tv.getFormat();
+        auto tvShape = tv.getType().getShape();
+        auto accessIvar = access.getIndexVars()[modeNumber];
+        ModePack tvModePack(1, tvFormat.getModeFormats()[0], tvVar, 0, 1);
+        Mode tvMode(tvVar, tvShape.getDimension(0), 1, tvFormat.getModeFormats()[0], tvModePack, 0, ModeFormat());
+        // Finally, construct the iterator and register it as an indexSetIterator.
+        auto iter = Iterator(accessIvar, tvVar, tvMode, {tvVar}, accessIvar.getName() + tv.getName() + "_filter");
+        iterator.setIndexSetIterator(iter);
+        // Also add the iterator to the modeAccesses map.
+        content->modeAccesses.insert({iter, {access, modeNumber + 1}});
       }
 
       content->levelIterators.insert({{access,modeNumber+1}, iterator});
