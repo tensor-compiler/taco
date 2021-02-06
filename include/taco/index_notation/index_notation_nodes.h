@@ -4,10 +4,12 @@
 #include <vector>
 #include <memory>
 #include <numeric>
-
+#include <functional>
 #include "taco/type.h"
 #include "taco/util/collections.h"
 #include "taco/util/comparable.h"
+#include "taco/type.h"
+#include "taco/tensor.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/index_notation/index_notation_visitor.h"
@@ -18,11 +20,40 @@
 
 namespace taco {
 
+struct AccessWindow;
+struct IndexSet;
+
+// IndexVarIterationModifier is a marker interface for describing iteration
+// transformations onto a particular index variable. Currently, the type is
+// inhabited only by
+// * AccessWindow
+// * IndexSet
+struct IndexVarIterationModifier {
+  virtual ~IndexVarIterationModifier() = default;
+
+  // match performs dynamic dispatch on the subclass that implements IndexVarIterationModifier.
+  static void match(std::shared_ptr<IndexVarIterationModifier> ptr,
+                    std::function<void(std::shared_ptr<AccessWindow>)> windowFunc,
+                    std::function<void(std::shared_ptr<IndexSet>)> indexSetFunc) {
+    auto windowPtr = std::dynamic_pointer_cast<AccessWindow>(ptr);
+    auto indexSetPtr = std::dynamic_pointer_cast<IndexSet>(ptr);
+    if (windowPtr != nullptr) {
+      windowFunc(windowPtr);
+    } else if (indexSetPtr != nullptr) {
+      indexSetFunc(indexSetPtr);
+    } else {
+      taco_iassert("IndexVarIterationModifier was not AccessWindow or IndexVarIterationModifier");
+    }
+  }
+};
+
 // An AccessNode carries the windowing information for an IndexVar + TensorVar
 // combination. An AccessWindow contains the lower and upper bounds of each
 // windowed mode (0-indexed). AccessWindow is extracted from AccessNode so that
 // it can be referenced externally.
-struct AccessWindow {
+struct AccessWindow : IndexVarIterationModifier {
+  ~AccessWindow() = default;
+
   int lo;
   int hi;
   int stride;
@@ -40,9 +71,39 @@ struct AccessWindow {
   }
 };
 
+// An AccessNode also carries the information about an index set for an IndexVar +
+// TensorVar combination. An IndexSet contains the set of dimensions projected
+// out from a tensor via an index set.
+struct IndexSet : IndexVarIterationModifier {
+  ~IndexSet() = default;
+
+  std::shared_ptr<std::vector<int>> set;
+  TensorBase tensor;
+  friend bool operator==(const IndexSet& a, const IndexSet& b) {
+    return *a.set == *b.set && a.tensor == b.tensor;
+  }
+  friend bool operator<(const IndexSet& a, const IndexSet& b) {
+    if (a.set < b.set) {
+      return a.set < b.set;
+    }
+    return a.tensor < b.tensor;
+  }
+};
+
 struct AccessNode : public IndexExprNode {
-  AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices, const std::map<int, AccessWindow>& windows={})
-      : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices), windowedModes(windows) {}
+  AccessNode(TensorVar tensorVar,
+             const std::vector<IndexVar> &indices,
+             const std::map<int, std::shared_ptr<IndexVarIterationModifier>> &modifiers = {})
+      : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices) {
+    // Unpack the input modifiers into the appropriate maps for each mode.
+    for (auto &it : modifiers) {
+      IndexVarIterationModifier::match(it.second, [&](std::shared_ptr<AccessWindow> w) {
+        this->windowedModes[it.first] = *w;
+      }, [&](std::shared_ptr<IndexSet> i) {
+        this->indexSetModes[it.first] = *i;
+      });
+    }
+  }
 
   void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
@@ -50,9 +111,23 @@ struct AccessNode : public IndexExprNode {
 
   virtual void setAssignment(const Assignment& assignment) {}
 
+  // packageModifiers collects all IndexVarIterationModifiers applied to this
+  // AccessNode into a map.
+  std::map<int, std::shared_ptr<IndexVarIterationModifier>> packageModifiers() const {
+    std::map<int, std::shared_ptr<IndexVarIterationModifier>> ret;
+    for (auto& it : this->windowedModes) {
+      ret[it.first] = std::make_shared<AccessWindow>(it.second);
+    }
+    for (auto& it : this->indexSetModes) {
+      ret[it.first] = std::make_shared<IndexSet>(it.second);
+    }
+    return ret;
+  }
+
   TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
   std::map<int, AccessWindow> windowedModes;
+  std::map<int, IndexSet> indexSetModes;
 
 protected:
   /// Initialize an AccessNode with just a TensorVar. If this constructor is used,
