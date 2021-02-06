@@ -170,6 +170,9 @@ public:
   ir::Expr getWindowLowerBound() const;
   ir::Expr getWindowUpperBound() const;
 
+  bool hasIndexSet() const;
+  Iterator getIndexSetIterator() const;
+
   friend bool operator==(const Iterator&, const Iterator&);
   friend bool operator<(const Iterator&, const Iterator&);
   friend std::ostream& operator<<(std::ostream&, const Iterator&);
@@ -184,6 +187,7 @@ private:
   friend class Iterators;
   /// setWindowBounds sets the window bounds of this iterator.
   void setWindowBounds(ir::Expr lo, ir::Expr hi);
+  void setIndexSetIterator(Iterator iter);
 };
 
 /**
@@ -228,8 +232,10 @@ public:
 
   std::map<IndexVar, Iterator> modeIterators() const;
 
+  // TODO (rohany): Making this public for now.
+  void createAccessIterators(Access access, Format format, ir::Expr tensorIR, ProvenanceGraph provGraph, const std::map<TensorVar, ir::Expr>& tensorVars);
+
 private:
-  void createAccessIterators(Access access, Format format, ir::Expr tensorIR, ProvenanceGraph provGraph);
 
   struct Content;
   std::shared_ptr<Content> content;

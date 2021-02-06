@@ -179,6 +179,9 @@ LowererImpl::lower(IndexStmt stmt, string name,
         // the mode input to getDimension is 0-indexed. So, we shift it up by 1.
         auto iter = iterators.levelIterator(ModeAccess(a, mode+1));
         return ir::Sub::make(iter.getWindowUpperBound(), iter.getWindowLowerBound());
+      } else if (a.isModeIndexSet(mode)) {
+        // TODO (rohany): It seems like I don't need the function on the iterator?
+        return ir::Literal::make(a.getIndexSet(mode).size());
       } else {
         return GetProperty::make(tensorVars.at(tv), TensorProperty::Dimension, mode);
       }
@@ -1312,6 +1315,26 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   // Load coordinates from position iterators
   Stmt loadPosIterCoordinates = codeToLoadCoordinatesFromPosIterators(iterators, !resolvedCoordDeclared);
 
+  std::vector<ir::Stmt> weija;
+  for (auto& iter : filter(iterators, [](Iterator it) { return it.hasIndexSet(); })) {
+    // TODO (rohany): Include the tensor's name here.
+    auto setMatch = ir::Var::make("setMatch", Int());
+    auto indexSetIter = iter.getIndexSetIterator();
+    weija.push_back(ir::VarDecl::make(setMatch, ir::Min::make(this->coordinates({iter, indexSetIter}))));
+    auto iterEq = ir::Eq::make(iter.getCoordVar(), setMatch);
+    auto setEq = ir::Eq::make(indexSetIter.getCoordVar(), setMatch);
+    auto shiftDown = ir::Block::make(
+      ir::Assign::make(iter.getCoordVar(), indexSetIter.getPosVar()),
+      ir::Assign::make(indexSetIter.getCoordVar(), indexSetIter.getPosVar())
+    );
+    auto incr = ir::Block::make(
+      compoundAssign(iter.getIteratorVar(), ir::Cast::make(Eq::make(iter.getCoordVar(), setMatch), iter.getIteratorVar().type())),
+      compoundAssign(indexSetIter.getIteratorVar(), ir::Cast::make(Eq::make(indexSetIter.getCoordVar(), setMatch), indexSetIter.getIteratorVar().type())),
+      ir::Continue::make()
+    );
+    weija.push_back(ir::IfThenElse::make(ir::And::make(iterEq, setEq), shiftDown, incr));
+  }
+
   // Merge iterator coordinate variables
   Stmt resolvedCoordinate = resolveCoordinate(mergers, coordinate, !resolvedCoordDeclared);
 
@@ -1335,6 +1358,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   /// While loop over rangers
   return While::make(checkThatNoneAreExhausted(rangers),
                      Block::make(loadPosIterCoordinates,
+                                 ir::Block::make(weija),
                                  resolvedCoordinate,
                                  loadLocatorPosVars,
                                  deduplicationLoops,
@@ -2326,6 +2350,11 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
         if (locateIterator.isWindowed()) {
           auto expr = coords[coords.size() - 1];
           coords[coords.size() - 1] = this->projectCanonicalSpaceToWindowedPosition(locateIterator, expr);
+        } else if (locateIterator.hasIndexSet()) {
+          auto expr = coords[coords.size() - 1];
+          auto indexSetIterator = locateIterator.getIndexSetIterator();
+          auto coordArray = indexSetIterator.posAccess(expr, coordinates(indexSetIterator)).getResults()[0];
+          coords[coords.size() - 1] = coordArray;
         }
         ModeFunction locate = locateIterator.locate(coords);
         taco_iassert(isValue(locate.getResults()[1], true));
@@ -2542,6 +2571,13 @@ Stmt LowererImpl::codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar inde
 }
 
 Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar, vector<Iterator> iterators, vector<Iterator> mergers) {
+//  std::vector<Iterator> realIterators = iterators;
+//  for (auto& it : iterators) {
+//    if (it.hasIndexSet()) {
+//      realIterators = filter(realIterators, [&](Iterator other) { return other != it.getIndexSetIterator(); });
+//    }
+//  }
+
   if (iterators.size() == 1) {
     Expr ivar = iterators[0].getIteratorVar();
 
@@ -2553,7 +2589,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar,
     // duplicates and iterator will always advance (i.e., not merging with 
     // another iterator), then deduplication loop will take care of 
     // incrementing iterator variable.
-    return iterators[0].isLeaf() 
+    return iterators[0].isLeaf()
            ? Stmt()
            : Assign::make(ivar, iterators[0].getSegendVar());
   }

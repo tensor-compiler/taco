@@ -122,6 +122,33 @@ private:
       pointIterators.push_back(iterators.modeIterator(i));
     }
 
+    // TODO (rohany): Comment this.
+    if (iterator.hasIndexSet()) {
+      pointIterators.push_back(iterator.getIndexSetIterator());
+    }
+
+//    for (size_t it = 0; it < access->indexVars.size(); it++) {
+//      if (access->indexVars[it] == i && Access(access).isModeIndexSet(it)) {
+//        auto tv = Access(access).getModeIndexSetTensor(it);
+//        auto tvVar = ir::Var::make(tv.getName(), tv.getType().getDataType(), true /* is_ptr */, true /* is_tensor */, true /* is_parameter */);
+//        auto format = tv.getFormat();
+//        Iterators iters = Iterators();
+//        auto tvAccess = Access(tv, {i});
+//        iters.createAccessIterators(tvAccess, format, tvVar, provGraph);
+//        pointIterators.push_back(iters.levelIterator({tvAccess, int(it+1)}));
+////        auto modeTypePack = format.getModeFormatPacks()[0];
+////        ModePack modePack(modeTypePack.getModeFormats().size(),
+////                          modeTypePack.getModeFormats()[0], tensorIR,
+////                          modeNumber, level);
+////        auto formats = tv.getFormat().getModeFormats();
+////        auto packs = tv.getFormat().getModeFormatPacks();
+////        Mode m(tvVar, tv.getType().getShape().getDimension(it), formats[it], packs[it], )
+////        auto iter = Iterator(i, tvVar, it+1, tv.getFormat(), tv.getFormat().get)
+////        Iterator()
+////          auto iters = Iterators();
+//      }
+//    }
+
     IndexVar posIteratorDescendant;
     // if this loop is actually iterating over this access then can return iterator (+ coord ranger if applicable)
     // as entire merge point
@@ -131,14 +158,23 @@ private:
     }
     // If this is a position variable then return an iterator over the variable and locate into the access
     else if (provGraph.isPosVariable(i)) {
-      MergePoint point = MergePoint({iterators.modeIterator(i)}, {iterator}, {});
+      std::vector<Iterator> iters = {iterators.modeIterator(i)};
+//      if (iterator.hasIndexSet()) {
+//        iters.push_back(iterator.getIndexSetIterator());
+//      }
+      MergePoint point = MergePoint(iters, {iterator}, {});
       lattice = MergeLattice({point});
     }
     else {
       // If iterator does not support coordinate or position iteration then
       // iterate over the dimension and locate from it
+      std::vector<Iterator> iters = {iterators.modeIterator(i)};
+//      if (iterator.hasIndexSet()) {
+//        iters = {iterator.getIndexSetIterator()};
+////        iters.push_back(iterator.getIndexSetIterator());
+//      }
       MergePoint point = (!iterator.hasCoordIter() && !iterator.hasPosIter())
-                         ? MergePoint({iterators.modeIterator(i)}, {iterator}, {})
+                         ? MergePoint(iters, {iterator}, {})
                          : MergePoint(pointIterators, {}, {});
       lattice = MergeLattice({point});
     }

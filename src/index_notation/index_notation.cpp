@@ -23,6 +23,7 @@
 #include "taco/ir/ir.h"
 #include "taco/lower/lower.h"
 #include "taco/codegen/module.h"
+#include "taco/tensor.h"
 
 #include "taco/util/name_generator.h"
 #include "taco/util/scopedmap.h"
@@ -775,6 +776,25 @@ int Access::getWindowLowerBound(int mode) const {
 int Access::getWindowUpperBound(int mode) const {
   taco_iassert(this->isModeWindowed(mode));
   return getNode(*this)->windowedModes.at(mode).hi;
+}
+
+bool Access::hasIndexSetModes() const {
+  return !getNode(*this)->indexSetModes.empty();
+}
+
+bool Access::isModeIndexSet(int mode) const {
+  auto node = getNode(*this);
+  return node->indexSetModes.find(mode) != node->indexSetModes.end();
+}
+
+TensorVar Access::getModeIndexSetTensor(int mode) const {
+  taco_iassert(this->isModeIndexSet(mode));
+  return getNode(*this)->indexSetTensors.at(mode).getTensorVar();
+}
+
+const std::vector<int>& Access::getIndexSet(int mode) const {
+  taco_iassert(this->isModeIndexSet(mode));
+  return getNode(*this)->indexSetModes.at(mode);
 }
 
 static void check(Assignment assignment) {
@@ -1838,6 +1858,10 @@ WindowedIndexVar IndexVar::operator()(int lo, int hi) {
   return WindowedIndexVar(*this, lo, hi);
 }
 
+IndexSetVar IndexVar::operator()(std::vector<int> indexSet) {
+  return IndexSetVar(*this, indexSet);
+}
+
 bool operator==(const IndexVar& a, const IndexVar& b) {
   return a.content == b.content;
 }
@@ -1852,6 +1876,9 @@ std::ostream& operator<<(std::ostream& os, const std::shared_ptr<IndexVarInterfa
     ss << *ivar;
   }, [&](std::shared_ptr<WindowedIndexVar> wvar) {
     ss << *wvar;
+  }, [&](std::shared_ptr<IndexSetVar> svar) {
+    // TODO (rohany): Fix this.
+    ss << svar->getIndexVar();
   });
   return os << ss.str();
 }
@@ -1880,6 +1907,19 @@ int WindowedIndexVar::getLowerBound() const {
 
 int WindowedIndexVar::getUpperBound() const {
   return this->content->hi;
+}
+
+IndexSetVar::IndexSetVar(IndexVar base, std::vector<int> indexSet): content (new Content) {
+  this->content->base = base;
+  this->content->indexSet = indexSet;
+}
+
+IndexVar IndexSetVar::getIndexVar() const {
+  return this->content->base;
+}
+
+std::vector<int> IndexSetVar::getIndexSet() const {
+  return this->content->indexSet;
 }
 
 // class TensorVar
@@ -2434,6 +2474,16 @@ vector<TensorVar> getArguments(IndexStmt stmt) {
     if (!util::contains(collected, tensor)) {
       collected.insert(tensor);
       result.push_back(tensor);
+    }
+    // TODO (rohany): Need a "has index set modes" method.
+    for (size_t i = 0; i < access.getIndexVars().size(); i++) {
+      if (access.isModeIndexSet(i)) {
+        auto t = access.getModeIndexSetTensor(i);
+        if (!util::contains(collected, t)) {
+          collected.insert(t);
+          result.push_back(t);
+        }
+      }
     }
   }
 

@@ -59,6 +59,8 @@ std::pair<bool, string> dimensionsTypecheck(const std::vector<IndexVar>& resultV
       auto a = Access(readNode);
       if (a.isModeWindowed(mode)) {
         dimension = Dimension(a.getWindowUpperBound(mode) - a.getWindowLowerBound(mode));
+      } else if (a.isModeIndexSet(mode)) {
+        dimension = Dimension(a.getIndexSet(mode).size());
       }
 
       if (util::contains(indexVarDims,var) && indexVarDims.at(var) != dimension) {

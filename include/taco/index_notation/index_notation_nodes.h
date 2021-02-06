@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "taco/type.h"
+#include "taco/tensor.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/index_notation/index_notation_visitor.h"
@@ -26,6 +27,7 @@ struct AccessWindow {
 };
 
 struct AccessNode : public IndexExprNode {
+  // TODO (rohany): Have to insert the index set constructor here too.
   AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices, const std::map<int, AccessWindow>& windows={})
       : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices), windowedModes(windows) {}
 
@@ -38,6 +40,8 @@ struct AccessNode : public IndexExprNode {
   TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
   std::map<int, AccessWindow> windowedModes;
+  std::map<int, std::vector<int>> indexSetModes;
+  std::map<int, TensorBase> indexSetTensors;
 
 protected:
   /// Initialize an AccessNode with just a TensorVar. If this constructor is used,

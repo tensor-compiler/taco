@@ -359,3 +359,30 @@ TEST(windowing, cuda) {
     }
   }
 }
+
+TEST(windowing, indexSet) {
+  auto dim = 10;
+
+  // Overall implementation strategy -- for dense iterators we don't do anything
+  // other than limit the iteration space and change the locator to look up indirectly
+  // through the coord array. For sparse iterators we generate an intersection in the lattice.
+
+  for (auto& x : {Dense, Sparse}) {
+    for (auto& y : {Dense, Sparse}) {
+      Tensor<int> a("a", {3}, Dense);
+      Tensor<int> b("b", {dim}, x);
+      Tensor<int> c("c", {dim}, y);
+      for (int i = 0; i < dim; i++) {
+        b.insert({i}, i);
+        c.insert({i}, i);
+      }
+      b.pack(); c.pack();
+      Tensor<int> expected("expected", {3}, Dense);
+      expected.insert({0}, 1); expected.insert({1}, 9); expected.insert({2}, 25); expected.pack();
+      IndexVar i("i");
+      a(i) = b(i({1, 3, 5})) * c(i({1, 3, 5}));
+      a.evaluate();
+      ASSERT_TRUE(equals(a, expected)) << a << endl << expected << endl << x << " " << y << endl;
+    }
+  }
+}

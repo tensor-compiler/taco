@@ -477,6 +477,18 @@ struct AccessTensorNode : public AccessNode {
           "slice upper bound must be <= tensor dimension (" << tensor.getDimension(i) << ")";
         this->windowedModes[i].lo = lo;
         this->windowedModes[i].hi = hi;
+      }, [&](std::shared_ptr<IndexSetVar> svar) {
+        ivars[i] = svar->getIndexVar();
+        auto indexSet = svar->getIndexSet();
+        this->indexSetModes[i] = indexSet;
+        TensorBase indexSetTensor(tensor.getComponentType(), {int(indexSet.size())}, Compressed);
+        // TODO (rohany): Assuming that the index set is sorted here.
+        for (auto& coord : indexSet) {
+          indexSetTensor.insert({coord}, 1);
+        }
+        indexSetTensor.pack();
+        this->indexSetTensors[i] = indexSetTensor;
+        // TODO (rohany): Add in dimension checks here.
       });
     }
     // Initialize this->indexVars.
@@ -714,6 +726,13 @@ static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr) {
         arguments.insert({node->tensorVar, to<AccessTensorNode>(node)->tensor});
       }
 
+      for (auto& p : node->indexSetTensors) {
+        if (!util::contains(arguments, p.second.getTensorVar())) {
+          arguments.insert({p.second.getTensorVar(), p.second});
+        }
+      }
+
+      // TODO (rohany): This seems like dead code.
       TensorBase tensor = to<AccessTensorNode>(node)->tensor;
       if (!util::contains(inserted, tensor)) {
         inserted.insert(tensor);

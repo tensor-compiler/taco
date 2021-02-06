@@ -32,6 +32,7 @@ class Schedule;
 
 class IndexVar;
 class WindowedIndexVar;
+class IndexSetVar;
 class TensorVar;
 
 class IndexExpr;
@@ -240,6 +241,11 @@ public:
   /// Return the {lower,upper} bound of the window on the input mode (0-indexed).
   int getWindowLowerBound(int mode) const;
   int getWindowUpperBound(int mode) const;
+
+  bool hasIndexSetModes() const;
+  bool isModeIndexSet(int mode) const;
+  TensorVar getModeIndexSetTensor(int mode) const;
+  const std::vector<int>& getIndexSet(int mode) const;
 
   /// Assign the result of an expression to a left-hand-side tensor access.
   /// ```
@@ -821,6 +827,7 @@ Multi multi(IndexStmt stmt1, IndexStmt stmt2);
 /// completeness, the current implementers of IndexVarInterface are:
 /// * IndexVar
 /// * WindowedIndexVar
+/// * IndexSetVar
 /// If this set changes, make sure to update the match function.
 class IndexVarInterface {
 public:
@@ -832,15 +839,20 @@ public:
   static void match(
       std::shared_ptr<IndexVarInterface> ptr,
       std::function<void(std::shared_ptr<IndexVar>)> ivarFunc,
-      std::function<void(std::shared_ptr<WindowedIndexVar>)> wvarFunc
+      std::function<void(std::shared_ptr<WindowedIndexVar>)> wvarFunc,
+      std::function<void(std::shared_ptr<IndexSetVar>)> isetVarFunc
   ) {
     auto iptr = std::dynamic_pointer_cast<IndexVar>(ptr);
     auto wptr = std::dynamic_pointer_cast<WindowedIndexVar>(ptr);
+    auto sptr = std::dynamic_pointer_cast<IndexSetVar>(ptr);
     if (iptr != nullptr) {
       ivarFunc(iptr);
     } else if (wptr != nullptr) {
       wvarFunc(wptr);
+    } else if (sptr != nullptr) {
+      isetVarFunc(sptr);
     } else {
+      // TODO (rohany): Update this comment.
       taco_iassert("IndexVarInterface was not IndexVar or WindowedIndexVar");
     }
   }
@@ -868,6 +880,20 @@ private:
   std::shared_ptr<Content> content;
 };
 
+class IndexSetVar : public util::Comparable<IndexSetVar>, public IndexVarInterface {
+public:
+  IndexSetVar(IndexVar base, std::vector<int> indexSet);
+  ~IndexSetVar() = default;
+
+  /// getIndexVar returns the underlying IndexVar.
+  IndexVar getIndexVar() const;
+  std::vector<int> getIndexSet() const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.
 class IndexVar : public util::Comparable<IndexVar>, public IndexVarInterface {
@@ -885,6 +911,8 @@ public:
   /// Indexing into an IndexVar returns a window into it.
   WindowedIndexVar operator()(int lo, int hi);
 
+  IndexSetVar operator()(std::vector<int> indexSet);
+
 private:
   struct Content;
   std::shared_ptr<Content> content;
@@ -898,6 +926,11 @@ struct WindowedIndexVar::Content {
   IndexVar base;
   int lo;
   int hi;
+};
+
+struct IndexSetVar::Content {
+  IndexVar base;
+  std::vector<int> indexSet;
 };
 
 std::ostream& operator<<(std::ostream&, const std::shared_ptr<IndexVarInterface>&);
