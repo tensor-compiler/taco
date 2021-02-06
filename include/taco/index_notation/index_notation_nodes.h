@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "taco/type.h"
+#include "taco/tensor.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/index_notation/index_notation_visitor.h"
@@ -25,9 +26,24 @@ struct AccessWindow {
   }
 };
 
+// An AccessNode also carries the information about an index set for an IndexVar +
+// TensorVar combination. An IndexSet contains the set of dimensions projected
+// out from a tensor via an index set.
+struct IndexSet {
+  std::vector<int> set;
+  TensorBase tensor;
+};
+
 struct AccessNode : public IndexExprNode {
-  AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices, const std::map<int, AccessWindow>& windows={})
-      : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices), windowedModes(windows) {}
+  AccessNode(TensorVar tensorVar,
+             const std::vector<IndexVar>& indices,
+             const std::map<int, AccessWindow>& windows={},
+             const std::map<int, IndexSet>& indexSet={})
+      : IndexExprNode(tensorVar.getType().getDataType()),
+        tensorVar(tensorVar),
+        indexVars(indices),
+        windowedModes(windows),
+        indexSetModes(indexSet) {}
 
   void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
@@ -38,6 +54,7 @@ struct AccessNode : public IndexExprNode {
   TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
   std::map<int, AccessWindow> windowedModes;
+  std::map<int, IndexSet> indexSetModes;
 
 protected:
   /// Initialize an AccessNode with just a TensorVar. If this constructor is used,

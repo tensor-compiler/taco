@@ -477,6 +477,20 @@ struct AccessTensorNode : public AccessNode {
           "slice upper bound must be <= tensor dimension (" << tensor.getDimension(i) << ")";
         this->windowedModes[i].lo = lo;
         this->windowedModes[i].hi = hi;
+      }, [&](std::shared_ptr<IndexSetVar> svar) {
+        ivars[i] = svar->getIndexVar();
+        // Extract the user provided index set.
+        auto indexSet = svar->getIndexSet();
+        // Ensure that it has at most dim(t, i) elements.
+        taco_uassert(indexSet.size() <= size_t(tensor.getDimension(i)));
+        // Pack up the index set into a sparse tensor.
+        TensorBase indexSetTensor(tensor.getComponentType(), {int(indexSet.size())}, Compressed);
+        // TODO (rohany): Assuming that the index set is sorted here.
+        for (auto& coord : indexSet) {
+          indexSetTensor.insert({coord}, 1);
+        }
+        indexSetTensor.pack();
+        this->indexSetModes[i] = {indexSet, indexSetTensor};
       });
     }
     // Initialize this->indexVars.
@@ -714,6 +728,15 @@ static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr) {
         arguments.insert({node->tensorVar, to<AccessTensorNode>(node)->tensor});
       }
 
+      // Also add any tensors backing index sets of tensor accesses.
+      for (auto& p : node->indexSetModes) {
+        auto tv = p.second.tensor.getTensorVar();
+        if (!util::contains(arguments, tv)) {
+          arguments.insert({tv, p.second.tensor});
+        }
+      }
+
+      // TODO (rohany): This seems like dead code.
       TensorBase tensor = to<AccessTensorNode>(node)->tensor;
       if (!util::contains(inserted, tensor)) {
         inserted.insert(tensor);
@@ -732,6 +755,15 @@ vector<void*> packArguments(const TensorBase& tensor) {
 
   // Pack the result tensor
   arguments.push_back(tensor.getStorage());
+
+  // Pack any index sets on the result tensor at the front of the arguments list.
+  auto lhs = getNode(tensor.getAssignment().getLhs());
+  if (isa<AccessTensorNode>(lhs)) {
+    auto indexSetModes = to<AccessTensorNode>(lhs)->indexSetModes;
+    for (auto& it : indexSetModes) {
+      arguments.push_back(it.second.tensor.getStorage());
+    }
+  }
 
   // Pack operand tensors
   auto operands = getArguments(makeConcreteNotation(tensor.getAssignment()));

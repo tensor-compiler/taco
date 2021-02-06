@@ -127,6 +127,27 @@ LowererImpl::lower(IndexStmt stmt, string name,
   tensorVars.insert(resultVars.begin(), resultVars.end());
   vector<Expr> argumentsIR = createVars(arguments, &tensorVars, pack);
 
+  // TODO (rohany): See if I can deduplicate this code.
+  // Create variables for index sets on result tensors.
+  vector<Expr> indexSetArgs;
+  for (auto& access : getResultAccesses(stmt).first) {
+    // Any accesses that have index sets will be added.
+    if (access.hasIndexSetModes()) {
+      for (size_t i = 0; i < access.getIndexVars().size(); i++) {
+        if (access.isModeIndexSet(i)) {
+          auto t = access.getModeIndexSetTensor(i);
+          if (tensorVars.count(t) == 0) {
+            ir::Expr irVar = ir::Var::make(t.getName(), t.getType().getDataType(), true, true, pack);
+            tensorVars.insert({t, irVar});
+            indexSetArgs.push_back(irVar);
+          }
+        }
+      }
+    }
+  }
+  argumentsIR.insert(argumentsIR.begin(), indexSetArgs.begin(), indexSetArgs.end());
+
+
   // Create variables for temporaries
   // TODO Remove this
   for (auto& temp : temporaries) {
@@ -179,6 +200,10 @@ LowererImpl::lower(IndexStmt stmt, string name,
         // the mode input to getDimension is 0-indexed. So, we shift it up by 1.
         auto iter = iterators.levelIterator(ModeAccess(a, mode+1));
         return ir::Sub::make(iter.getWindowUpperBound(), iter.getWindowLowerBound());
+      } else if (a.isModeIndexSet(mode)) {
+        // If the mode has an index set, then the dimension is the size of
+        // the index set.
+        return ir::Literal::make(a.getIndexSet(mode).size());
       } else {
         return GetProperty::make(tensorVars.at(tv), TensorProperty::Dimension, mode);
       }
@@ -1312,6 +1337,48 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   // Load coordinates from position iterators
   Stmt loadPosIterCoordinates = codeToLoadCoordinatesFromPosIterators(iterators, !resolvedCoordDeclared);
 
+  // Any iterators with an index set have extra work to do at the header
+  // of the merge point.
+  std::vector<ir::Stmt> indexSetStmts;
+  for (auto& iter : filter(iterators, [](Iterator it) { return it.hasIndexSet(); })) {
+    // For each iterator A with an index set B, emit the following code:
+    //   setMatch = min(A, B); // Check whether A matches its index set at this point.
+    //   if (A == setMatch && B == setMatch) {
+    //     // If there was a match, project down the values of the iterators
+    //     // to be the position variable of the index set iterator. This has the
+    //     // effect of remapping the index of A to be the i'th position of the set.
+    //     A_coord = B_pos;
+    //     B_coord = B_pos;
+    //   } else {
+    //     // Advance the iterator and it's index set iterator accordingly if
+    //     // there wasn't a match.
+    //     A_pos += (A == setMatch);
+    //     B_pos += (B == setMatch);
+    //     // We must continue so that we only proceed to the rest of the cases in
+    //     // the merge if there actually is a point present for A.
+    //     continue;
+    //   }
+    auto setMatch = ir::Var::make("setMatch", Int());
+    auto indexSetIter = iter.getIndexSetIterator();
+    indexSetStmts.push_back(ir::VarDecl::make(setMatch, ir::Min::make(this->coordinates({iter, indexSetIter}))));
+    // Equality checks for each iterator.
+    auto iterEq = ir::Eq::make(iter.getCoordVar(), setMatch);
+    auto setEq = ir::Eq::make(indexSetIter.getCoordVar(), setMatch);
+    // Code to shift down each iterator to the position space of the index set.
+    auto shiftDown = ir::Block::make(
+      ir::Assign::make(iter.getCoordVar(), indexSetIter.getPosVar()),
+      ir::Assign::make(indexSetIter.getCoordVar(), indexSetIter.getPosVar())
+    );
+    // Code to increment both iterator variables.
+    auto incr = ir::Block::make(
+      compoundAssign(iter.getIteratorVar(), ir::Cast::make(Eq::make(iter.getCoordVar(), setMatch), iter.getIteratorVar().type())),
+      compoundAssign(indexSetIter.getIteratorVar(), ir::Cast::make(Eq::make(indexSetIter.getCoordVar(), setMatch), indexSetIter.getIteratorVar().type())),
+      ir::Continue::make()
+    );
+    // Code that uses the defined parts together in the if-then-else.
+    indexSetStmts.push_back(ir::IfThenElse::make(ir::And::make(iterEq, setEq), shiftDown, incr));
+  }
+
   // Merge iterator coordinate variables
   Stmt resolvedCoordinate = resolveCoordinate(mergers, coordinate, !resolvedCoordDeclared);
 
@@ -1335,6 +1402,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   /// While loop over rangers
   return While::make(checkThatNoneAreExhausted(rangers),
                      Block::make(loadPosIterCoordinates,
+                                 ir::Block::make(indexSetStmts),
                                  resolvedCoordinate,
                                  loadLocatorPosVars,
                                  deduplicationLoops,
@@ -2326,6 +2394,14 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
         if (locateIterator.isWindowed()) {
           auto expr = coords[coords.size() - 1];
           coords[coords.size() - 1] = this->projectCanonicalSpaceToWindowedPosition(locateIterator, expr);
+        } else if (locateIterator.hasIndexSet()) {
+          // If this dimension iterator operates over an index set, follow the
+          // indirection by using the locator access the index set's crd array.
+          // The resulting value is where we should locate into the actual tensor.
+          auto expr = coords[coords.size() - 1];
+          auto indexSetIterator = locateIterator.getIndexSetIterator();
+          auto coordArray = indexSetIterator.posAccess(expr, coordinates(indexSetIterator)).getResults()[0];
+          coords[coords.size() - 1] = coordArray;
         }
         ModeFunction locate = locateIterator.locate(coords);
         taco_iassert(isValue(locate.getResults()[1], true));
@@ -2553,7 +2629,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar,
     // duplicates and iterator will always advance (i.e., not merging with 
     // another iterator), then deduplication loop will take care of 
     // incrementing iterator variable.
-    return iterators[0].isLeaf() 
+    return iterators[0].isLeaf()
            ? Stmt()
            : Assign::make(ivar, iterators[0].getSegendVar());
   }

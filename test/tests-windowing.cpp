@@ -359,3 +359,79 @@ TEST(windowing, cuda) {
     }
   }
 }
+
+TEST(windowing, indexSet) {
+  auto dim = 10;
+
+  // Test on tensors with 1 dimension.
+  for (auto& x : {Dense, Sparse}) {
+    for (auto& y : {Dense, Sparse}) {
+      Tensor<int> a("a", {3}, Dense);
+      Tensor<int> b("b", {dim}, x);
+      Tensor<int> c("c", {dim}, y);
+      Tensor<int> expected("expected", {3}, Dense);
+      for (int i = 0; i < dim; i++) {
+        b.insert({i}, i);
+        c.insert({i}, i);
+      }
+      expected.insert({0}, 1); expected.insert({1}, 9); expected.insert({2}, 25);
+      b.pack(); c.pack(); expected.pack();
+
+      IndexVar i("i");
+      a(i) = b(i({1, 3, 5})) * c(i({1, 3, 5}));
+      a.evaluate();
+      ASSERT_TRUE(equals(a, expected)) << a << endl << expected << endl << x << " " << y << endl;
+
+      expected = Tensor<int>("expected", {3}, Dense);
+      expected.insert({0}, 2); expected.insert({1}, 6); expected.insert({2}, 10); expected.pack();
+      a(i) = b(i({1, 3, 5})) + c(i({1, 3, 5}));
+      a.evaluate();
+      ASSERT_TRUE(equals(a, expected)) << a << endl << expected << endl << x << " " << y << endl;
+    }
+  }
+
+  // Test on tensors with 2 dimensions.
+  for (auto& x : {Dense, Sparse}) {
+    for (auto& y : {Dense, Sparse}) {
+      Tensor<int> a("a", {3, 3}, {Dense, Dense});
+      Tensor<int> expected("expected", {3, 3}, {Dense, Dense});
+      Tensor<int> b("b", {dim, dim}, {Dense, x});
+      Tensor<int> c("c", {dim, dim}, {Dense, y});
+      for (int i = 0; i < dim; i++) {
+        for (int j = 0; j < dim; j++) {
+          b.insert({i, j}, i + j);
+          c.insert({i, j}, i + j);
+        }
+      }
+      expected.insert({0, 0}, 10); expected.insert({0, 1}, 14); expected.insert({0, 2}, 18);
+      expected.insert({1, 0}, 14); expected.insert({1, 1}, 18); expected.insert({1, 2}, 22);
+      expected.insert({2, 0}, 18); expected.insert({2, 1}, 22); expected.insert({2, 2}, 26);
+      b.pack(); c.pack(); expected.pack();
+
+      IndexVar i("i"), j("j");
+      a(i, j) = b(i({1, 3, 5}), j({2, 4, 6})) + c(i({3, 5, 7}), j({4, 6, 8}));
+      a.compile();
+      a.evaluate();
+      ASSERT_TRUE(equals(a, expected)) << a << endl << expected << endl;
+    }
+  }
+}
+
+TEST(windowing, lhsIndexSet) {
+  auto dim = 10;
+  Tensor<int> a("a", {dim}, Dense);
+  Tensor<int> expected("expected", {dim}, Dense);
+  Tensor<int> b("b", {3}, Dense);
+
+  for (int i = 0; i < 3; i++) {
+    b.insert({i}, i+1);
+  }
+  expected.insert({1}, 1); expected.insert({3}, 2); expected.insert({5}, 3);
+  b.pack(); expected.pack();
+
+  IndexVar i("i");
+  a(i({1, 3, 5})) = b(i);
+  a.compile();
+  a.evaluate();
+  ASSERT_TRUE(equals(a, expected)) << a << endl << expected << endl;
+}

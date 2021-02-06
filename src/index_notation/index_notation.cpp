@@ -23,6 +23,7 @@
 #include "taco/ir/ir.h"
 #include "taco/lower/lower.h"
 #include "taco/codegen/module.h"
+#include "taco/tensor.h"
 
 #include "taco/util/name_generator.h"
 #include "taco/util/scopedmap.h"
@@ -746,8 +747,11 @@ IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
 Access::Access(const AccessNode* n) : IndexExpr(n) {
 }
 
-Access::Access(const TensorVar& tensor, const std::vector<IndexVar>& indices, const std::map<int, AccessWindow>& windows)
-    : Access(new AccessNode(tensor, indices, windows)) {
+Access::Access(const TensorVar& tensor,
+               const std::vector<IndexVar>& indices,
+               const std::map<int, AccessWindow>& windows,
+               const std::map<int, IndexSet>& indexSet)
+    : Access(new AccessNode(tensor, indices, windows, indexSet)) {
 }
 
 const TensorVar& Access::getTensorVar() const {
@@ -777,6 +781,25 @@ int Access::getWindowUpperBound(int mode) const {
   return getNode(*this)->windowedModes.at(mode).hi;
 }
 
+bool Access::hasIndexSetModes() const {
+  return !getNode(*this)->indexSetModes.empty();
+}
+
+bool Access::isModeIndexSet(int mode) const {
+  auto node = getNode(*this);
+  return node->indexSetModes.find(mode) != node->indexSetModes.end();
+}
+
+TensorVar Access::getModeIndexSetTensor(int mode) const {
+  taco_iassert(this->isModeIndexSet(mode));
+  return getNode(*this)->indexSetModes.at(mode).tensor.getTensorVar();
+}
+
+const std::vector<int>& Access::getIndexSet(int mode) const {
+  taco_iassert(this->isModeIndexSet(mode));
+  return getNode(*this)->indexSetModes.at(mode).set;
+}
+
 static void check(Assignment assignment) {
   auto lhs = assignment.getLhs();
   auto tensorVar = lhs.getTensorVar();
@@ -786,12 +809,14 @@ static void check(Assignment assignment) {
 
   // If the LHS access has any windowed modes, use the dimensions of those
   // windows as the shape, rather than the shape of the underlying tensor.
-  if (lhs.hasWindowedModes()) {
+  if (lhs.hasWindowedModes() || lhs.hasIndexSetModes()) {
     vector<Dimension> dims(shape.getOrder());
     for (int i = 0; i < shape.getOrder();i++) {
       dims[i] = shape.getDimension(i);
       if (lhs.isModeWindowed(i)) {
         dims[i] = Dimension(lhs.getWindowUpperBound(i) - lhs.getWindowLowerBound(i));
+      } else if (lhs.isModeIndexSet(i)) {
+        dims[i] = Dimension(lhs.getIndexSet(i).size());
       }
     }
     shape = Shape(dims);
@@ -1838,6 +1863,10 @@ WindowedIndexVar IndexVar::operator()(int lo, int hi) {
   return WindowedIndexVar(*this, lo, hi);
 }
 
+IndexSetVar IndexVar::operator()(std::vector<int> indexSet) {
+  return IndexSetVar(*this, indexSet);
+}
+
 bool operator==(const IndexVar& a, const IndexVar& b) {
   return a.content == b.content;
 }
@@ -1852,6 +1881,8 @@ std::ostream& operator<<(std::ostream& os, const std::shared_ptr<IndexVarInterfa
     ss << *ivar;
   }, [&](std::shared_ptr<WindowedIndexVar> wvar) {
     ss << *wvar;
+  }, [&](std::shared_ptr<IndexSetVar> svar) {
+    ss << *svar;
   });
   return os << ss.str();
 }
@@ -1861,6 +1892,10 @@ std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
 }
 
 std::ostream& operator<<(std::ostream& os, const WindowedIndexVar& var) {
+  return os << var.getIndexVar();
+}
+
+std::ostream& operator<<(std::ostream& os, const IndexSetVar& var) {
   return os << var.getIndexVar();
 }
 
@@ -1880,6 +1915,19 @@ int WindowedIndexVar::getLowerBound() const {
 
 int WindowedIndexVar::getUpperBound() const {
   return this->content->hi;
+}
+
+IndexSetVar::IndexSetVar(IndexVar base, std::vector<int> indexSet): content (new Content) {
+  this->content->base = base;
+  this->content->indexSet = indexSet;
+}
+
+IndexVar IndexSetVar::getIndexVar() const {
+  return this->content->base;
+}
+
+std::vector<int> IndexSetVar::getIndexSet() const {
+  return this->content->indexSet;
 }
 
 // class TensorVar
@@ -2024,12 +2072,14 @@ static bool isValid(Assignment assignment, string* reason) {
 
   // If the LHS access has any windowed modes, use the dimensions of those
   // windows as the shape, rather than the shape of the underlying tensor.
-  if (lhs.hasWindowedModes()) {
+  if (lhs.hasWindowedModes() || lhs.hasIndexSetModes()) {
     vector<Dimension> dims(shape.getOrder());
     for (int i = 0; i < shape.getOrder();i++) {
       dims[i] = shape.getDimension(i);
       if (lhs.isModeWindowed(i)) {
         dims[i] = Dimension(lhs.getWindowUpperBound(i) - lhs.getWindowLowerBound(i));
+      } else if (lhs.isModeIndexSet(i)) {
+        dims[i] = Dimension(lhs.getIndexSet(i).size());
       }
     }
     shape = Shape(dims);
@@ -2434,6 +2484,19 @@ vector<TensorVar> getArguments(IndexStmt stmt) {
     if (!util::contains(collected, tensor)) {
       collected.insert(tensor);
       result.push_back(tensor);
+    }
+    // The arguments will include any index sets on this tensor
+    // argument as well.
+    if (access.hasIndexSetModes()) {
+      for (size_t i = 0; i < access.getIndexVars().size(); i++) {
+        if (access.isModeIndexSet(i)) {
+          auto t = access.getModeIndexSetTensor(i);
+          if (!util::contains(collected, t)) {
+            collected.insert(t);
+            result.push_back(t);
+          }
+        }
+      }
     }
   }
 
