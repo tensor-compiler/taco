@@ -372,15 +372,16 @@ void TensorBase::pack() {
     std::vector<int> bufferDim = {1};
     std::vector<int> bufferModeOrdering = {0};
     std::vector<int> bufferCoords(numCoordinates, 0);
+
+    void* fillPtr = getStorage().getFillValue().defined()? getStorage().getFillValue().getValPtr() : nullptr;
     taco_tensor_t* bufferStorage = init_taco_tensor_t(1, csize,
         (int32_t*)bufferDim.data(), (int32_t*)bufferModeOrdering.data(),
-        (taco_mode_t*)bufferModeType.data());
+        (taco_mode_t*)bufferModeType.data(), fillPtr);
     std::vector<int> pos = {0, (int)numCoordinates};
     bufferStorage->indices[0][0] = (uint8_t*)pos.data();
     bufferStorage->indices[0][1] = (uint8_t*)bufferCoords.data();
 
     bufferStorage->vals = (uint8_t*)content->coordinateBuffer->data();
-    bufferStorage->fill_value = (uint8_t*)(getStorage().getFill().getData());
 
     std::vector<void*> arguments = {content->storage, bufferStorage};
     helperFuncs->callFuncPacked("pack", arguments.data());
@@ -440,18 +441,17 @@ void TensorBase::pack() {
   content->coordinateBuffer->clear();
   content->coordinateBufferUsed = 0;
 
-
+  void* fillPtr = getStorage().getFillValue().defined()? getStorage().getFillValue().getValPtr() : nullptr;
   std::vector<taco_mode_t> bufferModeTypes(order, taco_mode_sparse);
   taco_tensor_t* bufferStorage = init_taco_tensor_t(order, csize,
       (int32_t*)dimensions.data(), (int32_t*)permutation.data(),
-      (taco_mode_t*)bufferModeTypes.data());
+      (taco_mode_t*)bufferModeTypes.data(), fillPtr);
   std::vector<int> pos = {0, (int)numCoordinates};
   bufferStorage->indices[0][0] = (uint8_t*)pos.data();
   for (int i = 0; i < order; ++i) {
     bufferStorage->indices[i][1] = (uint8_t*)coordinates[i].data();
   }
   bufferStorage->vals = (uint8_t*)values;
-  bufferStorage->fill_value = (uint8_t*)(getStorage().getFill().getData());
 
   // Pack nonzero components into required format
   std::vector<void*> arguments = {content->storage, bufferStorage};

@@ -27,8 +27,7 @@ struct TensorStorage::Content {
   Index         index;
   Array         values;
 
-  // Always an array of size 1
-  Array         fillValue;
+  Literal       fillValue;
 
   Content(Datatype componentType, vector<int> dimensions, Format format, Literal fill)
       : componentType(componentType), dimensions(dimensions), format(format),
@@ -58,14 +57,10 @@ struct TensorStorage::Content {
       }
     }
 
-    void* fillData = malloc(componentType.getNumBytes());
-    memcpy(fillData, fill.getValPtr(), componentType.getNumBytes());
-
-    fillValue = Array(componentType, fillData, 1, Array::Policy::Free);
-
+    fillValue = fill;
     tensorData = init_taco_tensor_t(order, componentType.getNumBits(),
                                     dimensionsInt32.data(), modeOrdering.data(),
-                                    modeTypes.data());
+                                    modeTypes.data(), fill.getValPtr());
   }
 
   ~Content() {
@@ -106,13 +101,12 @@ const Array& TensorStorage::getValues() const {
   return content->values;
 }
 
-const Array& TensorStorage::getFill() const {
-  taco_iassert(content->fillValue.getSize() == 1);
-  return content->fillValue;
-}
-
 Array TensorStorage::getValues() {
   return content->values;
+}
+
+Literal TensorStorage::getFillValue() {
+  return content->fillValue;
 }
 
 size_t TensorStorage::getSizeInBytes() {
@@ -177,7 +171,7 @@ TensorStorage::operator struct taco_tensor_t*() const {
   }
 
   tensorData->vals  = (uint8_t*)getValues().getData();
-  tensorData->fill_value = (uint8_t*)getFill().getData();
+  tensorData->fill_value = (uint8_t*) content->fillValue.getValPtr();
 
   return content->tensorData;
 }
@@ -188,11 +182,6 @@ void TensorStorage::setIndex(const Index& index) {
 
 void TensorStorage::setValues(const Array& values) {
   content->values = values;
-}
-
-void TensorStorage::setFill(const Array &fill) {
-  taco_iassert(fill.getSize() == 1);
-  content->fillValue = fill;
 }
 
 bool equals(TensorStorage a, TensorStorage b) {

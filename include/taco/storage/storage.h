@@ -52,12 +52,11 @@ public:
   /// Returns the value array that contains the tensor components.
   const Array& getValues() const;
 
-  /// Returns the fill array containing the tensor fill value. This is always
-  /// of size one.
-  const Array& getFill() const;
-
   /// Returns the tensor component value array.
   Array getValues();
+
+  /// Returns the full value attached to the tensor storage
+  Literal getFillValue();
 
   /// Returns the size of the storage in bytes.
   size_t getSizeInBytes();
@@ -71,8 +70,6 @@ public:
   /// Set the tensor component value array.
   void setValues(const Array& values);
 
-  /// Set the fill array. This should always be size 1
-  void setFill(const Array& fill);
 
 private:
   struct Content;

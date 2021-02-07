@@ -24,7 +24,7 @@ typedef struct taco_tensor_t {
 
 taco_tensor_t *init_taco_tensor_t(int32_t order, int32_t csize,
                                   int32_t* dimensions, int32_t* modeOrdering,
-                                  taco_mode_t* mode_types);
+                                  taco_mode_t* mode_types, void* fill_ptr);
 
 void deinit_taco_tensor_t(taco_tensor_t* t);
 

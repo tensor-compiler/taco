@@ -161,7 +161,7 @@ TensorStorage pack(Datatype                             componentType,
   }
 
   void* vals = malloc(maxSize * componentType.getNumBytes());
-  const void* fillData = storage.getFill().getData();
+  const void* fillData = storage.getFillValue().defined()? storage.getFillValue().getValPtr() : nullptr;
   int actual_size = packTensor(dimensions, coordinates, (char *) values, fillData, 0,
                                numCoordinates, format.getModeFormats(), 0,
                                &indices, (char *)vals, componentType, 0);
