@@ -3,46 +3,46 @@
 namespace taco {
 
 // Full construction
-Func::Func(OpImpl lowererFunc, AlgebraImpl algebraFunc, std::vector<Property> properties,
-           std::map<std::vector<int>, OpImpl> specialDefinitions)
+Func::Func(FuncBodyGenerator lowererFunc, FuncAlgebraGenerator algebraFunc, std::vector<Property> properties,
+           std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions)
        : name(util::uniqueName("Func")), lowererFunc(lowererFunc), algebraFunc(algebraFunc),
          properties(properties), regionDefinitions(specialDefinitions) {
 }
 
-Func::Func(std::string name, OpImpl lowererFunc, AlgebraImpl algebraFunc, std::vector<Property> properties,
-           std::map<std::vector<int>, OpImpl> specialDefinitions)
+Func::Func(std::string name, FuncBodyGenerator lowererFunc, FuncAlgebraGenerator algebraFunc, std::vector<Property> properties,
+           std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions)
        : name(name), lowererFunc(lowererFunc), algebraFunc(algebraFunc), properties(properties),
          regionDefinitions(specialDefinitions) {
 }
 
 // Construct without specifying algebra
-Func::Func(std::string name, OpImpl lowererFunc, std::vector<Property> properties,
-           std::map<std::vector<int>, OpImpl> specialDefinitions)
+Func::Func(std::string name, FuncBodyGenerator lowererFunc, std::vector<Property> properties,
+           std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions)
        : Func(name, lowererFunc, nullptr, properties, specialDefinitions) {
 }
 
-Func::Func(OpImpl lowererFunc, std::vector<Property> properties,
-           std::map<std::vector<int>, OpImpl> specialDefinitions)
+Func::Func(FuncBodyGenerator lowererFunc, std::vector<Property> properties,
+           std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions)
        : Func(util::uniqueName("Func"), lowererFunc, nullptr, properties, specialDefinitions) {
 }
 
 // Construct without properties
-Func::Func(std::string name, OpImpl lowererFunc, AlgebraImpl algebraFunc,
-           std::map<std::vector<int>, OpImpl> specialDefinitions)
+Func::Func(std::string name, FuncBodyGenerator lowererFunc, FuncAlgebraGenerator algebraFunc,
+           std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions)
        : Func(name, lowererFunc, algebraFunc, {}, specialDefinitions) {
 }
 
-Func::Func(OpImpl lowererFunc, AlgebraImpl algebraFunc,
-           std::map<std::vector<int>, OpImpl> specialDefinitions) :
+Func::Func(FuncBodyGenerator lowererFunc, FuncAlgebraGenerator algebraFunc,
+           std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions) :
         Func(util::uniqueName("Func"), lowererFunc, algebraFunc, {}, specialDefinitions) {
 }
 
 // Construct without algebra or properties
-Func::Func(std::string name, OpImpl lowererFunc, std::map<std::vector<int>, OpImpl> specialDefinitions)
+Func::Func(std::string name, FuncBodyGenerator lowererFunc, std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions)
        : Func(name, lowererFunc, nullptr, specialDefinitions) {
 }
 
-Func::Func(OpImpl lowererFunc, std::map<std::vector<int>, OpImpl> specialDefinitions)
+Func::Func(FuncBodyGenerator lowererFunc, std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions)
        : Func(lowererFunc, nullptr, specialDefinitions) {
 }
 

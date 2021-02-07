@@ -14,36 +14,36 @@
 namespace taco {
 
 class Func {
-// TODO: RENAME
-using OpImpl = CallNode::OpImpl;
-using AlgebraImpl = CallNode::AlgebraImpl;
+
+using FuncBodyGenerator = CallNode::OpImpl;
+using FuncAlgebraGenerator = CallNode::AlgebraImpl;
 
 // TODO: Make this part of callNode and call. Add generateIterationAlgebra() and generateImplementation() functions
 public:
   // Full construction
-  Func(OpImpl lowererFunc, AlgebraImpl algebraFunc, std::vector<Property> properties,
-       std::map<std::vector<int>, OpImpl> specialDefinitions = {});
+  Func(FuncBodyGenerator lowererFunc, FuncAlgebraGenerator algebraFunc, std::vector<Property> properties,
+       std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions = {});
 
-  Func(std::string name, OpImpl lowererFunc, AlgebraImpl algebraFunc, std::vector<Property> properties,
-       std::map<std::vector<int>, OpImpl> specialDefinitions = {});
+  Func(std::string name, FuncBodyGenerator lowererFunc, FuncAlgebraGenerator algebraFunc, std::vector<Property> properties,
+       std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions = {});
 
   // Construct without specifying algebra
-  Func(std::string name, OpImpl lowererFunc, std::vector<Property> properties,
-       std::map<std::vector<int>, OpImpl> specialDefinitions  = {});
+  Func(std::string name, FuncBodyGenerator lowererFunc, std::vector<Property> properties,
+       std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions  = {});
 
-  Func(OpImpl lowererFunc, std::vector<Property> properties,
-       std::map<std::vector<int>, OpImpl> specialDefinitions = {});
+  Func(FuncBodyGenerator lowererFunc, std::vector<Property> properties,
+       std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions = {});
 
   // Construct without properties
-  Func(std::string name, OpImpl lowererFunc, AlgebraImpl algebraFunc,
-       std::map<std::vector<int>, OpImpl> specialDefinitions = {});
+  Func(std::string name, FuncBodyGenerator lowererFunc, FuncAlgebraGenerator algebraFunc,
+       std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions = {});
 
-  Func(OpImpl lowererFunc, AlgebraImpl algebraFunc, std::map<std::vector<int>, OpImpl> specialDefinitions = {});
+  Func(FuncBodyGenerator lowererFunc, FuncAlgebraGenerator algebraFunc, std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions = {});
 
   // Construct without algebra or properties
-  Func(std::string name, OpImpl lowererFunc, std::map<std::vector<int>, OpImpl> specialDefinitions = {});
+  Func(std::string name, FuncBodyGenerator lowererFunc, std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions = {});
 
-  explicit Func(OpImpl lowererFunc, std::map<std::vector<int>, OpImpl> specialDefinitions = {});
+  explicit Func(FuncBodyGenerator lowererFunc, std::map<std::vector<int>, FuncBodyGenerator> specialDefinitions = {});
 
   template<typename... IndexExprs>
   Call operator()(IndexExprs&&... exprs) {
@@ -59,10 +59,10 @@ public:
 
 private:
   std::string name;
-  OpImpl lowererFunc;
-  AlgebraImpl algebraFunc;
+  FuncBodyGenerator lowererFunc;
+  FuncAlgebraGenerator algebraFunc;
   std::vector<Property> properties;
-  std::map<std::vector<int>, OpImpl> regionDefinitions;
+  std::map<std::vector<int>, FuncBodyGenerator> regionDefinitions;
 
   IterationAlgebra inferAlgFromProperties(const std::vector<IndexExpr>& exprs);
 
