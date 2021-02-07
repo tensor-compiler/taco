@@ -82,7 +82,7 @@ static Tensor<T> fromNumpyF(py::array_t<T, py::array::f_style> &array, bool copy
 
 
 template<typename T>
-static Tensor<T> fromNumpyC(py::array_t<T, py::array::c_style | py::array::forcecast>  &array, bool copy) {
+static Tensor<T> fromNumpyC(py::array_t<T, py::array::c_style>  &array, bool copy) {
   py::buffer_info array_buffer = array.request();
   const ssize_t dims = array_buffer.ndim;
   Format fmt(std::vector<ModeFormatPack>(dims, dense));
