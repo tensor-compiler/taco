@@ -155,8 +155,32 @@ private:
   }
 
   void visit(const IndexVarNode* varNode) {
+    // There are a few cases here...
+
+    // 1) If var in the expression is the same as the var being lowered, we need to return a lattice
+    //    with one point that iterates over the universe of the current dimension.
+    //    Why: TACO needs to know if it needs to generate merge loops to deal with computing the current index var.
+    //      Eg. b(i) + i where b is sparse. To preserve semantics, we need to merge the sparse iteration set of b
+    //      with the implied dense space of i.
+    //      Question: What if the user WANTS i to be 'sparse'? Just define a func where + is an intersection =)
+    // 2) The vars differ. This case actually has 2 subcases...
+    //    a) The loop variable ('i' in this builder) is derived from the variable used in the expression
+    //       ('var' defined below). In this case, return a mode iterator over the derived var ('i' in the builder)
+    //       so taco can generate the correct merge loops for this level.
+    //    b) The loop variable is not derived from the variable used in the expression. In this case, we just return
+    //        an empty lattice as there is nothing that needs to be merged =)
+    // TODO: Add these cases to the test suite....
     IndexVar var(varNode);
-    lattice = MergeLattice({MergePoint({iterators.modeIterator(var)}, {}, {})});
+    taco_iassert(provGraph.isUnderived(var));
+    if (var == i) {
+      lattice = MergeLattice({MergePoint({Iterator(var)}, {}, {})});
+    } else {
+      if (provGraph.isDerivedFrom(i, var)) {
+        lattice = MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+      } else {
+        lattice = MergeLattice({});
+      }
+    }
   }
 
   void visit(const AccessNode* access)
