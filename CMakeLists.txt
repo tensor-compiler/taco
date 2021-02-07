@@ -110,7 +110,6 @@ add_subdirectory(apps)
 string(REPLACE " -Wmissing-declarations" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 if(PYTHON)
-  add_subdirectory(python_bindings)
   find_package(Git QUIET)
   if(GIT_FOUND AND EXISTS "${TACO_PROJECT_DIR}/.git")
     # Update submodules as needed
@@ -129,6 +128,7 @@ if(PYTHON)
   if(NOT EXISTS "${TACO_PROJECT_DIR}/python_bindings/pybind11/CMakeLists.txt")
     message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
   endif()
+  add_subdirectory(python_bindings)
 endif(PYTHON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmissing-declarations")
