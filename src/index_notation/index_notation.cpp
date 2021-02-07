@@ -2139,7 +2139,7 @@ TensorVar::TensorVar(const Type& type, const Format& format, const Literal& fill
 }
 
 TensorVar::TensorVar(const string& name, const Type& type, const Format& format, const Literal& fill)
-    : TensorVar(-1, name, type, createDenseFormat(type), fill) {
+    : TensorVar(-1, name, type, format, fill) {
 }
 
 TensorVar::TensorVar(const int& id, const string& name, const Type& type, const Format& format, const Literal& fill)
