@@ -126,7 +126,7 @@ if(PYTHON)
     endif()
   endif()
 
-  if(NOT EXISTS "${TACO_PROJECT_DIR}/python_bindings/pybind11")
+  if(NOT EXISTS "${TACO_PROJECT_DIR}/python_bindings/pybind11/CMakeLists.txt")
     message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
   endif()
 endif(PYTHON)
