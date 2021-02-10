@@ -1033,8 +1033,14 @@ IndexStmt scalarPromote(IndexStmt stmt, ProvenanceGraph provGraph,
         return;
       }
 
-      stmt = forall(i, body, foralli.getParallelUnit(),
-                    foralli.getOutputRaceStrategy(), foralli.getUnrollFactor());
+      auto parallelunit = foralli.getParallelUnit();
+      auto racestrategy = foralli.getOutputRaceStrategy();
+      auto unrollfactor = foralli.getUnrollFactor();
+      // compilers reject openmp atomic pragmas for assignments from thread-local temporaries.  See bug #316.
+      if(parallelunit == ParallelUnit::CPUThread && racestrategy == OutputRaceStrategy::Atomics) {
+        racestrategy = OutputRaceStrategy::IgnoreRaces;
+      }
+      stmt = forall(i, body, parallelunit, racestrategy, unrollfactor);
       for (const auto& consumer : consumers) {
         stmt = where(consumer, stmt);
       }
