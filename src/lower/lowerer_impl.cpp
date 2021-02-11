@@ -276,8 +276,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
     // Assignment to scalar variables.
     if (isScalar(result.getType())) {
       if (!assignment.getOperator().defined()) {
-        return Assign::make(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result), atomicParallelUnit);
-        // TODO: we don't need to mark all assigns/stores just when scattering/reducing
+        return Assign::make(var, rhs);
       }
       else {
         taco_iassert(isa<taco::Add>(assignment.getOperator()));
@@ -290,7 +289,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
       Expr loc = generateValueLocExpr(assignment.getLhs());
 
       if (!assignment.getOperator().defined()) {
-        computeStmt = Store::make(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
+        computeStmt = Store::make(values, loc, rhs);
       }
       else {
         computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
@@ -301,7 +300,6 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
   // TODO: If only assembling so defer allocating value memory to the end when
   //       we'll know exactly how much we need.
   if (generateAssembleCode() || generateComputeCode()) {
-
     bool temporaryWithSparseAcceleration = util::contains(tempToIndexList, result);
     if(generateComputeCode() && !temporaryWithSparseAcceleration) {
       taco_iassert(computeStmt.defined());
