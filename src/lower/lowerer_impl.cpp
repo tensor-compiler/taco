@@ -439,6 +439,9 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
   }
 
   if (temporaryWithSparseAcceleration) {
+    taco_iassert(markAssignsAtomicDepth == 0)
+      << "Parallel assembly of sparse accelerator not supported";
+
     Expr values = getValuesArray(result);
     Expr loc = generateValueLocExpr(assignment.getLhs());
 
@@ -446,10 +449,10 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
     Expr indexList = tempToIndexList.at(result);
     Expr indexListSize = tempToIndexListSize.at(result);
 
-    Stmt markBitGuardAsTrue = Store::make(bitGuardArr, loc, ir::Literal::make(true), markAssignsAtomicDepth > 0, atomicParallelUnit);
-    Stmt trackIndex = Store::make(indexList, indexListSize, loc, markAssignsAtomicDepth > 0, atomicParallelUnit);
-    Expr incrementSize = ir::Add::make(indexListSize, ir::Literal::make(1));
-    Stmt incrementStmt = Assign::make(indexListSize, incrementSize, markAssignsAtomicDepth > 0, atomicParallelUnit);
+    Stmt markBitGuardAsTrue = Store::make(bitGuardArr, loc, true);
+    Stmt trackIndex = Store::make(indexList, indexListSize, loc);
+    Expr incrementSize = ir::Add::make(indexListSize, 1);
+    Stmt incrementStmt = Assign::make(indexListSize, incrementSize);
 
     Stmt firstWriteAtIndex = Block::make(trackIndex, markBitGuardAsTrue, incrementStmt);
     if (util::contains(needCompute, result) && values.defined()) {
@@ -457,9 +460,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
       if (assignment.getOperator().defined()) {
         // computeStmt is a compund stmt so we need to emit an initial store 
         // into the temporary
-        initialStorage =  Store::make(values, loc, rhs, 
-                                      markAssignsAtomicDepth > 0, 
-                                      atomicParallelUnit);
+        initialStorage =  Store::make(values, loc, rhs);
       }
       firstWriteAtIndex = Block::make(initialStorage, firstWriteAtIndex);
     }
