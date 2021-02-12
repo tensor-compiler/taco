@@ -13,10 +13,21 @@
 
 namespace taco {
 
+// An AccessNode carries the windowing information for an IndexVar + TensorVar
+// combination. An AccessWindow contains the lower and upper bounds of each
+// windowed mode (0-indexed). AccessWindow is extracted from AccessNode so that
+// it can be referenced externally.
+struct AccessWindow {
+  int lo;
+  int hi;
+  friend bool operator==(const AccessWindow& a, const AccessWindow& b) {
+    return a.lo == b.lo && a.hi == b.hi;
+  }
+};
 
 struct AccessNode : public IndexExprNode {
-  AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices)
-      : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices) {}
+  AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices, const std::map<int, AccessWindow>& windows={})
+      : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices), windowedModes(windows) {}
 
   void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
@@ -26,6 +37,12 @@ struct AccessNode : public IndexExprNode {
 
   TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
+  std::map<int, AccessWindow> windowedModes;
+
+protected:
+  /// Initialize an AccessNode with just a TensorVar. If this constructor is used,
+  /// then indexVars must be set afterwards.
+  explicit AccessNode(TensorVar tensorVar) : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar) {}
 };
 
 struct LiteralNode : public IndexExprNode {

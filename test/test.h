@@ -3,6 +3,7 @@
 
 #include "gtest/gtest.h"
 
+#include <functional>
 #include <iostream>
 #include <vector>
 #include <memory>
@@ -92,6 +93,10 @@ void ASSERT_COMPONENTS_EQUALS(vector<vector<vector<int>>> expectedIndices,
   ASSERT_EQ(expectedValues.size(), nnz);
   ASSERT_ARRAY_EQ(expectedValues, {(double*)storage.getValues().getData(),nnz});
 }
+
+// ASSERT_THROWS_EXCEPTION_WITH_ERROR asserts that the input function throws
+// a TacoException with the input string err contained within the body.
+void ASSERT_THROWS_EXCEPTION_WITH_ERROR(std::function<void()> f, std::string err);
 
 struct NotationTest {
   NotationTest(IndexStmt actual, IndexStmt expected)

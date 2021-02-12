@@ -1293,9 +1293,14 @@ void CodeGen_CUDA::visit(const Call* op) {
   stream << op->func << "(";
   parentPrecedence = Precedence::CALL;
 
-  // Need to print cast to type so that arguments match
+  // Need to print cast to type so that arguments match.
   if (op->args.size() > 0) {
-    if (op->type != op->args[0].type() || isa<Literal>(op->args[0])) {
+    // However, the binary search arguments take int* as their first
+    // argument. This pointer information isn't carried anywhere in
+    // the argument expressions, so we need to special case and not
+    // emit an invalid cast for that argument.
+    auto opIsBinarySearch = op->func == "taco_binarySearchAfter" || op->func == "taco_binarySearchBefore";
+    if (!opIsBinarySearch && (op->type != op->args[0].type() || isa<Literal>(op->args[0]))) {
       stream << "(" << printCUDAType(op->type, false) << ") ";
     }
     op->args[0].accept(this);
