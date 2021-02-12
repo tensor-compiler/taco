@@ -367,14 +367,13 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
   // Assignment to scalar variables.
   if (isScalar(result.getType())) {
     if (util::contains(needCompute, result)) {
-      bool useAtomics = markAssignsAtomicDepth > 0 && 
-                        !util::contains(whereTemps, result);
       if (!assignment.getOperator().defined()) {
-        computeStmt = Assign::make(var, rhs, useAtomics, atomicParallelUnit);
-        // TODO: we don't need to mark all assigns/stores just when scattering/reducing
+        return Assign::make(var, rhs);
       }
       else {
         taco_iassert(isa<taco::Add>(assignment.getOperator()));
+        bool useAtomics = markAssignsAtomicDepth > 0 &&
+                          !util::contains(whereTemps, result);
         computeStmt = compoundAssign(var, rhs, useAtomics, atomicParallelUnit);
       }
     }
@@ -414,13 +413,12 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
     }
 
     if (util::contains(needCompute, result) && values.defined()) {
-      bool useAtomics = (markAssignsAtomicDepth > 0);
       if (!assignment.getOperator().defined()) {
-        computeStmt = Store::make(values, loc, rhs, useAtomics, 
-                                  atomicParallelUnit);
+        computeStmt = Store::make(values, loc, rhs);
       }
       else {
-        computeStmt = compoundStore(values, loc, rhs, useAtomics, 
+        computeStmt = compoundStore(values, loc, rhs,
+                                    markAssignsAtomicDepth > 0,
                                     atomicParallelUnit);
       }
       taco_iassert(computeStmt.defined());
