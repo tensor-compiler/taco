@@ -358,13 +358,6 @@ TEST(scheduling_eval, test_spmvCPU_temp) {
   A.pack();
 
 
-  IndexVar i0("i0"), i1("i1"), kpos("kpos"), kpos0("kpos0"), kpos1("kpos1");
-  TensorVar tj("tj", Float64);
-  IndexVar jw("iw");
-
-  y(i) = A(i, j) * x(j);
-  Access tjAccess = tj();
-
   y(i) = A(i, j) * x(j);
   IndexStmt stmt = y.getAssignment().concretize();
   stmt = stmt.parallelize(i, ParallelUnit::CPUThread, OutputRaceStrategy::Atomics);
@@ -377,6 +370,57 @@ TEST(scheduling_eval, test_spmvCPU_temp) {
 
   Tensor<double> expected("expected", {NUM_I}, Format({Dense}));
   expected(i) = A(i, j) * x(j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
+}
+
+TEST(scheduling_eval, test_sptvCPU_temp) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  int NUM_K = 1049/10;
+  float SPARSITY = .01;
+  Tensor<double> A("A", {NUM_I, NUM_J, NUM_K}, Format({Sparse, Sparse, Sparse}));
+  Tensor<double> x("x", {NUM_K}, Format({Dense}));
+  Tensor<double> y("y", {NUM_J}, Format({Dense}));
+
+  srand(4357);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      for (int k = 0; k < NUM_K; k++) {
+        float rand_float = (float)rand()/(float)(RAND_MAX);
+        if (rand_float < SPARSITY) {
+          A.insert({i, j, k}, (double) ((int) (rand_float*3/SPARSITY)));
+        }
+      }
+    }
+  }
+
+  for (int k = 0; k < NUM_K; k++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    x.insert({k}, (double) ((int) (rand_float*3/SPARSITY)));
+  }
+
+  x.pack();
+  A.pack();
+
+
+  y(j) = A(i, j, k) * x(k);
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = stmt.reorder({i,j,k}).parallelize(j, ParallelUnit::CPUThread, OutputRaceStrategy::Atomics);
+
+  //printToFile("test_sptvCPU_temp", stmt);
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<double> expected("expected", {NUM_J}, Format({Dense}));
+  expected(j) = A(i, j, k) * x(k);
   expected.compile();
   expected.assemble();
   expected.compute();
