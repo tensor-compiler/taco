@@ -420,7 +420,10 @@ public:
   void assemble();
 
   /// Compute the given expression and put the values in the tensor storage.
-  void compute();
+  /// If force is true, then tensor expression will be executed, whether or
+  /// or not the tensor expression has been evaluated already. force is useful
+  /// in situations like benchmarking.
+  void compute(bool force = false);
 
   /// Compile, assemble and compute as needed.
   void evaluate();
