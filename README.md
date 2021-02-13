@@ -165,6 +165,32 @@ the same effect:
 
     Options:
       ...
+To use the generated C kernel. You can call the C kernal from CPP code like this:
+```C++
+  Format csr({Dense,Sparse});
+  Format csf({Sparse,Sparse,Sparse});
+  Format  sv({Sparse});  
+  Tensor<double> A("A", {2,3},   csr);
+  Tensor<double> B("B", {2,3,4}, csf);
+  Tensor<double> C("c", {4},     sv);
+  // Insert data into B and C
+  B(0,0,0) = 1.0;
+  B(1,2,0) = 2.0;
+  B(1,2,1) = 3.0;
+  C(0) = 4.0;
+  C(1) = 5.0;
+  C.pack();
+  B.pack();
+  A.pack();
+  assert(A.getTacoTensorT());
+  compute(A.getTacoTensorT(),B.getTacoTensorT(),C.getTacoTensorT());
+  std::cout << A << std::endl;
+```
+To build and link your code, you may want to: 
+``` 
+cmake .. -DTACO_SHARED_LIBRARY=false # generate static library 
+g++ ./ttv.cc -static -L/YOUR_PATH/taco-master/build/lib/ -ltaco -ldl -g # static linking
+```
 
 For more information, see our paper on the taco tools
 [taco: A Tool to Generate Tensor Algebra Kernels](http://tensor-compiler.org/kjolstad-ase17-tools.pdf).
