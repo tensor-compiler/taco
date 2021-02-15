@@ -55,11 +55,11 @@ IndexStmt scheduleSpMMCPU(IndexStmt stmt, Tensor<double> A, int CHUNK_SIZE=16, i
 }
 
 IndexStmt scheduleSpGEMMCPU(IndexStmt stmt, Tensor<double> C) {
-  stmt = stmt.reorder({i, j, k});
+  stmt = reorderLoopsTopologically(stmt);
   stmt = insertTemporaries(stmt);
   stmt = stmt.assemble(C.getTensorVar(), AssembleStrategy::Insert);
   IndexVar qi = to<Forall>(to<Assemble>(stmt).getQueries()).getIndexVar();
-  stmt = stmt.parallelize(i, ParallelUnit::CPUThread, 
+  stmt = stmt.parallelize(i, ParallelUnit::CPUThread,
                           OutputRaceStrategy::NoRaces)
              .parallelize(qi, ParallelUnit::CPUThread,
                           OutputRaceStrategy::NoRaces);
@@ -531,19 +531,23 @@ TEST(scheduling_eval, spmmCPU) {
   ASSERT_TENSOR_EQ(expected, C);
 }
 
-TEST(scheduling_eval, spgemmCPU) {
+struct spgemm : public TestWithParam<std::pair<Format,Format>> {};
+
+TEST_P(spgemm, scheduling_eval) {
   if (should_use_CUDA_codegen()) {
     return;
   }
 
+  Format aFormat, bFormat;
+  std::tie(aFormat, bFormat) = GetParam();
+
   int NUM_I = 100;
   int NUM_J = 100;
   int NUM_K = 100;
-  float SPARSITY = .3;
-  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
-  Tensor<double> B("B", {NUM_J, NUM_K}, CSR);
+  float SPARSITY = .03;
+  Tensor<double> A("A", {NUM_I, NUM_J}, aFormat);
+  Tensor<double> B("B", {NUM_J, NUM_K}, bFormat);
   Tensor<double> C("C", {NUM_I, NUM_K}, CSR);
-  Tensor<double> D("D", {NUM_I, NUM_K}, CSR);
 
   srand(75883);
   for (int i = 0; i < NUM_I; i++) {
@@ -558,7 +562,9 @@ TEST(scheduling_eval, spgemmCPU) {
   for (int j = 0; j < NUM_J; j++) {
     for (int k = 0; k < NUM_K; k++) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
-      B.insert({j, k}, (double) ((int) (rand_float*3/SPARSITY)));
+      if (rand_float < SPARSITY) {
+        B.insert({j, k}, (double) ((int) (rand_float*3/SPARSITY)));
+      }
     }
   }
 
@@ -572,6 +578,7 @@ TEST(scheduling_eval, spgemmCPU) {
   C.compile(stmt);
   C.assemble();
   C.compute();
+  std::cout << C << std::endl;
 
   Tensor<double> expected("expected", {NUM_I, NUM_K}, {Dense, Dense});
   expected(i, k) = A(i, j) * B(j, k);
@@ -580,6 +587,65 @@ TEST(scheduling_eval, spgemmCPU) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
 }
+
+INSTANTIATE_TEST_CASE_P(spgemm, spgemm,
+                        Values(std::make_pair(CSR, CSR),
+                               std::make_pair(DCSR, CSR),
+                               std::make_pair(DCSR, DCSR),
+                               std::make_pair(CSR, CSC),
+                               std::make_pair(DCSR, DCSC)));
+
+//TEST(scheduling_eval, spgemmCPU) {
+//  if (should_use_CUDA_codegen()) {
+//    return;
+//  }
+//
+//  int NUM_I = 100;
+//  int NUM_J = 100;
+//  int NUM_K = 100;
+//  float SPARSITY = .03;
+//  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+//  Tensor<double> B("B", {NUM_J, NUM_K}, CSR);
+//  Tensor<double> C("C", {NUM_I, NUM_K}, CSR);
+//  Tensor<double> D("D", {NUM_I, NUM_K}, CSR);
+//
+//  srand(75883);
+//  for (int i = 0; i < NUM_I; i++) {
+//    for (int j = 0; j < NUM_J; j++) {
+//      float rand_float = (float)rand()/(float)(RAND_MAX);
+//      if (rand_float < SPARSITY) {
+//        A.insert({i, j}, (double) ((int) (rand_float*3/SPARSITY)));
+//      }
+//    }
+//  }
+//
+//  for (int j = 0; j < NUM_J; j++) {
+//    for (int k = 0; k < NUM_K; k++) {
+//      float rand_float = (float)rand()/(float)(RAND_MAX);
+//      if (rand_float < SPARSITY) {
+//        B.insert({j, k}, (double) ((int) (rand_float*3/SPARSITY)));
+//      }
+//    }
+//  }
+//
+//  A.pack();
+//  B.pack();
+//
+//  C(i, k) = A(i, j) * B(j, k);
+//  IndexStmt stmt = C.getAssignment().concretize();
+//  stmt = scheduleSpGEMMCPU(stmt, C);
+//
+//  C.compile(stmt);
+//  C.assemble();
+//  C.compute();
+//
+//  Tensor<double> expected("expected", {NUM_I, NUM_K}, {Dense, Dense});
+//  expected(i, k) = A(i, j) * B(j, k);
+//  expected.compile();
+//  expected.assemble();
+//  expected.compute();
+//  ASSERT_TENSOR_EQ(expected, C);
+//}
 
 TEST(scheduling_eval, sddmmCPU) {
   if (should_use_CUDA_codegen()) {

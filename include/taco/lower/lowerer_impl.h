@@ -381,6 +381,8 @@ protected:
   /// Expression that evaluates to true if none of the iteratators are exhausted
   ir::Expr checkThatNoneAreExhausted(std::vector<Iterator> iterators);
 
+  ir::Expr generateAssembleGuard(IndexExpr expr);
+
   bool isAssembledByUngroupedInsertion(TensorVar result);
 
   bool isAssembledByUngroupedInsertion(ir::Expr result);
@@ -418,6 +420,8 @@ private:
 
   /// Map form temporary to bitGuard var if accelerating dense workspace
   std::map<TensorVar, ir::Expr> tempToBitGuard;
+
+  std::set<TensorVar> guardedTemps;
 
   /// Map from result tensors to variables tracking values array capacity.
   std::map<ir::Expr, ir::Expr> capacityVars;

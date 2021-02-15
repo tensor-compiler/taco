@@ -912,9 +912,13 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       expr = op;
     }
   };
-  loweredQueries = LowerAttrQuery(getResult(), 
-                                  queryResults, 
-                                  insertedResults).lower(loweredQueries);
+  LowerAttrQuery queryLowerer(getResult(), queryResults, insertedResults);
+  loweredQueries = queryLowerer.lower(loweredQueries);
+
+  if (!queryLowerer.reason.empty()) {
+    *reason = queryLowerer.reason;
+    return IndexStmt();
+  }
 
   // Convert redundant reductions to assignments
   struct ReduceToAssign : public IndexNotationRewriter {

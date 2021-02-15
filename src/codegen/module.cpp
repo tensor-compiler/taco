@@ -21,15 +21,19 @@ using namespace std;
 namespace taco {
 namespace ir {
 
+std::string Module::chars = "abcdefghijkmnpqrstuvwxyz0123456789";
+std::default_random_engine Module::gen = std::default_random_engine();
+std::uniform_int_distribution<int> Module::randint =
+    std::uniform_int_distribution<int>(0, chars.length() - 1);
+
 void Module::setJITTmpdir() {
   tmpdir = util::getTmpdir();
 }
 
 void Module::setJITLibname() {
-  string chars = "abcdefghijkmnpqrstuvwxyz0123456789";
   libname.resize(12);
   for (int i=0; i<12; i++)
-    libname[i] = chars[rand() % chars.length()];
+    libname[i] = chars[randint(gen)];
 }
 
 void Module::addFunction(Stmt func) {
