@@ -381,11 +381,16 @@ protected:
   /// Expression that evaluates to true if none of the iteratators are exhausted
   ir::Expr checkThatNoneAreExhausted(std::vector<Iterator> iterators);
 
+  /// Create an expression that can be used to filter out (some) zeros in the
+  /// result
   ir::Expr generateAssembleGuard(IndexExpr expr);
 
+  /// Check whether the result tensor should be assembled by ungrouped insertion
   bool isAssembledByUngroupedInsertion(TensorVar result);
-
   bool isAssembledByUngroupedInsertion(ir::Expr result);
+
+  /// Check whether the statement writes to a result tensor
+  bool hasStores(ir::Stmt stmt);
 
   std::pair<std::vector<Iterator>,std::vector<Iterator>>
   splitAppenderAndInserters(const std::vector<Iterator>& results);

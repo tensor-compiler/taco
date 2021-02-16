@@ -86,26 +86,6 @@ static void createReducedValueVars(const vector<Access>& inputAccesses,
   }
 }
 
-/// Returns true iff `stmt` modifies an array
-static bool hasStores(Stmt stmt) {
-  struct FindStores : IRVisitor {
-    bool hasStore;
-
-    using IRVisitor::visit;
-
-    void visit(const Store* stmt) {
-      hasStore = true;
-    }
-
-    bool hasStores(Stmt stmt) {
-      hasStore = false;
-      stmt.accept(this);
-      return hasStore;
-    }
-  };
-  return stmt.defined() && FindStores().hasStores(stmt);
-}
-
 static void getDependentTensors(IndexStmt stmt, std::set<TensorVar>& tensors) {
   std::set<TensorVar> prev;
   do {
@@ -743,7 +723,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   if (!generateComputeCode() && !hasStores(loops)) {
     // If assembly loop does not modify output arrays, then it can be safely
     // omitted.
-    //loops = Stmt();
+    loops = Stmt();
   }
   definedIndexVars.erase(forall.getIndexVar());
   definedIndexVarsOrdered.pop_back();
@@ -3131,6 +3111,7 @@ bool LowererImpl::isAssembledByUngroupedInsertion(TensorVar result) {
   return util::contains(assembledByUngroupedInsert, result);
 }
 
+
 bool LowererImpl::isAssembledByUngroupedInsertion(Expr result) {
   for (const auto& tensor : assembledByUngroupedInsert) {
     if (getTensorVar(tensor) == result) {
@@ -3138,6 +3119,54 @@ bool LowererImpl::isAssembledByUngroupedInsertion(Expr result) {
     }
   }
   return false;
+}
+
+
+bool LowererImpl::hasStores(Stmt stmt) {
+  if (!stmt.defined()) {
+    return false;
+  }
+
+  struct FindStores : IRVisitor {
+    bool hasStore;
+    const std::map<TensorVar,Expr>& tensorVars;
+    const std::map<TensorVar,Expr>& tempToBitGuard;
+
+    using IRVisitor::visit;
+
+    FindStores(const std::map<TensorVar,Expr>& tensorVars,
+               const std::map<TensorVar,Expr>& tempToBitGuard)
+        : tensorVars(tensorVars), tempToBitGuard(tempToBitGuard) {}
+
+    void visit(const Store* stmt) {
+      hasStore = true;
+    }
+
+    void visit(const Assign* stmt) {
+      for (const auto& tensorVar : tensorVars) {
+        if (stmt->lhs == tensorVar.second) {
+          hasStore = true;
+          break;
+        }
+      }
+      if (hasStore) {
+        return;
+      }
+      for (const auto& bitGuard : tempToBitGuard) {
+        if (stmt->lhs == bitGuard.second) {
+          hasStore = true;
+          break;
+        }
+      }
+    }
+
+    bool hasStores(Stmt stmt) {
+      hasStore = false;
+      stmt.accept(this);
+      return hasStore;
+    }
+  };
+  return FindStores(tensorVars, tempToBitGuard).hasStores(stmt);
 }
 
 }
