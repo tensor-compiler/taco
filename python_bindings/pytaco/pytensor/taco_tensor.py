@@ -637,6 +637,9 @@ def from_array(array, copy=True):
     # Disabling the force convert parameter also seems to not work. This explicity calls the different functions
     # to get this working for now
     col_major = array.flags["F_CONTIGUOUS"]
+
+    # The array copying is done implicit by pybind if necessary. If arrays are not contiguous, they will be copied
+    # to contiguous c_style or f_style memory layouts before being consumed by the fromNp* function
     t = _cm.fromNpF(array, copy) if col_major else _cm.fromNpC(array, copy)
     return tensor._fromCppTensor(t)
 
