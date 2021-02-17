@@ -1022,7 +1022,12 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
     // variable from the windowed space.
     if (iterator.isWindowed()) {
       coordinateArray = this->projectWindowedPositionToCanonicalSpace(iterator, coordinateArray);
-      boundsGuard = this->upperBoundGuardForWindowPosition(iterator, coordinate);
+      // If this forall is being parallelized via CPU threads (OpenMP), then we can't
+      // emit a `break` statement, since OpenMP doesn't support breaking out of a
+      // parallel loop. Instead, we'll bound the top of the loop and omit the check.
+      if (forall.getParallelUnit() != ParallelUnit::CPUThread) {
+        boundsGuard = this->upperBoundGuardForWindowPosition(iterator, coordinate);
+      }
     }
     declareCoordinate = VarDecl::make(coordinate, coordinateArray);
   }
@@ -1060,7 +1065,14 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
     // If we have a window on this iterator, then search for the start of
     // the window rather than starting at the beginning of the level.
     if (iterator.isWindowed()) {
-        startBound = this->searchForStartOfWindowPosition(iterator, startBound, endBound);
+      auto startBoundCopy = startBound;
+      startBound = this->searchForStartOfWindowPosition(iterator, startBound, endBound);
+      // As discussed above, if this position loop is parallelized over CPU
+      // threads (OpenMP), then we need to have an explicit upper bound to
+      // the for loop, instead of breaking out of the loop in the middle.
+      if (forall.getParallelUnit() == ParallelUnit::CPUThread) {
+        endBound = this->searchForEndOfWindowPosition(iterator, startBoundCopy, endBound);
+      }
     }
   } else {
     taco_iassert(iterator.isOrdered() && iterator.getParent().isOrdered());
@@ -2791,6 +2803,19 @@ Expr LowererImpl::searchForStartOfWindowPosition(Iterator iterator, ir::Expr sta
             start, end,
             // for the beginning of the window.
             iterator.getWindowLowerBound(),
+    };
+    return Call::make("taco_binarySearchAfter", args, Datatype::UInt64);
+}
+
+Expr LowererImpl::searchForEndOfWindowPosition(Iterator iterator, ir::Expr start, ir::Expr end) {
+    taco_iassert(iterator.isWindowed());
+    vector<Expr> args = {
+            // Search over the `crd` array of the level,
+            iterator.getMode().getModePack().getArray(1),
+            // between the start and end position,
+            start, end,
+            // for the end of the window.
+            iterator.getWindowUpperBound(),
     };
     return Call::make("taco_binarySearchAfter", args, Datatype::UInt64);
 }

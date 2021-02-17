@@ -383,6 +383,11 @@ protected:
   /// tensors, instead of the full tensor.
   ir::Expr searchForStartOfWindowPosition(Iterator iterator, ir::Expr start, ir::Expr end);
 
+  /// Expression that returns the end of a window to iterate over
+  /// in a compressed iterator. It is used when operating over windows of
+  /// tensors, instead of the full tensor.
+  ir::Expr searchForEndOfWindowPosition(Iterator iterator, ir::Expr start, ir::Expr end);
+
   /// Statement that guards against going out of bounds of the window that
   /// the input iterator was configured with.
   ir::Stmt upperBoundGuardForWindowPosition(Iterator iterator, ir::Expr access);
