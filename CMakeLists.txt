@@ -129,6 +129,7 @@ if(NOT EXISTS "${TACO_PROJECT_DIR}/python_bindings/pybind11/CMakeLists.txt")
 endif()
 
 if(PYTHON)
+  add_subdirectory(python_bindings)
   message("-- Will build Python extension")
   add_definitions(-DPYTHON)
 endif(PYTHON)
