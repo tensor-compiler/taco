@@ -159,6 +159,17 @@ public:
   /// Returns true if the iterator is defined, false otherwise.
   bool defined() const;
 
+  /// Methods for querying and operating on windowed tensor modes.
+
+  /// isWindowed returns true if this iterator is operating over a window
+  /// of a tensor mode.
+  bool isWindowed() const;
+
+  /// getWindow{Lower,Upper}Bound return the {Lower,Upper} bound of the
+  /// window that this iterator operates over.
+  ir::Expr getWindowLowerBound() const;
+  ir::Expr getWindowUpperBound() const;
+
   friend bool operator==(const Iterator&, const Iterator&);
   friend bool operator<(const Iterator&, const Iterator&);
   friend std::ostream& operator<<(std::ostream&, const Iterator&);
@@ -169,6 +180,10 @@ private:
 
   Iterator(std::shared_ptr<Content> content);
   void setChild(const Iterator& iterator) const;
+
+  friend class Iterators;
+  /// setWindowBounds sets the window bounds of this iterator.
+  void setWindowBounds(ir::Expr lo, ir::Expr hi);
 };
 
 /**

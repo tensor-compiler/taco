@@ -385,7 +385,7 @@ protected:
   /// Create an expression to index into a tensor value array.
   ir::Expr generateValueLocExpr(Access access) const;
 
-  /// Expression that evaluates to true if none of the iteratators are exhausted
+  /// Expression that evaluates to true if none of the iterators are exhausted
   ir::Expr checkThatNoneAreExhausted(std::vector<Iterator> iterators);
 
   /// Lowers a merge lattice to cases assuming there are no more loops to be emitted in stmt.
@@ -436,6 +436,32 @@ protected:
 
   /// Emit early exit
   ir::Stmt emitEarlyExit(ir::Expr reductionExpr, std::vector<Property>&);
+=======
+  /// Expression that returns the beginning of a window to iterate over
+  /// in a compressed iterator. It is used when operating over windows of
+  /// tensors, instead of the full tensor.
+  ir::Expr searchForStartOfWindowPosition(Iterator iterator, ir::Expr start, ir::Expr end);
+
+  /// Expression that returns the end of a window to iterate over
+  /// in a compressed iterator. It is used when operating over windows of
+  /// tensors, instead of the full tensor.
+  ir::Expr searchForEndOfWindowPosition(Iterator iterator, ir::Expr start, ir::Expr end);
+
+  /// Statement that guards against going out of bounds of the window that
+  /// the input iterator was configured with.
+  ir::Stmt upperBoundGuardForWindowPosition(Iterator iterator, ir::Expr access);
+
+  /// Expression that recovers a canonical index variable from a position in
+  /// a windowed position iterator. A windowed position iterator iterates over
+  /// values in the range [lo, hi). This expression projects values in that
+  /// range back into the canonical range of [0, n).
+  ir::Expr projectWindowedPositionToCanonicalSpace(Iterator iterator, ir::Expr expr);
+
+  // projectCanonicalSpaceToWindowedPosition is the opposite of
+  // projectWindowedPositionToCanonicalSpace. It takes an expression ranging
+  // through the canonical space of [0, n) and projects it up to the windowed
+  // range of [lo, hi).
+  ir::Expr projectCanonicalSpaceToWindowedPosition(Iterator iterator, ir::Expr expr);
 
 private:
   bool assemble;
