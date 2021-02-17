@@ -463,31 +463,6 @@ public:
   typedef CallIntrinsicNode Node;
 };
 
-
-/// Index variables are used to index into tensors in index expressions, and
-/// they represent iteration over the tensor modes they index into.
-/// Index variables can also be used in computation
-class IndexVar : public IndexExpr {
-public:
-  IndexVar();
-  IndexVar(const std::string& name);
-  IndexVar(const std::string& name, const Datatype& type);
-  IndexVar(const IndexVarNode *);
-
-  /// Returns the name of the index variable.
-  std::string getName() const;
-
-  // Need these to overshadow the comparisons in for the IndexExpr instrusive pointer
-  friend bool operator==(const IndexVar&, const IndexVar&);
-  friend bool operator<(const IndexVar&, const IndexVar&);
-  friend bool operator!=(const IndexVar&, const IndexVar&);
-  friend bool operator>=(const IndexVar&, const IndexVar&);
-  friend bool operator<=(const IndexVar&, const IndexVar&);
-  friend bool operator>(const IndexVar&, const IndexVar&);
-
-  typedef IndexVarNode Node;
-};
-
 std::ostream& operator<<(std::ostream&, const IndexVar&);
 
 /// Create calls to various intrinsics.
@@ -928,17 +903,27 @@ private:
 
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.
-class IndexVar : public util::Comparable<IndexVar>, public IndexVarInterface {
+class IndexVar : public IndexExpr, public IndexVarInterface {
+
 public:
   IndexVar();
   ~IndexVar() = default;
   IndexVar(const std::string& name);
+  IndexVar(const std::string& name, const Datatype& type);
+  IndexVar(const IndexVarNode *);
 
   /// Returns the name of the index variable.
   std::string getName() const;
 
+  // Need these to overshadow the comparisons in for the IndexExpr instrusive pointer
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);
+  friend bool operator!=(const IndexVar&, const IndexVar&);
+  friend bool operator>=(const IndexVar&, const IndexVar&);
+  friend bool operator<=(const IndexVar&, const IndexVar&);
+  friend bool operator>(const IndexVar&, const IndexVar&);
+
+  typedef IndexVarNode Node;
 
   /// Indexing into an IndexVar returns a window into it.
   WindowedIndexVar operator()(int lo, int hi);

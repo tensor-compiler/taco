@@ -3096,7 +3096,7 @@ Expr LowererImpl::searchForStartOfWindowPosition(Iterator iterator, ir::Expr sta
             // for the beginning of the window.
             iterator.getWindowLowerBound(),
     };
-    return Call::make("taco_binarySearchAfter", args, Datatype::UInt64);
+    return ir::Call::make("taco_binarySearchAfter", args, Datatype::UInt64);
 }
 
 Expr LowererImpl::searchForEndOfWindowPosition(Iterator iterator, ir::Expr start, ir::Expr end) {
@@ -3109,7 +3109,7 @@ Expr LowererImpl::searchForEndOfWindowPosition(Iterator iterator, ir::Expr start
             // for the end of the window.
             iterator.getWindowUpperBound(),
     };
-    return Call::make("taco_binarySearchAfter", args, Datatype::UInt64);
+    return ir::Call::make("taco_binarySearchAfter", args, Datatype::UInt64);
 }
 
 Stmt LowererImpl::upperBoundGuardForWindowPosition(Iterator iterator, ir::Expr access) {
