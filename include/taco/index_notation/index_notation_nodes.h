@@ -20,8 +20,9 @@ namespace taco {
 struct AccessWindow {
   int lo;
   int hi;
+  int stride;
   friend bool operator==(const AccessWindow& a, const AccessWindow& b) {
-    return a.lo == b.lo && a.hi == b.hi;
+    return a.lo == b.lo && a.hi == b.hi && a.stride == b.stride;
   }
 };
 

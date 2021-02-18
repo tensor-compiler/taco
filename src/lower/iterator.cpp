@@ -33,9 +33,15 @@ struct Iterator::Content {
   // the expressions representing an upper and lower bound. An iterator
   // is windowed if window is not NULL.
   struct Window {
-      ir::Expr lo;
-      ir::Expr hi;
-      Window(ir::Expr _lo, ir::Expr _hi) : lo(_lo), hi(_hi) {};
+    // windowVar is a Var specific to this iterator. It is intended to
+    // be used as temporary storage to avoid duplicate memory loads of
+    // expressions that are used in window/stride related bounds checking.
+    ir::Expr windowVar;
+    ir::Expr lo;
+    ir::Expr hi;
+    ir::Expr stride;
+    Window(ir::Expr _lo, ir::Expr _hi, ir::Expr _stride, ir::Expr _windowVar) :
+      windowVar(_windowVar), lo(_lo), hi(_hi), stride(_stride) {};
   };
   std::unique_ptr<Window> window;
 };
@@ -353,8 +359,28 @@ ir::Expr Iterator::getWindowUpperBound() const {
   return this->content->window->hi;
 }
 
-void Iterator::setWindowBounds(ir::Expr lo, ir::Expr hi) {
-  this->content->window = std::make_unique<Content::Window>(Content::Window(lo, hi));
+ir::Expr Iterator::getStride() const {
+  taco_iassert(this->isWindowed());
+  return this->content->window->stride;
+}
+
+ir::Expr Iterator::getWindowVar() const {
+  taco_iassert(this->isWindowed());
+  return this->content->window->windowVar;
+}
+
+bool Iterator::isStrided() const {
+  // It's not necessary but makes things simpler to require a window in order
+  // to have a stride.
+  taco_iassert(this->isWindowed());
+  auto strideLiteral = this->content->window->stride.as<ir::Literal>();
+  return !(strideLiteral != nullptr && strideLiteral->getIntValue() == 1);
+}
+
+void Iterator::setWindowBounds(ir::Expr lo, ir::Expr hi, ir::Expr stride) {
+  auto windowVarName = this->getIndexVar().getName() + this->getMode().getName() + "_window";
+  auto wvar = ir::Var::make(windowVarName, Int());
+  this->content->window = std::make_unique<Content::Window>(Content::Window(lo, hi, stride, wvar));
 }
 
 bool operator==(const Iterator& a, const Iterator& b) {
@@ -512,7 +538,8 @@ Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, Pr
       if (access.isModeWindowed(modeNumber)) {
         auto lo = ir::Literal::make(access.getWindowLowerBound(modeNumber));
         auto hi = ir::Literal::make(access.getWindowUpperBound(modeNumber));
-        iterator.setWindowBounds(lo, hi);
+        auto stride = ir::Literal::make(access.getStride(modeNumber));
+        iterator.setWindowBounds(lo, hi, stride);
       }
 
       content->levelIterators.insert({{access,modeNumber+1}, iterator});

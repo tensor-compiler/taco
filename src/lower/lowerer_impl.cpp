@@ -178,7 +178,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
         // The mode value used to access .levelIterator is 1-indexed, while
         // the mode input to getDimension is 0-indexed. So, we shift it up by 1.
         auto iter = iterators.levelIterator(ModeAccess(a, mode+1));
-        return ir::Sub::make(iter.getWindowUpperBound(), iter.getWindowLowerBound());
+        return ir::Div::make(ir::Sub::make(iter.getWindowUpperBound(), iter.getWindowLowerBound()), iter.getStride());
       } else {
         return GetProperty::make(tensorVars.at(tv), TensorProperty::Dimension, mode);
       }
@@ -1014,6 +1014,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
 {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
   Stmt declareCoordinate = Stmt();
+  Stmt strideGuard = Stmt();
   Stmt boundsGuard = Stmt();
   if (provGraph.isCoordVariable(forall.getIndexVar())) {
     Expr coordinateArray = iterator.posAccess(iterator.getPosVar(),
@@ -1021,6 +1022,13 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
     // If the iterator is windowed, we must recover the coordinate index
     // variable from the windowed space.
     if (iterator.isWindowed()) {
+      if (iterator.isStrided()) {
+        // In this case, we're iterating over a compressed level with a for
+        // loop. Since the iterator variable will get incremented by the for
+        // loop, the guard introduced for stride checking doesn't need to
+        // increment the iterator variable.
+        strideGuard = this->strideBoundsGuard(iterator, coordinateArray, false /* incrementPosVar */);
+      }
       coordinateArray = this->projectWindowedPositionToCanonicalSpace(iterator, coordinateArray);
       // If this forall is being parallelized via CPU threads (OpenMP), then we can't
       // emit a `break` statement, since OpenMP doesn't support breaking out of a
@@ -1100,7 +1108,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   return Block::blanks(
                        boundsCompute,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
-                                 Block::make(declareCoordinate, boundsGuard, body),
+                                 Block::make(strideGuard, declareCoordinate, boundsGuard, body),
                                  kind,
                                  ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
                        posAppend);
@@ -1365,15 +1373,34 @@ Stmt LowererImpl::resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coor
       ModeFunction posAccess = merger.posAccess(merger.getPosVar(),
                                                 coordinates(merger));
       auto access = posAccess[0];
+      auto windowVarDecl = Stmt();
+      auto stride = Stmt();
       auto guard = Stmt();
       // If the iterator is windowed, we must recover the coordinate index
       // variable from the windowed space.
       if (merger.isWindowed()) {
+
+        // If the iterator is strided, then we have to skip over coordinates
+        // that don't match the stride. To do that, we insert a guard on the
+        // access. We first extract the access into a temp to avoid emitting
+        // a duplicate load on the _crd array.
+        if (merger.isStrided()) {
+          windowVarDecl = VarDecl::make(merger.getWindowVar(), access);
+          access = merger.getWindowVar();
+          // Since we're merging values from a compressed array (not iterating over it),
+          // we need to advance the outer loop if the current coordinate is not
+          // along the desired stride. So, we pass true to the incrementPosVar
+          // argument of strideBoundsGuard.
+          stride = this->strideBoundsGuard(merger, access, true /* incrementPosVar */);
+        }
+
         access = this->projectWindowedPositionToCanonicalSpace(merger, access);
         guard = this->upperBoundGuardForWindowPosition(merger, coordinate);
       }
       Stmt resolution = emitVarDecl ? VarDecl::make(coordinate, access) : Assign::make(coordinate, access);
       return Block::make(posAccess.compute(),
+                         windowVarDecl,
+                         stride,
                          resolution,
                          guard);
     }
@@ -2646,6 +2673,21 @@ Stmt LowererImpl::codeToLoadCoordinatesFromPosIterators(vector<Iterator> iterato
       // TODO (rohany): Would be cleaner to have this logic be moved into the
       //  ModeFunction, rather than having to check in some places?
       if (posIter.isWindowed()) {
+
+        // If the iterator is strided, then we have to skip over coordinates
+        // that don't match the stride. To do that, we insert a guard on the
+        // access. We first extract the access into a temp to avoid emitting
+        // a duplicate load on the _crd array.
+        if (posIter.isStrided()) {
+          loadPosIterCoordinateStmts.push_back(VarDecl::make(posIter.getWindowVar(), access));
+          access = posIter.getWindowVar();
+          // Since we're locating into a compressed array (not iterating over it),
+          // we need to advance the outer loop if the current coordinate is not
+          // along the desired stride. So, we pass true to the incrementPosVar
+          // argument of strideBoundsGuard.
+          loadPosIterCoordinateStmts.push_back(this->strideBoundsGuard(posIter, access, true /* incrementPosVar */));
+        }
+
         access = this->projectWindowedPositionToCanonicalSpace(posIter, access);
       }
       if (declVars) {
@@ -2821,19 +2863,37 @@ Expr LowererImpl::searchForEndOfWindowPosition(Iterator iterator, ir::Expr start
 }
 
 Stmt LowererImpl::upperBoundGuardForWindowPosition(Iterator iterator, ir::Expr access) {
-    taco_iassert(iterator.isWindowed());
-    return ir::IfThenElse::make(
-            ir::Gte::make(access, ir::Sub::make(iterator.getWindowUpperBound(), iterator.getWindowLowerBound())),
-            ir::Break::make()
-    );
+  taco_iassert(iterator.isWindowed());
+  return ir::IfThenElse::make(
+    ir::Gte::make(access, ir::Sub::make(iterator.getWindowUpperBound(), iterator.getWindowLowerBound())),
+    ir::Break::make()
+  );
+}
+
+Stmt LowererImpl::strideBoundsGuard(Iterator iterator, ir::Expr access, bool incrementPosVar) {
+  Stmt cont = ir::Continue::make();
+  // If requested to increment the iterator's position variable, add the increment
+  // before the continue statement.
+  if (incrementPosVar) {
+    cont = ir::Block::make({
+                               ir::Assign::make(iterator.getPosVar(),
+                                                ir::Add::make(iterator.getPosVar(), ir::Literal::make(1))),
+                               cont
+                           });
+  }
+  // The guard makes sure that the coordinate being accessed is along the stride.
+  return ir::IfThenElse::make(
+      ir::Neq::make(ir::Rem::make(access, iterator.getStride()), ir::Literal::make(0)),
+      cont
+  );
 }
 
 Expr LowererImpl::projectWindowedPositionToCanonicalSpace(Iterator iterator, ir::Expr expr) {
-  return ir::Sub::make(expr, iterator.getWindowLowerBound());
+  return ir::Div::make(ir::Sub::make(expr, iterator.getWindowLowerBound()), iterator.getStride());
 }
 
 Expr LowererImpl::projectCanonicalSpaceToWindowedPosition(Iterator iterator, ir::Expr expr) {
-  return ir::Add::make(expr, iterator.getWindowLowerBound());
+  return ir::Mul::make(ir::Add::make(expr, iterator.getWindowLowerBound()), iterator.getStride());
 }
 
 }

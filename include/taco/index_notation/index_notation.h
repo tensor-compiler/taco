@@ -242,6 +242,12 @@ public:
   int getWindowLowerBound(int mode) const;
   int getWindowUpperBound(int mode) const;
 
+  /// getWindowSize returns the dimension size of a window.
+  int getWindowSize(int mode) const;
+
+  /// getStride returns the stride of a window.
+  int getStride(int mode) const;
+
   /// Assign the result of an expression to a left-hand-side tensor access.
   /// ```
   /// a(i) = b(i) * c(i);
@@ -853,7 +859,7 @@ public:
 /// before IndexVar so that IndexVar can return objects of type WindowedIndexVar.
 class WindowedIndexVar : public util::Comparable<WindowedIndexVar>, public IndexVarInterface {
 public:
-  WindowedIndexVar(IndexVar base, int lo = -1, int hi = -1);
+  WindowedIndexVar(IndexVar base, int lo = -1, int hi = -1, int stride = 1);
   ~WindowedIndexVar() = default;
 
   /// getIndexVar returns the underlying IndexVar.
@@ -863,6 +869,11 @@ public:
   /// this index variable.
   int getLowerBound() const;
   int getUpperBound() const;
+  /// getStride returns the stride to access the window by.
+  int getStride() const;
+
+  /// getWindowSize returns the number of elements in the window.
+  int getWindowSize() const;
 
 private:
   struct Content;
@@ -884,7 +895,7 @@ public:
   friend bool operator<(const IndexVar&, const IndexVar&);
 
   /// Indexing into an IndexVar returns a window into it.
-  WindowedIndexVar operator()(int lo, int hi);
+  WindowedIndexVar operator()(int lo, int hi, int stride = 1);
 
 private:
   struct Content;
@@ -899,6 +910,7 @@ struct WindowedIndexVar::Content {
   IndexVar base;
   int lo;
   int hi;
+  int stride;
 };
 
 std::ostream& operator<<(std::ostream&, const std::shared_ptr<IndexVarInterface>&);
