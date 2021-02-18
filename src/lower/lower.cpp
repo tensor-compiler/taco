@@ -57,7 +57,7 @@ ir::Stmt lower(IndexStmt stmt, std::string name,
   // if (!messages.empty()) {
   //   std::cerr << "Verifier messages:\n" << messages << "\n";
   // }
-  
+
   return lowered;
 }
 

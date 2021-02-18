@@ -3,13 +3,18 @@
 
 #include <vector>
 #include <memory>
+#include <numeric>
 
 #include "taco/type.h"
+#include "taco/util/collections.h"
+#include "taco/util/comparable.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/index_notation/intrinsic.h"
 #include "taco/util/strings.h"
+#include "iteration_algebra.h"
+#include "properties.h"
 
 namespace taco {
 
@@ -22,6 +27,12 @@ struct AccessWindow {
   int hi;
   friend bool operator==(const AccessWindow& a, const AccessWindow& b) {
     return a.lo == b.lo && a.hi == b.hi;
+  }
+  friend bool operator<(const AccessWindow& a, const AccessWindow& b) {
+    if (a.lo != b.lo) {
+      return a.lo < b.lo;
+    }
+    return a.hi < b.hi;
   }
 };
 
@@ -67,7 +78,6 @@ struct LiteralNode : public IndexExprNode {
 
   void* val;
 };
-
 
 struct UnaryExprNode : public IndexExprNode {
   IndexExpr a;
@@ -188,6 +198,57 @@ struct CallIntrinsicNode : public IndexExprNode {
   std::vector<IndexExpr> args;
 };
 
+struct CallNode : public IndexExprNode {
+  typedef std::function<ir::Expr(const std::vector<ir::Expr>&)> OpImpl;
+  typedef std::function<IterationAlgebra(const std::vector<IndexExpr>&)> AlgebraImpl;
+
+  CallNode(std::string name, const std::vector<IndexExpr>& args, OpImpl lowerFunc,
+           const IterationAlgebra& iterAlg,
+           const std::vector<Property>& properties,
+           const std::map<std::vector<int>, OpImpl>& regionDefinitions,
+           const std::vector<int>& definedRegions);
+
+  CallNode(std::string name, const std::vector<IndexExpr>& args, OpImpl lowerFunc,
+           const IterationAlgebra& iterAlg,
+           const std::vector<Property>& properties,
+           const std::map<std::vector<int>, OpImpl>& regionDefinitions);
+
+  void accept(IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  std::string name;
+  std::vector<IndexExpr> args;
+  OpImpl defaultLowerFunc;
+  IterationAlgebra iterAlg;
+  std::vector<Property> properties;
+  std::map<std::vector<int>, OpImpl> regionDefinitions;
+
+  // Needed to track which inputs have been exhausted so the lowerer can know which lower func to use
+  std::vector<int> definedRegions;
+
+private:
+  static Datatype inferReturnType(OpImpl f, const std::vector<IndexExpr>& inputs) {
+    std::function<ir::Expr(IndexExpr)> getExprs = [](IndexExpr arg) { return ir::Var::make("t", arg.getDataType()); };
+    std::vector<ir::Expr> exprs = util::map(inputs, getExprs);
+
+    if(exprs.empty()) {
+      return taco::Datatype();
+    }
+
+    return f(exprs).type();
+  }
+
+  static std::vector<int> definedIndices(std::vector<IndexExpr> args) {
+    std::vector<int> v;
+    for(int i = 0; i < (int) args.size(); ++i) {
+      if(args[i].defined()) {
+        v.push_back(i);
+      }
+    }
+    return v;
+  }
+};
 
 struct ReductionNode : public IndexExprNode {
   ReductionNode(IndexExpr op, IndexVar var, IndexExpr a);
@@ -202,6 +263,27 @@ struct ReductionNode : public IndexExprNode {
   IndexExpr a;
 };
 
+struct IndexVarNode : public IndexExprNode, public util::Comparable<IndexVarNode> {
+  IndexVarNode() = delete;
+  IndexVarNode(const std::string& name, const Datatype& type);
+
+  void accept(IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  std::string getName() const;
+
+  friend bool operator==(const IndexVarNode& a, const IndexVarNode& b);
+  friend bool operator<(const IndexVarNode& a, const IndexVarNode& b);
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+struct IndexVarNode::Content {
+  std::string name;
+};
 
 // Index Statements
 struct AssignmentNode : public IndexStmtNode {

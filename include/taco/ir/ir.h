@@ -78,6 +78,7 @@ enum class TensorProperty {
   ModeTypes,
   Indices,
   Values,
+  FillValue,
   ValuesSize
 };
 
@@ -233,6 +234,16 @@ struct Literal : public ExprNode<Literal> {
   T getValue() const {
     taco_iassert(taco::type<T>() == type);
     return *static_cast<const T*>(value.get());
+  }
+
+  Expr promote(Datatype dt) const {
+    taco_iassert(max_type(dt, type) == dt);
+    if(type == dt) {
+      return Literal::make(getTypedVal(), dt);
+    }
+
+
+
   }
 
   TypedComponentVal getTypedVal() const {

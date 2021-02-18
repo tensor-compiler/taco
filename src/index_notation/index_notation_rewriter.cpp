@@ -42,6 +42,10 @@ void IndexNotationRewriter::visit(const AccessNode* op) {
   expr = op;
 }
 
+void IndexNotationRewriter::visit(const IndexVarNode* op) {
+  expr = op;
+}
+
 template <class T>
 IndexExpr visitUnaryOp(const T *op, IndexNotationRewriter *rw) {
   IndexExpr a = rw->rewrite(op->a);
@@ -100,6 +104,28 @@ void IndexNotationRewriter::visit(const CastNode* op) {
   }
   else {
     expr = new CastNode(a, op->getDataType());
+  }
+}
+
+void IndexNotationRewriter::visit(const CallNode* op) {
+  std::vector<IndexExpr> args;
+  bool rewritten = false;
+  for(auto& arg : op->args) {
+    IndexExpr rewrittenArg = rewrite(arg);
+    args.push_back(rewrittenArg);
+    if (arg != rewrittenArg) {
+      rewritten = true;
+    }
+  }
+
+  if (rewritten) {
+    const std::map<IndexExpr, IndexExpr> subs = util::zipToMap(op->args, args);
+    IterationAlgebra newAlg = replaceAlgIndexExprs(op->iterAlg, subs);
+    expr = new CallNode(op->name, args, op->defaultLowerFunc, newAlg, op->properties,
+                        op->regionDefinitions);
+  }
+  else {
+    expr = op;
   }
 }
 
@@ -246,6 +272,10 @@ struct ReplaceRewriter : public IndexNotationRewriter {
     SUBSTITUTE_EXPR;
   }
 
+  void visit(const IndexVarNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
   void visit(const LiteralNode* op) {
     SUBSTITUTE_EXPR;
   }
@@ -271,6 +301,14 @@ struct ReplaceRewriter : public IndexNotationRewriter {
   }
 
   void visit(const DivNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const CallNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const CallIntrinsicNode* op) {
     SUBSTITUTE_EXPR;
   }
 
@@ -331,6 +369,16 @@ struct ReplaceIndexVars : public IndexNotationRewriter {
     }
     else {
       expr = op;
+    }
+  }
+
+  void visit(const IndexVarNode* op) {
+
+    IndexVar var(op);
+    if(util::contains(substitutions, var)) {
+      expr = substitutions.at(var);
+    } else {
+      expr = var;
     }
   }
 

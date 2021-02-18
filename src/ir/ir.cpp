@@ -183,6 +183,8 @@ std::complex<double> Literal::getComplexValue() const {
   return 0.0;
 }
 
+
+
 template <typename T> bool compare(const Literal* literal, double val) {
       return literal->getValue<T>() == static_cast<T>(val);
 }
@@ -869,6 +871,9 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
       break;
     case TensorProperty::ValuesSize:
       gp->name = tensorVar->name + "_vals_size";
+      break;
+    case TensorProperty::FillValue:
+      gp->name = tensorVar->name + "_fill_value";
       break;
   }
   
