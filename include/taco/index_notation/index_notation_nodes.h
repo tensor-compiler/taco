@@ -28,6 +28,12 @@ struct AccessWindow {
   friend bool operator==(const AccessWindow& a, const AccessWindow& b) {
     return a.lo == b.lo && a.hi == b.hi;
   }
+  friend bool operator<(const AccessWindow& a, const AccessWindow& b) {
+    if (a.lo != b.lo) {
+      return a.lo < b.lo;
+    }
+    return a.hi < b.hi;
+  }
 };
 
 struct AccessNode : public IndexExprNode {

@@ -999,6 +999,38 @@ int Access::getWindowUpperBound(int mode) const {
   return getNode(*this)->windowedModes.at(mode).hi;
 }
 
+bool operator==(const Access& a, const Access& b) {
+  // Short-circuit for when the Access pointers are the same.
+  if (getNode(a) == getNode(b)) {
+    return true;
+  }
+  if (a.getTensorVar() != b.getTensorVar()) {
+    return false;
+  }
+  if (a.getIndexVars() != b.getIndexVars()) {
+    return false;
+  }
+  if (getNode(a)->windowedModes != getNode(b)->windowedModes) {
+    return false;
+  }
+  return true;
+}
+
+bool operator<(const Access& a, const Access& b) {
+  // First branch on tensorVar.
+  if(a.getTensorVar() != b.getTensorVar()) {
+    return a.getTensorVar() < b.getTensorVar();
+  }
+
+  // Then branch on the indexVars used in the access.
+  if (a.getIndexVars() != b.getIndexVars()) {
+    return a.getIndexVars() < b.getIndexVars();
+  }
+
+  // Lastly, branch on the windows.
+  return getNode(a)->windowedModes < getNode(b)->windowedModes;
+}
+
 static void check(Assignment assignment) {
   auto lhs = assignment.getLhs();
   auto tensorVar = lhs.getTensorVar();

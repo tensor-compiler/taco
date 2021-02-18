@@ -269,6 +269,11 @@ public:
   Assignment operator+=(const IndexExpr&);
 
   typedef AccessNode Node;
+
+  // Equality and comparison are overridden on Access to perform a deep
+  // comparison of the access rather than a pointer check.
+  friend bool operator==(const Access& a, const Access& b);
+  friend bool operator<(const Access& a, const Access &b);
 };
 
 
