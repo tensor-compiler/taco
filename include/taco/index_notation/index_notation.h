@@ -681,6 +681,13 @@ public:
   /// reorder computations to increase locality
   IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const;
 
+  ///  The precompute transformation is described in kjolstad2019
+  ///  allows us to leverage scratchpad memories and
+  ///  reorder computations to increase locality
+  IndexStmt precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
+                       std::vector<IndexVar> iw_vars, TensorVar workspace) const;
+  
+
   /// bound specifies a compile-time constraint on an index variable's
   /// iteration space that allows knowledge of the
   /// size or structured sparsity pattern of the inputs to be

@@ -135,8 +135,8 @@ std::ostream& operator<<(std::ostream& os, const Reorder& reorder) {
 // class Precompute
 struct Precompute::Content {
   IndexExpr expr;
-  IndexVar i;
-  IndexVar iw;
+  std::vector<IndexVar> i_vars;
+  std::vector<IndexVar> iw_vars;
   TensorVar workspace;
 };
 
@@ -145,22 +145,33 @@ Precompute::Precompute() : content(nullptr) {
 
 Precompute::Precompute(IndexExpr expr, IndexVar i, IndexVar iw,
                      TensorVar workspace) : content(new Content) {
+  std::vector<IndexVar> i_vars{i};
+  std::vector<IndexVar> iw_vars{i};  
   content->expr = expr;
-  content->i = i;
-  content->iw = iw;
+  content->i_vars = i_vars;
+  content->iw_vars = iw_vars;
   content->workspace = workspace;
 }
 
+  Precompute::Precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
+                         std::vector<IndexVar> iw_vars,
+                         TensorVar workspace) : content(new Content) {
+  content->expr = expr;
+  content->i_vars = i_vars;
+  content->iw_vars = iw_vars;
+  content->workspace = workspace;
+}
+  
 IndexExpr Precompute::getExpr() const {
   return content->expr;
 }
 
-IndexVar Precompute::geti() const {
-  return content->i;
+std::vector<IndexVar>& Precompute::getIVars() const {
+  return content->i_vars;
 }
 
-IndexVar Precompute::getiw() const {
-  return content->iw;
+std::vector<IndexVar>& Precompute::getIWVars() const {
+  return content->iw_vars;
 }
 
 TensorVar Precompute::getWorkspace() const {
@@ -291,23 +302,32 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
     using IndexNotationRewriter::visit;
 
     Precompute precompute;
+    Forall buildProducer(int index,
+                         std::map<IndexVar, IndexVar>& substitutions,
+                         TensorVar& ws,
+                         const std::vector<IndexVar>& i_vars,
+                         const std::vector<IndexVar>& iw_vars,
+                         const IndexExpr& e) {
+      substitutions[i_vars[index]] = iw_vars[index];
+      if (index == 0) {
+        return forall(iw_vars[index], ws(iw_vars) = replace(e, substitutions));
+      }
+      return forall(iw_vars[index], buildProducer(index - 1, substitutions, ws, i_vars,
+                                                  iw_vars, e));
+    }
+    
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      std::vector<IndexVar> i_vars = precompute.getIVars();      
 
-    void visit(const ForallNode* op) {
-      Forall foralli(op);
-      IndexVar i = precompute.geti();
-      IndexVar j = foralli.getIndexVar();
-
-      Assignment assign = getAssignmentContainingExpr(foralli, 
-                                                      precompute.getExpr());
-      if (j == i && assign.defined()) {
+      if (foralli.getIndexVar() == i_vars[0]) {
         IndexStmt s = foralli.getStmt();
         TensorVar ws = precompute.getWorkspace();
         IndexExpr e = precompute.getExpr();
-        IndexVar iw = precompute.getiw();
-
-        IndexStmt consumer = forall(i, replace(s, {{e, ws(i)}}));
-        IndexStmt producer = forall(iw, Assignment(ws(iw), replace(e, {{i,iw}}), 
-                                                   assign.getOperator()));
+        std::vector<IndexVar> iw_vars = precompute.getIWVars();
+        IndexStmt consumer = forall(i_vars[0], replace(s, {{e, ws(iw_vars) }}));
+        std::map<IndexVar,IndexVar> substitutions;
+        IndexStmt producer = buildProducer(i_vars.size() - 1, substitutions, ws, i_vars, iw_vars, e);
         Where where(consumer, producer);
 
         stmt = where;
@@ -357,8 +377,8 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
 }
 
 void Precompute::print(std::ostream& os) const {
-  os << "precompute(" << getExpr() << ", " << geti() << ", "
-     << getiw() << ", " << getWorkspace() << ")";
+  os << "precompute(" << getExpr() << ", " << getIVars() << ", "
+     << getIWVars() << ", " << getWorkspace() << ")";
 }
 
 bool Precompute::defined() const {
