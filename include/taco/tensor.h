@@ -638,6 +638,9 @@ public:
   template <typename... IndexVars>
   Access operator()(const IndexVar& first, const IndexVars&... indices);
 
+  template <typename... IndexVars>
+  Access operator()(const IndexSetVar& first, const IndexVars&... indices);
+
   ScalarAccess<CType> operator()(const std::vector<int>& indices);
 
   /// Create an index expression that accesses (reads) this tensor.
@@ -1160,6 +1163,11 @@ Access Tensor<CType>::operator()(const IndexVar& first, const IndexVars&... indi
 template <typename CType>
 template <typename... IndexVars>
 Access Tensor<CType>::operator()(const WindowedIndexVar& first, const IndexVars&... indices) {
+  return this->_access_wrapper(first, indices...);
+}
+template <typename CType>
+template <typename... IndexVars>
+Access Tensor<CType>::operator()(const IndexSetVar& first, const IndexVars&... indices) {
   return this->_access_wrapper(first, indices...);
 }
 

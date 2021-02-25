@@ -32,6 +32,7 @@ class Schedule;
 
 class IndexVar;
 class WindowedIndexVar;
+class IndexSetVar;
 class TensorVar;
 
 class IndexExpr;
@@ -39,7 +40,7 @@ class Assignment;
 class Access;
 
 struct AccessNode;
-struct AccessWindow;
+struct IndexVarIterationModifier;
 struct LiteralNode;
 struct NegNode;
 struct SqrtNode;
@@ -223,8 +224,9 @@ public:
   Access() = default;
   Access(const Access&) = default;
   Access(const AccessNode*);
-  Access(const TensorVar &tensorVar, const std::vector<IndexVar> &indices = {},
-         const std::map<int, AccessWindow> &windows = {});
+  Access(const TensorVar& tensorVar,
+         const std::vector<IndexVar>& indices={},
+         const std::map<int, std::shared_ptr<IndexVarIterationModifier>>& modifiers={});
 
   /// Return the Access expression's TensorVar.
   const TensorVar &getTensorVar() const;
@@ -247,6 +249,19 @@ public:
 
   /// getStride returns the stride of a window.
   int getStride(int mode) const;
+
+  /// hasIndexSetModes returns true if any accessed modes have an index set.
+  bool hasIndexSetModes() const;
+
+  /// Returns whether or not the input mode (0-indexed) has an index set.
+  bool isModeIndexSet(int mode) const;
+
+  /// getModeIndexSetTensor returns a TensorVar corresponding to the Tensor that
+  /// backs the index set for the input mode.
+  TensorVar getModeIndexSetTensor(int mode) const;
+
+  /// getIndexSet returns the index set of the input mode.
+  const std::vector<int>& getIndexSet(int mode) const;
 
   /// Assign the result of an expression to a left-hand-side tensor access.
   /// ```
@@ -828,6 +843,7 @@ Multi multi(IndexStmt stmt1, IndexStmt stmt2);
 /// completeness, the current implementers of IndexVarInterface are:
 /// * IndexVar
 /// * WindowedIndexVar
+/// * IndexSetVar
 /// If this set changes, make sure to update the match function.
 class IndexVarInterface {
 public:
@@ -839,16 +855,20 @@ public:
   static void match(
       std::shared_ptr<IndexVarInterface> ptr,
       std::function<void(std::shared_ptr<IndexVar>)> ivarFunc,
-      std::function<void(std::shared_ptr<WindowedIndexVar>)> wvarFunc
+      std::function<void(std::shared_ptr<WindowedIndexVar>)> wvarFunc,
+      std::function<void(std::shared_ptr<IndexSetVar>)> isetVarFunc
   ) {
     auto iptr = std::dynamic_pointer_cast<IndexVar>(ptr);
     auto wptr = std::dynamic_pointer_cast<WindowedIndexVar>(ptr);
+    auto sptr = std::dynamic_pointer_cast<IndexSetVar>(ptr);
     if (iptr != nullptr) {
       ivarFunc(iptr);
     } else if (wptr != nullptr) {
       wvarFunc(wptr);
+    } else if (sptr != nullptr) {
+      isetVarFunc(sptr);
     } else {
-      taco_iassert("IndexVarInterface was not IndexVar or WindowedIndexVar");
+      taco_iassert("IndexVarInterface was not IndexVar, WindowedIndexVar or IndexSetVar");
     }
   }
 };
@@ -880,6 +900,26 @@ private:
   std::shared_ptr<Content> content;
 };
 
+/// IndexSetVar represents an IndexVar that has been projected via a set
+/// of values. For example,
+///  A(i) = B(i({1, 3, 5}))
+/// projects the elements of B to be just elements at indexes 1, 3 and 5. In
+/// this case, i({1, 3, 5}) is an IndexSetvar.
+class IndexSetVar : public util::Comparable<IndexSetVar>, public IndexVarInterface {
+public:
+  IndexSetVar(IndexVar base, std::vector<int> indexSet);
+  ~IndexSetVar() = default;
+
+  /// getIndexVar returns the underlying IndexVar.
+  IndexVar getIndexVar() const;
+  /// getIndexSet returns the index set.
+  const std::vector<int>& getIndexSet() const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.
 class IndexVar : public util::Comparable<IndexVar>, public IndexVarInterface {
@@ -897,6 +937,10 @@ public:
   /// Indexing into an IndexVar returns a window into it.
   WindowedIndexVar operator()(int lo, int hi, int stride = 1);
 
+  /// Indexing into an IndexVar with a vector returns an index set into it.
+  IndexSetVar operator()(std::vector<int> indexSet);
+  IndexSetVar operator()(std::vector<int>& indexSet);
+
 private:
   struct Content;
   std::shared_ptr<Content> content;
@@ -913,9 +957,15 @@ struct WindowedIndexVar::Content {
   int stride;
 };
 
+struct IndexSetVar::Content {
+  IndexVar base;
+  std::vector<int> indexSet;
+};
+
 std::ostream& operator<<(std::ostream&, const std::shared_ptr<IndexVarInterface>&);
 std::ostream& operator<<(std::ostream&, const IndexVar&);
 std::ostream& operator<<(std::ostream&, const WindowedIndexVar&);
+std::ostream& operator<<(std::ostream&, const IndexSetVar&);
 
 /// A suchthat statement provides a set of IndexVarRel that constrain
 /// the iteration space for the child concrete index notation
