@@ -8,6 +8,8 @@
 #include "codegen/codegen.h"
 #include "taco/lower/lower.h"
 
+#include <functional>
+
 using namespace taco;
 const IndexVar i("i"), j("j"), k("k");
 
@@ -920,4 +922,60 @@ TEST(scheduling_eval_test, indexVarReorder) {
   expected.pack();
 
   ASSERT_TENSOR_EQ(expected, a);
+}
+
+TEST(scheduling, divide) {
+  auto dim = 256;
+  float sparsity = 0.1;
+  Tensor<int> A("A", {dim, dim}, {Dense, Sparse});
+  Tensor<int> x("x", {dim}, {Dense});
+  IndexVar i("i"), i1("i1"), i2("i2"), j("j"), f("f"), fpos("fpos"), f0("f0"), f1("f1");
+
+  srand(59393);
+  for (int i = 0; i < dim; i++) {
+    for (int j = 0; j < dim; j++) {
+      auto rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < sparsity) {
+        A.insert({i, j},((int)(rand_float * 10 / sparsity)));
+      }
+    }
+  }
+
+  for (int j = 0; j < dim; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    x.insert({j}, ((int)(rand_float*10)));
+  }
+
+  x.pack(); A.pack();
+
+  auto test = [&](std::function<IndexStmt(IndexStmt)> f) {
+    Tensor<int> y("y", {dim}, {Dense});
+    y(i) = A(i, j) * x(j);
+    auto stmt = f(y.getAssignment().concretize());
+    y.compile(stmt);
+    y.evaluate();
+    Tensor<int> expected("expected", {dim}, {Dense});
+    expected(i) = A(i, j) * x(j);
+    expected.evaluate();
+    ASSERT_TRUE(equals(expected, y)) << expected << endl << y << endl;
+  };
+
+  // Test that a simple divide works.
+  test([&](IndexStmt stmt) {
+    return stmt.divide(i, i1, i2, 2);
+  });
+
+  // Test when the divide factor doesn't divide the dimension evenly.
+  test([&](IndexStmt stmt) {
+    return stmt.divide(i, i1, i2, 3);
+  });
+
+  // Test a more complicated case where we fuse loops and then divide them.
+  test([&](IndexStmt stmt) {
+    return stmt.fuse(i, j, f).pos(f, fpos, A(i, j)).divide(fpos, f0, f1, 2).split(f1, i1, i2, 4);
+  });
+  test([&](IndexStmt stmt) {
+    IndexVar i3, i4;
+    return stmt.fuse(i, j, f).pos(f, fpos, A(i, j)).divide(fpos, f0, f1, 4).split(f1, i1, i2, 16).split(i2, i3, i4, 8);
+  });
 }

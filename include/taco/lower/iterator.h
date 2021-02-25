@@ -182,6 +182,15 @@ public:
   /// is operating over. It can be used as temporary storage.
   ir::Expr getWindowVar() const;
 
+  /// Methods for querying and operating on tensor modes projected by an index set.
+
+  /// hasIndexSet returns true if this iterator is operating over an index set.
+  bool hasIndexSet() const;
+
+  /// getIndexSetIterator returns the iterator that corresponds to the tensor
+  /// backing the index set.
+  Iterator getIndexSetIterator() const;
+
   friend bool operator==(const Iterator&, const Iterator&);
   friend bool operator<(const Iterator&, const Iterator&);
   friend std::ostream& operator<<(std::ostream&, const Iterator&);
@@ -194,8 +203,12 @@ private:
   void setChild(const Iterator& iterator) const;
 
   friend class Iterators;
+
   /// setWindowBounds sets the window bounds of this iterator.
   void setWindowBounds(ir::Expr lo, ir::Expr hi, ir::Expr stride);
+
+  /// setIndexSetIterator sets the index set iterator of this iterator.
+  void setIndexSetIterator(Iterator iter);
 };
 
 /**
@@ -241,7 +254,8 @@ public:
   std::map<IndexVar, Iterator> modeIterators() const;
 
 private:
-  void createAccessIterators(Access access, Format format, ir::Expr tensorIR, ProvenanceGraph provGraph);
+  void createAccessIterators(Access access, Format format, ir::Expr tensorIR, ProvenanceGraph provGraph,
+                             const std::map<TensorVar, ir::Expr> &tensorVars);
 
   struct Content;
   std::shared_ptr<Content> content;
