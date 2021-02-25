@@ -463,6 +463,12 @@ protected:
   // range of [lo, hi).
   ir::Expr projectCanonicalSpaceToWindowedPosition(Iterator iterator, ir::Expr expr);
 
+  /// strideBoundsGuard inserts a guard against accessing values from an
+  /// iterator that don't fit in the stride that the iterator is configured
+  /// with. It takes a boolean incrementPosVars to control whether the outer
+  /// loop iterator variable should be incremented when the guard is fired.
+  ir::Stmt strideBoundsGuard(Iterator iterator, ir::Expr access, bool incrementPosVar);
+
 private:
   bool assemble;
   bool compute;
