@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - master
+      - array_algebra
   pull_request:
     branches:
       - master
+      - array_algebra
 
 jobs:
   build-test-cpu:
