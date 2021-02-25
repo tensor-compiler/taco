@@ -33,7 +33,10 @@ struct AccessWindow {
     if (a.lo != b.lo) {
       return a.lo < b.lo;
     }
-    return a.hi < b.hi;
+    if (a.hi != b.hi) {
+      return a.hi < b.hi;
+    }
+    return a.stride < b.stride;
   }
 };
 
