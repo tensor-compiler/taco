@@ -495,6 +495,7 @@ struct AccessTensorNode : public AccessNode {
           "slice upper bound must be <= tensor dimension (" << tensor.getDimension(i) << ")";
         this->windowedModes[i].lo = lo;
         this->windowedModes[i].hi = hi;
+        this->windowedModes[i].stride = wvar->getStride();
       });
     }
     // Initialize this->indexVars.

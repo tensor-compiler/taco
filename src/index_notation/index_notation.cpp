@@ -999,6 +999,17 @@ int Access::getWindowUpperBound(int mode) const {
   return getNode(*this)->windowedModes.at(mode).hi;
 }
 
+int Access::getWindowSize(int mode) const {
+  taco_iassert(this->isModeWindowed(mode));
+  auto w = getNode(*this)->windowedModes.at(mode);
+  return (w.hi - w.lo) / w.stride;
+}
+
+int Access::getStride(int mode) const {
+  taco_iassert(this->isModeWindowed(mode));
+  return getNode(*this)->windowedModes.at(mode).stride;
+}
+
 bool operator==(const Access& a, const Access& b) {
   // Short-circuit for when the Access pointers are the same.
   if (getNode(a) == getNode(b)) {
@@ -1045,7 +1056,7 @@ static void check(Assignment assignment) {
     for (int i = 0; i < shape.getOrder();i++) {
       dims[i] = shape.getDimension(i);
       if (lhs.isModeWindowed(i)) {
-        dims[i] = Dimension(lhs.getWindowUpperBound(i) - lhs.getWindowLowerBound(i));
+        dims[i] = Dimension(lhs.getWindowSize(i));
       }
     }
     shape = Shape(dims);
@@ -2147,8 +2158,8 @@ std::string IndexVar::getName() const {
   return getNode(*this)->getName();
 }
 
-WindowedIndexVar IndexVar::operator()(int lo, int hi) {
-  return WindowedIndexVar(*this, lo, hi);
+WindowedIndexVar IndexVar::operator()(int lo, int hi, int stride) {
+  return WindowedIndexVar(*this, lo, hi, stride);
 }
 
 bool operator==(const IndexVar& a, const IndexVar& b) {
@@ -2193,10 +2204,11 @@ std::ostream& operator<<(std::ostream& os, const WindowedIndexVar& var) {
   return os << var.getIndexVar();
 }
 
-WindowedIndexVar::WindowedIndexVar(IndexVar base, int lo, int hi) : content( new Content){
+WindowedIndexVar::WindowedIndexVar(IndexVar base, int lo, int hi, int stride) : content( new Content){
   this->content->base = base;
   this->content->lo = lo;
   this->content->hi = hi;
+  this->content->stride = stride;
 }
 
 IndexVar WindowedIndexVar::getIndexVar() const {
@@ -2209,6 +2221,14 @@ int WindowedIndexVar::getLowerBound() const {
 
 int WindowedIndexVar::getUpperBound() const {
   return this->content->hi;
+}
+
+int WindowedIndexVar::getStride() const {
+  return this->content->stride;
+}
+
+int WindowedIndexVar::getWindowSize() const {
+  return (this->content->hi - this->content->lo) / this->content->stride;
 }
 
 // class TensorVar
@@ -2368,7 +2388,7 @@ static bool isValid(Assignment assignment, string* reason) {
     for (int i = 0; i < shape.getOrder();i++) {
       dims[i] = shape.getDimension(i);
       if (lhs.isModeWindowed(i)) {
-        dims[i] = Dimension(lhs.getWindowUpperBound(i) - lhs.getWindowLowerBound(i));
+        dims[i] = Dimension(lhs.getWindowSize(i));
       }
     }
     shape = Shape(dims);

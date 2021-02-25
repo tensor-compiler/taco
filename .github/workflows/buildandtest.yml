@@ -10,9 +10,9 @@ on:
 
 jobs:
   build-test-cpu:
-    name: builds taco for cpu and runs all gtest
+    name: builds taco with no options for cpu and runs all tests
     runs-on: ubuntu-18.04
-    
+
     steps:
     - uses: actions/checkout@v2
     - name: create_build
@@ -21,14 +21,17 @@ jobs:
       run: cmake ..
       working-directory: build
     - name: make
-      run: make -j8
+      run: make -j2
       working-directory: build
     - name: test
-      run: bin/taco-test
+      run: make test
+      env:
+        CTEST_OUTPUT_ON_FAILURE: 1
+        CTEST_PARALLEL_LEVEL: 2
       working-directory: build
 
   build-test-cpu-release:
-    name: builds taco release for cpu and runs all gtest
+    name: builds taco release for cpu and runs all tests
     runs-on: ubuntu-18.04
 
     steps:
@@ -39,16 +42,42 @@ jobs:
         run: cmake -DCMAKE_BUILD_TYPE=Release ..
         working-directory: build
       - name: make
-        run: make -j8
+        run: make -j2
         working-directory: build
       - name: test
-        run: bin/taco-test
+        run: make test
+        env:
+          CTEST_OUTPUT_ON_FAILURE: 1
+          CTEST_PARALLEL_LEVEL: 2
+        working-directory: build
+
+  build-test-cpu-openmp-python-asserts:
+    name: builds taco with compile-time asserts, openmp, and python and runs all tests
+    runs-on: ubuntu-18.04
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: install numpy and scipy
+        run: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y python3-numpy python3-scipy
+      - name: create_build
+        run: mkdir build
+      - name: cmake
+        run: cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DOPENMP=ON -DPYTHON=ON ..
+        working-directory: build
+      - name: make
+        run: make -j2
+        working-directory: build
+      - name: test
+        run: make test
+        env:
+          CTEST_OUTPUT_ON_FAILURE: 1
+          CTEST_PARALLEL_LEVEL: 2
         working-directory: build
 
   build-gpu:
     name: build taco for gpu, but does not run tests
     runs-on: ubuntu-18.04
-    
+
     steps:
       - uses: actions/checkout@v2
       - name: download cuda
@@ -59,7 +88,7 @@ jobs:
         run: echo "$GITHUB_WORKSPACE/cuda/bin" >> $GITHUB_PATH
       - name: set ld_library_path
         run: echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/cuda/lib64" >> $GITHUB_ENV
-      - name: set library_path  
+      - name: set library_path
         run: echo "LIBRARY_PATH=$GITHUB_WORKSPACE/cuda/lib64" >> $GITHUB_ENV
       - name: print environment
         run: |
@@ -72,5 +101,5 @@ jobs:
         run: cmake -DCUDA=ON ..
         working-directory: build
       - name: make
-        run: make -j8
+        run: make -j2
         working-directory: build
