@@ -1840,16 +1840,13 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
 // Returns true if the following conditions are met:
 // 1) The temporary is a dense vector
 // 2) There is only one value on the right hand side of the consumer
-//    -- We would need to handle sparse acceleration in the merge lattices for 
-//       multiple operands on the RHS
-// 3) The left hand side of the where consumer is sparse, if the consumer is an 
-//    assignment
-// 4) CPU Code is being generated (TEMPORARY - This should be removed)
-//    -- The sorting calls and calloc call in lower where are CPU specific. We 
-//       could map calloc to a cudaMalloc and use a library like CUB to emit 
-//       the sort. CUB support is built into CUDA 11 but not prior versions of 
-//       CUDA so in that case, we'd probably need to include the CUB headers in 
-//       the generated code.
+//    -- We would need to handle sparse acceleration in the merge lattices for multiple operands on the RHS
+// 3) There are no reduced accesses
+// 4) The left hand side of the where consumer is sparse TODO: update this
+// 5) CPU Code is being generated (TEMPORARY - This should be removed)
+//    -- The sorting calls and calloc call in lower where are CPU specific. We could map calloc to a cudaMalloc
+//       and use a library like CUB to emit the sort. CUB support is built into CUDA 11 but not prior versions
+//       of CUDA so in that case, we'd probably need to include the CUB headers in the generated code.
 std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
   // TODO: TEMPORARY -- Needs to be removed
   if(should_use_CUDA_codegen()) {
@@ -1871,13 +1868,20 @@ std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
     return std::make_pair(false, false);
   }
 
+  std::tie(resultAccesses, reducedAccesses) = getResultAccesses(where.getConsumer());
+  // (3) Contains reduced accesses
+  if(!reducedAccesses.empty()) {
+    return std::make_pair(false, false);
+  }
+
   // no or multiple results?
   if(resultAccesses.size() > 1 || resultAccesses.empty()) {
     return std::make_pair(false, false);
   }
 
-  // No check for size of tempVar since we enforced the temporary is a vector 
-  // and if there is only one RHS value, it must (should?) be the temporary
+  // (4) Level of result is sparse
+  // No check for size of tempVar since we enforced the temporary is a vector and if there is only one RHS value,
+  // it must (should?) be the temporary
   std::vector<IndexVar> tempVar = inputAccesses[0].getIndexVars();
 
   // Get index vars in result.
@@ -1896,7 +1900,9 @@ std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
   TensorVar resultTensor = resultAccesses[0].getTensorVar();
   int modeIndex = resultTensor.getFormat().getModeOrdering()[index];
   ModeFormat varFmt = resultTensor.getFormat().getModeFormats()[modeIndex];
-  // (3) Level of result is sparse
+
+  // Actual check for condition (4). If the current mode is full, no
+  // optimizations necessary
   if(varFmt.isFull()) {
     return std::make_pair(false, false);
   }
