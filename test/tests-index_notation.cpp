@@ -267,3 +267,15 @@ INSTANTIATE_TEST_CASE_P(tensorOpConcrete, concrete,
                                          forall(j,
                                                 Assignment(a(i), bfsMaskOp(scAnd(B(i, j), c(j)), c(i)), scOr())
                                          )))));
+
+// funcIsomorphic ensures that the isomorphic function can proceed without error
+// on IndexExpr's that contain `Func`'s.
+TEST(notation, funcIsomorphic) {
+  int dim = 10;
+  Func xorOp("xor", GeneralAdd(), xorGen());
+  Tensor<int> A("A", {dim});
+  Tensor<int> B("B", {dim});
+  IndexVar i;
+  auto indexExpr = xorOp(A(i), B(i));
+  ASSERT_TRUE(isomorphic(indexExpr, indexExpr));
+}
