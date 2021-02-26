@@ -7,6 +7,8 @@ namespace taco {
 
 class SingletonModeFormat : public ModeFormatImpl {
 public:
+  using ModeFormatImpl::getInsertCoord;
+
   SingletonModeFormat();
   SingletonModeFormat(bool isFull, bool isOrdered,
                       bool isUnique, bool isZeroless, long long allocSize = DEFAULT_ALLOC_SIZE);

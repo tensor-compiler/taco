@@ -7,6 +7,8 @@ namespace taco {
 
 class CompressedModeFormat : public ModeFormatImpl {
 public:
+  using ModeFormatImpl::getInsertCoord;
+
   CompressedModeFormat();
   CompressedModeFormat(bool isFull, bool isOrdered,
                        bool isUnique, bool isZeroless, long long allocSize = DEFAULT_ALLOC_SIZE);

@@ -764,7 +764,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
   // actual computation
   Assemble::AttrQueryResults queryResults;
   struct LowerAttrQuery : public IndexNotationRewriter {
-    using IndexNotationRewriter::rewrite;
+    using IndexNotationRewriter::visit;
 
     TensorVar result;
     Assemble::AttrQueryResults& queryResults;
@@ -959,7 +959,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
   // as the temporaries are not the results of reductions
   std::set<TensorVar> inlinedResults;
   struct InlineTemporaries : public IndexNotationRewriter {
-    using IndexNotationRewriter::rewrite;
+    using IndexNotationRewriter::visit;
 
     const std::set<TensorVar>& insertedResults;
     std::set<TensorVar>& inlinedResults;
@@ -1026,7 +1026,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
 
   // Eliminate computation of redundant temporaries
   struct EliminateRedundantTemps : public IndexNotationRewriter {
-    using IndexNotationRewriter::rewrite;
+    using IndexNotationRewriter::visit;
 
     const std::set<TensorVar>& inlinedResults;
 

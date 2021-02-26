@@ -7,6 +7,8 @@ namespace taco {
 
 class DenseModeFormat : public ModeFormatImpl {
 public:
+  using ModeFormatImpl::getInsertCoord;
+
   DenseModeFormat();
   DenseModeFormat(const bool isOrdered, const bool isUnique, const bool isZeroless);
 
