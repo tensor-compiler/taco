@@ -326,31 +326,34 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       stmt = stmt.fuse(findVar(i), findVar(j), fused);
 
     } else if (command == "split") {
-      taco_uassert(scheduleCommand.size() == 4) << "'split' scheduling directive takes 4 parameters: split(i, i1, i2, splitFactor)";
+      taco_uassert(scheduleCommand.size() == 4)
+          << "'split' scheduling directive takes 4 parameters: split(i, i1, i2, splitFactor)";
       string i, i1, i2;
       size_t splitFactor;
-      i  = scheduleCommand[0];
+      i = scheduleCommand[0];
       i1 = scheduleCommand[1];
       i2 = scheduleCommand[2];
-      taco_uassert(sscanf(scheduleCommand[3].c_str(), "%zu", &splitFactor) == 1) << "failed to parse fourth parameter to `split` directive as a size_t";
+      taco_uassert(sscanf(scheduleCommand[3].c_str(), "%zu", &splitFactor) == 1)
+          << "failed to parse fourth parameter to `split` directive as a size_t";
 
       IndexVar split1(i1);
       IndexVar split2(i2);
       stmt = stmt.split(findVar(i), split1, split2, splitFactor);
+    } else if (command == "divide") {
+      taco_uassert(scheduleCommand.size() == 4)
+          << "'divide' scheduling directive takes 4 parameters: split(i, i1, i2, divFactor)";
+      string i, i1, i2;
+      i = scheduleCommand[0];
+      i1 = scheduleCommand[1];
+      i2 = scheduleCommand[2];
 
-    // } else if (command == "divide") {
-    //   string i, i1, i2;
-    //   in >> i;
-    //   in >> i1;
-    //   in >> i2;
+      size_t divideFactor;
+      taco_uassert(sscanf(scheduleCommand[3].c_str(), "%zu", &divideFactor) == 1)
+          << "failed to parse fourth parameter to `divide` directive as a size_t";
 
-    //   size_t divideFactor;
-    //   in >> divideFactor;
-
-    //   IndexVar divide1(i1);
-    //   IndexVar divide2(i2);
-    //   stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
-
+      IndexVar divide1(i1);
+      IndexVar divide2(i2);
+      stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
     } else if (command == "precompute") {
       string exprStr, i, iw;
       taco_uassert(scheduleCommand.size() == 3) << "'precompute' scheduling directive takes 3 parameters: precompute(expr, i, iw)";

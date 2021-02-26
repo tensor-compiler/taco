@@ -516,7 +516,13 @@ void CodeGen_C::visit(const Allocate* op) {
     stream << ", ";
   }
   else {
-    stream << "malloc(";
+    // If the allocation was requested to clear the allocated memory,
+    // use calloc instead of malloc.
+    if (op->clear) {
+      stream << "calloc(1, ";
+    } else {
+      stream << "malloc(";
+    }
   }
   stream << "sizeof(" << elementType << ")";
   stream << " * ";

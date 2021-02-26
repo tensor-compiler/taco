@@ -5,6 +5,7 @@
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/index_notation/index_notation_rewriter.h"
+#include "taco/index_notation/provenance_graph.h"
 #include "taco/ir/ir.h"
 #include "ir/ir_generators.h"
 #include "taco/ir/ir_visitor.h"
@@ -217,6 +218,25 @@ LowererImpl::lower(IndexStmt stmt, string name,
   tensorVars.insert(resultVars.begin(), resultVars.end());
   vector<Expr> argumentsIR = createVars(arguments, &tensorVars, pack);
 
+  // Create variables for index sets on result tensors.
+  vector<Expr> indexSetArgs;
+  for (auto& access : getResultAccesses(stmt).first) {
+    // Any accesses that have index sets will be added.
+    if (access.hasIndexSetModes()) {
+      for (size_t i = 0; i < access.getIndexVars().size(); i++) {
+        if (access.isModeIndexSet(i)) {
+          auto t = access.getModeIndexSetTensor(i);
+          if (tensorVars.count(t) == 0) {
+            ir::Expr irVar = ir::Var::make(t.getName(), t.getType().getDataType(), true, true, pack);
+            tensorVars.insert({t, irVar});
+            indexSetArgs.push_back(irVar);
+          }
+        }
+      }
+    }
+  }
+  argumentsIR.insert(argumentsIR.begin(), indexSetArgs.begin(), indexSetArgs.end());
+
   // Create variables for temporaries
   // TODO Remove this
   for (auto& temp : temporaries) {
@@ -258,17 +278,36 @@ LowererImpl::lower(IndexStmt stmt, string name,
   vector<IndexVar> indexVars = getIndexVars(stmt);
   for (auto& indexVar : indexVars) {
     Expr dimension;
+    // getDimension extracts an Expr that holds the dimension
+    // of a particular tensor mode. This Expr should be used as a loop bound
+    // when iterating over the dimension of the target tensor.
+    auto getDimension = [&](const TensorVar& tv, const Access& a, int mode) {
+      // If the tensor mode is windowed, then the dimension for iteration is the bounds
+      // of the window. Otherwise, it is the actual dimension of the mode.
+      if (a.isModeWindowed(mode)) {
+        // The mode value used to access .levelIterator is 1-indexed, while
+        // the mode input to getDimension is 0-indexed. So, we shift it up by 1.
+        auto iter = iterators.levelIterator(ModeAccess(a, mode+1));
+        return ir::Div::make(ir::Sub::make(iter.getWindowUpperBound(), iter.getWindowLowerBound()), iter.getStride());
+      } else if (a.isModeIndexSet(mode)) {
+        // If the mode has an index set, then the dimension is the size of
+        // the index set.
+        return ir::Literal::make(a.getIndexSet(mode).size());
+      } else {
+        return GetProperty::make(tensorVars.at(tv), TensorProperty::Dimension, mode);
+      }
+    };
     match(stmt,
       function<void(const AssignmentNode*, Matcher*)>([&](
           const AssignmentNode* n, Matcher* m) {
         m->match(n->rhs);
         if (!dimension.defined()) {
           auto ivars = n->lhs.getIndexVars();
+          auto tv = n->lhs.getTensorVar();
           int loc = (int)distance(ivars.begin(),
                                   find(ivars.begin(),ivars.end(), indexVar));
-          if(!util::contains(temporariesSet, n->lhs.getTensorVar())) {
-            dimension = GetProperty::make(tensorVars.at(n->lhs.getTensorVar()),
-                                          TensorProperty::Dimension, loc);
+          if(!util::contains(temporariesSet, tv)) {
+            dimension = getDimension(tv, n->lhs, loc);
           }
         }
       }),
@@ -279,8 +318,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
                                   find(indexVars.begin(),indexVars.end(),
                                        indexVar));
           if(!util::contains(temporariesSet, n->tensorVar)) {
-            dimension = GetProperty::make(tensorVars.at(n->tensorVar),
-                                          TensorProperty::Dimension, loc);
+            dimension = getDimension(n->tensorVar, Access(n), loc);
           }
         }
       })
@@ -356,17 +394,22 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
 Stmt LowererImpl::lowerAssignment(Assignment assignment)
 {
-  Expr rhs = lower(assignment.getRhs());
-
   taco_iassert(generateAssembleCode() || generateComputeCode());
 
   Stmt computeStmt;
   TensorVar result = assignment.getLhs().getTensorVar();
   Expr var = getTensorVar(result);
 
+  const bool needComputeAssign = util::contains(needCompute, result);
+
+  Expr rhs;
+  if (needComputeAssign) {
+    rhs = lower(assignment.getRhs());
+  }
+
   // Assignment to scalar variables.
   if (isScalar(result.getType())) {
-    if (util::contains(needCompute, result)) {
+    if (needComputeAssign) {
       if (!assignment.getOperator().defined()) {
         computeStmt = Assign::make(var, rhs);
       }
@@ -412,7 +455,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
       }
     }
 
-    if (util::contains(needCompute, result) && values.defined()) {
+    if (needComputeAssign && values.defined()) {
       if (!assignment.getOperator().defined()) {
         computeStmt = Store::make(values, loc, rhs);
       }
@@ -466,7 +509,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
     Stmt incrementStmt = Assign::make(indexListSize, incrementSize);
 
     Stmt firstWriteAtIndex = Block::make(trackIndex, markBitGuardAsTrue, incrementStmt);
-    if (util::contains(needCompute, result) && values.defined()) {
+    if (needComputeAssign && values.defined()) {
       Stmt initialStorage = computeStmt;
       if (assignment.getOperator().defined()) {
         // computeStmt is a compund stmt so we need to emit an initial store
@@ -602,6 +645,31 @@ Stmt LowererImpl::lowerForall(Forall forall)
                                         Continue::make());
           recoverySteps.push_back(guard);
       }
+    }
+
+    // If this index variable was divided into multiple equal chunks, then we
+    // must add an extra guard to make sure that further scheduling operations
+    // on descendent index variables exceed the bounds of each equal portion of
+    // the loop. For a concrete example, consider a loop of size 10 that is divided
+    // into two equal components -- 5 and 5. If the loop is then transformed
+    // with .split(..., 3), each inner chunk of 5 will be split into chunks of
+    // 3. Without an extra guard, the second chunk of 3 in the first group of 5
+    // may attempt to perform an iteration for the second group of 5, which is
+    // incorrect.
+    if (this->provGraph.isDivided(varToRecover)) {
+      // Collect the children iteration variables.
+      auto children = this->provGraph.getChildren(varToRecover);
+      auto outer = children[0];
+      auto inner = children[1];
+      // Find the iteration bounds of the inner variable -- that is the size
+      // that the outer loop was broken into.
+      auto bounds = this->provGraph.deriveIterBounds(inner, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+      // Use the difference between the bounds to find the size of the loop.
+      auto dimLen = ir::Sub::make(bounds[1], bounds[0]);
+      // For a variable f divided into into f1 and f2, the guard ensures that
+      // for iteration f, f should be within f1 * dimLen and (f1 + 1) * dimLen.
+      auto guard = ir::Gte::make(this->indexVarToExprMap[varToRecover], ir::Mul::make(ir::Add::make(this->indexVarToExprMap[outer], 1), dimLen));
+      recoverySteps.push_back(IfThenElse::make(guard, ir::Continue::make()));
     }
   }
   Stmt recoveryStmt = Block::make(recoverySteps);
@@ -1147,9 +1215,29 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
 {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
   Stmt declareCoordinate = Stmt();
+  Stmt strideGuard = Stmt();
+  Stmt boundsGuard = Stmt();
   if (provGraph.isCoordVariable(forall.getIndexVar())) {
     Expr coordinateArray = iterator.posAccess(iterator.getPosVar(),
                                               coordinates(iterator)).getResults()[0];
+    // If the iterator is windowed, we must recover the coordinate index
+    // variable from the windowed space.
+    if (iterator.isWindowed()) {
+      if (iterator.isStrided()) {
+        // In this case, we're iterating over a compressed level with a for
+        // loop. Since the iterator variable will get incremented by the for
+        // loop, the guard introduced for stride checking doesn't need to
+        // increment the iterator variable.
+        strideGuard = this->strideBoundsGuard(iterator, coordinateArray, false /* incrementPosVar */);
+      }
+      coordinateArray = this->projectWindowedPositionToCanonicalSpace(iterator, coordinateArray);
+      // If this forall is being parallelized via CPU threads (OpenMP), then we can't
+      // emit a `break` statement, since OpenMP doesn't support breaking out of a
+      // parallel loop. Instead, we'll bound the top of the loop and omit the check.
+      if (forall.getParallelUnit() != ParallelUnit::CPUThread) {
+        boundsGuard = this->upperBoundGuardForWindowPosition(iterator, coordinate);
+      }
+    }
     declareCoordinate = VarDecl::make(coordinate, coordinateArray);
   }
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
@@ -1183,6 +1271,18 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
     boundsCompute = bounds.compute();
     startBound = bounds[0];
     endBound = bounds[1];
+    // If we have a window on this iterator, then search for the start of
+    // the window rather than starting at the beginning of the level.
+    if (iterator.isWindowed()) {
+      auto startBoundCopy = startBound;
+      startBound = this->searchForStartOfWindowPosition(iterator, startBound, endBound);
+      // As discussed above, if this position loop is parallelized over CPU
+      // threads (OpenMP), then we need to have an explicit upper bound to
+      // the for loop, instead of breaking out of the loop in the middle.
+      if (forall.getParallelUnit() == ParallelUnit::CPUThread) {
+        endBound = this->searchForEndOfWindowPosition(iterator, startBoundCopy, endBound);
+      }
+    }
   } else {
     taco_iassert(iterator.isOrdered() && iterator.getParent().isOrdered());
     taco_iassert(iterator.isCompact() && iterator.getParent().isCompact());
@@ -1204,10 +1304,12 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
            && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
     kind = LoopKind::Runtime;
   }
+
   // Loop with preamble and postamble
-  return Block::blanks(boundsCompute,
+  return Block::blanks(
+                       boundsCompute,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
-                                 Block::make(declareCoordinate, body),
+                                 Block::make(strideGuard, declareCoordinate, boundsGuard, body),
                                  kind,
                                  ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
                        posAppend);
@@ -1434,6 +1536,48 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   // Load coordinates from position iterators
   Stmt loadPosIterCoordinates = codeToLoadCoordinatesFromPosIterators(iterators, !resolvedCoordDeclared);
 
+  // Any iterators with an index set have extra work to do at the header
+  // of the merge point.
+  std::vector<ir::Stmt> indexSetStmts;
+  for (auto& iter : filter(iterators, [](Iterator it) { return it.hasIndexSet(); })) {
+    // For each iterator A with an index set B, emit the following code:
+    //   setMatch = min(A, B); // Check whether A matches its index set at this point.
+    //   if (A == setMatch && B == setMatch) {
+    //     // If there was a match, project down the values of the iterators
+    //     // to be the position variable of the index set iterator. This has the
+    //     // effect of remapping the index of A to be the i'th position of the set.
+    //     A_coord = B_pos;
+    //     B_coord = B_pos;
+    //   } else {
+    //     // Advance the iterator and it's index set iterator accordingly if
+    //     // there wasn't a match.
+    //     A_pos += (A == setMatch);
+    //     B_pos += (B == setMatch);
+    //     // We must continue so that we only proceed to the rest of the cases in
+    //     // the merge if there actually is a point present for A.
+    //     continue;
+    //   }
+    auto setMatch = ir::Var::make("setMatch", Int());
+    auto indexSetIter = iter.getIndexSetIterator();
+    indexSetStmts.push_back(ir::VarDecl::make(setMatch, ir::Min::make(this->coordinates({iter, indexSetIter}))));
+    // Equality checks for each iterator.
+    auto iterEq = ir::Eq::make(iter.getCoordVar(), setMatch);
+    auto setEq = ir::Eq::make(indexSetIter.getCoordVar(), setMatch);
+    // Code to shift down each iterator to the position space of the index set.
+    auto shiftDown = ir::Block::make(
+      ir::Assign::make(iter.getCoordVar(), indexSetIter.getPosVar()),
+      ir::Assign::make(indexSetIter.getCoordVar(), indexSetIter.getPosVar())
+    );
+    // Code to increment both iterator variables.
+    auto incr = ir::Block::make(
+      compoundAssign(iter.getIteratorVar(), ir::Cast::make(Eq::make(iter.getCoordVar(), setMatch), iter.getIteratorVar().type())),
+      compoundAssign(indexSetIter.getIteratorVar(), ir::Cast::make(Eq::make(indexSetIter.getCoordVar(), setMatch), indexSetIter.getIteratorVar().type())),
+      ir::Continue::make()
+    );
+    // Code that uses the defined parts together in the if-then-else.
+    indexSetStmts.push_back(ir::IfThenElse::make(ir::And::make(iterEq, setEq), shiftDown, incr));
+  }
+
   // Merge iterator coordinate variables
   Stmt resolvedCoordinate = resolveCoordinate(mergers, coordinate, !resolvedCoordDeclared);
 
@@ -1457,6 +1601,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   /// While loop over rangers
   return While::make(checkThatNoneAreExhausted(rangers),
                      Block::make(loadPosIterCoordinates,
+                                 ir::Block::make(indexSetStmts),
                                  resolvedCoordinate,
                                  loadLocatorPosVars,
                                  deduplicationLoops,
@@ -1471,9 +1616,37 @@ Stmt LowererImpl::resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coor
       // Just one position iterator so it is the resolved coordinate
       ModeFunction posAccess = merger.posAccess(merger.getPosVar(),
                                                 coordinates(merger));
-      Stmt resolution = emitVarDecl ? VarDecl::make(coordinate, posAccess[0]) : Assign::make(coordinate, posAccess[0]);
+      auto access = posAccess[0];
+      auto windowVarDecl = Stmt();
+      auto stride = Stmt();
+      auto guard = Stmt();
+      // If the iterator is windowed, we must recover the coordinate index
+      // variable from the windowed space.
+      if (merger.isWindowed()) {
+
+        // If the iterator is strided, then we have to skip over coordinates
+        // that don't match the stride. To do that, we insert a guard on the
+        // access. We first extract the access into a temp to avoid emitting
+        // a duplicate load on the _crd array.
+        if (merger.isStrided()) {
+          windowVarDecl = VarDecl::make(merger.getWindowVar(), access);
+          access = merger.getWindowVar();
+          // Since we're merging values from a compressed array (not iterating over it),
+          // we need to advance the outer loop if the current coordinate is not
+          // along the desired stride. So, we pass true to the incrementPosVar
+          // argument of strideBoundsGuard.
+          stride = this->strideBoundsGuard(merger, access, true /* incrementPosVar */);
+        }
+
+        access = this->projectWindowedPositionToCanonicalSpace(merger, access);
+        guard = this->upperBoundGuardForWindowPosition(merger, coordinate);
+      }
+      Stmt resolution = emitVarDecl ? VarDecl::make(coordinate, access) : Assign::make(coordinate, access);
       return Block::make(posAccess.compute(),
-                         resolution);
+                         windowVarDecl,
+                         stride,
+                         resolution,
+                         guard);
     }
     else if (merger.hasCoordIter()) {
       taco_not_supported_yet;
@@ -2060,17 +2233,21 @@ Expr LowererImpl::lowerAccess(Access access) {
     return getTensorVar(var);
   }
 
-  if (getIterators(access).back().isUnique()) {
-    if (var.getType().getDataType() == Datatype::Bool &&
-        getIterators(access).back().isZeroless())  {
-      return true;
-    } else {
-      const auto vals = getValuesArray(var);
-      return vals.defined() ? Load::make(vals, generateValueLocExpr(access)) : true;
-    }
-  } else {
+  if (!getIterators(access).back().isUnique()) {
     return getReducedValueVar(access);
   }
+
+  if (var.getType().getDataType() == Bool &&
+      getIterators(access).back().isZeroless())  {
+    return true;
+  } 
+
+  const auto vals = getValuesArray(var);
+  if (!vals.defined()) {
+    return true;
+  }
+
+  return Load::make(vals, generateValueLocExpr(access));
 }
 
 
@@ -2301,6 +2478,7 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
 
     Expr tensor = getTensorVar(write.getTensorVar());
     Expr valuesArr = GetProperty::make(tensor, TensorProperty::Values);
+    bool clearValuesAllocation = false;
 
     Expr parentSize = 1;
     if (generateAssembleCode()) {
@@ -2328,6 +2506,8 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
         }
 
         parentSize = size;
+        // Writes into a windowed iterator require the allocation to be cleared.
+        clearValuesAllocation |= (iterator.isWindowed() || iterator.hasIndexSet());
       }
 
       // Pre-allocate memory for the value array if computing while assembling
@@ -2338,7 +2518,8 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
         Expr allocSize = isValue(parentSize, 0)
                          ? DEFAULT_ALLOC_SIZE : parentSize;
         initArrays.push_back(VarDecl::make(capacityVar, allocSize));
-        initArrays.push_back(Allocate::make(valuesArr, capacityVar));
+        initArrays.push_back(Allocate::make(valuesArr, capacityVar, false /* is_realloc */, Expr() /* old_elements */,
+                                            clearValuesAllocation));
       }
 
       taco_iassert(!initArrays.empty());
@@ -2388,6 +2569,7 @@ ir::Stmt LowererImpl::finalizeResultArrays(std::vector<Access> writes) {
     return Stmt();
   }
 
+  bool clearValuesAllocation = false;
   std::vector<Stmt> result;
   for (auto& write : writes) {
     if (write.getTensorVar().getOrder() == 0 ||
@@ -2414,13 +2596,16 @@ ir::Stmt LowererImpl::finalizeResultArrays(std::vector<Access> writes) {
       }
       result.push_back(finalize);
       parentSize = size;
+      // Writes into a windowed iterator require the allocation to be cleared.
+      clearValuesAllocation |= (iterator.isWindowed() || iterator.hasIndexSet());
     }
 
     if (!generateComputeCode()) {
       // Allocate memory for values array after assembly if not also computing
       Expr tensor = getTensorVar(write.getTensorVar());
       Expr valuesArr = GetProperty::make(tensor, TensorProperty::Values);
-      result.push_back(Allocate::make(valuesArr, parentSize));
+      result.push_back(Allocate::make(valuesArr, parentSize, false /* is_realloc */, Expr() /* old_elements */,
+                                      clearValuesAllocation));
     }
   }
   return result.empty() ? Stmt() : Block::blanks(result);
@@ -2591,7 +2776,6 @@ Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
   return For::make(p, lower, upper, 1, zeroInit, parallel);
 }
 
-
 Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
   vector<Stmt> result;
   for (Iterator& locator : locators) {
@@ -2613,7 +2797,22 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
         continue; // these will be recovered with separate procedure
       }
       do {
-        ModeFunction locate = locateIterator.locate(coordinates(locateIterator));
+        auto coords = coordinates(locateIterator);
+        // If this dimension iterator operates over a window, then it needs
+        // to be projected up to the window's iteration space.
+        if (locateIterator.isWindowed()) {
+          auto expr = coords[coords.size() - 1];
+          coords[coords.size() - 1] = this->projectCanonicalSpaceToWindowedPosition(locateIterator, expr);
+        } else if (locateIterator.hasIndexSet()) {
+          // If this dimension iterator operates over an index set, follow the
+          // indirection by using the locator access the index set's crd array.
+          // The resulting value is where we should locate into the actual tensor.
+          auto expr = coords[coords.size() - 1];
+          auto indexSetIterator = locateIterator.getIndexSetIterator();
+          auto coordArray = indexSetIterator.posAccess(expr, coordinates(indexSetIterator)).getResults()[0];
+          coords[coords.size() - 1] = coordArray;
+        }
+        ModeFunction locate = locateIterator.locate(coords);
         taco_iassert(isValue(locate.getResults()[1], true));
         Stmt declarePosVar = VarDecl::make(locateIterator.getPosVar(),
                                            locate.getResults()[0]);
@@ -2707,6 +2906,11 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
 
         Expr binarySearchTarget = provGraph.deriveCoordBounds(definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, this->iterators)[coordinateVar][0];
         if (binarySearchTarget != underivedBounds[coordinateVar][0]) {
+          // If we have a window, then we need to project up the binary search target
+          // into the window rather than the beginning of the level.
+          if (iterator.isWindowed()) {
+            binarySearchTarget = this->projectCanonicalSpaceToWindowedPosition(iterator, binarySearchTarget);
+          }
           result.push_back(VarDecl::make(iterator.getBeginVar(), binarySearchTarget));
 
           vector<Expr> binarySearchArgs = {
@@ -2723,7 +2927,13 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
         }
       }
       else {
-        result.push_back(VarDecl::make(iterVar, bounds[0]));
+        auto bound = bounds[0];
+        // If we have a window on this iterator, then search for the start of
+        // the window rather than starting at the beginning of the level.
+        if (iterator.isWindowed()) {
+            bound = this->searchForStartOfWindowPosition(iterator, bounds[0], bounds[1]);
+        }
+        result.push_back(VarDecl::make(iterVar, bound));
       }
 
       result.push_back(VarDecl::make(endVar, bounds[1]));
@@ -2885,13 +3095,37 @@ Stmt LowererImpl::codeToLoadCoordinatesFromPosIterators(vector<Iterator> iterato
       ModeFunction posAccess = posIter.posAccess(posIter.getPosVar(),
                                                  coordinates(posIter));
       loadPosIterCoordinateStmts.push_back(posAccess.compute());
+      auto access = posAccess[0];
+      // If this iterator is windowed, then it needs to be projected down to
+      // recover the coordinate variable.
+      // TODO (rohany): Would be cleaner to have this logic be moved into the
+      //  ModeFunction, rather than having to check in some places?
+      if (posIter.isWindowed()) {
+
+        // If the iterator is strided, then we have to skip over coordinates
+        // that don't match the stride. To do that, we insert a guard on the
+        // access. We first extract the access into a temp to avoid emitting
+        // a duplicate load on the _crd array.
+        if (posIter.isStrided()) {
+          loadPosIterCoordinateStmts.push_back(VarDecl::make(posIter.getWindowVar(), access));
+          access = posIter.getWindowVar();
+          // Since we're locating into a compressed array (not iterating over it),
+          // we need to advance the outer loop if the current coordinate is not
+          // along the desired stride. So, we pass true to the incrementPosVar
+          // argument of strideBoundsGuard.
+          loadPosIterCoordinateStmts.push_back(this->strideBoundsGuard(posIter, access, true /* incrementPosVar */));
+        }
+
+        access = this->projectWindowedPositionToCanonicalSpace(posIter, access);
+      }
       if (declVars) {
-        loadPosIterCoordinateStmts.push_back(VarDecl::make(posIter.getCoordVar(),
-                                                           posAccess[0]));
+        loadPosIterCoordinateStmts.push_back(VarDecl::make(posIter.getCoordVar(), access));
       }
       else {
-        loadPosIterCoordinateStmts.push_back(Assign::make(posIter.getCoordVar(),
-                                                          posAccess[0]));
+        loadPosIterCoordinateStmts.push_back(Assign::make(posIter.getCoordVar(), access));
+      }
+      if (posIter.isWindowed()) {
+        loadPosIterCoordinateStmts.push_back(this->upperBoundGuardForWindowPosition(posIter, posIter.getCoordVar()));
       }
     }
     loadPosIterCoordinates = Block::make(loadPosIterCoordinateStmts);
@@ -3129,13 +3363,13 @@ bool LowererImpl::hasStores(Stmt stmt) {
 
   struct FindStores : IRVisitor {
     bool hasStore;
-    const std::map<TensorVar,Expr>& tensorVars;
-    const std::map<TensorVar,Expr>& tempToBitGuard;
+    const std::map<TensorVar, Expr>& tensorVars;
+    const std::map<TensorVar, Expr>& tempToBitGuard;
 
     using IRVisitor::visit;
 
-    FindStores(const std::map<TensorVar,Expr>& tensorVars,
-               const std::map<TensorVar,Expr>& tempToBitGuard)
+    FindStores(const std::map<TensorVar, Expr>& tensorVars,
+               const std::map<TensorVar, Expr>& tempToBitGuard)
         : tensorVars(tensorVars), tempToBitGuard(tempToBitGuard) {}
 
     void visit(const Store* stmt) {
@@ -3167,6 +3401,72 @@ bool LowererImpl::hasStores(Stmt stmt) {
     }
   };
   return FindStores(tensorVars, tempToBitGuard).hasStores(stmt);
+}
+
+
+Expr LowererImpl::searchForStartOfWindowPosition(Iterator iterator, ir::Expr start, ir::Expr end) {
+    taco_iassert(iterator.isWindowed());
+    vector<Expr> args = {
+            // Search over the `crd` array of the level,
+            iterator.getMode().getModePack().getArray(1),
+            // between the start and end position,
+            start, end,
+            // for the beginning of the window.
+            iterator.getWindowLowerBound(),
+    };
+    return Call::make("taco_binarySearchAfter", args, Datatype::UInt64);
+}
+
+
+Expr LowererImpl::searchForEndOfWindowPosition(Iterator iterator, ir::Expr start, ir::Expr end) {
+    taco_iassert(iterator.isWindowed());
+    vector<Expr> args = {
+            // Search over the `crd` array of the level,
+            iterator.getMode().getModePack().getArray(1),
+            // between the start and end position,
+            start, end,
+            // for the end of the window.
+            iterator.getWindowUpperBound(),
+    };
+    return Call::make("taco_binarySearchAfter", args, Datatype::UInt64);
+}
+
+
+Stmt LowererImpl::upperBoundGuardForWindowPosition(Iterator iterator, ir::Expr access) {
+  taco_iassert(iterator.isWindowed());
+  return ir::IfThenElse::make(
+    ir::Gte::make(access, ir::Sub::make(iterator.getWindowUpperBound(), iterator.getWindowLowerBound())),
+    ir::Break::make()
+  );
+}
+
+
+Stmt LowererImpl::strideBoundsGuard(Iterator iterator, ir::Expr access, bool incrementPosVar) {
+  Stmt cont = ir::Continue::make();
+  // If requested to increment the iterator's position variable, add the increment
+  // before the continue statement.
+  if (incrementPosVar) {
+    cont = ir::Block::make({
+                               ir::Assign::make(iterator.getPosVar(),
+                                                ir::Add::make(iterator.getPosVar(), ir::Literal::make(1))),
+                               cont
+                           });
+  }
+  // The guard makes sure that the coordinate being accessed is along the stride.
+  return ir::IfThenElse::make(
+      ir::Neq::make(ir::Rem::make(access, iterator.getStride()), ir::Literal::make(0)),
+      cont
+  );
+}
+
+
+Expr LowererImpl::projectWindowedPositionToCanonicalSpace(Iterator iterator, ir::Expr expr) {
+  return ir::Div::make(ir::Sub::make(expr, iterator.getWindowLowerBound()), iterator.getStride());
+}
+
+
+Expr LowererImpl::projectCanonicalSpaceToWindowedPosition(Iterator iterator, ir::Expr expr) {
+  return ir::Mul::make(ir::Add::make(expr, iterator.getWindowLowerBound()), iterator.getStride());
 }
 
 }

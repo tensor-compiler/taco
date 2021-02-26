@@ -386,6 +386,9 @@ public:
   /// Create an index expression that accesses (reads or writes) this tensor.
   Access operator()(const std::vector<IndexVar>& indices);
 
+  /// Create a possibly windowed index expression that accesses (reads or writes) this tensor.
+  Access operator()(const std::vector<std::shared_ptr<IndexVarInterface>>& indices);
+
   /// Create an index expression that accesses (reads) this (scalar) tensor.
   Access operator()();
 
@@ -621,6 +624,23 @@ public:
   template <typename... IndexVars>
   Access operator()(const IndexVars&... indices);
 
+  /// The below two Access methods are used to allow users to access tensors
+  /// with a mix of IndexVar's and WindowedIndexVar's. This allows natural
+  /// expressions like
+  ///   A(i, j(1, 3)) = B(i(2, 4), j) * C(i(5, 7), j(7, 9))
+  /// to be constructed without adjusting the original API.
+
+  /// Create an index expression that accesses (reads, writes) this tensor.
+  template <typename... IndexVars>
+  Access operator()(const WindowedIndexVar& first, const IndexVars&... indices);
+
+  /// Create an index expression that accesses (reads, writes) this tensor.
+  template <typename... IndexVars>
+  Access operator()(const IndexVar& first, const IndexVars&... indices);
+
+  template <typename... IndexVars>
+  Access operator()(const IndexSetVar& first, const IndexVars&... indices);
+
   ScalarAccess<CType> operator()(const std::vector<int>& indices);
 
   /// Create an index expression that accesses (reads) this tensor.
@@ -629,6 +649,15 @@ public:
 
   /// Assign an expression to a scalar tensor.
   void operator=(const IndexExpr& expr);
+
+private:
+  /// The _access method family is the template level implementation of
+  /// Access() expressions containing mixes of IndexVar and WindowedIndexVar objects.
+  template <typename First, typename... Rest>
+  std::vector<std::shared_ptr<IndexVarInterface>> _access(const First& first, const Rest&... rest);
+  std::vector<std::shared_ptr<IndexVarInterface>> _access();
+  template <typename... Args>
+  Access _access_wrapper(const Args&... args);
 };
 
 template <typename CType>
@@ -1082,6 +1111,64 @@ template <typename CType>
 template <typename... IndexVars>
 Access Tensor<CType>::operator()(const IndexVars&... indices) {
   return TensorBase::operator()(std::vector<IndexVar>{indices...});
+}
+
+/// The _access() methods perform primitive recursion on the input variadic template.
+/// This means that each instance of the _access method matches on the first element
+/// of the variadic template parameter pack, performs an "action", then recurses
+/// with the remaining elements in the parameter pack through a recursive call
+/// to _access. Since this is recursion, we need a base case. The empty argument
+/// instance of _access returns an empty value of the desired type, in this case
+/// a vector of IndexVarInterface.
+template <typename CType>
+std::vector<std::shared_ptr<IndexVarInterface>> Tensor<CType>::_access() {
+  return std::vector<std::shared_ptr<IndexVarInterface>>{};
+}
+
+/// The recursive case of _access matches on the first element, and attempts to
+/// create a shared_ptr out of it. It then makes a recursive call to get a
+/// vector with the rest of the elements. Then, it pushes the first element onto
+/// the back of the vector -- this check ensures that the type First is indeed
+/// a member of IndexVarInterface.
+template <typename CType>
+template <typename First, typename... Rest>
+std::vector<std::shared_ptr<IndexVarInterface>> Tensor<CType>::_access(const First& first, const Rest&... rest) {
+  auto var = std::make_shared<First>(first);
+  auto ret = _access(rest...);
+  ret.push_back(var);
+  return ret;
+}
+
+/// _access_wrapper just calls into _access and reverses the result to get the initial
+/// order of the arguments.
+template <typename CType>
+template <typename... Args>
+Access Tensor<CType>::_access_wrapper(const Args&... args) {
+  auto resultReversed = this->_access(args...);
+  std::vector<std::shared_ptr<IndexVarInterface>> result;
+  result.reserve(resultReversed.size());
+  for (auto& it : util::reverse(resultReversed)) {
+    result.push_back(it);
+  }
+  return TensorBase::operator()(result);
+}
+
+/// We have to case on whether the first argument is an IndexVar or a WindowedIndexVar
+/// so that the template engine can differentiate between the two versions.
+template <typename CType>
+template <typename... IndexVars>
+Access Tensor<CType>::operator()(const IndexVar& first, const IndexVars&... indices) {
+  return this->_access_wrapper(first, indices...);
+}
+template <typename CType>
+template <typename... IndexVars>
+Access Tensor<CType>::operator()(const WindowedIndexVar& first, const IndexVars&... indices) {
+  return this->_access_wrapper(first, indices...);
+}
+template <typename CType>
+template <typename... IndexVars>
+Access Tensor<CType>::operator()(const IndexSetVar& first, const IndexVars&... indices) {
+  return this->_access_wrapper(first, indices...);
 }
 
 template <typename CType>

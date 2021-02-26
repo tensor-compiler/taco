@@ -749,7 +749,7 @@ Stmt Yield::make(std::vector<Expr> coords, Expr val) {
 }
 
 // Allocate
-Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_elements) {
+Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_elements, bool clear) {
   taco_iassert(var.as<GetProperty>() ||
                (var.as<Var>() && var.as<Var>()->is_ptr)) <<
       "Can only allocate memory for a pointer-typed Var";
@@ -761,6 +761,7 @@ Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_eleme
   alloc->is_realloc = is_realloc;
   taco_iassert(!is_realloc || old_elements.ptr != NULL);
   alloc->old_elements = old_elements;
+  alloc->clear = clear;
   return alloc;
 }
 

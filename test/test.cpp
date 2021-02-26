@@ -1,3 +1,5 @@
+#include <functional>
+
 #include "test.h"
 #include "taco/tensor.h"
 
@@ -49,6 +51,20 @@ ostream& operator<<(ostream& os, const NotationTest& test) {
   os << "Expected: " << test.expected << endl;
   os << "Actual:   " << test.actual << endl;
   return os;
+}
+
+void ASSERT_THROWS_EXCEPTION_WITH_ERROR(std::function<void()> f, std::string err) {
+  EXPECT_THROW({
+    try {
+      f();
+    } catch (TacoException& e) {
+      // Catch and inspect the exception to make sure that err is within it.
+      auto s = std::string(e.what());
+      ASSERT_TRUE(s.find(err) != std::string::npos);
+      // Throw the exception back up to gtest.
+      throw;
+    }
+  }, TacoException);
 }
 
 }}

@@ -902,10 +902,12 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
 
     void visit(const AccessNode* op) {
       if (util::contains(arguments, op->tensorVar)) {
-        expr = Access(op->tensorVar, op->indexVars, true);
+        expr = Access(op->tensorVar, op->indexVars, op->packageModifiers(),
+                      true);
         return;
       } else if (util::contains(temps, op->tensorVar)) {
-        expr = Access(tempReplacements[op->tensorVar], op->indexVars);
+        expr = Access(tempReplacements[op->tensorVar], op->indexVars,
+                      op->packageModifiers());
         return;
       }
 

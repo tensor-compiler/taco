@@ -29,6 +29,23 @@ struct Iterator::Content {
   ir::Expr segendVar;
   ir::Expr validVar;
   ir::Expr beginVar;
+
+  // AccessWindow represents a window (or slice) into a tensor mode, given by
+  // the expressions representing an upper and lower bound. An iterator
+  // is windowed if window is not NULL.
+  struct Window {
+    // windowVar is a Var specific to this iterator. It is intended to
+    // be used as temporary storage to avoid duplicate memory loads of
+    // expressions that are used in window/stride related bounds checking.
+    ir::Expr windowVar;
+    ir::Expr lo;
+    ir::Expr hi;
+    ir::Expr stride;
+    Window(ir::Expr _lo, ir::Expr _hi, ir::Expr _stride, ir::Expr _windowVar) :
+      windowVar(_windowVar), lo(_lo), hi(_hi), stride(_stride) {};
+  };
+  std::unique_ptr<Window> window;
+  Iterator indexSetIterator;
 };
 
 Iterator::Iterator() : content(nullptr) {
@@ -400,6 +417,56 @@ bool Iterator::defined() const {
   return content != nullptr;
 }
 
+bool Iterator::isWindowed() const {
+  return this->content->window != nullptr;
+}
+
+ir::Expr Iterator::getWindowLowerBound() const {
+  taco_iassert(this->isWindowed());
+  return this->content->window->lo;
+}
+
+ir::Expr Iterator::getWindowUpperBound() const {
+  taco_iassert(this->isWindowed());
+  return this->content->window->hi;
+}
+
+ir::Expr Iterator::getStride() const {
+  taco_iassert(this->isWindowed());
+  return this->content->window->stride;
+}
+
+ir::Expr Iterator::getWindowVar() const {
+  taco_iassert(this->isWindowed());
+  return this->content->window->windowVar;
+}
+
+bool Iterator::isStrided() const {
+  // It's not necessary but makes things simpler to require a window in order
+  // to have a stride.
+  taco_iassert(this->isWindowed());
+  auto strideLiteral = this->content->window->stride.as<ir::Literal>();
+  return !(strideLiteral != nullptr && strideLiteral->getIntValue() == 1);
+}
+
+void Iterator::setWindowBounds(ir::Expr lo, ir::Expr hi, ir::Expr stride) {
+  auto windowVarName = this->getIndexVar().getName() + this->getMode().getName() + "_window";
+  auto wvar = ir::Var::make(windowVarName, Int());
+  this->content->window = std::make_unique<Content::Window>(Content::Window(lo, hi, stride, wvar));
+}
+
+bool Iterator::hasIndexSet() const {
+  return this->content->indexSetIterator.defined();
+}
+Iterator Iterator::getIndexSetIterator() const {
+  taco_iassert(this->hasIndexSet());
+  return this->content->indexSetIterator;
+}
+
+void Iterator::setIndexSetIterator(Iterator iter) {
+  this->content->indexSetIterator = iter;
+}
+
 bool operator==(const Iterator& a, const Iterator& b) {
   if (a.isDimensionIterator() && b.isDimensionIterator()) {
     return a.getIndexVar() == b.getIndexVar();
@@ -474,7 +541,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
       taco_iassert(util::contains(tensorVars, n->tensorVar));
       Expr tensorIR = tensorVars.at(n->tensorVar);
       Format format = n->tensorVar.getFormat();
-      this->createAccessIterators(Access(n), format, tensorIR, provGraph);
+      this->createAccessIterators(Access(n), format, tensorIR, provGraph, tensorVars);
     }),
     function<void(const AssignmentNode*, Matcher*)>([&](auto n, auto m) {
       m->match(n->rhs);
@@ -482,16 +549,16 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
     })
   );
 
-  // Reverse the levelITerators map for fast modeAccess lookup
+  // Reverse the levelIterators map for fast modeAccess lookup
   for (auto& iterator : content->levelIterators) {
     content->modeAccesses.insert({iterator.second, iterator.first});
   }
 }
 
 
-void
-Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, ProvenanceGraph provGraph)
-{
+void Iterators::createAccessIterators(Access access, Format format, Expr tensorIR,
+                                      ProvenanceGraph provGraph,
+                                      const map<TensorVar, Expr> &tensorVars) {
   TensorVar tensorConcrete = access.getTensorVar();
   taco_iassert(tensorConcrete.getOrder() == format.getOrder())
       << tensorConcrete << ", Format" << format;
@@ -529,6 +596,32 @@ Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, Pr
 
       string name = iteratorIndexVar.getName() + tensorConcrete.getName();
       Iterator iterator(iteratorIndexVar, tensorIR, mode, parent, name, true);
+
+      // If the access that this iterator corresponds to has a window, then
+      // adjust the iterator appropriately.
+      if (access.isModeWindowed(modeNumber)) {
+        auto lo = ir::Literal::make(access.getWindowLowerBound(modeNumber));
+        auto hi = ir::Literal::make(access.getWindowUpperBound(modeNumber));
+        auto stride = ir::Literal::make(access.getStride(modeNumber));
+        iterator.setWindowBounds(lo, hi, stride);
+      }
+      // If the access that corresponds to this iterator has an index set,
+      // then we need to construct an iterator for the index set.
+      if (access.isModeIndexSet(modeNumber)) {
+        auto tv = access.getModeIndexSetTensor(modeNumber);
+        auto tvVar = tensorVars.at(tv);
+        auto tvFormat = tv.getFormat();
+        auto tvShape = tv.getType().getShape();
+        auto accessIvar = access.getIndexVars()[modeNumber];
+        ModePack tvModePack(1, tvFormat.getModeFormats()[0], tvVar, 0, 1);
+        Mode tvMode(tvVar, tvShape.getDimension(0), 1, tvFormat.getModeFormats()[0], tvModePack, 0, ModeFormat());
+        // Finally, construct the iterator and register it as an indexSetIterator.
+        auto iter = Iterator(accessIvar, tvVar, tvMode, {tvVar}, accessIvar.getName() + tv.getName() + "_filter");
+        iterator.setIndexSetIterator(iter);
+        // Also add the iterator to the modeAccesses map.
+        content->modeAccesses.insert({iter, {access, modeNumber + 1}});
+      }
+
       content->levelIterators.insert({{access,modeNumber+1}, iterator});
       if (iteratorIndexVar != indexVar) {
         // add to allowing lowering to find correct iterator for this pos variable
