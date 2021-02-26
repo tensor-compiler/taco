@@ -20,6 +20,9 @@ void IndexNotationPrinter::print(const IndexStmt& expr) {
 
 void IndexNotationPrinter::visit(const AccessNode* op) {
   os << op->tensorVar.getName();
+  if (op->isAccessingStructure) {
+    os << "_struct";
+  }
   if (op->indexVars.size() > 0) {
     os << "(" << util::join(op->indexVars,",") << ")";
   }
@@ -261,6 +264,16 @@ void IndexNotationPrinter::visit(const SequenceNode* op) {
   op->definition.accept(this);
   os << ", ";
   op->mutation.accept(this);
+  os << ")";
+}
+
+void IndexNotationPrinter::visit(const AssembleNode* op) {
+  os << "assemble(";
+  if (op->queries.defined()) {
+    op->queries.accept(this);
+    os << ", ";
+  }
+  op->compute.accept(this);
   os << ")";
 }
 

@@ -10,7 +10,6 @@
 
 #include "taco/ir/ir.h"
 #include "taco/util/comparable.h"
-#include "taco/lower/mode_format_impl.h"
 
 namespace taco {
 class Type;
@@ -20,6 +19,10 @@ class IndexVar;
 class ProvenanceGraph;
 class TensorVar;
 class Access;
+class ModeFunction;
+class Mode;
+class Format;
+class AttrQueryResult;
 
 namespace ir {
 class Stmt;
@@ -77,6 +80,12 @@ public:
   bool hasLocate() const;
   bool hasInsert() const;
   bool hasAppend() const;
+
+  /// Attributes of ungrouped insertion level functions.
+  bool hasSeqInsertEdge() const;
+  bool hasInsertCoord() const;
+  bool isYieldPosPure() const;
+
 
   /// Get the index variable this iterator iteratores over.
   IndexVar getIndexVar() const;
@@ -156,6 +165,23 @@ public:
   ir::Stmt getAppendInitLevel(const ir::Expr& szPrev, const ir::Expr& sz) const;
   ir::Stmt getAppendFinalizeLevel(const ir::Expr& szPrev, 
       const ir::Expr& sz) const;
+
+  /// Return code for level functions that implement ungrouped insert 
+  /// capabilitiy.
+  ir::Expr getAssembledSize(const ir::Expr& prevSize) const;
+  ir::Stmt getSeqInitEdges(const ir::Expr& prevSize, 
+      const std::vector<AttrQueryResult>& queries) const;
+  ir::Stmt getSeqInsertEdge(const ir::Expr& parentPos, 
+      const std::vector<ir::Expr>& coords, 
+      const std::vector<AttrQueryResult>& queries) const;
+  ir::Stmt getInitCoords(const ir::Expr& prevSize, 
+      const std::vector<AttrQueryResult>& queries) const;
+  ir::Stmt getInitYieldPos(const ir::Expr& prevSize) const;
+  ModeFunction getYieldPos(const ir::Expr& parentPos, 
+      const std::vector<ir::Expr>& coords) const;
+  ir::Stmt getInsertCoord(const ir::Expr& parentPos, const ir::Expr& pos, 
+      const std::vector<ir::Expr>& coords) const;
+  ir::Stmt getFinalizeYieldPos(const ir::Expr& prevSize) const;
 
   /// Returns true if the iterator is defined, false otherwise.
   bool defined() const;

@@ -7,6 +7,8 @@
 #include "taco/util/collections.h"
 #include "taco/lower/iterator.h"
 #include "taco/lower/merge_lattice.h"
+#include "taco/lower/mode.h"
+#include "taco/lower/mode_format_impl.h"
 
 #include <iostream>
 #include <algorithm>
@@ -481,12 +483,19 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
     Parallelize parallelize;
     ProvenanceGraph provGraph;
+    map<TensorVar,ir::Expr> tensorVars;
+    vector<ir::Expr> assembledByUngroupedInsert;
     set<IndexVar> definedIndexVars;
     set<ParallelUnit> parentParallelUnits;
     std::string reason = "";
 
     IndexStmt rewriteParallel(IndexStmt stmt) {
       provGraph = ProvenanceGraph(stmt);
+      tensorVars = createIRTensorVars(stmt);
+      assembledByUngroupedInsert.clear();
+      for (const auto& result : getAssembledByUngroupedInsertion(stmt)) {
+        assembledByUngroupedInsert.push_back(tensorVars[result]);
+      }
       return rewrite(stmt);
     }
 
@@ -494,7 +503,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
       Forall foralli(node);
       IndexVar i = parallelize.geti();
 
-      Iterators iterators(foralli);
+      Iterators iterators(foralli, tensorVars);
       definedIndexVars.insert(foralli.getIndexVar());
       MergeLattice lattice = MergeLattice::make(foralli, iterators, provGraph, definedIndexVars);
       // Precondition 3: No parallelization of variables under a reduction
@@ -515,15 +524,25 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
         // Precondition 2: Every result iterator must have insert capability
         for (Iterator iterator : lattice.results()) {
-          while (true) {
-            if (!iterator.hasInsert()) {
-              reason = "Precondition failed: The output tensor must allow inserts";
-              return;
+          if (util::contains(assembledByUngroupedInsert, iterator.getTensor())) {
+            for (Iterator it = iterator; !it.isRoot(); it = it.getParent()) {
+              if (it.hasInsertCoord() || !it.isYieldPosPure()) {
+                reason = "Precondition failed: The output tensor does not "
+                         "support parallelized inserts";
+                return;
+              }
             }
-            if (iterator.isLeaf()) {
-              break;
+          } else {
+            while (true) {
+              if (!iterator.hasInsert()) {
+                reason = "Precondition failed: The output tensor must allow inserts";
+                return;
+              }
+              if (iterator.isLeaf()) {
+                break;
+              }
+              iterator = iterator.getChild();
             }
-            iterator = iterator.getChild();
           }
         }
 
@@ -613,6 +632,33 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
       IndexNotationRewriter::visit(node);
     }
 
+    void visit(const AssembleNode* op) {
+      IndexVar i = parallelize.geti();
+      IndexStmt queries = util::contains(op->queries.getIndexVars(), i) 
+                        ? rewrite(op->queries) : op->queries;
+      IndexStmt compute = util::contains(op->compute.getIndexVars(), i) 
+                        ? rewrite(op->compute) : op->compute;
+      if (queries == op->queries && compute == op->compute) {
+        stmt = op;
+      }
+      else {
+        stmt = new AssembleNode(queries, compute, op->results);
+      }
+    }
+
+    void visit(const WhereNode* op) {
+      IndexVar i = parallelize.geti();
+      IndexStmt producer = util::contains(op->producer.getIndexVars(), i) 
+                        ? rewrite(op->producer) : op->producer;
+      IndexStmt consumer = util::contains(op->consumer.getIndexVars(), i) 
+                        ? rewrite(op->consumer) : op->consumer;
+      if (producer == op->producer && consumer == op->consumer) {
+        stmt = op;
+      }
+      else {
+        stmt = new WhereNode(consumer, producer);
+      }
+    }
   };
 
   ParallelizeRewriter rewriter;
@@ -633,6 +679,406 @@ void Parallelize::print(std::ostream& os) const {
 
 std::ostream& operator<<(std::ostream& os, const Parallelize& parallelize) {
   parallelize.print(os);
+  return os;
+}
+
+
+// class SetAssembleStrategy 
+
+struct SetAssembleStrategy::Content {
+  TensorVar result;
+  AssembleStrategy strategy;
+};
+
+SetAssembleStrategy::SetAssembleStrategy(TensorVar result, 
+                                         AssembleStrategy strategy) : 
+    content(new Content) {
+  content->result = result;
+  content->strategy = strategy;
+}
+
+TensorVar SetAssembleStrategy::getResult() const {
+  return content->result;
+}
+
+AssembleStrategy SetAssembleStrategy::getAssembleStrategy() const {
+  return content->strategy;
+}
+
+IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
+  INIT_REASON(reason);
+
+  if (getAssembleStrategy() == AssembleStrategy::Append) {
+    return stmt;
+  }
+
+  bool hasSeqInsertEdge = false;
+  bool hasInsertCoord = false;
+  bool hasNonpureYieldPosForUniqueMode = false;
+  for (const auto& modeFormat : getResult().getFormat().getModeFormats()) {
+    if (hasSeqInsertEdge) {
+      if (modeFormat.hasSeqInsertEdge()) {
+        *reason = "Precondition failed: The output tensor does not support "
+                  "ungrouped insertion (cannot have multiple modes requiring "
+                  "non-trivial edge insertion)";
+        return IndexStmt();
+      }
+    } else {
+      hasSeqInsertEdge = (hasSeqInsertEdge || modeFormat.hasSeqInsertEdge());
+      if (modeFormat.hasSeqInsertEdge()) {
+        if (hasInsertCoord) {
+          *reason = "Precondition failed: The output tensor does not support "
+                    "ungrouped insertion (cannot have mode requiring "
+                    "non-trivial coordinate insertion above mode requiring "
+                    "non-trivial edge insertion)";
+          return IndexStmt();
+        }
+        hasSeqInsertEdge = true;
+      }
+      hasInsertCoord = (hasInsertCoord || modeFormat.hasInsertCoord());
+    }
+    if (hasNonpureYieldPosForUniqueMode) {
+      *reason = "Precondition failed: The output tensor does not support "
+                "ungrouped insertion (only last mode can have non-pure "
+                "implementation of yield_pos and be unique)";
+      return IndexStmt();
+    } else if (!modeFormat.isYieldPosPure() && modeFormat.isUnique()) {
+      hasNonpureYieldPosForUniqueMode = true;
+    }
+  }
+
+  std::map<IndexVar,IndexVar> ivReplacements;
+  for (const auto& indexVar : getIndexVars(stmt)) {
+    ivReplacements[indexVar] = IndexVar("q" + indexVar.getName());
+  }
+  IndexStmt loweredQueries = replace(stmt, ivReplacements);
+
+  // FIXME: Unneeded if scalar promotion is made default when concretizing
+  loweredQueries = scalarPromote(loweredQueries);
+
+  // Tracks all tensors that correspond to attribute query results or that are 
+  // used to compute attribute queries
+  std::set<TensorVar> insertedResults;  
+
+  // Lower attribute queries to canonical forms using same schedule as 
+  // actual computation
+  Assemble::AttrQueryResults queryResults;
+  struct LowerAttrQuery : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    TensorVar result;
+    Assemble::AttrQueryResults& queryResults;
+    std::set<TensorVar>& insertedResults;
+    std::vector<TensorVar> arguments;
+    std::vector<TensorVar> temps;
+    std::map<TensorVar,TensorVar> tempReplacements;
+    IndexStmt epilog;
+    std::string reason = "";
+
+    LowerAttrQuery(TensorVar result, Assemble::AttrQueryResults& queryResults, 
+                   std::set<TensorVar>& insertedResults) : 
+        result(result), queryResults(queryResults), 
+        insertedResults(insertedResults) {}
+
+    IndexStmt lower(IndexStmt stmt) {
+      arguments = getArguments(stmt);
+      temps = getTemporaries(stmt);
+      for (const auto& tmp : temps) {
+        tempReplacements[tmp] = TensorVar("q" + tmp.getName(), 
+                                          Type(Bool, tmp.getType().getShape()), 
+                                          tmp.getFormat());
+      }
+
+      queryResults = Assemble::AttrQueryResults();
+      epilog = IndexStmt();
+      stmt = IndexNotationRewriter::rewrite(stmt);
+      if (epilog.defined()) {
+        stmt = Where(epilog, stmt);
+      }
+      return stmt;
+    }
+
+    void visit(const ForallNode* op) {
+      IndexStmt s = rewrite(op->stmt);
+      if (s == op->stmt) {
+        stmt = op;
+      } else if (s.defined()) {
+        stmt = new ForallNode(op->indexVar, s, op->parallel_unit, 
+                              op->output_race_strategy, op->unrollFactor);
+      } else {
+        stmt = IndexStmt();
+      }
+    }
+
+    void visit(const AssignmentNode* op) {
+      IndexExpr rhs = rewrite(op->rhs);
+
+      const auto resultAccess = op->lhs;
+      const auto resultTensor = resultAccess.getTensorVar();
+      
+      if (resultTensor != result) {
+        Access lhs = to<Access>(rewrite(op->lhs));
+        stmt = (rhs != op->rhs) ? Assignment(lhs, rhs, op->op) : op;
+        return;
+      }
+
+      if (op->op.defined()) {
+        reason = "Precondition failed: Ungrouped insertion not support for "
+                 "output tensors that are scattered into";
+        return;
+      }
+
+      queryResults[resultTensor] = 
+          std::vector<std::vector<TensorVar>>(resultTensor.getOrder());
+
+      const auto indices = resultAccess.getIndexVars();
+      const auto modeFormats = resultTensor.getFormat().getModeFormats();
+      const auto modeOrdering = resultTensor.getFormat().getModeOrdering();
+
+      std::vector<IndexVar> parentCoords;
+      std::vector<IndexVar> childCoords;
+      for (size_t i = 0; i < indices.size(); ++i) {
+        childCoords.push_back(indices[modeOrdering[i]]);
+      }
+
+      for (size_t i = 0; i < indices.size(); ++i) {
+        const auto modeName = resultTensor.getName() + std::to_string(i + 1);
+
+        parentCoords.push_back(indices[modeOrdering[i]]);
+        childCoords.erase(childCoords.begin());
+
+        for (const auto& query: 
+            modeFormats[i].getAttrQueries(parentCoords, childCoords)) {
+          const auto& groupBy = query.getGroupBy();
+
+          // TODO: support multiple aggregations in single query
+          taco_iassert(query.getAttrs().size() == 1); 
+
+          std::vector<Dimension> queryDims;
+          for (const auto& coord : groupBy) {
+            const auto pos = std::find(groupBy.begin(), groupBy.end(), coord) 
+                           - groupBy.begin();
+            const auto dim = resultTensor.getType().getShape().getDimension(pos);
+            queryDims.push_back(dim);
+          }
+
+          for (const auto& attr : query.getAttrs()) {
+            switch (attr.aggr) {
+              case AttrQuery::COUNT:
+              {
+                std::vector<IndexVar> dedupCoords = groupBy;
+                dedupCoords.insert(dedupCoords.end(), attr.params.begin(), 
+                                   attr.params.end());
+                std::vector<Dimension> dedupDims(dedupCoords.size());
+                TensorVar dedupTmp(modeName + "_dedup", Type(Bool, dedupDims));
+                stmt = Assignment(dedupTmp(dedupCoords), rhs, Add());
+                insertedResults.insert(dedupTmp);
+
+                const auto resultName = modeName + "_" + attr.label;
+                TensorVar queryResult(resultName, Type(Int32, queryDims));
+                epilog = Assignment(queryResult(groupBy), 
+                                    Cast(dedupTmp(dedupCoords), Int()), Add());
+                for (const auto& coord : util::reverse(dedupCoords)) {
+                  epilog = forall(coord, epilog);
+                }
+                insertedResults.insert(queryResult);
+
+                queryResults[resultTensor][i] = {queryResult};
+                return;
+              }
+              case AttrQuery::IDENTITY:
+              case AttrQuery::MIN:
+              case AttrQuery::MAX:
+              default:
+                taco_not_supported_yet;
+                break;
+            }
+          }
+        }
+      }
+
+      stmt = IndexStmt();
+    }
+
+    void visit(const AccessNode* op) {
+      if (util::contains(arguments, op->tensorVar)) {
+        expr = Access(op->tensorVar, op->indexVars, op->packageModifiers(),
+                      true);
+        return;
+      } else if (util::contains(temps, op->tensorVar)) {
+        expr = Access(tempReplacements[op->tensorVar], op->indexVars,
+                      op->packageModifiers());
+        return;
+      }
+
+      expr = op;
+    }
+  };
+  LowerAttrQuery queryLowerer(getResult(), queryResults, insertedResults);
+  loweredQueries = queryLowerer.lower(loweredQueries);
+
+  if (!queryLowerer.reason.empty()) {
+    *reason = queryLowerer.reason;
+    return IndexStmt();
+  }
+
+  // Convert redundant reductions to assignments
+  struct ReduceToAssign : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    const std::set<TensorVar>& insertedResults;
+    std::set<IndexVar> availableVars;
+
+    ReduceToAssign(const std::set<TensorVar>& insertedResults) :
+        insertedResults(insertedResults) {}
+
+    void visit(const ForallNode* op) {
+      availableVars.insert(op->indexVar);
+      IndexNotationRewriter::visit(op);
+      availableVars.erase(op->indexVar);
+    }
+    
+    void visit(const AssignmentNode* op) {
+      std::set<IndexVar> accessVars;
+      for (const auto& index : op->lhs.getIndexVars()) {
+        accessVars.insert(index);
+      }
+
+      if (op->op.defined() && accessVars == availableVars && 
+          util::contains(insertedResults, op->lhs.getTensorVar())) {
+        stmt = new AssignmentNode(op->lhs, op->rhs, IndexExpr());
+        return;
+      }
+
+      stmt = op;
+    }
+  };
+  loweredQueries = ReduceToAssign(insertedResults).rewrite(loweredQueries);
+
+  // Inline definitions of temporaries into their corresponding uses, as long 
+  // as the temporaries are not the results of reductions
+  std::set<TensorVar> inlinedResults;
+  struct InlineTemporaries : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    const std::set<TensorVar>& insertedResults;
+    std::set<TensorVar>& inlinedResults;
+    std::map<TensorVar,std::pair<IndexExpr,Assignment>> tmpUse;
+
+    InlineTemporaries(const std::set<TensorVar>& insertedResults,
+                      std::set<TensorVar>& inlinedResults) :
+        insertedResults(insertedResults), inlinedResults(inlinedResults) {}
+
+    void visit(const WhereNode* op) {
+      IndexStmt consumer = rewrite(op->consumer);
+      IndexStmt producer = rewrite(op->producer);
+      if (producer == op->producer && consumer == op->consumer) {
+        stmt = op;
+      } else {
+        stmt = new WhereNode(consumer, producer);
+      }
+    }
+
+    void visit(const AssignmentNode* op) {
+      const auto lhsTensor = op->lhs.getTensorVar();
+      if (util::contains(tmpUse, lhsTensor) && !op->op.defined()) {
+        std::map<IndexVar,IndexVar> indexMap;
+        const auto& oldIndices = 
+            to<Access>(tmpUse[lhsTensor].first).getIndexVars();
+        const auto& newIndices = op->lhs.getIndexVars();
+        for (const auto& mapping : util::zip(oldIndices, newIndices)) {
+          indexMap[mapping.first] = mapping.second;
+        }
+
+        std::vector<IndexVar> newCoords;
+        const auto& oldCoords = 
+            tmpUse[lhsTensor].second.getLhs().getIndexVars();
+        for (const auto& oldCoord : oldCoords) {
+          newCoords.push_back(indexMap.at(oldCoord));
+        }
+
+        IndexExpr reduceOp = tmpUse[lhsTensor].second.getOperator();
+        TensorVar queryResult = 
+            tmpUse[lhsTensor].second.getLhs().getTensorVar();
+        IndexExpr rhs = op->rhs;
+        if (rhs.getDataType() != queryResult.getType().getDataType()) {
+          rhs = Cast(rhs, queryResult.getType().getDataType());
+        }
+        stmt = Assignment(queryResult(newCoords), rhs, reduceOp);
+        inlinedResults.insert(queryResult);
+        return;
+      } 
+
+      const Access rhsAccess = isa<Access>(op->rhs) ? to<Access>(op->rhs)
+          : (isa<Cast>(op->rhs) && isa<Access>(to<Cast>(op->rhs).getA()))
+            ? to<Access>(to<Cast>(op->rhs).getA()) : Access();
+      if (rhsAccess.defined()) {
+        const auto rhsTensor = rhsAccess.getTensorVar();
+        if (util::contains(insertedResults, rhsTensor)) {
+          tmpUse[rhsTensor] = std::make_pair(rhsAccess, Assignment(op));
+        }
+      }
+      stmt = op;
+    }
+  };
+  loweredQueries = InlineTemporaries(insertedResults, 
+                                     inlinedResults).rewrite(loweredQueries);
+
+  // Eliminate computation of redundant temporaries
+  struct EliminateRedundantTemps : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    const std::set<TensorVar>& inlinedResults;
+
+    EliminateRedundantTemps(const std::set<TensorVar>& inlinedResults) :
+        inlinedResults(inlinedResults) {}
+
+    void visit(const ForallNode* op) {
+      IndexStmt s = rewrite(op->stmt);
+      if (s == op->stmt) {
+        stmt = op;
+      } else if (s.defined()) {
+        stmt = new ForallNode(op->indexVar, s, op->parallel_unit, 
+                              op->output_race_strategy, op->unrollFactor);
+      } else {
+        stmt = IndexStmt();
+      }
+    }
+
+    void visit(const WhereNode* op) {
+      IndexStmt consumer = rewrite(op->consumer);
+      if (consumer == op->consumer) {
+        stmt = op;
+      } else if (consumer.defined()) {
+        stmt = new WhereNode(consumer, op->producer);
+      } else {
+        stmt = op->producer;
+      }
+    }
+
+    void visit(const AssignmentNode* op) {
+      const auto lhsTensor = op->lhs.getTensorVar();
+      if (util::contains(inlinedResults, lhsTensor)) {
+        stmt = IndexStmt();
+      } else {
+        stmt = op;
+      }
+    }
+  };
+  loweredQueries = 
+      EliminateRedundantTemps(inlinedResults).rewrite(loweredQueries);
+
+  return Assemble(loweredQueries, stmt, queryResults);
+}
+
+void SetAssembleStrategy::print(std::ostream& os) const {
+  os << "assemble(" << getResult() << ", " 
+     << AssembleStrategy_NAMES[(int)getAssembleStrategy()] << ")";
+}
+
+std::ostream& operator<<(std::ostream& os, 
+                         const SetAssembleStrategy& assemble) {
+  assemble.print(os);
   return os;
 }
 

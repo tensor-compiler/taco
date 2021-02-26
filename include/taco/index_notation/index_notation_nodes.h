@@ -71,10 +71,12 @@ struct IndexSet : IndexVarIterationModifier {
 };
 
 struct AccessNode : public IndexExprNode {
-  AccessNode(TensorVar tensorVar,
-             const std::vector<IndexVar> &indices,
-             const std::map<int, std::shared_ptr<IndexVarIterationModifier>> &modifiers = {})
-      : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices) {
+  AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices, 
+             const std::map<int, std::shared_ptr<IndexVarIterationModifier>> &modifiers,
+             bool isAccessingStructure)
+      : IndexExprNode(isAccessingStructure ? Bool : tensorVar.getType().getDataType()), 
+        tensorVar(tensorVar), indexVars(indices), 
+        isAccessingStructure(isAccessingStructure) {
     // Unpack the input modifiers into the appropriate maps for each mode.
     for (auto &it : modifiers) {
       IndexVarIterationModifier::match(it.second, [&](std::shared_ptr<AccessWindow> w) {
@@ -108,11 +110,14 @@ struct AccessNode : public IndexExprNode {
   std::vector<IndexVar> indexVars;
   std::map<int, AccessWindow> windowedModes;
   std::map<int, IndexSet> indexSetModes;
+  bool isAccessingStructure;
 
 protected:
   /// Initialize an AccessNode with just a TensorVar. If this constructor is used,
   /// then indexVars must be set afterwards.
-  explicit AccessNode(TensorVar tensorVar) : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar) {}
+  explicit AccessNode(TensorVar tensorVar) : 
+      IndexExprNode(tensorVar.getType().getDataType()), 
+      tensorVar(tensorVar), isAccessingStructure(false) {}
 };
 
 struct LiteralNode : public IndexExprNode {
@@ -358,6 +363,20 @@ struct SequenceNode : public IndexStmtNode {
 
   IndexStmt definition;
   IndexStmt mutation;
+};
+
+struct AssembleNode : public IndexStmtNode {
+  AssembleNode(IndexStmt queries, IndexStmt compute, 
+               Assemble::AttrQueryResults results)
+      : queries(queries), compute(compute), results(results) {}
+
+  void accept(IndexStmtVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  IndexStmt queries;
+  IndexStmt compute;
+  Assemble::AttrQueryResults results;
 };
 
 

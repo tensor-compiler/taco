@@ -35,7 +35,8 @@ using namespace std;
 namespace taco {
 
 // class IndexExpr
-IndexExpr::IndexExpr(TensorVar var) : IndexExpr(new AccessNode(var,{})) {
+IndexExpr::IndexExpr(TensorVar var) 
+    : IndexExpr(new AccessNode(var,{},{},false)) {
 }
 
 IndexExpr::IndexExpr(char val) : IndexExpr(new LiteralNode(val)) {
@@ -186,11 +187,13 @@ struct Isomorphic : public IndexNotationVisitorStrict {
         return;
       }
     }
-    if (anode->windowedModes != bnode->windowedModes) {
+    if (anode->isAccessingStructure != bnode->isAccessingStructure ||
+        anode->windowedModes != bnode->windowedModes ||
+        anode->indexSetModes != bnode->indexSetModes) {
       eq = false;
       return;
     }
-    eq = anode->indexSetModes == bnode->indexSetModes;
+    eq = true;
   }
 
   void visit(const LiteralNode* anode) {
@@ -390,6 +393,20 @@ struct Isomorphic : public IndexNotationVisitorStrict {
     eq = true;
   }
 
+  void visit(const AssembleNode* anode) {
+    if (!isa<AssembleNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<AssembleNode>(bStmt.ptr);
+    if (!check(anode->queries, bnode->queries) ||
+        !check(anode->compute, bnode->compute)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
   void visit(const MultiNode* anode) {
     if (!isa<MultiNode>(bStmt.ptr)) {
       eq = false;
@@ -478,11 +495,13 @@ struct Equals : public IndexNotationVisitorStrict {
         return;
       }
     }
-    if (anode->windowedModes != bnode->windowedModes) {
+    if (anode->isAccessingStructure != bnode->isAccessingStructure ||
+        anode->windowedModes != bnode->windowedModes ||
+        anode->indexSetModes != bnode->indexSetModes) {
       eq = false;
       return;
     }
-    eq = anode->indexSetModes == bnode->indexSetModes;
+    eq = true;
   }
 
   void visit(const LiteralNode* anode) {
@@ -681,6 +700,20 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = true;
   }
 
+  void visit(const AssembleNode* anode) {
+    if (!isa<AssembleNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<AssembleNode>(bStmt.ptr);
+    if (!equals(anode->queries, bnode->queries) ||
+        !equals(anode->compute, bnode->compute)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
   void visit(const MultiNode* anode) {
     if (!isa<MultiNode>(bStmt.ptr)) {
       eq = false;
@@ -755,10 +788,10 @@ IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
 Access::Access(const AccessNode* n) : IndexExpr(n) {
 }
 
-Access::Access(const TensorVar& tensor,
-               const std::vector<IndexVar>& indices,
-               const std::map<int, std::shared_ptr<IndexVarIterationModifier>>& modifiers)
-    : Access(new AccessNode(tensor, indices, modifiers)) {
+Access::Access(const TensorVar& tensor, const std::vector<IndexVar>& indices,
+               const std::map<int, std::shared_ptr<IndexVarIterationModifier>>& modifiers,
+               bool isAccessingStructure)
+    : Access(new AccessNode(tensor, indices, modifiers, isAccessingStructure)) {
 }
 
 const TensorVar& Access::getTensorVar() const {
@@ -767,6 +800,10 @@ const TensorVar& Access::getTensorVar() const {
 
 const std::vector<IndexVar>& Access::getIndexVars() const {
   return getNode(*this)->indexVars;
+}
+
+bool Access::isAccessingStructure() const {
+  return getNode(*this)->isAccessingStructure;
 }
 
 bool Access::hasWindowedModes() const {
@@ -1622,6 +1659,17 @@ IndexStmt IndexStmt::unroll(IndexVar i, size_t unrollFactor) const {
   return UnrollLoop(i, unrollFactor).rewrite(*this);
 }
 
+IndexStmt IndexStmt::assemble(TensorVar result, 
+                              AssembleStrategy strategy) const {
+  string reason;
+  IndexStmt transformed = 
+      SetAssembleStrategy(result, strategy).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
 std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
   if (!expr.defined()) return os << "IndexStmt()";
   IndexNotationPrinter printer(os);
@@ -1818,6 +1866,42 @@ template <> bool isa<Sequence>(IndexStmt s) {
 template <> Sequence to<Sequence>(IndexStmt s) {
   taco_iassert(isa<Sequence>(s));
   return Sequence(to<SequenceNode>(s.ptr));
+}
+
+
+// class Assemble
+Assemble::Assemble(const AssembleNode* n) :IndexStmt(n) {
+}
+
+Assemble::Assemble(IndexStmt queries, IndexStmt compute, 
+                   AttrQueryResults results)
+    : Assemble(new AssembleNode(queries, compute, results)) {
+}
+
+IndexStmt Assemble::getQueries() const {
+  return getNode(*this)->queries;
+}
+
+IndexStmt Assemble::getCompute() const {
+  return getNode(*this)->compute;
+}
+
+const Assemble::AttrQueryResults& Assemble::getAttrQueryResults() const {
+  return getNode(*this)->results;
+}
+
+Assemble assemble(IndexStmt queries, IndexStmt compute, 
+                  Assemble::AttrQueryResults results) {
+  return Assemble(queries, compute, results);
+}
+
+template <> bool isa<Assemble>(IndexStmt s) {
+  return isa<AssembleNode>(s.ptr);
+}
+
+template <> Assemble to<Assemble>(IndexStmt s) {
+  taco_iassert(isa<Assemble>(s));
+  return Assemble(to<AssembleNode>(s.ptr));
 }
 
 
@@ -2063,14 +2147,14 @@ const Access TensorVar::operator()(const std::vector<IndexVar>& indices) const {
   taco_uassert((int)indices.size() == getOrder()) <<
       "A tensor of order " << getOrder() << " must be indexed with " <<
       getOrder() << " variables, but is indexed with:  " << util::join(indices);
-  return Access(new AccessNode(*this, indices));
+  return Access(new AccessNode(*this, indices, {}, false));
 }
 
 Access TensorVar::operator()(const std::vector<IndexVar>& indices) {
   taco_uassert((int)indices.size() == getOrder()) <<
       "A tensor of order " << getOrder() << " must be indexed with " <<
       getOrder() << " variables, but is indexed with:  " << util::join(indices);
-  return Access(new AccessNode(*this, indices));
+  return Access(new AccessNode(*this, indices, {}, false));
 }
 
 Assignment TensorVar::operator=(IndexExpr expr) {
@@ -2547,6 +2631,7 @@ vector<TensorVar> getArguments(IndexStmt stmt) {
   return result;
 }
 
+
 std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt) {
   map<Forall, Where> temporaryLocs;
   Forall f = Forall();
@@ -2562,6 +2647,7 @@ std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt) {
         );
   return temporaryLocs;
 }
+
 
 std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
   vector<TensorVar> temporaries;
@@ -2603,9 +2689,45 @@ std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
                                                   Matcher* ctx) {
       ctx->match(op->consumer);
       ctx->match(op->producer);
+    }),
+    function<void(const AssembleNode*,Matcher*)>([&](const AssembleNode* op,
+                                                  Matcher* ctx) {
+      ctx->match(op->compute);
+      ctx->match(op->queries);
     })
   );
   return temporaries;
+}
+
+
+std::vector<TensorVar> getAttrQueryResults(IndexStmt stmt) {
+  std::vector<TensorVar> results;
+  match(stmt,
+    function<void(const AssembleNode*,Matcher*)>([&](const AssembleNode* op,
+                                                  Matcher* ctx) {
+      const auto queryResults = getResults(op->queries);
+      results.insert(results.end(), queryResults.begin(), queryResults.end());
+      ctx->match(op->queries);
+      ctx->match(op->compute);
+    })
+  );
+  return results;
+}
+
+
+std::vector<TensorVar> getAssembledByUngroupedInsertion(IndexStmt stmt) {
+  std::vector<TensorVar> results;
+  match(stmt,
+    function<void(const AssembleNode*,Matcher*)>([&](const AssembleNode* op,
+                                                  Matcher* ctx) {
+      for (const auto& result : op->results) {
+        results.push_back(result.first);
+      }
+      ctx->match(op->queries);
+      ctx->match(op->compute);
+    })
+  );
+  return results;
 }
 
 
@@ -2637,6 +2759,10 @@ pair<vector<Access>,set<Access>> getResultAccesses(IndexStmt stmt)
     function<void(const SequenceNode*,Matcher*)>([&](const SequenceNode* op,
                                                      Matcher* ctx) {
       ctx->match(op->definition);
+    }),
+    function<void(const AssembleNode*,Matcher*)>([&](const AssembleNode* op,
+                                                     Matcher* ctx) {
+      ctx->match(op->compute);
     })
   );
   return {result, reduced};
@@ -2735,6 +2861,41 @@ vector<ir::Expr> createVars(const vector<TensorVar>& tensorVars,
     vars->insert({var, irVar});
   }
   return irVars;
+}
+
+std::map<TensorVar,ir::Expr> createIRTensorVars(IndexStmt stmt)
+{
+  std::map<TensorVar,ir::Expr> tensorVars;
+
+  // Create result and parameter variables
+  vector<TensorVar> results = getResults(stmt);
+  vector<TensorVar> arguments = getArguments(stmt);
+  vector<TensorVar> temporaries = getTemporaries(stmt);
+
+  // Create variables for index sets on result tensors.
+  for (auto& access : getResultAccesses(stmt).first) {
+    // Any accesses that have index sets will be added.
+    if (access.hasIndexSetModes()) {
+      for (size_t i = 0; i < access.getIndexVars().size(); i++) {
+        if (access.isModeIndexSet(i)) {
+          auto t = access.getModeIndexSetTensor(i);
+          if (tensorVars.count(t) == 0) {
+            ir::Expr irVar = ir::Var::make(t.getName(), t.getType().getDataType(), true, true, true);
+            tensorVars.insert({t, irVar});
+          }
+        }
+      }
+    }
+  }
+
+  // Convert tensor results, arguments and temporaries to IR variables
+  map<TensorVar, ir::Expr> resultVars;
+  vector<ir::Expr> resultsIR = createVars(results, &resultVars);
+  tensorVars.insert(resultVars.begin(), resultVars.end());
+  vector<ir::Expr> argumentsIR = createVars(arguments, &tensorVars);
+  vector<ir::Expr> temporariesIR = createVars(temporaries, &tensorVars);
+
+  return tensorVars;
 }
 
 struct Zero : public IndexNotationRewriterStrict {
@@ -2968,6 +3129,10 @@ private:
   }
 
   void visit(const SequenceNode* op) {
+    taco_not_supported_yet;
+  }
+
+  void visit(const AssembleNode* op) {
     taco_not_supported_yet;
   }
 

@@ -1,6 +1,7 @@
 #ifndef TACO_LOWERER_IMPL_H
 #define TACO_LOWERER_IMPL_H
 
+#include <utility>
 #include <vector>
 #include <map>
 #include <set>
@@ -186,6 +187,9 @@ protected:
   /// Lower a sequence statement.
   virtual ir::Stmt lowerSequence(Sequence sequence);
 
+  /// Lower an assemble statement.
+  virtual ir::Stmt lowerAssemble(Assemble assemble);
+
   /// Lower a multi statement.
   virtual ir::Stmt lowerMulti(Multi multi);
 
@@ -345,7 +349,7 @@ protected:
 
   /// Returns true iff the temporary used in the where statement is dense and sparse iteration over that
   /// temporary can be automaticallty supported by the compiler.
-  bool canAccelerateDenseTemp(Where where);
+  std::pair<bool,bool> canAccelerateDenseTemp(Where where);
 
   /// Initializes a temporary workspace
   std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
@@ -371,12 +375,25 @@ protected:
   /// Create statements to append positions to result modes.
   ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
 
-
   /// Create an expression to index into a tensor value array.
   ir::Expr generateValueLocExpr(Access access) const;
 
   /// Expression that evaluates to true if none of the iterators are exhausted
   ir::Expr checkThatNoneAreExhausted(std::vector<Iterator> iterators);
+
+  /// Create an expression that can be used to filter out (some) zeros in the
+  /// result
+  ir::Expr generateAssembleGuard(IndexExpr expr);
+
+  /// Check whether the result tensor should be assembled by ungrouped insertion
+  bool isAssembledByUngroupedInsertion(TensorVar result);
+  bool isAssembledByUngroupedInsertion(ir::Expr result);
+
+  /// Check whether the statement writes to a result tensor
+  bool hasStores(ir::Stmt stmt);
+
+  std::pair<std::vector<Iterator>,std::vector<Iterator>>
+  splitAppenderAndInserters(const std::vector<Iterator>& results);
 
   /// Expression that returns the beginning of a window to iterate over
   /// in a compressed iterator. It is used when operating over windows of
@@ -414,8 +431,12 @@ private:
   bool assemble;
   bool compute;
 
+  std::set<TensorVar> needCompute;
+
   int markAssignsAtomicDepth = 0;
   ParallelUnit atomicParallelUnit;
+
+  std::set<TensorVar> assembledByUngroupedInsert;
 
   /// Map used to hoist temporary workspace initialization
   std::map<Forall, Where> temporaryInitialization;
@@ -436,6 +457,8 @@ private:
 
   /// Map form temporary to bitGuard var if accelerating dense workspace
   std::map<TensorVar, ir::Expr> tempToBitGuard;
+
+  std::set<TensorVar> guardedTemps;
 
   /// Map from result tensors to variables tracking values array capacity.
   std::map<ir::Expr, ir::Expr> capacityVars;

@@ -20,7 +20,6 @@
 #include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/ir_tags.h"
-#include "taco/lower/iterator.h"
 #include "taco/index_notation/provenance_graph.h"
 
 namespace taco {
@@ -57,6 +56,7 @@ struct YieldNode;
 struct ForallNode;
 struct WhereNode;
 struct SequenceNode;
+struct AssembleNode;
 struct MultiNode;
 struct SuchThatNode;
 
@@ -224,15 +224,21 @@ public:
   Access() = default;
   Access(const Access&) = default;
   Access(const AccessNode*);
-  Access(const TensorVar& tensorVar,
-         const std::vector<IndexVar>& indices={},
-         const std::map<int, std::shared_ptr<IndexVarIterationModifier>>& modifiers={});
+  Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={}, 
+         const std::map<int, std::shared_ptr<IndexVarIterationModifier>>& modifiers={},
+         bool isAccessingStructure=false);
 
   /// Return the Access expression's TensorVar.
   const TensorVar &getTensorVar() const;
 
   /// Returns the index variables used to index into the Access's TensorVar.
   const std::vector<IndexVar>& getIndexVars() const;
+
+  /// Returns whether access expression returns sparsity pattern of tensor.
+  /// If true, the access expression returns 1 for every physically stored 
+  /// component. If false, the access expression returns the value that is  
+  /// stored for each corresponding component.
+  bool isAccessingStructure() const;
 
   /// hasWindowedModes returns true if any accessed modes are windowed.
   bool hasWindowedModes() const;
@@ -675,6 +681,8 @@ public:
   /// integer number of iterations
   /// Preconditions: unrollFactor is a positive nonzero integer
   IndexStmt unroll(IndexVar i, size_t unrollFactor) const;
+
+  IndexStmt assemble(TensorVar result, AssembleStrategy strategy) const;
 };
 
 /// Check if two index statements are isomorphic.
@@ -816,6 +824,27 @@ public:
 
 /// Create a sequence index statement.
 Sequence sequence(IndexStmt definition, IndexStmt mutation);
+
+
+class Assemble : public IndexStmt {
+public:
+  typedef std::map<TensorVar,std::vector<std::vector<TensorVar>>> AttrQueryResults;
+
+  Assemble() = default;
+  Assemble(const AssembleNode*);
+  Assemble(IndexStmt queries, IndexStmt compute, AttrQueryResults results);
+
+  IndexStmt getQueries() const;
+  IndexStmt getCompute() const;
+
+  const AttrQueryResults& getAttrQueryResults() const;
+
+  typedef AssembleNode Node;
+};
+
+/// Create an assemble index statement.
+Assemble assemble(IndexStmt queries, IndexStmt compute, 
+                  Assemble::AttrQueryResults results);
 
 
 /// A multi statement has two statements that are executed separately, and let
@@ -1095,9 +1124,17 @@ std::vector<TensorVar> getArguments(IndexStmt stmt);
 /// Returns the temporaries in the index statement, in the order they appear.
 std::vector<TensorVar> getTemporaries(IndexStmt stmt);
 
+/// Returns the attribute query results in the index statement, in the order 
+/// they appear.
+std::vector<TensorVar> getAttrQueryResults(IndexStmt stmt);
+
 // [Olivia]
 /// Returns the temporaries in the index statement, in the order they appear.
 std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt);
+
+/// Returns the results in the index statement that should be assembled by 
+/// ungrouped insertion.
+std::vector<TensorVar> getAssembledByUngroupedInsertion(IndexStmt stmt);
 
 /// Returns the tensors in the index statement.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);
@@ -1122,6 +1159,10 @@ std::vector<IndexVar> getReductionVars(IndexStmt stmt);
 std::vector<ir::Expr> createVars(const std::vector<TensorVar>& tensorVars,
                                  std::map<TensorVar, ir::Expr>* vars, 
                                  bool isParameter=false);
+
+/// Convert index notation tensor variables in the index statement to IR 
+/// pointer variables.
+std::map<TensorVar,ir::Expr> createIRTensorVars(IndexStmt stmt);
 
 
 /// Simplify an index expression by setting the zeroed Access expressions to

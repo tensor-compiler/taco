@@ -333,6 +333,10 @@ private:
     taco_not_supported_yet;
   }
 
+  void visit(const AssembleNode* op) {
+    taco_not_supported_yet;
+  }
+
   void visit(const SuchThatNode* node) {
     taco_not_supported_yet;
   }

@@ -107,6 +107,13 @@ void IndexNotationVisitor::visit(const SequenceNode* op) {
   op->mutation.accept(this);
 }
 
+void IndexNotationVisitor::visit(const AssembleNode* op) {
+  if (op->queries.defined()) {
+    op->queries.accept(this);
+  }
+  op->compute.accept(this);
+}
+
 void IndexNotationVisitor::visit(const MultiNode* op) {
   op->stmt1.accept(this);
   op->stmt2.accept(this);

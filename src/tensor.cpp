@@ -457,7 +457,8 @@ static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr);
 /// tensors that was used in an expression when we later want to pack arguments.
 struct AccessTensorNode : public AccessNode {
   AccessTensorNode(TensorBase tensor, const std::vector<IndexVar>& indices)
-      :  AccessNode(tensor.getTensorVar(), indices), tensor(tensor) {}
+      :  AccessNode(tensor.getTensorVar(), indices, {}, false), 
+         tensor(tensor) {}
 
   AccessTensorNode(TensorBase tensor, const std::vector<std::shared_ptr<IndexVarInterface>>& indices)
     : AccessNode(tensor.getTensorVar()), tensor(tensor) {

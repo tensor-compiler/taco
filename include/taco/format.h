@@ -12,6 +12,8 @@ namespace taco {
 class ModeFormat;
 class ModeFormatPack;
 class ModeFormatImpl;
+class AttrQuery;
+class IndexVar;
 
 
 /// A Format describes the data layout of a tensor, and the sparse index data
@@ -134,6 +136,16 @@ public:
   bool hasLocate() const;
   bool hasInsert() const;
   bool hasAppend() const;
+
+  /// Returns true if a mode format has ungrouped insertion functions with 
+  /// specific attributes, false otherwise
+  bool hasSeqInsertEdge() const;
+  bool hasInsertCoord() const;
+  bool isYieldPosPure() const;
+
+  std::vector<AttrQuery> getAttrQueries(
+      std::vector<IndexVar> parentCoords, 
+      std::vector<IndexVar> childCoords) const;
 
   /// Returns true if mode format is defined, false otherwise. An undefined mode
   /// type can be used to indicate a mode whose format is not (yet) known.

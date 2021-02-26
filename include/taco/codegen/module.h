@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include <random>
 
 #include "taco/target.h"
 #include "taco/ir/ir.h"
@@ -80,6 +81,10 @@ private:
   
   void setJITLibname();
   void setJITTmpdir();
+
+  static std::string chars;
+  static std::default_random_engine gen;
+  static std::uniform_int_distribution<int> randint;
 };
 
 } // namespace ir

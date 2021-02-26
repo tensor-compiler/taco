@@ -8,9 +8,10 @@ namespace taco {
 DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true, false) {
 }
 
-DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique, const bool isZeroless) : 
-    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, isZeroless, false,
-                   false, true, true, false) {
+DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique, 
+                                 const bool isZeroless) : 
+    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, isZeroless, 
+                   false, false, true, true, false, false, false, true) {
 }
 
 ModeFormat DenseModeFormat::copy(
@@ -42,13 +43,14 @@ ModeFormat DenseModeFormat::copy(
         break;
     }
   }
-  return ModeFormat(std::make_shared<DenseModeFormat>(isOrdered, isUnique, isZeroless));  
+  return ModeFormat(
+      std::make_shared<DenseModeFormat>(isOrdered, isUnique, isZeroless));  
 }
 
 ModeFunction DenseModeFormat::locate(ir::Expr parentPos,
                                    std::vector<ir::Expr> coords,
                                    Mode mode) const {
-  Expr pos = Add::make(Mul::make(parentPos, getWidth(mode)), coords.back());
+  Expr pos = ir::Add::make(ir::Mul::make(parentPos, getWidth(mode)), coords.back());
   return ModeFunction(Stmt(), {pos, true});
 }
 
@@ -76,6 +78,15 @@ Stmt DenseModeFormat::getInsertInitLevel(Expr szPrev, Expr sz,
 Stmt DenseModeFormat::getInsertFinalizeLevel(Expr szPrev, 
     Expr sz, Mode mode) const {
   return Stmt();
+}
+
+Expr DenseModeFormat::getAssembledSize(Expr prevSize, Mode mode) const {
+  return ir::Mul::make(prevSize, getWidth(mode));
+}
+
+ModeFunction DenseModeFormat::getYieldPos(Expr parentPos, 
+    std::vector<Expr> coords, Mode mode) const {
+  return locate(parentPos, coords, mode);
 }
 
 vector<Expr> DenseModeFormat::getArrays(Expr tensor, int mode, 
