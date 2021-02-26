@@ -529,7 +529,10 @@ struct Isomorphic : public IndexNotationVisitorStrict {
 
     // Lower function
     // TODO: For now just check that the function pointers are the same.
-    if(!util::targetPtrEqual(anode->defaultLowerFunc, bnode->defaultLowerFunc)) {
+    // TODO (rawnh): This check is broken. The retrieved function pointers are null
+    //  when attempting to dereference them. The original code attempted to use
+    //  util::targetPtrEqual.
+    if (&anode->defaultLowerFunc != &bnode->defaultLowerFunc) {
       eq = false;
       return;
     }
