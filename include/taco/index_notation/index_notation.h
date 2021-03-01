@@ -877,6 +877,7 @@ Multi multi(IndexStmt stmt1, IndexStmt stmt2);
 class IndexVarInterface {
 public:
   virtual ~IndexVarInterface() = default;
+  virtual IndexVar getIndexVar() const = 0;
 
   /// match performs a dynamic case analysis of the implementers of IndexVarInterface
   /// as a utility for handling the different values within. It mimics the dynamic
@@ -912,7 +913,7 @@ public:
   ~WindowedIndexVar() = default;
 
   /// getIndexVar returns the underlying IndexVar.
-  IndexVar getIndexVar() const;
+  IndexVar getIndexVar() const override;
 
   /// get{Lower,Upper}Bound returns the {lower,upper} bound of the window of
   /// this index variable.
@@ -940,7 +941,7 @@ public:
   ~IndexSetVar() = default;
 
   /// getIndexVar returns the underlying IndexVar.
-  IndexVar getIndexVar() const;
+  IndexVar getIndexVar() const override;
   /// getIndexSet returns the index set.
   const std::vector<int>& getIndexSet() const;
 
@@ -957,6 +958,9 @@ public:
   ~IndexVar() = default;
   IndexVar(const std::string& name);
 
+  // getIndexVar implements the IndexVarInterface.
+  IndexVar getIndexVar() const override { return *this; }
+
   /// Returns the name of the index variable.
   std::string getName() const;
 
@@ -967,7 +971,7 @@ public:
   WindowedIndexVar operator()(int lo, int hi, int stride = 1);
 
   /// Indexing into an IndexVar with a vector returns an index set into it.
-  IndexSetVar operator()(std::vector<int> indexSet);
+  IndexSetVar operator()(std::vector<int>&& indexSet);
   IndexSetVar operator()(std::vector<int>& indexSet);
 
 private:

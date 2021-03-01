@@ -1978,7 +1978,7 @@ WindowedIndexVar IndexVar::operator()(int lo, int hi, int stride) {
   return WindowedIndexVar(*this, lo, hi, stride);
 }
 
-IndexSetVar IndexVar::operator()(std::vector<int> indexSet) {
+IndexSetVar IndexVar::operator()(std::vector<int>&& indexSet) {
   return IndexSetVar(*this, indexSet);
 }
 

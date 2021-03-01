@@ -282,7 +282,7 @@ Access Parser::parseAccess() {
   consume(Token::identifier);
   names.push_back(tensorName);
 
-  vector<IndexVar> varlist;
+  vector<std::shared_ptr<IndexVarInterface>> varlist;
   if (content->currentToken == Token::underscore) {
     consume(Token::underscore);
     if (content->currentToken == Token::lcurly) {
@@ -322,8 +322,8 @@ Access Parser::parseAccess() {
       if (util::contains(content->tensorDimensions, tensorName)) {
         tensorDimensions[i] = content->tensorDimensions.at(tensorName)[i];
       }
-      else if (util::contains(content->indexVarDimensions, varlist[i])) {
-        tensorDimensions[i] = content->indexVarDimensions.at(varlist[i]);
+      else if (util::contains(content->indexVarDimensions, varlist[i]->getIndexVar())) {
+        tensorDimensions[i] = content->indexVarDimensions.at(varlist[i]->getIndexVar());
       }
       else {
         tensorDimensions[i] = content->defaultDimension;
@@ -347,8 +347,8 @@ Access Parser::parseAccess() {
   return tensor(varlist);
 }
 
-vector<IndexVar> Parser::parseVarList() {
-  vector<IndexVar> varlist;
+vector<std::shared_ptr<IndexVarInterface>> Parser::parseVarList() {
+  vector<std::shared_ptr<IndexVarInterface>> varlist;
   varlist.push_back(parseVar());
   while (content->currentToken == Token::comma) {
     consume(Token::comma);
@@ -357,13 +357,78 @@ vector<IndexVar> Parser::parseVarList() {
   return varlist;
 }
 
-IndexVar Parser::parseVar() {
+std::shared_ptr<IndexVarInterface> Parser::parseVar() {
   if (content->currentToken != Token::identifier) {
     throw ParseError("Expected index variable");
   }
   IndexVar var = getIndexVar(content->lexer.getIdentifier());
   consume(Token::identifier);
-  return var;
+  // If there is a paren after this identifier, then we may have a window
+  // or index set access.
+  if (this->content->currentToken == Token::lparen) {
+    this->consume(Token::lparen);
+    switch (this->content->currentToken) {
+      case Token::int_scalar: {
+        // In this case, we have a window or strided window. Start off by
+        // parsing the lo and hi of the window.
+        int lo, hi;
+        // Parse out lo.
+        std::istringstream value(this->content->lexer.getIdentifier());
+        value >> lo;
+        this->consume(Token::int_scalar);
+
+        // Parse the comma.
+        this->consume(Token::comma);
+
+        // Parse out hi.
+        value = std::istringstream(this->content->lexer.getIdentifier());
+        value >> hi;
+        this->consume(Token::int_scalar);
+
+        // Now, there might be the stride. If there is another comma, then there
+        // is a stride value to parse. Otherwise, it's just the window of (lo, hi).
+        if (this->content->currentToken == Token::comma) {
+          this->consume(Token::comma);
+          int stride;
+          value = std::istringstream(this->content->lexer.getIdentifier());
+          value >> stride;
+          this->consume(Token::int_scalar);
+          this->consume(Token::rparen);
+          return std::make_shared<WindowedIndexVar>(var(lo, hi, stride));
+        } else {
+          this->consume(Token::rparen);
+          return std::make_shared<WindowedIndexVar>(var(lo, hi));
+        }
+      }
+      case Token::lcurly: {
+        // If we see a curly brace, then an index set is being applied to the
+        // IndexVar. So, we'll parse a list of integers.
+        this->consume(Token::lcurly);
+        std::vector<int> indexSet;
+        bool first = true;
+        do {
+          // If this isn't the first iteration of the loop, consume a comma.
+          if (!first) {
+            this->consume(Token::comma);
+          }
+          first = false;
+          // Parse and consume the next integer.
+          std::istringstream value(this->content->lexer.getIdentifier());
+          int index;
+          value >> index;
+          indexSet.push_back(index);
+          this->consume(Token::int_scalar);
+          // Break when we hit a '}' to end the list.
+        } while (this->content->currentToken != Token::rcurly);
+        this->consume(Token::rcurly);
+        this->consume(Token::rparen);
+        return std::make_shared<IndexSetVar>(var(indexSet));
+      }
+      default:
+        throw ParseError("Expected windowing expression.");
+    }
+  }
+  return std::make_shared<IndexVar>(var);
 }
 
 bool Parser::hasIndexVar(std::string name) const {
