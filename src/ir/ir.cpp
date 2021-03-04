@@ -477,6 +477,24 @@ Expr And::make(Expr a, Expr b) {
   return andnode;
 }
 
+Expr BinOp::make(Expr a, Expr b, std::string op) {
+  BinOp *binopnode = new BinOp;
+  binopnode->strMid = op;
+  binopnode->a = a;
+  binopnode->b = b;
+  return binopnode;
+}
+
+Expr BinOp::make(Expr a, Expr b, std::string strStart, std::string strMid, std::string strEnd) {
+  BinOp *binopnode = new BinOp;
+  binopnode->strStart = strStart;
+  binopnode->strMid = strMid;
+  binopnode->strEnd = strEnd;
+  binopnode->a = a;
+  binopnode->b = b;
+  return binopnode;
+}
+
 Expr Cast::make(Expr a, Datatype newType) {
   Cast *cast = new Cast;
   cast->type = newType;
@@ -923,6 +941,8 @@ template<> void ExprNode<And>::accept(IRVisitorStrict *v)
     const { v->visit((const And*)this); }
 template<> void ExprNode<Or>::accept(IRVisitorStrict *v)
     const { v->visit((const Or*)this); }
+template<> void ExprNode<BinOp>::accept(IRVisitorStrict *v)
+    const { v->visit((const BinOp*)this); }
 template<> void ExprNode<Cast>::accept(IRVisitorStrict *v)
     const { v->visit((const Cast*)this); }
 template<> void ExprNode<Call>::accept(IRVisitorStrict *v)

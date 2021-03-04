@@ -42,6 +42,7 @@ enum class IRNodeType {
   Lte,
   And,
   Or,
+  BinOp,
   Cast,
   Call,
   IfThenElse,
@@ -472,6 +473,20 @@ struct Or : public ExprNode<Or> {
   static Expr make(Expr a, Expr b);
 
   static const IRNodeType _type_info = IRNodeType::Or;
+};
+
+/** [Sparse Array Programming] Generic Binary Op for Ufuncs**/
+struct BinOp : public ExprNode<BinOp> {
+  Expr a;
+  Expr b;
+  std::string strStart = "";
+  std::string strMid = "";
+  std::string strEnd = "";
+
+  static Expr make(Expr a, Expr b, std::string op);
+  static Expr make(Expr a, Expr b, std::string strStart, std::string strMid, std::string strEnd);
+
+  static const IRNodeType _type_info = IRNodeType::BinOp;
 };
 
 /** Type cast. */

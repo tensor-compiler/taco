@@ -42,6 +42,11 @@ static TensorVar b("b", vectype, Format());
 static TensorVar c("c", vectype, Format());
 static TensorVar d("d", vectype, Format());
 
+static const Type intvectype(Int32, {n});
+static TensorVar ai("ai", intvectype, Format());
+static TensorVar bi("bi", intvectype, Format());
+static TensorVar ci("ci", intvectype, Format());
+
 static TensorVar fill_10("fillA", vectype, Format(), Literal((double) 10));
 
 static TensorVar w("w", vectype, dense);
@@ -228,6 +233,24 @@ static void verifyResults(const vector<TensorVar>& results,
   }
 }
 
+static void verifyResultsInt(const vector<TensorVar>& results,
+                          const vector<TensorStorage>& arguments,
+                          const map<TensorVar,TensorVar>& varsFormatted,
+                          const map<TensorVar, TensorStorage>& expected) {
+  for (size_t i = 0; i < results.size(); i++) {
+    TensorVar result = results[i];
+    TensorStorage actualStorage = arguments[i];
+    TensorStorage expectedStorage = expected.at(result);
+    Format format = varsFormatted.at(result).getFormat();
+    Tensor<int> actual(actualStorage.getDimensions(), format);
+    Tensor<int> expected(expectedStorage.getDimensions(), format);
+    actual.setStorage(actualStorage);
+    expected.setStorage(expectedStorage);
+    ASSERT_TENSOR_EQ(expected, actual);
+  }
+}
+
+
 TEST_P(lower, compile) {
   map<TensorVar,TensorVar> varsFormatted =
       formatVars(getTensorVars(get<0>(GetParam()).stmt),
@@ -266,13 +289,19 @@ TEST_P(lower, compile) {
       SCOPED_TRACE("Separate Assembly and Compute\n");
       ASSERT_TRUE(kernel.assemble(arguments));
       ASSERT_TRUE(kernel.compute(arguments));
-      verifyResults(results, arguments, varsFormatted, expected);
+      if (results[0].getType().getDataType().isInt())
+        verifyResultsInt(results, arguments, varsFormatted, expected);
+      else
+        verifyResults(results, arguments, varsFormatted, expected);
     }
 
     {
       SCOPED_TRACE("Fused Assembly and Compute\n");
       ASSERT_TRUE(kernel(arguments));
-      verifyResults(results, arguments, varsFormatted, expected);
+      if (results[0].getType().getDataType().isInt())
+        verifyResultsInt(results, arguments, varsFormatted, expected);
+      else
+        verifyResults(results, arguments, varsFormatted, expected);
     }
   }
 }
@@ -1766,6 +1795,44 @@ TEST_STMT(XorTest,
              {b, {{{1}, 5.0}, {{2}, 4.0}, {{4}, 2.0}}}},
 
             {{c, {{{0}, 3.0}, {{1}, 5.0}}}})
+          }
+)
+
+struct RightShift{
+  ir::Expr operator()(const std::vector<ir::Expr> &v) {
+    if (v.size() == 1)
+      return v[0];
+
+    ir::Expr shift = ir::BinOp::make(v[0], v[1], " >> ");
+    for (size_t idx = 2; idx < v.size(); ++idx) {
+      shift = ir::BinOp::make(shift, v[idx], " >> ");
+    }
+    return shift;
+  }
+};
+
+struct rightShiftAlgebra {
+  IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
+    IterationAlgebra un = Union(regions[0], regions[1]);
+    return Intersect(un, regions[0]);
+  }
+};
+
+Func rightShiftOp("rightShift", RightShift(), rightShiftAlgebra());
+
+TEST_STMT(RightShiftTest,
+          forall(i,
+                 ci(i) = rightShiftOp(ai(i), bi(i))
+          ),
+          Values(
+            Formats({{ai, Format({sparse})}, {bi, Format({sparse})}, {ci, Format({sparse})} })
+          ),
+          {
+            TestCase(
+            {{ai, {{{0}, 3}, {{2}, 40}, {{4}, 2}}},
+              {bi, {{{1}, 5}, {{2}, 4}, {{4}, 2}}}},
+
+            {{ci, {{{0}, 3}, {{2}, 44}, {{4}, 4}}}})
           }
 )
 
