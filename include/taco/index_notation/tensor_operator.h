@@ -57,6 +57,8 @@ public:
     return Call(op);
   }
 
+  std::string getName() const { return this->name; }
+
 private:
   std::string name;
   FuncBodyGenerator lowererFunc;
