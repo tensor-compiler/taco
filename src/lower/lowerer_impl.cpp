@@ -1497,15 +1497,18 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, I
     vector<pair<Expr,Stmt>> cases;
     for (MergePoint point : loopLattice.points()) {
 
-      if(point.isOmitter()) {
-        continue;
-      }
+      // if(point.isOmitter()) {
+      //   continue;
+      // }
 
       // Construct case expression
       vector<Expr> coordComparisons = compareToResolvedCoordinate<Eq>(point.rangers(), coordinate, coordinateVar);
       vector<Iterator> omittedRegionIterators = loopLattice.retrieveRegionIteratorsToOmit(point);
-      std::vector<Expr> neqComparisons = compareToResolvedCoordinate<Neq>(omittedRegionIterators, coordinate, coordinateVar);
-      append(coordComparisons, neqComparisons);
+      if (!point.isOmitter()) {
+        std::vector <Expr> neqComparisons = compareToResolvedCoordinate<Neq>(omittedRegionIterators, coordinate,
+                                                                             coordinateVar);
+        append(coordComparisons, neqComparisons);
+      }
 
       coordComparisons = filter(coordComparisons, [](const Expr& e) { return e.defined(); });
 

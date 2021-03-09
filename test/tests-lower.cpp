@@ -1836,7 +1836,7 @@ TEST_STMT(RightShiftTest,
           }
 )
 
-TEST_STMT(DISABLED_XorTestOrder2,
+TEST_STMT(XorTestOrder2,
           forall(i, forall(j,
                                      C(i, j) = xorOp(A(i, j), B(i, j)))
           ),
