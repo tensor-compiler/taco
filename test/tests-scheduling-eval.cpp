@@ -44,10 +44,10 @@ IndexStmt scheduleSpMVCPU(IndexStmt stmt, int CHUNK_SIZE=16) {
           .parallelize(i0, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }
 
-// IndexStmt schedulePrecompute2D(IndexStmt stmt, IndexExpr precomputedExpr, int CHUNK_SIZE=16) {
-//   TensorVar precomputed("precomputed", Type(Float64, {103, 128}), {Dense, Dense});
-//   return stmt.precompute(precomputedExpr, {j, k} , {j, k}, precomputed);
-// }
+IndexStmt schedulePrecompute2D(IndexStmt stmt, IndexExpr precomputedExpr) {
+  TensorVar precomputed("precomputed", Type(Float64, {16, 16}), {Dense, Dense});
+  return stmt.precompute(precomputedExpr, {j, k} , {j, k}, precomputed);
+}
 
 IndexStmt schedulePrecompute1D(IndexStmt stmt, IndexExpr precomputedExpr) {
   TensorVar precomputed("precomputed", Type(Float64, {103}), {Dense});
@@ -877,6 +877,60 @@ TEST(scheduling_eval, spmvCPU) {
   ASSERT_TENSOR_EQ(expected, y);
 }
 
+TEST(scheduling_eval, precompute2D) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  
+  int NUM_I = 16;
+  int NUM_J = 16;
+  int NUM_K = 16;
+  int NUM_L = 16;
+  float SPARSITY = .3;
+  Tensor<double> A("A", {NUM_I, NUM_J, NUM_K}, Format({Dense, Dense, Dense}));
+  Tensor<double> x("x", {NUM_K, NUM_L}, Format({Dense, Dense}));
+  Tensor<double> y("y", {NUM_I, NUM_J, NUM_L}, Format({Dense, Dense, Dense}));
+
+  srand(120);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      for (int k = 0; k < NUM_K; k++) {
+        float rand_float = (float)rand()/(float)(RAND_MAX);
+        if (rand_float < SPARSITY) {
+          A.insert({i, j, k}, (double) ((int) (rand_float * 3 / SPARSITY)));
+        }
+      }
+    }
+  }
+  for (int k = 0; k < NUM_K; k++) {
+    for (int l = 0; l < NUM_L; l++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      x.insert({k, l}, (double) ((int) (rand_float*3/SPARSITY)));
+    }
+  }
+
+  x.pack();
+  A.pack();
+
+
+  IndexExpr precomputed = A(i, j, k) * x(k, l);
+  y(i, j, l) = precomputed;
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = schedulePrecompute2D(stmt, precomputed);
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<double> expected("expected", {NUM_I, NUM_J, NUM_L}, Format({Dense, Dense, Dense}));
+  expected(i, j, l) = A(i, j, k) * x(k, l);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
+}
+
 TEST(scheduling_eval, precompute1D) {
   if (should_use_CUDA_codegen()) {
     return;
@@ -911,8 +965,6 @@ TEST(scheduling_eval, precompute1D) {
 
   IndexStmt stmt = y.getAssignment().concretize();
   stmt = schedulePrecompute1D(stmt, precomputed);
-
-  //printToFile("spmv_cpu", stmt);
 
   y.compile(stmt);
   y.assemble();
