@@ -13,17 +13,18 @@ using namespace taco;
 TEST(blocking, test_dense_matrix_vector_mult) {
 
   Tensor<double> A("A", {{8}, {4, 4}},
-                   Format({{Dense, None}, {Dense, Dense}}));
+                   Format({{Dense}, {Dense, Dense}}));
   Tensor<double> B("B", {{8, 8}, {4, 4}},
                    Format({{Dense, Dense}, {Dense, Dense}}));
   Tensor<double> C("C", {{8}, {4, 4}},
-                   Format({{Dense, None}, {Dense, Dense}}));
+                   Format({{Dense}, {Dense, Dense}}));
 
   for (int i0 = 0; i < 8; i0++) {
     for (int i1 = 0; i1 < 4; i1++) {
       for (int j1 = 0; j1 < 4; j1++) {
         float rand_float = (float)rand()/(float)(RAND_MAX);
-        C.insert({{i0, 0}, {i1, j1}}, rand_float);
+        C.insert({{i0}, {i1, j1}}, rand_float);
+        // TODO: also support inserting matrices?
         for (int j0 = 0; j < 4; j0++) {
           rand_float = (float)rand()/(float)(RAND_MAX);
           B.insert({{i0, j0}, {i1, j1}}, rand_float);
@@ -33,7 +34,6 @@ TEST(blocking, test_dense_matrix_vector_mult) {
   }
 
   A.pack();
-  // A2.pack();
   B.pack();
   C.pack();
 
