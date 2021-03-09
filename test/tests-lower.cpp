@@ -1836,5 +1836,21 @@ TEST_STMT(RightShiftTest,
           }
 )
 
+TEST_STMT(XorTestOrder2,
+          forall(i, forall(j,
+                                     C(i, j) = xorOp(A(i, j), B(i, j)))
+          ),
+          Values(
+            Formats({{A, Format({sparse, sparse})}, {B, Format({sparse, sparse})}, {C, Format({sparse, sparse})} })
+          ),
+          {
+            TestCase(
+            {{B, {{{0, 1}, 2.0}, {{1, 1}, 3.0}, {{1, 2}, 2.0}, {{4, 3}, 4.0}}},
+              {A, {{{0, 1}, 3.0}, {{1, 3}, 5.0}, {{2, 1}, 3.0}, {{2, 2}, 4.0}, {{4, 3}, 6.0}}}},
+
+            {{C, {{{1, 1}, 3.0}, {{1, 2}, 2.0}, {{1, 3}, 5.0}, {{2, 1}, 3.0},
+                  {{2, 2}, 4.0}}}})
+          }
+)
 
 }}
