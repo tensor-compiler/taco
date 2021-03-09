@@ -12,14 +12,12 @@ using namespace taco;
 
 TEST(blocking, test_dense_matrix_vector_mult) {
 
-  Tensor<double> A("A", {{8, 1}, {4, 4}},
-                   Format({Dense}, {Dense, Dense}));
-  // Tensor<double> A2("A2", {{8, 1}, {4, 4}},
-  //                  Format({Dense}, {Dense, Dense}));
+  Tensor<double> A("A", {{8}, {4, 4}},
+                   Format({{Dense, None}, {Dense, Dense}}));
   Tensor<double> B("B", {{8, 8}, {4, 4}},
                    Format({{Dense, Dense}, {Dense, Dense}}));
-  Tensor<double> C("C", {{8, 1}, {4, 4}},
-                   Format({Dense}, {Dense, Dense}));
+  Tensor<double> C("C", {{8}, {4, 4}},
+                   Format({{Dense, None}, {Dense, Dense}}));
 
   for (int i0 = 0; i < 8; i0++) {
     for (int i1 = 0; i1 < 4; i1++) {
@@ -40,10 +38,14 @@ TEST(blocking, test_dense_matrix_vector_mult) {
   C.pack();
 
   IndexVar i0("i0"), i1("i1"), j0("j0"), j1("j1");
-  A(i0) = B(i0, j0) * C(i0);
+  A(i0) = B(i0, j0) * C(j0);
 
-  // Tensor<double> expected("expected", {16}, Format{Dense});
-  // expected(i) = B(i) * C(i);
+  // Tensor<double> expected("expected", {{8, 1}, {4, 4}},
+  //                         Format({{Dense, None}, {Dense, Dense}}));
+
+  // expected(i0, 0, i1, j1) = B(i0, 
+  
+    // expected(i) = B(i) * C(i);
   // expected.compile();
   // expected.assemble();
   // expected.compute();
