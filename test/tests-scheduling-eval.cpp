@@ -46,7 +46,7 @@ IndexStmt scheduleSpMVCPU(IndexStmt stmt, int CHUNK_SIZE=16) {
 
 IndexStmt schedulePrecompute2D(IndexStmt stmt, IndexExpr precomputedExpr) {
   TensorVar precomputed("precomputed", Type(Float64, {16, 16}), {Dense, Dense});
-  return stmt.precompute(precomputedExpr, {j, k} , {j, k}, precomputed);
+  return stmt.precompute(precomputedExpr, {k, l} , {k, l}, precomputed);
 }
 
 IndexStmt schedulePrecompute1D(IndexStmt stmt, IndexExpr precomputedExpr) {
