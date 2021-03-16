@@ -1096,6 +1096,20 @@ void CodeGen_CUDA::visit(const Allocate* op) {
   op->num_elements.accept(this);
   parentPrecedence = TOP;
   stream << "));" << endl;
+  // If the operation wants the input cleared, then memset it to zero.
+  if (op->clear) {
+    doIndent();
+    stream << "gpuErrchk(cudaMemset(";
+    op->var.accept(this);
+    stream << variable_name;
+    stream << ", 0, ";
+    stream << "sizeof(" << elementType << ")";
+    stream << " * ";
+    parentPrecedence = MUL;
+    op->num_elements.accept(this);
+    parentPrecedence = TOP;
+    stream << "));" << endl;
+  }
 
   if(op->is_realloc) {
     doIndent();
