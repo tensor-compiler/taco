@@ -59,6 +59,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - name: apt-get update
+        run: sudo apt-get update
       - name: install numpy and scipy
         run: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y python3-numpy python3-scipy
       - name: create_build
