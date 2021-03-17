@@ -90,6 +90,9 @@ static void printUsageInfo() {
   cout << "  taco \"a(i) = b(i) + c(i)\" -f=b:s -f=c:s -f=a:s       # Sparse vector add" << endl;
   cout << "  taco \"a(i) = B(i,j) * c(j)\" -f=B:ds                  # SpMV" << endl;
   cout << "  taco \"A(i,l) = B(i,j,k) * C(j,l) * D(k,l)\" -f=B:sss  # MTTKRP" << endl;
+  cout << "  taco \"a(i) = b(i(1, 5))\" -d=a:4                      # Slice b[1:4]" << endl;
+  cout << "  taco \"a(i) = b(i(1, 5, 2))\" -d=a:2                   # Slice b[1:4:2]" << endl;
+  cout << "  taco \"a(i) = b(i({1, 3, 5, 7}))\" -d=a:4              # Slice b[[1, 3, 5, 7]]" << endl;
   cout << endl;
   cout << "Options:" << endl;
   printFlag("d=<var/tensor>:<size>",

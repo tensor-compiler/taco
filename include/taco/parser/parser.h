@@ -14,6 +14,7 @@ namespace taco {
 class TensorBase;
 class Format;
 class IndexVar;
+class IndexVarInterface;
 class IndexExpr;
 class Access;
 
@@ -88,10 +89,13 @@ private:
   Access parseAccess();
 
   /// varlist ::= var {, var}
-  std::vector<IndexVar> parseVarList();
+  std::vector<std::shared_ptr<IndexVarInterface>> parseVarList();
 
   /// var ::= identifier
-  IndexVar parseVar();
+  ///       | identifier '(' int ',' int ')' -- Windowed access.
+  ///       | identifier '(' int ',' int ',' int ')' -- Windowed access with a stride.
+  ///       | identifier '(' '{' int, ... '}' ')' -- Access with an index set.
+  std::shared_ptr<IndexVarInterface> parseVar();
 
   std::string currentTokenString();
 
