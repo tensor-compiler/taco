@@ -30,6 +30,9 @@ void IndexVarRel::print(std::ostream& stream) const {
       case SPLIT:
         getNode<SplitRelNode>()->print(stream);
         break;
+      case DIVIDE:
+        getNode<DivideRelNode>()->print(stream);
+        break;
       case POS:
         getNode<PosRelNode>()->print(stream);
         break;
@@ -56,12 +59,12 @@ bool IndexVarRel::equals(const IndexVarRel &rel) const {
   switch(getRelType()) {
     case SPLIT:
       return getNode<SplitRelNode>()->equals(*rel.getNode<SplitRelNode>());
+    case DIVIDE:
+      return getNode<DivideRelNode>()->equals(*rel.getNode<DivideRelNode>());
     case POS:
       return getNode<PosRelNode>()->equals(*rel.getNode<PosRelNode>());
-      break;
     case FUSE:
       return getNode<FuseRelNode>()->equals(*rel.getNode<FuseRelNode>());
-      break;
     case UNDEFINED:
       return true;
     case BOUND:
@@ -259,6 +262,145 @@ ir::Stmt SplitRelNode::recoverChild(taco::IndexVar indexVar,
 }
 
 bool operator==(const SplitRelNode& a, const SplitRelNode& b) {
+  return a.equals(b);
+}
+
+struct DivideRelNode::Content {
+  IndexVar parentVar;
+  IndexVar outerVar;
+  IndexVar innerVar;
+  size_t divFactor;
+};
+
+DivideRelNode::DivideRelNode(IndexVar parentVar, IndexVar outerVar, IndexVar innerVar, size_t divFactor)
+  : IndexVarRelNode(DIVIDE), content(new Content) {
+  content->parentVar = parentVar;
+  content->outerVar = outerVar;
+  content->innerVar = innerVar;
+  content->divFactor = divFactor;
+}
+
+const IndexVar& DivideRelNode::getParentVar() const {
+  return content->parentVar;
+}
+const IndexVar& DivideRelNode::getOuterVar() const {
+  return content->outerVar;
+}
+const IndexVar& DivideRelNode::getInnerVar() const {
+  return content->innerVar;
+}
+const size_t& DivideRelNode::getDivFactor() const {
+  return content->divFactor;
+}
+
+void DivideRelNode::print(std::ostream &stream) const {
+  stream << "divide(" << getParentVar() << ", " << getOuterVar() << ", " << getInnerVar() << ", " << getDivFactor() << ")";
+}
+
+bool DivideRelNode::equals(const DivideRelNode &rel) const {
+  return getParentVar() == rel.getParentVar() && getOuterVar() == rel.getOuterVar() &&
+    getInnerVar() == rel.getInnerVar() && getDivFactor() == rel.getDivFactor();
+}
+
+std::vector<IndexVar> DivideRelNode::getParents() const {
+  return {getParentVar()};
+}
+
+std::vector<IndexVar> DivideRelNode::getChildren() const {
+  return {getOuterVar(), getInnerVar()};
+}
+
+std::vector<IndexVar> DivideRelNode::getIrregulars() const {
+  return {getOuterVar()};
+}
+
+std::vector<ir::Expr> DivideRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, ProvenanceGraph provGraph) const {
+  taco_iassert(computedBounds.count(getParentVar()) == 1);
+  std::vector<ir::Expr> parentBound = computedBounds.at(getParentVar());
+  bool outerVarDefined = definedVars.count(getOuterVar());
+  bool innerVarDefined = definedVars.count(getInnerVar());
+
+  if (provGraph.isPosVariable(getParentVar()) || !outerVarDefined) {
+    return parentBound; // splitting pos space does not change coordinate bounds
+  }
+
+  auto divFactorType = variableExprs[getParentVar()].type();
+  auto divFactor = ir::Literal::make(getDivFactor(), divFactorType);
+  auto divFactorMinusOne = ir::Literal::make(getDivFactor() - 1, divFactorType);
+  auto dimLen = ir::Div::make(ir::Add::make(parentBound[1], divFactorMinusOne), divFactor);
+
+  if(!innerVarDefined) {
+    // outerVar constraints the space to a length parentBounds / divFactor strip starting at
+    // outerVar * parentBounds / divFactor.
+    auto lower = ir::Mul::make(variableExprs[getOuterVar()], dimLen);
+    auto upper = ir::Mul::make(ir::Add::make(variableExprs[getOuterVar()], 1), dimLen);
+    return {lower, upper};
+  } else {
+    taco_iassert(outerVarDefined && innerVarDefined);
+    // outerVar and innerVar constrain space to a length 1 strip starting at
+    // outerVar * parentBounds + innerVar.
+    auto lower = ir::Add::make(ir::Mul::make(variableExprs[getOuterVar()], dimLen), variableExprs[getInnerVar()]);
+    auto upper = ir::Min::make(parentBound[1], ir::Add::make(lower, 1));
+    return {lower, upper};
+  }
+}
+
+std::vector<ir::Expr> DivideRelNode::deriveIterBounds(taco::IndexVar indexVar,
+                                                     std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                                     std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                                     std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                                     Iterators iterators, ProvenanceGraph provGraph) const {
+  taco_iassert(indexVar == getOuterVar() || indexVar == getInnerVar());
+  taco_iassert(parentIterBounds.size() == 1);
+  taco_iassert(parentIterBounds.count(getParentVar()) == 1);
+
+  std::vector<ir::Expr> parentBound = parentIterBounds.at(getParentVar());
+  Datatype divFactorType = parentBound[0].type();
+  auto divFactor = ir::Literal::make(getDivFactor(), divFactorType);
+  if (indexVar == getOuterVar()) {
+    // The loop has been divided into divFactor pieces, so the outer variable
+    // ranges from 0 to divFactor.
+    ir::Expr minBound = 0;
+    ir::Expr maxBound = divFactor;
+    return {minBound, maxBound};
+  }
+  else if (indexVar == getInnerVar()) {
+    // The inner loop ranges over a chunk of size parentBound / divFactor.
+    ir::Expr minBound = ir::Div::make(parentBound[0], divFactor);
+    ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(getDivFactor()-1, divFactorType)), divFactor);
+    return {minBound, maxBound};
+  }
+  taco_ierror;
+  return {};
+}
+
+ir::Expr DivideRelNode::recoverVariable(taco::IndexVar indexVar,
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                       Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, ProvenanceGraph provGraph) const {
+  taco_iassert(indexVar == getParentVar());
+  taco_iassert(variableNames.count(getParentVar()) && variableNames.count(getOuterVar()) && variableNames.count(getInnerVar()));
+  // Extract divFactor and divFactor - 1.
+  Datatype divFactorType = variableNames[getParentVar()].type();
+  auto divFactor = ir::Literal::make(getDivFactor(), divFactorType);
+  auto divFactorMinusOne = ir::Literal::make(getDivFactor() - 1, divFactorType);
+  // Get the size of the dimension being iterated over.
+  auto parentBounds = parentIterBounds.at(getParentVar());
+  auto dimSize = ir::Sub::make(parentBounds[1], parentBounds[0]);
+  // The bounds for the dimension are adjusted so that dimensions that aren't
+  // divisible by divFactor have the last piece included.
+  auto bounds = ir::Div::make(ir::Add::make(dimSize, divFactorMinusOne), divFactor);
+  return ir::Add::make(ir::Mul::make(variableNames[getOuterVar()], bounds), variableNames[getInnerVar()]);
+}
+
+ir::Stmt DivideRelNode::recoverChild(taco::IndexVar indexVar,
+                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, ProvenanceGraph provGraph) const {
+  // We need bounds on the parent in order to recover the different
+  // child values, but it doesn't seem like we have access to them here.
+  taco_not_supported_yet;
+  return ir::Stmt();
+}
+
+bool operator==(const DivideRelNode& a, const DivideRelNode& b) {
   return a.equals(b);
 }
 
@@ -1230,6 +1372,19 @@ ir::Stmt ProvenanceGraph::recoverChild(taco::IndexVar indexVar,
 
 std::set<IndexVar> ProvenanceGraph::getAllIndexVars() const {
   return nodes;
+}
+
+bool ProvenanceGraph::isDivided(IndexVar indexVar) const {
+  // See if the indexVar has any children. If so, look at the relation that
+  // created the parent-child relationship. If it is a divide, return true.
+  auto children = this->getChildren(indexVar);
+  if (children.size() > 0) {
+    auto rel = this->childRelMap.at(indexVar);
+    if (rel.getRelType() == DIVIDE) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }

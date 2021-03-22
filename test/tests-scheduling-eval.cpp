@@ -1765,7 +1765,7 @@ TEST(generate_figures, DISABLED_cpu) {
   }
 }
 
-TEST(scheduling_eval, bfsPullScheduled) {
+TEST(scheduling_eval, DISABLED_bfsPullScheduled) {
   if (should_use_CUDA_codegen()) {
     return;
   }

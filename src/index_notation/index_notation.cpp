@@ -23,6 +23,7 @@
 #include "taco/index_notation/index_notation_printer.h"
 #include "taco/ir/ir.h"
 #include "taco/codegen/module.h"
+#include "taco/tensor.h"
 
 #include "taco/util/name_generator.h"
 #include "taco/util/scopedmap.h"
@@ -266,7 +267,11 @@ struct Isomorphic : public IndexNotationVisitorStrict {
         return;
       }
     }
-    eq = anode->windowedModes == bnode->windowedModes;
+    if (anode->windowedModes != bnode->windowedModes) {
+      eq = false;
+      return;
+    }
+    eq = anode->indexSetModes == bnode->indexSetModes;
   }
 
   void visit(const LiteralNode* anode) {
@@ -635,7 +640,11 @@ struct Equals : public IndexNotationVisitorStrict {
         return;
       }
     }
-    eq = true;
+    if (anode->windowedModes != bnode->windowedModes) {
+      eq = false;
+      return;
+    }
+    eq = anode->indexSetModes == bnode->indexSetModes;
   }
 
   void visit(const LiteralNode* anode) {
@@ -971,8 +980,10 @@ IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
 Access::Access(const AccessNode* n) : IndexExpr(n) {
 }
 
-Access::Access(const TensorVar& tensor, const std::vector<IndexVar>& indices, const std::map<int, AccessWindow>& windows)
-    : Access(new AccessNode(tensor, indices, windows)) {
+Access::Access(const TensorVar& tensor,
+               const std::vector<IndexVar>& indices,
+               const std::map<int, std::shared_ptr<IndexVarIterationModifier>>& modifiers)
+    : Access(new AccessNode(tensor, indices, modifiers)) {
 }
 
 const TensorVar& Access::getTensorVar() const {
@@ -1027,12 +1038,15 @@ bool operator==(const Access& a, const Access& b) {
   if (getNode(a)->windowedModes != getNode(b)->windowedModes) {
     return false;
   }
+  if (getNode(a)->indexSetModes != getNode(b)->indexSetModes) {
+    return false;
+  }
   return true;
 }
 
 bool operator<(const Access& a, const Access& b) {
   // First branch on tensorVar.
-  if(a.getTensorVar() != b.getTensorVar()) {
+  if (a.getTensorVar() != b.getTensorVar()) {
     return a.getTensorVar() < b.getTensorVar();
   }
 
@@ -1041,8 +1055,32 @@ bool operator<(const Access& a, const Access& b) {
     return a.getIndexVars() < b.getIndexVars();
   }
 
-  // Lastly, branch on the windows.
-  return getNode(a)->windowedModes < getNode(b)->windowedModes;
+  // Branch on the windows.
+  if (getNode(a)->windowedModes < getNode(b)->windowedModes) {
+    return getNode(a)->windowedModes < getNode(b)->windowedModes;
+  }
+
+  // Finally, branch on the index set.
+  return getNode(a)->indexSetModes < getNode(b)->indexSetModes;
+}
+
+bool Access::hasIndexSetModes() const {
+  return !getNode(*this)->indexSetModes.empty();
+}
+
+bool Access::isModeIndexSet(int mode) const {
+  auto node = getNode(*this);
+  return util::contains(node->indexSetModes, mode);
+}
+
+TensorVar Access::getModeIndexSetTensor(int mode) const {
+  taco_iassert(this->isModeIndexSet(mode));
+  return getNode(*this)->indexSetModes.at(mode).tensor.getTensorVar();
+}
+
+const std::vector<int>& Access::getIndexSet(int mode) const {
+  taco_iassert(this->isModeIndexSet(mode));
+  return *getNode(*this)->indexSetModes.at(mode).set;
 }
 
 static void check(Assignment assignment) {
@@ -1054,12 +1092,14 @@ static void check(Assignment assignment) {
 
   // If the LHS access has any windowed modes, use the dimensions of those
   // windows as the shape, rather than the shape of the underlying tensor.
-  if (lhs.hasWindowedModes()) {
+  if (lhs.hasWindowedModes() || lhs.hasIndexSetModes()) {
     vector<Dimension> dims(shape.getOrder());
     for (int i = 0; i < shape.getOrder();i++) {
       dims[i] = shape.getDimension(i);
       if (lhs.isModeWindowed(i)) {
         dims[i] = Dimension(lhs.getWindowSize(i));
+      } else if (lhs.isModeIndexSet(i)) {
+        dims[i] = Dimension(lhs.getIndexSet(i).size());
       }
     }
     shape = Shape(dims);
@@ -1721,9 +1761,22 @@ IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFac
 }
 
 IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const {
-  taco_not_supported_yet;
-  // mostly the same as split, but instead of splitFactor being a constant use an expression
-  return *this;
+  IndexVarRel rel = IndexVarRel(new DivideRelNode(i, i1, i2, splitFactor));
+  string reason;
+
+  // Add predicate to concrete index notation.
+  IndexStmt transformed = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  // Replace all occurrences of i with nested i1, i2.
+  transformed = Transformation(ForAllReplace({i}, {i1, i2})).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  return transformed;
 }
 
 IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
@@ -2165,6 +2218,14 @@ WindowedIndexVar IndexVar::operator()(int lo, int hi, int stride) {
   return WindowedIndexVar(*this, lo, hi, stride);
 }
 
+IndexSetVar IndexVar::operator()(std::vector<int> indexSet) {
+  return IndexSetVar(*this, indexSet);
+}
+
+IndexSetVar IndexVar::operator()(std::vector<int>& indexSet) {
+  return IndexSetVar(*this, indexSet);
+}
+
 bool operator==(const IndexVar& a, const IndexVar& b) {
   return *getNode(a) == *getNode(b);
 }
@@ -2195,6 +2256,8 @@ std::ostream& operator<<(std::ostream& os, const std::shared_ptr<IndexVarInterfa
     ss << *ivar;
   }, [&](std::shared_ptr<WindowedIndexVar> wvar) {
     ss << *wvar;
+  }, [&](std::shared_ptr<IndexSetVar> svar) {
+    ss << *svar;
   });
   return os << ss.str();
 }
@@ -2204,6 +2267,10 @@ std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
 }
 
 std::ostream& operator<<(std::ostream& os, const WindowedIndexVar& var) {
+  return os << var.getIndexVar();
+}
+
+std::ostream& operator<<(std::ostream& os, const IndexSetVar& var) {
   return os << var.getIndexVar();
 }
 
@@ -2232,6 +2299,19 @@ int WindowedIndexVar::getStride() const {
 
 int WindowedIndexVar::getWindowSize() const {
   return (this->content->hi - this->content->lo) / this->content->stride;
+}
+
+IndexSetVar::IndexSetVar(IndexVar base, std::vector<int> indexSet): content (new Content) {
+  this->content->base = base;
+  this->content->indexSet = indexSet;
+}
+
+IndexVar IndexSetVar::getIndexVar() const {
+  return this->content->base;
+}
+
+const std::vector<int>& IndexSetVar::getIndexSet() const {
+  return this->content->indexSet;
 }
 
 // class TensorVar
@@ -2386,12 +2466,14 @@ static bool isValid(Assignment assignment, string* reason) {
 
   // If the LHS access has any windowed modes, use the dimensions of those
   // windows as the shape, rather than the shape of the underlying tensor.
-  if (lhs.hasWindowedModes()) {
+  if (lhs.hasWindowedModes() || lhs.hasIndexSetModes()) {
     vector<Dimension> dims(shape.getOrder());
     for (int i = 0; i < shape.getOrder();i++) {
       dims[i] = shape.getDimension(i);
       if (lhs.isModeWindowed(i)) {
         dims[i] = Dimension(lhs.getWindowSize(i));
+      } else if (lhs.isModeIndexSet(i)) {
+        dims[i] = Dimension(lhs.getIndexSet(i).size());
       }
     }
     shape = Shape(dims);
@@ -2807,6 +2889,19 @@ vector<TensorVar> getArguments(IndexStmt stmt) {
     if (!util::contains(collected, tensor)) {
       collected.insert(tensor);
       result.push_back(tensor);
+    }
+    // The arguments will include any index sets on this tensor
+    // argument as well.
+    if (access.hasIndexSetModes()) {
+      for (size_t i = 0; i < access.getIndexVars().size(); i++) {
+        if (access.isModeIndexSet(i)) {
+          auto t = access.getModeIndexSetTensor(i);
+          if (!util::contains(collected, t)) {
+            collected.insert(t);
+            result.push_back(t);
+          }
+        }
+      }
     }
   }
 
