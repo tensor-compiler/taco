@@ -69,7 +69,7 @@ Examples
 
 
 
-  m.def("set_parallel_schedule", [](std::string sched_type, int chunk_size = 0){
+  m.def("set_parallel_schedule", [](std::string sched_type, int chunk_size) {
     std::transform(sched_type.begin(), sched_type.end(), sched_type.begin(), ::tolower);
 
     if(sched_type == "static") {
