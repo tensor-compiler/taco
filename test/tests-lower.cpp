@@ -1820,7 +1820,7 @@ struct rightShiftAlgebra {
 
 Func rightShiftOp("rightShift", RightShift(), rightShiftAlgebra());
 
-TEST_STMT(RightShiftTest,
+TEST_STMT(DISABLED_RightShiftTest,
           forall(i,
                  ci(i) = rightShiftOp(ai(i), bi(i))
           ),
