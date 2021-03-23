@@ -83,8 +83,8 @@ struct IndexSet : IndexVarIterationModifier {
     return *a.set == *b.set && a.tensor == b.tensor;
   }
   friend bool operator<(const IndexSet& a, const IndexSet& b) {
-    if (a.set < b.set) {
-      return a.set < b.set;
+    if (*a.set < *b.set) {
+      return *a.set < *b.set;
     }
     return a.tensor < b.tensor;
   }
