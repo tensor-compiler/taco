@@ -967,7 +967,7 @@ public:
   WindowedIndexVar operator()(int lo, int hi, int stride = 1);
 
   /// Indexing into an IndexVar with a vector returns an index set into it.
-  IndexSetVar operator()(std::vector<int> indexSet);
+  IndexSetVar operator()(std::vector<int>&& indexSet);
   IndexSetVar operator()(std::vector<int>& indexSet);
 
 private:
