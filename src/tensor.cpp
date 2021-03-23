@@ -503,7 +503,7 @@ struct AccessTensorNode : public AccessNode {
         // Ensure that it has at most dim(t, i) elements.
         taco_uassert(indexSet.size() <= size_t(tensor.getDimension(i)));
         // Pack up the index set into a sparse tensor.
-        TensorBase indexSetTensor(tensor.getComponentType(), {int(indexSet.size())}, Compressed);
+        TensorBase indexSetTensor(type<int>(), {int(indexSet.size())}, Compressed);
         for (auto& coord : indexSet) {
           indexSetTensor.insert({coord}, 1);
         }
