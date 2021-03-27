@@ -14,6 +14,7 @@
 #include "taco/lower/merge_lattice.h"
 #include "mode_access.h"
 #include "taco/util/collections.h"
+#include "taco/util/env.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -2453,7 +2454,12 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
         Stmt init;
         // Initialize data structures for storing levels
         if (iterator.hasAppend()) {
-          size = 0;
+	        // TODO (stephenchouca): See if this makes sense.
+	        if (util::getFromEnv("TACO_VALUE_ALLOC_HACK", "0") != "0") {
+            size = iterator.getWidth();
+	        } else {
+	          size = 0;
+	        }
           init = iterator.getAppendInitLevel(parentSize, size);
         } else if (iterator.hasInsert()) {
           size = simplify(ir::Mul::make(parentSize, iterator.getWidth()));
