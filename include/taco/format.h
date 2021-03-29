@@ -165,16 +165,19 @@ private:
 
 class ModeFormatPack {
 public:
-  ModeFormatPack(const std::vector<ModeFormat> modeFormats);
-  ModeFormatPack(const std::initializer_list<ModeFormat> modeFormats);
+  ModeFormatPack(const std::vector<ModeFormatPack> modeFormatPacks);
+  ModeFormatPack(const std::initializer_list<ModeFormatPack> modeFormatPacks);
   ModeFormatPack(const ModeFormat modeFormat);
-
+  
   /// Get the storage types of the modes. The type of the mode stored in
   /// position i is specifed by element i of the returned vector.
   const std::vector<ModeFormat>& getModeFormats() const;
-
+  
 private:
-  std::vector<ModeFormat> modeFormats;
+  std::vector<ModeFormatPack> modeFormatPacks;
+  std::vector<ModeFormat> flattenedModeFormats;
+  ModeFormat baseModeFormat;
+  void buildFlattenedModeFormats();
 };
 
 bool operator==(const ModeFormatPack&, const ModeFormatPack&);

@@ -697,14 +697,14 @@ int main(int argc, char* argv[]) {
           packBounds[i] = std::stoi(packBoundStrs[i]);
         }
         int pack = 0;
-        std::vector<ModeFormat> modeTypesInPack;
+        std::vector<ModeFormatPack> modeTypesInPack;
         for (int i = 0; i < (int)modeTypes.size(); ++i) {
           if (i == packBounds[pack]) {
             modeTypePacks.push_back(modeTypesInPack);
             modeTypesInPack.clear();
             ++pack;
           }
-          modeTypesInPack.push_back(modeTypes[i]);
+          modeTypesInPack.push_back(ModeFormatPack(modeTypes[i]));
         }
         modeTypePacks.push_back(modeTypesInPack);
       } else {
@@ -993,9 +993,9 @@ int main(int argc, char* argv[]) {
       format = formats.at(name);
     } else {
       // create a dense default format of the correct order
-      std::vector<ModeFormat> modes;
+      std::vector<ModeFormatPack> modes;
       for(int i = 0; i < found_tensor_order; i++) {
-        modes.push_back(Dense);
+        modes.push_back(ModeFormatPack(Dense));
       }
       format = Format({ModeFormatPack(modes)});
     }

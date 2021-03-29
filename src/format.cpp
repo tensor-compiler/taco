@@ -37,7 +37,6 @@ Format::Format(const std::initializer_list<ModeFormatPack>& modeFormatPacks)
 Format::Format(const std::vector<ModeFormatPack>& modeFormatPacks) :
     modeFormatPacks(modeFormatPacks) {
   taco_uassert(getOrder() <= INT_MAX) << "Supports only INT_MAX modes";
-  
   modeOrdering.resize(getOrder());
   for (int i = 0; i < static_cast<int>(getOrder()); ++i) {
     modeOrdering[i] = i;
@@ -316,28 +315,45 @@ std::ostream& operator<<(std::ostream& os, const ModeFormat& modeFormat) {
 }
 
 
-// class ModeTypePack
-ModeFormatPack::ModeFormatPack(const std::vector<ModeFormat> modeFormats)
-    : modeFormats(modeFormats) {
-  for (const auto& modeFormat : modeFormats) {
+// class ModeFormatPack
+ModeFormatPack::ModeFormatPack(const std::vector<ModeFormatPack> modeFormatPacks)
+    : modeFormatPacks(modeFormatPacks), baseModeFormat{ ModeFormat() } {
+  buildFlattenedModeFormats();
+  for (const auto& modeFormat : flattenedModeFormats) {
     taco_uassert(modeFormat.defined()) << "Cannot have undefined mode type";
   }
 }
 
-ModeFormatPack::ModeFormatPack(const initializer_list<ModeFormat> modeFormats)
-    : modeFormats(modeFormats) {
-  for (const auto& modeFormat : modeFormats) {
+ModeFormatPack::ModeFormatPack(const initializer_list<ModeFormatPack> modeFormatPacks)
+    : modeFormatPacks(modeFormatPacks), baseModeFormat{ ModeFormat() } {
+  buildFlattenedModeFormats();
+  for (const auto& modeFormat : flattenedModeFormats) {
     taco_uassert(modeFormat.defined()) << "Cannot have undefined mode type";
   }
 }
-
-ModeFormatPack::ModeFormatPack(const ModeFormat modeFormat)
-    : modeFormats({modeFormat}) {
+  
+ModeFormatPack::ModeFormatPack(ModeFormat modeFormat)
+    : modeFormatPacks({}), baseModeFormat{ modeFormat }  {
+  buildFlattenedModeFormats();
   taco_uassert(modeFormat.defined()) << "Cannot have undefined mode type";
 }
 
+ 
+/// Flattens out the mode formats and returns
+void ModeFormatPack::buildFlattenedModeFormats() {
+  if (baseModeFormat.defined()) {
+    flattenedModeFormats.push_back(baseModeFormat);
+    return;
+  }
+  for (const auto& modeFormatPack : modeFormatPacks) {
+    flattenedModeFormats.insert(flattenedModeFormats.end(),
+                                modeFormatPack.getModeFormats().begin(),
+                                modeFormatPack.getModeFormats().end());
+  }  
+}
+  
 const std::vector<ModeFormat>& ModeFormatPack::getModeFormats() const {
-  return modeFormats;
+  return flattenedModeFormats;
 }
 
 bool operator==(const ModeFormatPack& a, const ModeFormatPack& b) {
