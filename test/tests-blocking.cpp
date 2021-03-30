@@ -10,67 +10,119 @@
 
 using namespace taco;
 
-TEST(blocking, test_dense_matrix_matrix_mult) {
- 
-  Tensor<float> A("A", {8, 8, 4, 4},
-                   Format({{Dense, Dense}, {Dense, Dense}}));
-  // Tensor<float> A("A", {{8, 8}, {4, 4}},
-  //                  Format({{Dense, Dense}, {Dense, Dense}}));
-  // Tensor<float> B("B", {{8, 8}, {4, 4}},
-  //                  Format({{Dense, Dense}, {Dense, Dense}}));
-  // Tensor<float> C("C", {{8, 8}, {4, 4}},
-  //                  Format({{Dense, Dense}, {Dense, Dense}}));
+// TEST(blocking, test_dense_tv_format_only) {
+  
+//   int NUM_I = 1021/10;
+//   int NUM_J = 1021/10;
+//   int NUM_K = 1021/10;
+//   int NUM_L = 1021/10;
+  
+//   Tensor<float> A("A", {NUM_K}, Format({ Dense }));
+  
+//   Tensor<float> B("B", {NUM_I, NUM_J, NUM_K, NUM_L},
+//                    Format({{Dense, Dense}, {Dense, Dense}}));
 
-  // Tensor<float> B1("B1", {8, 8, 4, 4},
-  //                  Format({Dense, Dense, Dense, Dense}));
-  // Tensor<float> C1("C1", {8, 8, 4, 4},
-  //                  Format({Dense, Dense, Dense, Dense}));
+//   Tensor<float> C("C", {NUM_L}, Format({ Dense }));
 
-  // for (int i0 = 0; i0 < 8; i0++) {
-  //   for (int j0 = 0; j0 < 8; j0++) {
-  //     for (int i1 = 0; i1 < 4; i1++) {
-  //       for (int j1 = 0; j1 < 4; j1++) {
-  //         float rand_float = (float)rand()/(float)(RAND_MAX);
-  //         C1.insert({i0, j0, i1, j1}, rand_float);
-  //         C.insert({{i0, j0}, {i1, j1}}, rand_float);
-  //         // TODO: also support inserting matrices?
-  //         rand_float = (float)rand()/(float)(RAND_MAX);
-  //         B1.insert({i0, j0, i1, j1}, rand_float);
-  //         B.insert({{i0, j0}, {i1, j1}}, rand_float);
-  //       }
-  //     }
-  //   }
-  // }
+//   Tensor<float> B1("B1", {NUM_I, NUM_J, NUM_K, NUM_L},
+//                    Format({Dense, Dense, Dense, Dense}));
 
-  // A.pack();
-  // B.pack();
+//   for (int i0 = 0; i0 < NUM_I; i0++) {
+//     for (int j0 = 0; j0 < NUM_J; j0++) {
+//       for (int i1 = 0; i1 < NUM_K; i1++) {
+//         for (int j1 = 0; j1 < NUM_L; j1++) {
+//           float rand_float = (float)rand()/(float)(RAND_MAX);
+//           B1.insert({i0, j0, i1, j1}, rand_float);
+//           B.insert({i0, j0, i1, j1}, rand_float);
+//         }
+//       }
+//     }
+//   }
+
+//   for (int i = 0; i < NUM_L; i++) {
+//     float rand_float = (float)rand()/(float)(RAND_MAX);
+//     C.insert({i}, rand_float);
+//   }
+   
+
+//   A.pack();
+//   B.pack();
+//   C.pack();
+//   B1.pack();
+
+//   IndexVar i0("i0"), j0("j0"), k0("k0"), l0("k0");
+//   A(k0) = B(i0, j0, k0, l0) * C(l0);
+//   A.compile();
+//   A.assemble();
+//   A.compute();
+  
+//   IndexVar i1("i1"), j1("j1"), k1("k1"), l1("l1");
+//   Tensor<float> expected("expected", {NUM_K}, Format({ Dense }));
+
+//   expected(k1) = B1(i1, j1, k1, l1) * C(l1);
+//   expected.compile();
+//   expected.assemble();
+//   expected.compute();
+
+//   ASSERT_TENSOR_EQ(expected, A);
+// }
+
+TEST(blocking, test_sptv_format_only) {
+  int NUM_I = 2;
+  int NUM_J = 2;
+  int NUM_K = 2;
+  int NUM_L = 2;
+  float SPARSITY = .01;
+  
+  Tensor<float> A("A", {NUM_K}, Format({ Dense }));
+  
+  Tensor<float> B("B", {NUM_I, NUM_J, NUM_K, NUM_L},
+                   Format({{Sparse, Sparse}, {Sparse, Sparse}}));
+
+  Tensor<float> C("C", {NUM_L}, Format({ Dense }));
+
+  Tensor<float> B1("B1", {NUM_I, NUM_J, NUM_K, NUM_L},
+                   Format({Sparse, Sparse, Sparse, Sparse}));
+
+  srand(4357);
+  for (int i0 = 0; i0 < NUM_I; i0++) {
+    for (int j0 = 0; j0 < NUM_J; j0++) {
+      for (int i1 = 0; i1 < NUM_K; i1++) {
+        for (int j1 = 0; j1 < NUM_L; j1++) {
+          float rand_float = (float)rand()/(float)(RAND_MAX);
+          if (rand_float < SPARSITY) {
+            B1.insert({i0, j0, i1, j1}, (float) ((int) (rand_float*3/SPARSITY)));
+            B.insert({i0, j0, i1, j1}, (float) ((int) (rand_float*3/SPARSITY)));
+          }
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < NUM_L; i++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    C.insert({i}, (float) ((int) (rand_float*3/SPARSITY)));
+  }
+   
+
+  B.pack();
   // C.pack();
   // B1.pack();
-  // C1.pack();
 
-  // IndexVar i0("i0"), j0("j0"), k0("k0");
-  // A(i0, k0) = B(i0, j0) * C(j0, k0);
+  // IndexVar i0("i0"), j0("j0"), k0("k0"), l0("k0");
+  // A(k0) = B(i0, j0, k0, l0) * C(l0);
   // A.compile();
   // A.assemble();
   // A.compute();
   
-  // IndexVar i1("i1"), i2("i2"), j1("j1"), j2("j2"), k1("k1");
-  // Tensor<float> expected("expected", {8, 8, 4, 4},
-  //                         Format({{Dense, Dense}, {Dense, Dense}}));
+  // IndexVar i1("i1"), j1("j1"), k1("k1"), l1("l1");
+  // Tensor<float> expected("expected", {NUM_K}, Format({ Dense }));
 
-  // expected(i1, k1, i2, j2) = B1(i1, j1, i2, j2) * C1(j1, k1, i2, j2);
+  // expected(k1) = B1(i1, j1, k1, l1) * C(l1);
   // expected.compile();
   // expected.assemble();
   // expected.compute();
 
-  // for (int i0 = 0; i0 < 8; i0++) {
-  //   for (int j0 = 0; j0 < 8; j0++) {
-  //     Tensor<float> blocked_matrix = A(i0, j0);
-  //     for (int i1 = 0; i1 < 4; i1++) {
-  //       for (int j1 = 0; j1 < 4; j1++) {
-  //         ASSERT_TRUE(expected(i0, j0, i1, j1) == blocked_matrix(i1, j1));
-  //       }
-  //     }
-  //   }
-  // }
+  // ASSERT_TENSOR_EQ(expected, A);
 }
