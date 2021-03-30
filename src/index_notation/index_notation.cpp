@@ -30,6 +30,7 @@
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
 #include "taco/util/functions.h"
+#include "taco/util/env.h"
 
 using namespace std;
 
@@ -537,9 +538,17 @@ struct Isomorphic : public IndexNotationVisitorStrict {
     // TODO (rawnh): This check is broken. The retrieved function pointers are null
     //  when attempting to dereference them. The original code attempted to use
     //  util::targetPtrEqual.
-    if (&anode->defaultLowerFunc != &bnode->defaultLowerFunc) {
-      eq = false;
-      return;
+    if (util::getFromEnv("TACO_ISOMORPHIC_HACK", "0") == "0") {
+      if (&anode->defaultLowerFunc != &bnode->defaultLowerFunc) {
+        eq = false;
+        return;
+      }
+    } else {
+      // If the hack is enabled, check that names are the same.
+      if (anode->name != bnode->name) {
+        eq = false;
+        return;
+      }
     }
 
     // Check arguments
