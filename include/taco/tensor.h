@@ -612,6 +612,7 @@ public:
 
   /// Returns a copy of the tensor without explicit zeros.
   Tensor<CType> removeExplicitZeros(Format format) const;
+  Tensor<CType> removeExplicitFillValues(Format format, int value) const;
 
   const_iterator<int,CType> begin() const;
   const_iterator<int,CType> begin();
@@ -1253,9 +1254,14 @@ Tensor<CType> Tensor<CType>::transpose(std::string name, std::vector<int> newMod
 
 template <typename CType>
 Tensor<CType> Tensor<CType>::removeExplicitZeros(Format format) const {
+  return removeExplicitFillValues(format, 0);
+}
+
+template <typename CType>
+Tensor<CType> Tensor<CType>::removeExplicitFillValues(Format format, int value) const {
   Tensor<CType> newTensor(getDimensions(), format);
   for (const auto& elem : *this) {
-    if (elem.second != static_cast<CType>(0)) {
+    if (elem.second != static_cast<CType>(value)) {
       newTensor.insertUnchecked<int,CType>(elem.first, elem.second);
     }
   }
