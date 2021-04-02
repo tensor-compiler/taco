@@ -32,10 +32,33 @@ protected:
   /// Initialize temporary variables
   std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
 
+  ir::Stmt lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar,
+                                      IndexStmt statement,
+                                      const std::set<Access>& reducedAccesses);
+
+  ir::Stmt lowerMergePoint(MergeLattice pointLattice,
+                                           ir::Expr coordinate, IndexVar coordinateVar, IndexStmt statement,
+                                           const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared);
+
+  ir::Stmt lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
+                                           MergeLattice lattice,
+                                           const std::set<Access>& reducedAccesses);
+
+  ir::Stmt lowerForallPosition(Forall forall, Iterator iterator,
+                               std::vector<Iterator> locators,
+                               std::vector<Iterator> inserters,
+                               std::vector<Iterator> appenders,
+                               std::set<Access> reducedAccesses,
+                               ir::Stmt recoveryStmt);
+
 private:
   class Visitor;
   friend class Visitor;
   std::shared_ptr<Visitor> visitor;
+
+  bool ignoreVectorize = false;
+
+  int markAssignsAtomicDepth = 0;
 };
 
 

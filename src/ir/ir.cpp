@@ -867,11 +867,12 @@ Stmt Sort::make(std::vector<Expr> args) {
   return sort;
 }
 
-Expr GetProperty::make(Expr tensor, TensorProperty property, int mode, int index) {
+Expr GetProperty::make(Expr tensor, TensorProperty property, int mode, int index, bool is_compressed) {
   GetProperty* gp = new GetProperty;
   gp->tensor = tensor;
   gp->property = property;
   gp->mode = mode;
+  gp->is_compressed = is_compressed;
 
   //TODO: deal with the fact that these are pointers.
   if (property == TensorProperty::Values)
@@ -925,7 +926,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
   gp->tensor = tensor;
   gp->property = property;
   gp->mode = mode;
-  
+
   //TODO: deal with the fact that these are pointers.
   if (property == TensorProperty::Values)
     gp->type = tensor.type();

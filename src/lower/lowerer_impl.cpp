@@ -217,10 +217,6 @@ LowererImpl::lower(IndexStmt stmt, string name,
   tempNoZeroInit = getTemporariesWithoutReduction(stmt);
   forallReductions = getForallReductions(stmt);
 
-  for(auto it = forallReductions.begin(); it != forallReductions.end(); it++) {
-    cout << it->first << ", " << it->second.first << it->second.second << endl;
-  }
-
   // Create datastructure needed for bulk memory load/store optimization from forall
   bulkMemTransfer = getBulkMemTransfers(stmt);
 
@@ -1177,7 +1173,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
 
-
+  cout << "Lower Forall Dimension" << endl;
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth++;
     atomicParallelUnit = forall.getParallelUnit();
@@ -1885,6 +1881,9 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
 
   // Inserter positions
   Stmt declInserterPosVars = declLocatePosVars(inserters);
+  cout << "FORALL BODY" << endl;
+  cout << initVals << endl;
+  cout << declInserterPosVars << endl;
 
   // Locate positions
   Stmt declLocatorPosVars = declLocatePosVars(locators);
@@ -2676,7 +2675,6 @@ vector<Expr> LowererImpl::coordinates(vector<Iterator> iterators)
   return result;
 }
 
-
 Stmt LowererImpl::initResultArrays(vector<Access> writes,
                                    vector<Access> reads,
                                    set<Access> reducedAccesses) {
@@ -2861,7 +2859,7 @@ vector<Iterator> getIteratorsFrom(IndexVar var,
   return result;
 }
 
-Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes, 
+Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
                                    vector<Access> reads,
                                    set<Access> reducedAccesses) {
   if (!generateAssembleCode()) {
@@ -3050,6 +3048,7 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
         if (locateIterator.isLeaf()) {
           break;
         }
+
         locateIterator = locateIterator.getChild();
       } while (locateIterator.hasLocate() && 
                accessibleIterators.contains(locateIterator));

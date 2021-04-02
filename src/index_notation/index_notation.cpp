@@ -2718,7 +2718,6 @@ std::map<TensorVar, Where> getTemporariesWithoutReduction(IndexStmt stmt) {
 std::map<Forall, std::pair<int, Assignment>> getForallReductions(IndexStmt stmt) {
   map<Forall, pair<int, Assignment>> forallReductions;
   vector<Forall> f;
-  cout << "DEBUG: GETFORALLREDUCTIONS" << endl;
   match(stmt,
         function<void(const ForallNode*, Matcher*)>([&](const ForallNode* op, Matcher* ctx) {
           f.push_back(op);
@@ -2735,12 +2734,7 @@ std::map<Forall, std::pair<int, Assignment>> getForallReductions(IndexStmt stmt)
           ctx->match(w->producer);
         }),
         function<void(const AssignmentNode*, Matcher*)>([&](const AssignmentNode* a, Matcher* ctx) {
-          cout << "ASSIGN" << endl;
-          cout << Assignment(a) << endl;
-          for (auto it = f.begin(); it != f.end(); it++) {
-            cout << *it << endl;
-          }
-          cout << "end assign" << endl;
+
           if (!f.empty() && a->op.defined()) {
             for (int i = 0; i < f.size(); i++)
               forallReductions.insert({Forall(f[i]), {i, Assignment(a)}});

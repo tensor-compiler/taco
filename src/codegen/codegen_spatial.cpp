@@ -331,7 +331,7 @@ void CodeGen_Spatial::visit(const Function* func) {
   doIndent();
   out << "Accel {\n";
   indent++;
-  //out << printDeclsAccel(varFinder.varDecls, func->inputs, func->outputs) << endl;
+  out << printDeclsAccel(varFinder.varDecls, func->inputs, func->outputs) << endl;
 
   // output body
   print(func->body);
@@ -669,7 +669,8 @@ void CodeGen_Spatial::visit(const Store* op) {
   if (op->rhs_mem_loc == MemoryLocation::SpatialDRAM) {
     stream << " load ";
   } else if (op->lhs_mem_loc == MemoryLocation::SpatialDRAM) {
-    stream << " store ";
+    //stream << " store ";
+    stream << " = ";
   } else if (op->lhs_mem_loc == MemoryLocation::SpatialReg && op->rhs_mem_loc == MemoryLocation::SpatialReg) {
     stream << " := ";
   } else {
@@ -817,7 +818,7 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
   auto tensor = op->tensor.as<Var>();
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
-    ret << "val " << varname << " = SRAM[T](";
+    ret << "val " << varname << " = FIFO[T](";
     if (op->index == 0) {
       ret << "1";
     }
@@ -836,9 +837,12 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
 
     ret << ")" << endl; 
 
-    // Load from DRAM into SRAM
-    if (!is_output_prop)
-      ret << indentation << varname << " load " << varname << "_dram" << endl;
+    // Load from DRAM into FIFO
+    if (!is_output_prop) {
+      auto load_str = op->is_compressed ? " stream_load_vec " : " load ";
+      ret << indentation << varname << load_str << varname << "_dram" << endl;
+    }
+
 
     //stringstream newVarname;
     //newVarname << varname << "_sram";
@@ -859,17 +863,19 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
   if (op->property == TensorProperty::Dimension) {
     ret << "val " << varname << " = " << op->index << endl;
 
-//    stringstream newVarname;
-//    newVarname << varname << "_sram";
-//    varMap[op] = newVarname.str();
 
   } else {
     taco_iassert(op->property == TensorProperty::Indices);
-    tp = "int*";
+
+    string loc = "FIFO";
+
     auto nm = op->index;
-    ret << tp << " " << restrictKeyword() << " " << varname << " = ";
-    ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
-    ret << "][" << nm << "]);\n";
+    ret << "val " << varname << " = ";
+    // FIXME: Fixed size right now, should be max(NNZ)
+    ret << loc << "[T](" << 16;
+    ret << ")\n";
+
+    ret << indentation << varname << " stream_load_vec " << varname << "_dram" << endl;
   }
 
   return ret.str();
@@ -893,7 +899,7 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
         loc = "ArgIn";
     }
 
-    ret << "val " << varname << " = " << loc << "[T]";
+    ret << "val " << varname << "_dram = " << loc << "[T]";
     if (op->index > 0) {
       for (int i = 1; i < op->index + 1; i++) {
         ret << "(" << tensor->name << i << "_dimension_dram";
@@ -923,11 +929,22 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
     ret << "val " << varname << "_dram = " << op->index << endl;
   } else {
     taco_iassert(op->property == TensorProperty::Indices);
-    tp = "int*";
+
+    string loc = "DRAM";
+    if (tensor->memoryLocation == MemoryLocation::SpatialSRAM) {
+      loc = "SRAM";
+    } else if (tensor->memoryLocation == MemoryLocation::SpatialReg) {
+      if (is_output_prop)
+        loc = "ArgOut";
+      else
+        loc = "ArgIn";
+    }
+
     auto nm = op->index;
-    ret << tp << " " << restrictKeyword() << " " << varname << " = ";
-    ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
-    ret << "][" << nm << "]);\n";
+    ret << "val " << varname << "_dram" << " = ";
+    // FIXME: Fixed size right now
+    ret << loc << "[T](" << tensor->name << "_nnz";
+    ret << ")\n";
   }
 
   return ret.str();
@@ -1067,7 +1084,9 @@ string CodeGen_Spatial::outputInitMemArgs(string varname, const GetProperty* op,
   } else if (op->property == TensorProperty::Dimension) {
     ret << varname << "_dram";
   }
-
+  else if (op->property == TensorProperty::Indices) {
+    ret << varname;
+  }
   if (!last)
     ret << ", ";
 

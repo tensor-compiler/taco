@@ -745,16 +745,17 @@ TEST(spatial, tile_GEMV) {
   codegen->compile(compute, false);
 }
 
-TEST(spatial, sparse_csr_MspV) {
+TEST(spatial, sparse_coo_spMdV) {
   // Enable spatial codegen
   //should_use_Spatial_codegen();
 
-  Tensor<double> A("A", {16}, {Dense}, taco::MemoryLocation::SpatialDRAM);
-  Tensor<double> B("B", {16, 16}, {Dense, Dense}, taco::MemoryLocation::SpatialDRAM);
-  Tensor<double> C("C", {16}, {Sparse}, taco::MemoryLocation::SpatialDRAM);
+  Tensor<double> A("A", {16}, {Sparse}, taco::MemoryLocation::SpatialDRAM);
+  Tensor<double> B("B", {16, 16}, COO(2), taco::MemoryLocation::SpatialDRAM);
+  Tensor<double> C("C", {16}, {Dense}, taco::MemoryLocation::SpatialDRAM);
 
   for (int i = 0; i < 16; i++) {
-    C.insert({i}, (double) i);
+    if (i % 4 == 0) 
+      C.insert({i}, (double) i);
     B.insert({i, i}, (double) i);
   }
 
@@ -762,12 +763,15 @@ TEST(spatial, sparse_csr_MspV) {
   A(i) = B(i, j) * C(j);
 
   IndexStmt stmt = A.getAssignment().concretize();
+  stmt = stmt.parallelize(j, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+
   A.compile(stmt);
   A.assemble();
   A.compute();
 
   Tensor<double> expected("expected", {16}, {Dense});
-  expected(i) = B(i, j) * C(i);
+  expected(i) = B(i, j) * C(j);
   expected.compile();
   expected.assemble();
   expected.compute();
