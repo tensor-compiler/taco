@@ -1789,7 +1789,11 @@ Expr LowererImpl::getTemporarySize(Where where) {
   return Expr();
 }
 
+
 vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where, bool parallel) {
+  // if parallel == true, need to initialize dense accelerator arrays as size*numThreads
+  // and rename all dense accelerator arrays to name + '_all'
+
   TensorVar temporary = where.getTemporary();
 
   // TODO: emit as uint64 and manually emit bit pack code
@@ -1957,6 +1961,7 @@ vector<Stmt> LowererImpl::codeToInitializeLocalTemporaryParallel(Where where, Pa
   arrays.values = values;
   this->temporaryArrays.insert({temporary, arrays});
 
+  // Declare local index list array
   // TODO: TACO should probably keep state on if it can use int32 or if it should switch to
   //       using int64 for indices. This assumption is made in other places of taco.
   const Datatype indexListType = taco::Int32;
@@ -1966,11 +1971,11 @@ vector<Stmt> LowererImpl::codeToInitializeLocalTemporaryParallel(Where where, Pa
                                           true, false);
 
   Expr indexList_all = this->whereToIndexListAll[where];
-
   Expr indexListRhs = ir::Add::make(indexList_all, tempSize);
   Stmt indexListDecl = ir::VarDecl::make(indexListArr, indexListRhs);
   decls.push_back(indexListDecl);
 
+  // Declare local indexList size variable
   const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
 
   // Declare local already set array (bit guard)
