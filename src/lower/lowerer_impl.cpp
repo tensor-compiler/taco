@@ -700,13 +700,9 @@ Stmt LowererImpl::lowerForall(Forall forall)
   // Emit temporary initialization if forall is sequential and leads to a where statement
   vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
   auto temp = temporaryInitialization.find(forall);
-  cout << bool(temp != temporaryInitialization.end()) << endl;
-  cout << forall << endl;
-  cout << ParallelUnit_NAMES[int(forall.getParallelUnit())] << endl;
   if (temp != temporaryInitialization.end() && forall.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temp->second.getTemporary().getType()))
     temporaryValuesInitFree = codeToInitializeTemporary(temp->second);
   else if (temp != temporaryInitialization.end() && forall.getParallelUnit() == ParallelUnit::CPUThread && !isScalar(temp->second.getTemporary().getType())) {
-    cout << "FORALL PARALLEL" << endl;
     temporaryValuesInitFree = codeToInitializeTemporaryParallel(temp->second, forall.getParallelUnit());
   }
 
@@ -1836,13 +1832,7 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where, bo
     indexListDecl = VarDecl::make(indexListArr, ir::Literal::make(0));
   }
 
-  cout << "Code to initialize dense Accelerator" << endl;
   if (parallel) {
-    cout << "Parallel" << endl;
-    cout << temporary << endl;
-    cout << where << endl;
-    cout << indexListArr << endl;
-    cout << alreadySetArr << endl;
     whereToIndexListAll[where] = indexListArr;
     whereToBitGuardAll[where] = alreadySetArr;
   } else {
@@ -2055,8 +2045,6 @@ Stmt LowererImpl::lowerWhere(Where where) {
     if (it->second == where && it->first.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temporary.getType())) {
       temporaryHoisted = true;
     } else if (it->second == where && it->first.getParallelUnit() == ParallelUnit::CPUThread && !isScalar(temporary.getType())) {
-      cout << "Hoisted Parallel Temporary" << endl;
-      cout << "Where stmt: " << where << endl;
       temporaryHoisted = true;
       TensorVar temporary = where.getTemporary();
       vector<Stmt> decls;
@@ -2072,14 +2060,9 @@ Stmt LowererImpl::lowerWhere(Where where) {
         values = ir::Var::make(temporary.getName(),
                                     temporary.getType().getDataType(),
                                     true, false);
-        cout << "Before Values ALL" << endl;
         Expr values_all = this->temporaryArrays[this->whereToTemporaryVar[where]].values;
-        cout << "After Values ALL:" << values_all << " " << this->whereToTemporaryVar[where] << endl;
-        cout << "tempSize: " << tempSize << endl;
         Expr tempRhs = ir::Add::make(values_all, tempSize);
-        cout << "tempRhs: " << tempRhs << endl;
         Stmt tempDecl = ir::VarDecl::make(values, tempRhs);
-        cout << "Temporary Decl: " << tempDecl << endl;
         decls.push_back(tempDecl);
       }
       /// Make a struct object that lowerAssignment and lowerAccess can read
@@ -2087,8 +2070,6 @@ Stmt LowererImpl::lowerWhere(Where where) {
       TemporaryArrays arrays;
       arrays.values = values;
       this->temporaryArrays.insert({temporary, arrays});
-
-      cout << "Decls pushback Done" << endl;
 
       // TODO: TACO should probably keep state on if it can use int32 or if it should switch to
       //       using int64 for indices. This assumption is made in other places of taco.
@@ -2098,14 +2079,11 @@ Stmt LowererImpl::lowerWhere(Where where) {
                                               indexListType,
                                               true, false);
 
-      cout << "IndexList All: ";
       Expr indexList_all = this->whereToIndexListAll[where];
 
-      cout << "IndexList All: " << indexList_all;
       Expr indexListRhs = ir::Add::make(indexList_all, tempSize);
       Stmt indexListDecl = ir::VarDecl::make(indexListArr, indexListRhs);
       decls.push_back(indexListDecl);
-      cout << "Index List Decl: " << indexListDecl << endl;
 
       const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
 
@@ -2120,7 +2098,6 @@ Stmt LowererImpl::lowerWhere(Where where) {
       Expr bitGuardRhs = ir::Add::make(bitGuard_all, tempSize);
       Stmt bitGuardDecl = ir::VarDecl::make(alreadySetArr, bitGuardRhs);
       decls.push_back(bitGuardDecl);
-      cout << "Bit Guard Decl: " << bitGuardDecl << endl;
 
       tempToIndexList[temporary] = indexListArr;
       tempToIndexListSize[temporary] = indexListSizeExpr;
