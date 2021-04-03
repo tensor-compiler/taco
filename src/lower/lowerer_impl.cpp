@@ -700,9 +700,13 @@ Stmt LowererImpl::lowerForall(Forall forall)
   // Emit temporary initialization if forall is sequential and leads to a where statement
   vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
   auto temp = temporaryInitialization.find(forall);
+  cout << bool(temp != temporaryInitialization.end()) << endl;
+  cout << forall << endl;
+  cout << ParallelUnit_NAMES[int(forall.getParallelUnit())] << endl;
   if (temp != temporaryInitialization.end() && forall.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temp->second.getTemporary().getType()))
     temporaryValuesInitFree = codeToInitializeTemporary(temp->second);
   else if (temp != temporaryInitialization.end() && forall.getParallelUnit() == ParallelUnit::CPUThread && !isScalar(temp->second.getTemporary().getType())) {
+    cout << "FORALL PARALLEL" << endl;
     temporaryValuesInitFree = codeToInitializeTemporaryParallel(temp->second, forall.getParallelUnit());
   }
 
@@ -1833,11 +1837,19 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where, bo
     indexListDecl = VarDecl::make(indexListArr, ir::Literal::make(0));
   }
 
+  cout << "Code to initialize dense Accelerator" << endl;
   if (parallel) {
+    cout << "Parallel" << endl;
+    cout << temporary << endl;
+    cout << where << endl;
+    cout << indexListSizeExpr << endl;
+    cout << indexListArr << endl;
+    cout << alreadySetArr << endl;
     whereToIndexListAll[where] = indexListArr;
     tempToIndexListSize[temporary] = indexListSizeExpr;
     whereToBitGuardAll[where] = alreadySetArr;
   } else {
+    cout << "Not parallel" << endl;
     tempToIndexList[temporary] = indexListArr;
     tempToIndexListSize[temporary] = indexListSizeExpr;
     tempToBitGuard[temporary] = alreadySetArr;
@@ -1865,15 +1877,15 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where, bo
 // Returns true if the following conditions are met:
 // 1) The temporary is a dense vector
 // 2) There is only one value on the right hand side of the consumer
-//    -- We would need to handle sparse acceleration in the merge lattices for 
+//    -- We would need to handle sparse acceleration in the merge lattices for
 //       multiple operands on the RHS
-// 3) The left hand side of the where consumer is sparse, if the consumer is an 
+// 3) The left hand side of the where consumer is sparse, if the consumer is an
 //    assignment
 // 4) CPU Code is being generated (TEMPORARY - This should be removed)
-//    -- The sorting calls and calloc call in lower where are CPU specific. We 
-//       could map calloc to a cudaMalloc and use a library like CUB to emit 
-//       the sort. CUB support is built into CUDA 11 but not prior versions of 
-//       CUDA so in that case, we'd probably need to include the CUB headers in 
+//    -- The sorting calls and calloc call in lower where are CPU specific. We
+//       could map calloc to a cudaMalloc and use a library like CUB to emit
+//       the sort. CUB support is built into CUDA 11 but not prior versions of
+//       CUDA so in that case, we'd probably need to include the CUB headers in
 //       the generated code.
 std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
   // TODO: TEMPORARY -- Needs to be removed
@@ -1899,7 +1911,7 @@ std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
     return std::make_pair(false, false);
   }
 
-  // No check for size of tempVar since we enforced the temporary is a vector 
+  // No check for size of tempVar since we enforced the temporary is a vector
   // and if there is only one RHS value, it must (should?) be the temporary
   std::vector<IndexVar> tempVar = inputAccesses[0].getIndexVars();
 
@@ -1932,8 +1944,8 @@ std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
 vector<Stmt> LowererImpl::codeToInitializeTemporaryParallel(Where where, ParallelUnit parallelUnit) {
   TensorVar temporary = where.getTemporary();
   // For the parallel case, need to hoist up a workspace shared by all threads
-  temporary = TensorVar(temporary.getName() + "_all", temporary.getType(), temporary.getFormat());
-  this->whereToTemporaryVar[where] = temporary;
+  TensorVar temporaryAll = TensorVar(temporary.getName() + "_all", temporary.getType(), temporary.getFormat());
+  this->whereToTemporaryVar[where] = temporaryAll;
 
   bool accelerateDense = canAccelerateDenseTemp(where).first;
 
@@ -1943,36 +1955,38 @@ vector<Stmt> LowererImpl::codeToInitializeTemporaryParallel(Where where, Paralle
   // When emitting code to accelerate dense workspaces with sparse iteration, we need the following arrays
   // to construct the result indices
   if(accelerateDense) {
-    vector<Stmt> initAndFree = codeToInitializeDenseAcceleratorArrays(where);
+    vector<Stmt> initAndFree = codeToInitializeDenseAcceleratorArrays(where, true);
     initializeTemporary = initAndFree[0];
     freeTemporary = initAndFree[1];
   }
 
-  if (generateComputeCode()) {
-    Expr values = ir::Var::make(temporary.getName() + "_all",
-                                temporary.getType().getDataType(),
+  Expr values;
+  if (util::contains(needCompute, temporary) &&
+      needComputeValues(where, temporary)) {
+    values = ir::Var::make(temporaryAll.getName(),
+                           temporaryAll.getType().getDataType(),
                                 true, false);
-    taco_iassert(temporary.getType().getOrder() == 1) << " Temporary order was "
-                                                      << temporary.getType().getOrder();  // TODO
+    taco_iassert(temporaryAll.getType().getOrder() == 1) << " Temporary order was "
+                                                      << temporaryAll.getType().getOrder();  // TODO
     Expr size = getTemporarySize(where);
-    size = ir::Mul::make(size, ir::Call::make("omp_get_max_threads", {}, size.type()));
+    Expr sizeAll = ir::Mul::make(size, ir::Call::make("omp_get_max_threads", {}, size.type()));
 
     // no decl needed for shared memory
     Stmt decl = Stmt();
     if ((isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) || !should_use_CUDA_codegen()) {
       decl = VarDecl::make(values, ir::Literal::make(0));
     }
-    Stmt allocate = Allocate::make(values, size);
-
-    /// Make a struct object that lowerAssignment and lowerAccess can read
-    /// temporary value arrays from.
-    TemporaryArrays arrays;
-    arrays.values = values;
-    this->temporaryArrays.insert({temporary, arrays});
+    Stmt allocate = Allocate::make(values, sizeAll);
 
     freeTemporary = Block::make(freeTemporary, Free::make(values));
     initializeTemporary = Block::make(decl, initializeTemporary, allocate);
   }
+  /// Make a struct object that lowerAssignment and lowerAccess can read
+  /// temporary value arrays from.
+  TemporaryArrays arrays;
+  arrays.values = values;
+  this->temporaryArrays.insert({temporaryAll, arrays});
+
   return {initializeTemporary, freeTemporary};
 }
 
@@ -2044,30 +2058,41 @@ Stmt LowererImpl::lowerWhere(Where where) {
     if (it->second == where && it->first.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temporary.getType())) {
       temporaryHoisted = true;
     } else if (it->second == where && it->first.getParallelUnit() == ParallelUnit::CPUThread && !isScalar(temporary.getType())) {
+      cout << "Hoisted Parallel Temporary" << endl;
+      cout << "Where stmt: " << where << endl;
       temporaryHoisted = true;
       TensorVar temporary = where.getTemporary();
       vector<Stmt> decls;
 
-      // Declare local temporary workspace array
       Expr tempSize = getTemporarySize(where);
       Expr threadNum = ir::Call::make("omp_get_thread_num", {}, tempSize.type());
       tempSize = ir::Mul::make(tempSize, threadNum);
-      Expr values = ir::Var::make(temporary.getName(),
-                                  temporary.getType().getDataType(),
-                                  true, false);
-      Expr values_all = this->temporaryArrays[this->whereToTemporaryVar[where]].values;
-      Expr tempRhs = ir::Add::make(values, tempSize);
-      Stmt tempDecl = ir::VarDecl::make(values, tempRhs);
 
-      TemporaryArrays arrays;
-      arrays.values = values;
-      this->temporaryArrays.insert({temporary, arrays});
-      decls.push_back(tempDecl);
-
+      if (util::contains(needCompute, temporary) &&
+          needComputeValues(where, temporary)) {
+        // Declare local temporary workspace array
+        Expr values = ir::Var::make(temporary.getName(),
+                                    temporary.getType().getDataType(),
+                                    true, false);
+        cout << "Before Values ALL" << endl;
+        Expr values_all = this->temporaryArrays[this->whereToTemporaryVar[where]].values;
+        cout << "After Values ALL:" << values_all << " " << this->whereToTemporaryVar[where] << endl;
+        cout << "tempSize: " << tempSize << endl;
+        Expr tempRhs = ir::Add::make(values_all, tempSize);
+        cout << "tempRhs: " << tempRhs << endl;
+        Stmt tempDecl = ir::VarDecl::make(values, tempRhs);
+        cout << "Temporary Decl: " << tempDecl << endl;
+        decls.push_back(tempDecl);
+      }
+      cout << "Decls pushback Done" << endl;
       // Declare local index list array
+      for (auto it = tempToIndexListSize.begin(); it != tempToIndexListSize.end(); it++) {
+        cout << it->first << ", " << it->second << endl;
+      }
       Expr indexListSize = tempToIndexListSize[temporary];
+      cout << "IndexList Size: " << indexListSize;
       indexListSize = ir::Mul::make(indexListSize, threadNum);
-
+      cout << "IndexList Size: " << indexListSize;
       // TODO: TACO should probably keep state on if it can use int32 or if it should switch to
       //       using int64 for indices. This assumption is made in other places of taco.
       const Datatype indexListType = taco::Int32;
@@ -2076,10 +2101,14 @@ Stmt LowererImpl::lowerWhere(Where where) {
                                               indexListType,
                                               true, false);
 
+      cout << "IndexList All: ";
       Expr indexList_all = this->whereToIndexListAll[where];
+
+      cout << "IndexList All: " << indexList_all;
       Expr indexListRhs = ir::Add::make(indexList_all, indexListSize);
       Stmt indexListDecl = ir::VarDecl::make(indexListArr, indexListRhs);
       decls.push_back(indexListDecl);
+      cout << "Index List Decl: " << indexListDecl << endl;
 
       // Declare local already set array (bit guard)
       // TODO: emit as uint64 and manually emit bit pack code
@@ -2092,6 +2121,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
       Expr bitGuardRhs = ir::Add::make(bitGuard_all, tempSize);
       Stmt bitGuardDecl = ir::VarDecl::make(alreadySetArr, bitGuardRhs);
       decls.push_back(bitGuardDecl);
+      cout << "Bit Guard Decl: " << bitGuardDecl << endl;
 
       tempToIndexList[temporary] = indexListArr;
       tempToBitGuard[temporary] = alreadySetArr;
@@ -2359,7 +2389,7 @@ Expr LowererImpl::lowerAccess(Access access) {
   if (var.getType().getDataType() == Bool &&
       getIterators(access).back().isZeroless())  {
     return true;
-  } 
+  }
 
   const auto vals = getValuesArray(var);
   if (!vals.defined()) {

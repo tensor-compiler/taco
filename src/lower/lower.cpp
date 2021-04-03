@@ -49,6 +49,9 @@ ir::Stmt lower(IndexStmt stmt, std::string name,
   string reason;
   taco_iassert(isLowerable(stmt, &reason))
       << "Not lowerable, because " << reason << ": " << stmt;
+
+  cout << "Lowered Statement" << endl;
+  cout << stmt << endl;
   ir::Stmt lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute, pack, unpack);
 
   // TODO: re-enable this
