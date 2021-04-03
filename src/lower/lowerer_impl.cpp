@@ -697,7 +697,8 @@ Stmt LowererImpl::lowerForall(Forall forall)
                                         getArgumentAccesses(forall),
                                         reducedAccesses);
 
-  // Emit temporary initialization if forall is sequential and leads to a where statement
+  // Emit temporary initialization if forall is sequential or parallelized by cpu threads and leads to a where statement
+  // This is for workspace hoisting by 1-level
   vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
   auto temp = temporaryInitialization.find(forall);
   if (temp != temporaryInitialization.end() && forall.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temp->second.getTemporary().getType()))
@@ -1927,7 +1928,72 @@ std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
   return std::make_pair(true, varFmt.isOrdered());
 }
 
+// Code to initialize the local temporary workspace from the shared workspace
+// in codeToInitializeTemporaryParallel for a SINGLE parallel unit
+// (e.g.) the local workspace that each thread uses
+vector<Stmt> LowererImpl::codeToInitializeLocalTemporaryParallel(Where where, ParallelUnit parallelUnit) {
+  TensorVar temporary = where.getTemporary();
+  vector<Stmt> decls;
 
+  Expr tempSize = getTemporarySize(where);
+  Expr threadNum = ir::Call::make("omp_get_thread_num", {}, tempSize.type());
+  tempSize = ir::Mul::make(tempSize, threadNum);
+
+  Expr values;
+  if (util::contains(needCompute, temporary) &&
+      needComputeValues(where, temporary)) {
+    // Declare local temporary workspace array
+    values = ir::Var::make(temporary.getName(),
+                           temporary.getType().getDataType(),
+                           true, false);
+    Expr values_all = this->temporaryArrays[this->whereToTemporaryVar[where]].values;
+    Expr tempRhs = ir::Add::make(values_all, tempSize);
+    Stmt tempDecl = ir::VarDecl::make(values, tempRhs);
+    decls.push_back(tempDecl);
+  }
+  /// Make a struct object that lowerAssignment and lowerAccess can read
+  /// temporary value arrays from.
+  TemporaryArrays arrays;
+  arrays.values = values;
+  this->temporaryArrays.insert({temporary, arrays});
+
+  // TODO: TACO should probably keep state on if it can use int32 or if it should switch to
+  //       using int64 for indices. This assumption is made in other places of taco.
+  const Datatype indexListType = taco::Int32;
+  const std::string indexListName = temporary.getName() +  "_index_list";
+  const Expr indexListArr = ir::Var::make(indexListName,
+                                          indexListType,
+                                          true, false);
+
+  Expr indexList_all = this->whereToIndexListAll[where];
+
+  Expr indexListRhs = ir::Add::make(indexList_all, tempSize);
+  Stmt indexListDecl = ir::VarDecl::make(indexListArr, indexListRhs);
+  decls.push_back(indexListDecl);
+
+  const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
+
+  // Declare local already set array (bit guard)
+  // TODO: emit as uint64 and manually emit bit pack code
+  const Datatype bitGuardType = taco::Bool;
+  const std::string bitGuardName = temporary.getName() + "_already_set";
+  const Expr alreadySetArr = ir::Var::make(bitGuardName,
+                                           bitGuardType,
+                                           true, false);
+  Expr bitGuard_all = this->whereToBitGuardAll[where];
+  Expr bitGuardRhs = ir::Add::make(bitGuard_all, tempSize);
+  Stmt bitGuardDecl = ir::VarDecl::make(alreadySetArr, bitGuardRhs);
+  decls.push_back(bitGuardDecl);
+
+  tempToIndexList[temporary] = indexListArr;
+  tempToIndexListSize[temporary] = indexListSizeExpr;
+  tempToBitGuard[temporary] = alreadySetArr;
+  return decls;
+}
+
+// Code to initialize a temporary workspace that is SHARED across ALL parallel units.
+// New temporaries are denoted by temporary.getName() + '_all'
+// Currently only supports CPUThreads
 vector<Stmt> LowererImpl::codeToInitializeTemporaryParallel(Where where, ParallelUnit parallelUnit) {
   TensorVar temporary = where.getTemporary();
   // For the parallel case, need to hoist up a workspace shared by all threads
@@ -2046,62 +2112,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
       temporaryHoisted = true;
     } else if (it->second == where && it->first.getParallelUnit() == ParallelUnit::CPUThread && !isScalar(temporary.getType())) {
       temporaryHoisted = true;
-      TensorVar temporary = where.getTemporary();
-      vector<Stmt> decls;
-
-      Expr tempSize = getTemporarySize(where);
-      Expr threadNum = ir::Call::make("omp_get_thread_num", {}, tempSize.type());
-      tempSize = ir::Mul::make(tempSize, threadNum);
-
-      Expr values;
-      if (util::contains(needCompute, temporary) &&
-          needComputeValues(where, temporary)) {
-        // Declare local temporary workspace array
-        values = ir::Var::make(temporary.getName(),
-                                    temporary.getType().getDataType(),
-                                    true, false);
-        Expr values_all = this->temporaryArrays[this->whereToTemporaryVar[where]].values;
-        Expr tempRhs = ir::Add::make(values_all, tempSize);
-        Stmt tempDecl = ir::VarDecl::make(values, tempRhs);
-        decls.push_back(tempDecl);
-      }
-      /// Make a struct object that lowerAssignment and lowerAccess can read
-      /// temporary value arrays from.
-      TemporaryArrays arrays;
-      arrays.values = values;
-      this->temporaryArrays.insert({temporary, arrays});
-
-      // TODO: TACO should probably keep state on if it can use int32 or if it should switch to
-      //       using int64 for indices. This assumption is made in other places of taco.
-      const Datatype indexListType = taco::Int32;
-      const std::string indexListName = temporary.getName() +  "_index_list";
-      const Expr indexListArr = ir::Var::make(indexListName,
-                                              indexListType,
-                                              true, false);
-
-      Expr indexList_all = this->whereToIndexListAll[where];
-
-      Expr indexListRhs = ir::Add::make(indexList_all, tempSize);
-      Stmt indexListDecl = ir::VarDecl::make(indexListArr, indexListRhs);
-      decls.push_back(indexListDecl);
-
-      const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
-
-      // Declare local already set array (bit guard)
-      // TODO: emit as uint64 and manually emit bit pack code
-      const Datatype bitGuardType = taco::Bool;
-      const std::string bitGuardName = temporary.getName() + "_already_set";
-      const Expr alreadySetArr = ir::Var::make(bitGuardName,
-                                               bitGuardType,
-                                               true, false);
-      Expr bitGuard_all = this->whereToBitGuardAll[where];
-      Expr bitGuardRhs = ir::Add::make(bitGuard_all, tempSize);
-      Stmt bitGuardDecl = ir::VarDecl::make(alreadySetArr, bitGuardRhs);
-      decls.push_back(bitGuardDecl);
-
-      tempToIndexList[temporary] = indexListArr;
-      tempToIndexListSize[temporary] = indexListSizeExpr;
-      tempToBitGuard[temporary] = alreadySetArr;
+      auto decls = codeToInitializeLocalTemporaryParallel(where, it->first.getParallelUnit());
 
       temporaryValuesInitFree[0] = ir::Block::make(decls);
     }

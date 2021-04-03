@@ -354,7 +354,7 @@ protected:
   /// Initializes a temporary workspace
   std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
   std::vector<ir::Stmt> codeToInitializeTemporaryParallel(Where where, ParallelUnit parallelUnit);
-
+  std::vector<ir::Stmt> codeToInitializeLocalTemporaryParallel(Where where, ParallelUnit parallelUnit);
   /// Gets the size of a temporary tensorVar in the where statement
   ir::Expr getTemporarySize(Where where);
 
