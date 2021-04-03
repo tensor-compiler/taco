@@ -1830,7 +1830,6 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where, bo
   // no decl for shared memory
   Stmt alreadySetDecl = Stmt();
   Stmt indexListDecl = Stmt();
-  const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
   Stmt freeTemps = Block::make(Free::make(indexListArr), Free::make(alreadySetArr));
   if ((isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) || !should_use_CUDA_codegen()) {
     alreadySetDecl = VarDecl::make(alreadySetArr, ir::Literal::make(0));
@@ -1842,14 +1841,12 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where, bo
     cout << "Parallel" << endl;
     cout << temporary << endl;
     cout << where << endl;
-    cout << indexListSizeExpr << endl;
     cout << indexListArr << endl;
     cout << alreadySetArr << endl;
     whereToIndexListAll[where] = indexListArr;
-    tempToIndexListSize[temporary] = indexListSizeExpr;
     whereToBitGuardAll[where] = alreadySetArr;
   } else {
-    cout << "Not parallel" << endl;
+    const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
     tempToIndexList[temporary] = indexListArr;
     tempToIndexListSize[temporary] = indexListSizeExpr;
     tempToBitGuard[temporary] = alreadySetArr;
@@ -2068,10 +2065,11 @@ Stmt LowererImpl::lowerWhere(Where where) {
       Expr threadNum = ir::Call::make("omp_get_thread_num", {}, tempSize.type());
       tempSize = ir::Mul::make(tempSize, threadNum);
 
+      Expr values;
       if (util::contains(needCompute, temporary) &&
           needComputeValues(where, temporary)) {
         // Declare local temporary workspace array
-        Expr values = ir::Var::make(temporary.getName(),
+        values = ir::Var::make(temporary.getName(),
                                     temporary.getType().getDataType(),
                                     true, false);
         cout << "Before Values ALL" << endl;
@@ -2084,15 +2082,14 @@ Stmt LowererImpl::lowerWhere(Where where) {
         cout << "Temporary Decl: " << tempDecl << endl;
         decls.push_back(tempDecl);
       }
+      /// Make a struct object that lowerAssignment and lowerAccess can read
+      /// temporary value arrays from.
+      TemporaryArrays arrays;
+      arrays.values = values;
+      this->temporaryArrays.insert({temporary, arrays});
+
       cout << "Decls pushback Done" << endl;
-      // Declare local index list array
-      for (auto it = tempToIndexListSize.begin(); it != tempToIndexListSize.end(); it++) {
-        cout << it->first << ", " << it->second << endl;
-      }
-      Expr indexListSize = tempToIndexListSize[temporary];
-      cout << "IndexList Size: " << indexListSize;
-      indexListSize = ir::Mul::make(indexListSize, threadNum);
-      cout << "IndexList Size: " << indexListSize;
+
       // TODO: TACO should probably keep state on if it can use int32 or if it should switch to
       //       using int64 for indices. This assumption is made in other places of taco.
       const Datatype indexListType = taco::Int32;
@@ -2105,10 +2102,12 @@ Stmt LowererImpl::lowerWhere(Where where) {
       Expr indexList_all = this->whereToIndexListAll[where];
 
       cout << "IndexList All: " << indexList_all;
-      Expr indexListRhs = ir::Add::make(indexList_all, indexListSize);
+      Expr indexListRhs = ir::Add::make(indexList_all, tempSize);
       Stmt indexListDecl = ir::VarDecl::make(indexListArr, indexListRhs);
       decls.push_back(indexListDecl);
       cout << "Index List Decl: " << indexListDecl << endl;
+
+      const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
 
       // Declare local already set array (bit guard)
       // TODO: emit as uint64 and manually emit bit pack code
@@ -2124,6 +2123,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
       cout << "Bit Guard Decl: " << bitGuardDecl << endl;
 
       tempToIndexList[temporary] = indexListArr;
+      tempToIndexListSize[temporary] = indexListSizeExpr;
       tempToBitGuard[temporary] = alreadySetArr;
 
       temporaryValuesInitFree[0] = ir::Block::make(decls);
