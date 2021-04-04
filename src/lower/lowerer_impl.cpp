@@ -1943,6 +1943,8 @@ vector<Stmt> LowererImpl::codeToInitializeLocalTemporaryParallel(Where where, Pa
   Expr threadNum = ir::Call::make("omp_get_thread_num", {}, tempSize.type());
   tempSize = ir::Mul::make(tempSize, threadNum);
 
+  bool accelerateDense = canAccelerateDenseTemp(where).first;
+
   Expr values;
   if (util::contains(needCompute, temporary) &&
       needComputeValues(where, temporary)) {
@@ -1951,6 +1953,7 @@ vector<Stmt> LowererImpl::codeToInitializeLocalTemporaryParallel(Where where, Pa
                            temporary.getType().getDataType(),
                            true, false);
     Expr values_all = this->temporaryArrays[this->whereToTemporaryVar[where]].values;
+    cout << "tempDecl values_all done" << endl;
     Expr tempRhs = ir::Add::make(values_all, tempSize);
     Stmt tempDecl = ir::VarDecl::make(values, tempRhs);
     decls.push_back(tempDecl);
@@ -1961,38 +1964,42 @@ vector<Stmt> LowererImpl::codeToInitializeLocalTemporaryParallel(Where where, Pa
   arrays.values = values;
   this->temporaryArrays.insert({temporary, arrays});
 
-  // Declare local index list array
-  // TODO: TACO should probably keep state on if it can use int32 or if it should switch to
-  //       using int64 for indices. This assumption is made in other places of taco.
-  const Datatype indexListType = taco::Int32;
-  const std::string indexListName = temporary.getName() +  "_index_list";
-  const Expr indexListArr = ir::Var::make(indexListName,
-                                          indexListType,
-                                          true, false);
+  if (accelerateDense) {
+    // Declare local index list array
+    // TODO: TACO should probably keep state on if it can use int32 or if it should switch to
+    //       using int64 for indices. This assumption is made in other places of taco.
+    const Datatype indexListType = taco::Int32;
+    const std::string indexListName = temporary.getName() + "_index_list";
+    const Expr indexListArr = ir::Var::make(indexListName,
+                                            indexListType,
+                                            true, false);
 
-  Expr indexList_all = this->whereToIndexListAll[where];
-  Expr indexListRhs = ir::Add::make(indexList_all, tempSize);
-  Stmt indexListDecl = ir::VarDecl::make(indexListArr, indexListRhs);
-  decls.push_back(indexListDecl);
+    Expr indexList_all = this->whereToIndexListAll[where];
+    cout << "indexListDecl values_all done" << endl;
+    Expr indexListRhs = ir::Add::make(indexList_all, tempSize);
+    Stmt indexListDecl = ir::VarDecl::make(indexListArr, indexListRhs);
+    decls.push_back(indexListDecl);
 
-  // Declare local indexList size variable
-  const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
+    // Declare local indexList size variable
+    const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
 
-  // Declare local already set array (bit guard)
-  // TODO: emit as uint64 and manually emit bit pack code
-  const Datatype bitGuardType = taco::Bool;
-  const std::string bitGuardName = temporary.getName() + "_already_set";
-  const Expr alreadySetArr = ir::Var::make(bitGuardName,
-                                           bitGuardType,
-                                           true, false);
-  Expr bitGuard_all = this->whereToBitGuardAll[where];
-  Expr bitGuardRhs = ir::Add::make(bitGuard_all, tempSize);
-  Stmt bitGuardDecl = ir::VarDecl::make(alreadySetArr, bitGuardRhs);
-  decls.push_back(bitGuardDecl);
+    // Declare local already set array (bit guard)
+    // TODO: emit as uint64 and manually emit bit pack code
+    const Datatype bitGuardType = taco::Bool;
+    const std::string bitGuardName = temporary.getName() + "_already_set";
+    const Expr alreadySetArr = ir::Var::make(bitGuardName,
+                                             bitGuardType,
+                                             true, false);
+    Expr bitGuard_all = this->whereToBitGuardAll[where];
+    cout << "bitGuardDecl values_all done" << bitGuard_all << endl;
+    Expr bitGuardRhs = ir::Add::make(bitGuard_all, tempSize);
+    Stmt bitGuardDecl = ir::VarDecl::make(alreadySetArr, bitGuardRhs);
+    decls.push_back(bitGuardDecl);
 
-  tempToIndexList[temporary] = indexListArr;
-  tempToIndexListSize[temporary] = indexListSizeExpr;
-  tempToBitGuard[temporary] = alreadySetArr;
+    tempToIndexList[temporary] = indexListArr;
+    tempToIndexListSize[temporary] = indexListSizeExpr;
+    tempToBitGuard[temporary] = alreadySetArr;
+  }
   return decls;
 }
 
