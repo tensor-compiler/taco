@@ -635,6 +635,10 @@ int main(int argc, char* argv[]) {
 
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
+    if(arg.rfind("--", 0) == 0) {
+      // treat leading "--" as if it were "-"
+      arg = string(argv[i]+1);
+    }
     vector<string> argparts = util::split(arg, "=");
     if (argparts.size() > 2) {
       return reportError("Too many '\"' signs in argument", 5);
