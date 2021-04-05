@@ -2807,6 +2807,10 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
       IndexExpr reductionOp;
       while (isa<Reduction>(rhs)) {
         Reduction reduction = to<Reduction>(rhs);
+        // Hack: explicit reductions with user defined functions shouldn't be rewritten.
+        if (util::getFromEnv("TACO_CONCRETIZE_HACK", "0") != "0" && isa<Call>(reduction.getOp())) {
+          break;
+        }
         topLevelReductions.push_back(reduction.getVar());
         rhs = reduction.getExpr();
         reductionOp = reduction.getOp();
