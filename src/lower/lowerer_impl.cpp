@@ -1953,7 +1953,6 @@ vector<Stmt> LowererImpl::codeToInitializeLocalTemporaryParallel(Where where, Pa
                            temporary.getType().getDataType(),
                            true, false);
     Expr values_all = this->temporaryArrays[this->whereToTemporaryVar[where]].values;
-    cout << "tempDecl values_all done" << endl;
     Expr tempRhs = ir::Add::make(values_all, tempSize);
     Stmt tempDecl = ir::VarDecl::make(values, tempRhs);
     decls.push_back(tempDecl);
@@ -1975,7 +1974,6 @@ vector<Stmt> LowererImpl::codeToInitializeLocalTemporaryParallel(Where where, Pa
                                             true, false);
 
     Expr indexList_all = this->whereToIndexListAll[where];
-    cout << "indexListDecl values_all done" << endl;
     Expr indexListRhs = ir::Add::make(indexList_all, tempSize);
     Stmt indexListDecl = ir::VarDecl::make(indexListArr, indexListRhs);
     decls.push_back(indexListDecl);
@@ -1991,7 +1989,6 @@ vector<Stmt> LowererImpl::codeToInitializeLocalTemporaryParallel(Where where, Pa
                                              bitGuardType,
                                              true, false);
     Expr bitGuard_all = this->whereToBitGuardAll[where];
-    cout << "bitGuardDecl values_all done" << bitGuard_all << endl;
     Expr bitGuardRhs = ir::Add::make(bitGuard_all, tempSize);
     Stmt bitGuardDecl = ir::VarDecl::make(alreadySetArr, bitGuardRhs);
     decls.push_back(bitGuardDecl);
