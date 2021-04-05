@@ -355,11 +355,17 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       IndexVar divide2(i2);
       stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
     } else if (command == "precompute") {
-      string exprStr, i, iw;
-      taco_uassert(scheduleCommand.size() == 3) << "'precompute' scheduling directive takes 3 parameters: precompute(expr, i, iw)";
+      string exprStr, i, iw, name;
+      taco_uassert(scheduleCommand.size() == 3 || scheduleCommand.size() == 4)
+        << "'precompute' scheduling directive takes 3 or 4 parameters: "
+        << "precompute(expr, i, iw [, workspace_name])";
       exprStr = scheduleCommand[0];
       i       = scheduleCommand[1];
       iw      = scheduleCommand[2];
+      if (scheduleCommand.size() == 4)
+        name  = scheduleCommand[3];
+      else
+        name  = "workspace";
 
       IndexVar orig = findVar(i);
       IndexVar pre;
@@ -432,9 +438,8 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
         dim = Dimension(orig);
       }
 
-      TensorVar workspace("workspace", Type(Float64, {dim}), Dense);
+      TensorVar workspace(name, Type(Float64, {dim}), Dense);
       stmt = stmt.precompute(visitor.expr, orig, pre, workspace);
-      std::cout << "stmt: " << stmt << std::endl;
 
     } else if (command == "reorder") {
       taco_uassert(scheduleCommand.size() > 1) << "'reorder' scheduling directive needs at least 2 parameters: reorder(outermost, ..., innermost)";
