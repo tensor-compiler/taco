@@ -596,20 +596,33 @@ private:
 
     for (auto& apoint : sorted_apoint) {
       for (auto& bpoint : sorted_bpoint) {
-        bool hasIntersection = true;
+        bool hasIntersectionIterators = true;
+        bool hasIntersectionLocators = true;
         for (auto& it : apoint.iterators()) {
           if (!std::count(bpoint.iterators().begin(), bpoint.iterators().end(), it) &&
               std::count(bpoint_root->iterators().begin(), bpoint_root->iterators().end(), it)) {
-            hasIntersection = false;
+            hasIntersectionIterators = false;
           }
         }
         for (auto& it : bpoint.iterators()) {
           if (!std::count(apoint.iterators().begin(), apoint.iterators().end(), it) &&
               std::count(apoint_root->iterators().begin(), apoint_root->iterators().end(), it)) {
-            hasIntersection = false;
+            hasIntersectionIterators = false;
           }
         }
-        if (hasIntersection) {
+        for (auto& it : apoint.locators()) {
+          if (!std::count(bpoint.locators().begin(), bpoint.locators().end(), it) &&
+              std::count(bpoint_root->locators().begin(), bpoint_root->locators().end(), it)) {
+            hasIntersectionLocators = false;
+          }
+        }
+        for (auto& it : bpoint.locators()) {
+          if (!std::count(apoint.locators().begin(), apoint.locators().end(), it) &&
+              std::count(apoint_root->locators().begin(), apoint_root->locators().end(), it)) {
+            hasIntersectionLocators = false;
+          }
+        }
+        if (hasIntersectionIterators) {
           points.push_back(unionPoints(apoint, bpoint));
         }
       }
