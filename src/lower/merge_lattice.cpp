@@ -577,10 +577,41 @@ private:
   {
     vector<MergePoint> points;
 
+    struct pointSort {
+      bool operator()(const MergePoint& a, const MergePoint& b) {
+        size_t left_size  = a.iterators().size() + a.locators().size();
+        size_t right_size = b.iterators().size() + b.locators().size();
+        return left_size > right_size;
+      }
+    } pointSorter;
+
     // Append all combinations of the merge points of a and b
-    for (auto& apoint : left.points()) {
-      for (auto& bpoint : right.points()) {
-        points.push_back(unionPoints(apoint, bpoint));
+    auto sorted_apoint = left.points();
+    auto sorted_bpoint = right.points();
+    std::sort(sorted_apoint.begin(), sorted_apoint.end(), pointSorter);
+    std::sort(sorted_bpoint.begin(), sorted_bpoint.end(), pointSorter);
+
+    auto apoint_root = sorted_apoint.begin();
+    auto bpoint_root = sorted_bpoint.begin();
+
+    for (auto& apoint : sorted_apoint) {
+      for (auto& bpoint : sorted_bpoint) {
+        bool hasIntersection = true;
+        for (auto& it : apoint.iterators()) {
+          if (std::count(bpoint.iterators().begin(), bpoint.iterators().end(), it) &&
+              std::count(bpoint_root->iterators().begin(), bpoint_root->iterators().end(), it)) {
+            hasIntersection = false;
+          }
+        }
+        for (auto& it : bpoint.iterators()) {
+          if (std::count(apoint.iterators().begin(), apoint.iterators().end(), it) &&
+              std::count(apoint_root->iterators().begin(), apoint_root->iterators().end(), it)) {
+            hasIntersection = false;
+          }
+        }
+        if (hasIntersection) {
+          points.push_back(unionPoints(apoint, bpoint));
+        }
       }
     }
 
@@ -590,13 +621,6 @@ private:
     // Append the merge points of b
     util::append(points, right.points());
 
-    struct pointSort {
-      bool operator()(const MergePoint& a, const MergePoint& b) {
-        size_t left_size  = a.iterators().size() + a.locators().size();
-        size_t right_size = b.iterators().size() + b.locators().size();
-        return left_size > right_size;
-      }
-    } pointSorter;
 
     std::sort(points.begin(), points.end(), pointSorter);
 
