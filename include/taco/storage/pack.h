@@ -17,6 +17,8 @@
  
 namespace taco {
 
+class Literal;
+
 namespace ir {
 class Stmt;
 }
@@ -25,12 +27,13 @@ TensorStorage pack(Datatype                             datatype,
                    const std::vector<int>&              dimensions,
                    const Format&                        format,
                    const std::vector<TypedIndexVector>& coordinates,
-                   const void*                          values);
-
+                   const void*                          values,
+                   const Literal&                       fill);
 
 template<typename V, size_t O, typename C>
 TensorStorage pack(std::vector<int> dimensions, Format format,
-                   const std::vector<std::pair<Coordinates<O,C>,V>>& components){
+                   const std::vector<std::pair<Coordinates<O,C>,V>>& components,
+                   const Literal& fill){
   size_t order = dimensions.size();
   size_t nnz = components.size();
 
@@ -45,7 +48,7 @@ TensorStorage pack(std::vector<int> dimensions, Format format,
     }
   }
 
-  return pack(type<V>(), dimensions, format, coordinates, values.data());
+  return pack(type<V>(), dimensions, format, coordinates, values.data(), fill);
 }
 
 }

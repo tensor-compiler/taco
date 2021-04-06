@@ -189,6 +189,15 @@ private:
 
   using IndexExprVisitorStrict::visit;
 
+  void visit(const IndexVarNode* op) {
+    IndexVar var(op);
+    if (util::contains(vars, var)) {
+      subExpr = op;
+      return;
+    }
+    subExpr = IndexExpr();
+  }
+
   void visit(const AccessNode* op) {
     // If any variable is in the set of index variables, then the expression
     // has not been emitted at a previous level, so we keep it.
@@ -250,6 +259,10 @@ private:
 
   void visit(const DivNode* op) {
     subExpr = binarySubExpr(op);
+  }
+
+  void visit(const CallNode* op) {
+    taco_not_supported_yet;
   }
 
   void visit(const CastNode* op) {

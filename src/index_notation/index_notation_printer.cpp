@@ -28,6 +28,10 @@ void IndexNotationPrinter::visit(const AccessNode* op) {
   }
 }
 
+void IndexNotationPrinter::visit(const IndexVarNode* op) {
+  os << op->getName();
+}
+
 void IndexNotationPrinter::visit(const LiteralNode* op) {
   switch (op->getDataType().getKind()) {
     case Datatype::Bool:
@@ -161,6 +165,13 @@ static inline void acceptJoin(IndexNotationPrinter* printer,
   }
 }
 
+void IndexNotationPrinter::visit(const CallNode* op) {
+  parentPrecedence = Precedence::FUNC;
+  os << op->name << "(";
+  acceptJoin(this, os, op->args, ", ");
+  os << ")";
+}
+
 void IndexNotationPrinter::visit(const CallIntrinsicNode* op) {
   parentPrecedence = Precedence::FUNC;
   os << op->func->getName();
@@ -186,6 +197,10 @@ void IndexNotationPrinter::visit(const ReductionNode* op) {
     void visit(const BinaryExprNode* node) {
       reductionName = "reduction(" + node->getOperatorString() + ")";
     }
+
+    void visit(const CallNode* node) {
+      reductionName = node->name + "Reduce";
+    }
   };
   parentPrecedence = Precedence::REDUCTION;
   os << ReductionName().get(op->op) << "(" << op->var << ", ";
@@ -204,6 +219,10 @@ void IndexNotationPrinter::visit(const AssignmentNode* op) {
     }
     void visit(const BinaryExprNode* node) {
       operatorName = node->getOperatorString();
+    }
+
+    void visit(const CallNode* node) {
+      operatorName = node->name;
     }
   };
 

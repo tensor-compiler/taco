@@ -238,9 +238,10 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
         TensorVar ws = precompute.getWorkspace();
         IndexExpr e = precompute.getExpr();
         IndexVar iw = precompute.getiw();
+        const std::map<IndexVar,IndexVar> index_var_substitutions = {{i,iw}};
 
         IndexStmt consumer = forall(i, replace(s, {{e, ws(i)}}));
-        IndexStmt producer = forall(iw, ws(iw) = replace(e, {{i,iw}}));
+        IndexStmt producer = forall(iw, ws(iw) = replace(e, index_var_substitutions));
         Where where(consumer, producer);
 
         stmt = where;

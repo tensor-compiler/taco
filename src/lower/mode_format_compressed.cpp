@@ -311,6 +311,10 @@ Expr CompressedModeFormat::getCoordCapacity(Mode mode) const {
   return mode.getVar(varName);
 }
 
+Expr CompressedModeFormat::getWidth(Mode mode) const {
+  return ir::Literal::make(allocSize, Datatype::Int32);
+}
+
 bool CompressedModeFormat::equals(const ModeFormatImpl& other) const {
   return ModeFormatImpl::equals(other) && 
          (dynamic_cast<const CompressedModeFormat&>(other).allocSize == allocSize);

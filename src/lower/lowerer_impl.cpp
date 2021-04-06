@@ -2,6 +2,7 @@
 #include "taco/lower/lowerer_impl.h"
 
 #include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/tensor_operator.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/index_notation/index_notation_rewriter.h"
@@ -14,6 +15,7 @@
 #include "taco/lower/merge_lattice.h"
 #include "mode_access.h"
 #include "taco/util/collections.h"
+#include "taco/util/env.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -59,9 +61,11 @@ private:
   void visit(const SqrtNode* node)          { expr = impl->lowerSqrt(node); }
   void visit(const CastNode* node)          { expr = impl->lowerCast(node); }
   void visit(const CallIntrinsicNode* node) { expr = impl->lowerCallIntrinsic(node); }
+  void visit(const CallNode* node)      { expr = impl->lowerTensorOp(node); }
   void visit(const ReductionNode* node)  {
     taco_ierror << "Reduction nodes not supported in concrete index notation";
   }
+  void visit(const IndexVarNode* node)       { expr = impl->lowerIndexVar(node); }
 };
 
 LowererImpl::LowererImpl() : visitor(new Visitor(this)) {
@@ -141,11 +145,21 @@ static bool needComputeValues(IndexStmt stmt, TensorVar tensor) {
       expr = rewrite(op->a);
     }
 
+    void visit(const CallNode* op) {
+      for (const auto& arg : op->args) {
+        if (!rewrite(arg).defined()) {
+          return;
+        }
+      }
+      expr = op;
+    }
+
     void visit(const SqrtNode* op) {}
     void visit(const SubNode* op) {}
     void visit(const DivNode* op) {}
     void visit(const CallIntrinsicNode* op) {}
     void visit(const ReductionNode* op) {}
+    void visit(const IndexVarNode* op) {}
   };
 
   bool needComputeValue = false;
@@ -190,6 +204,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
   this->compute = compute;
   definedIndexVarsOrdered = {};
   definedIndexVars = {};
+  loopOrderAllowsShortCircuit = allForFreeLoopsBeforeAllReductionLoops(stmt);
 
   // Create result and parameter variables
   vector<TensorVar> results = getResults(stmt);
@@ -357,7 +372,6 @@ LowererImpl::lower(IndexStmt stmt, string name,
       }
     }
   }
-
   // Allocate and initialize append and insert mode indices
   Stmt initializeResults = initResultArrays(resultAccesses, inputAccesses,
                                             reducedAccesses);
@@ -414,10 +428,21 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
         computeStmt = Assign::make(var, rhs);
       }
       else {
-        taco_iassert(isa<taco::Add>(assignment.getOperator()));
         bool useAtomics = markAssignsAtomicDepth > 0 &&
                           !util::contains(whereTemps, result);
-        computeStmt = compoundAssign(var, rhs, useAtomics, atomicParallelUnit);
+        if (isa<taco::Add>(assignment.getOperator())) {
+          computeStmt = addAssign(var, rhs, useAtomics, atomicParallelUnit);
+        } else {
+          taco_iassert(isa<taco::Call>(assignment.getOperator()));
+
+          Call op = to<Call>(assignment.getOperator());
+          Expr assignOp = op.getFunc()({var, rhs});
+          Stmt assign = Assign::make(var, assignOp, useAtomics,
+                                     atomicParallelUnit);
+
+          std::vector<Property> properties = op.getProperties();
+          computeStmt = Block::make(assign, emitEarlyExit(var, properties));
+        }
       }
     }
   }
@@ -460,9 +485,21 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
         computeStmt = Store::make(values, loc, rhs);
       }
       else {
-        computeStmt = compoundStore(values, loc, rhs,
-                                    markAssignsAtomicDepth > 0,
+        if (isa<taco::Add>(assignment.getOperator())) {
+          computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
+        } else {
+
+          taco_iassert(isa<taco::Call>(assignment.getOperator()));
+
+          Call op = to<Call>(assignment.getOperator());
+          Expr assignOp = op.getFunc()({Load::make(values, loc), rhs});
+          computeStmt = Store::make(values, loc, assignOp,
+                                    markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result),
                                     atomicParallelUnit);
+
+          std::vector<Property> properties = op.getProperties();
+          computeStmt = Block::make(computeStmt, emitEarlyExit(Load::make(values, loc), properties));
+        }
       }
       taco_iassert(computeStmt.defined());
     }
@@ -596,6 +633,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
       if (isa<ir::Literal>(ir::simplify(iterBounds[0])) && ir::simplify(iterBounds[0]).as<ir::Literal>()->equalsScalar(0)) {
         guardCondition = maxGuard;
       }
+
       ir::Stmt guard = ir::IfThenElse::make(guardCondition, ir::Continue::make());
       recoverySteps.push_back(guard);
     }
@@ -686,7 +724,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     parallelUnitSizes[forall.getParallelUnit()] = ir::Sub::make(bounds[1], bounds[0]);
   }
 
-  MergeLattice lattice = MergeLattice::make(forall, iterators, provGraph, definedIndexVars, whereTempsToResult);
+  MergeLattice caseLattice = MergeLattice::make(forall, iterators, provGraph, definedIndexVars, whereTempsToResult);
   vector<Access> resultAccesses;
   set<Access> reducedAccesses;
   std::tie(resultAccesses, reducedAccesses) = getResultAccesses(forall);
@@ -709,11 +747,11 @@ Stmt LowererImpl::lowerForall(Forall forall)
 
   Stmt loops;
   // Emit a loop that iterates over over a single iterator (optimization)
-  if (lattice.iterators().size() == 1 && lattice.iterators()[0].isUnique()) {
-    taco_iassert(lattice.points().size() == 1);
+  if (caseLattice.iterators().size() == 1 && caseLattice.iterators()[0].isUnique()) {
+    MergeLattice loopLattice = caseLattice.getLoopLattice();
 
-    MergePoint point = lattice.points()[0];
-    Iterator iterator = lattice.iterators()[0];
+    MergePoint point = loopLattice.points()[0];
+    Iterator iterator = loopLattice.iterators()[0];
 
     vector<Iterator> locators = point.locators();
     vector<Iterator> appenders;
@@ -760,21 +798,21 @@ Stmt LowererImpl::lowerForall(Forall forall)
     }
 
     if (!isWhereProducer && hasPosDescendant && underivedAncestors.size() > 1 && provGraph.isPosVariable(iterator.getIndexVar()) && posDescendant == forall.getIndexVar()) {
-      loops = lowerForallFusedPosition(forall, iterator, locators,
-                                         inserters, appenders, reducedAccesses, recoveryStmt);
+      loops = lowerForallFusedPosition(forall, iterator, locators, inserters, appenders, caseLattice,
+                                       reducedAccesses, recoveryStmt);
     }
     else if (canAccelWithSparseIteration) {
-      loops = lowerForallDenseAcceleration(forall, locators, inserters, appenders, reducedAccesses, recoveryStmt);
+      loops = lowerForallDenseAcceleration(forall, locators, inserters, appenders, caseLattice, reducedAccesses, recoveryStmt);
     }
     // Emit dimension coordinate iteration loop
     else if (iterator.isDimensionIterator()) {
-      loops = lowerForallDimension(forall, point.locators(),
-                                   inserters, appenders, reducedAccesses, recoveryStmt);
+      loops = lowerForallDimension(forall, point.locators(), inserters, appenders, caseLattice,
+                                   reducedAccesses, recoveryStmt);
     }
     // Emit position iteration loop
     else if (iterator.hasPosIter()) {
-      loops = lowerForallPosition(forall, iterator, locators,
-                                    inserters, appenders, reducedAccesses, recoveryStmt);
+      loops = lowerForallPosition(forall, iterator, locators, inserters, appenders, caseLattice,
+                                  reducedAccesses, recoveryStmt);
     }
     // Emit coordinate iteration loop
     else {
@@ -787,7 +825,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   else {
     std::vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(forall.getIndexVar());
     taco_iassert(underivedAncestors.size() == 1); // TODO: add support for fused coordinate of pos loop
-    loops = lowerMergeLattice(lattice, underivedAncestors[0],
+    loops = lowerMergeLattice(caseLattice, underivedAncestors[0],
                               forall.getStmt(), reducedAccesses);
   }
 //  taco_iassert(loops.defined());
@@ -1103,6 +1141,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
                                        vector<Iterator> locators,
                                        vector<Iterator> inserters,
                                        vector<Iterator> appenders,
+                                       MergeLattice caseLattice,
                                        set<Access> reducedAccesses,
                                        ir::Stmt recoveryStmt)
 {
@@ -1113,8 +1152,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     atomicParallelUnit = forall.getParallelUnit();
   }
 
-  Stmt body = lowerForallBody(coordinate, forall.getStmt(),
-                              locators, inserters, appenders, reducedAccesses);
+  Stmt body = lowerForallBody(coordinate, forall.getStmt(), locators, inserters,
+                              appenders, caseLattice, reducedAccesses);
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
@@ -1146,6 +1185,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
                                                  vector<Iterator> locators,
                                                  vector<Iterator> inserters,
                                                  vector<Iterator> appenders,
+                                                 MergeLattice caseLattice,
                                                  set<Access> reducedAccesses,
                                                  ir::Stmt recoveryStmt)
   {
@@ -1174,7 +1214,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     }
 
     Stmt declareVar = VarDecl::make(coordinate, Load::make(indexList, loopVar));
-    Stmt body = lowerForallBody(coordinate, forall.getStmt(), locators, inserters, appenders, reducedAccesses);
+    Stmt body = lowerForallBody(coordinate, forall.getStmt(), locators, inserters, appenders, caseLattice, reducedAccesses);
     Stmt resetGuard = ir::Store::make(bitGuard, coordinate, ir::Literal::make(false), markAssignsAtomicDepth > 0, atomicParallelUnit);
 
     if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
@@ -1204,6 +1244,7 @@ Stmt LowererImpl::lowerForallCoordinate(Forall forall, Iterator iterator,
                                         vector<Iterator> locators,
                                         vector<Iterator> inserters,
                                         vector<Iterator> appenders,
+                                        MergeLattice caseLattice,
                                         set<Access> reducedAccesses,
                                         ir::Stmt recoveryStmt) {
   taco_not_supported_yet;
@@ -1214,6 +1255,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                       vector<Iterator> locators,
                                       vector<Iterator> inserters,
                                       vector<Iterator> appenders,
+                                      MergeLattice caseLattice,
                                       set<Access> reducedAccesses,
                                       ir::Stmt recoveryStmt)
 {
@@ -1248,8 +1290,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
     markAssignsAtomicDepth++;
   }
 
-  Stmt body = lowerForallBody(coordinate, forall.getStmt(),
-                              locators, inserters, appenders, reducedAccesses);
+  Stmt body = lowerForallBody(coordinate, forall.getStmt(), locators, inserters, appenders, caseLattice, reducedAccesses);
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
@@ -1324,6 +1365,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
                                       vector<Iterator> locators,
                                       vector<Iterator> inserters,
                                       vector<Iterator> appenders,
+                                      MergeLattice caseLattice,
                                       set<Access> reducedAccesses,
                                       ir::Stmt recoveryStmt)
 {
@@ -1402,7 +1444,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
       else {
         locateCoordVar = ir::Assign::make(coordVarUnknown, posVarUnknown);
       }
-      Stmt loopBody = ir::Block::make(compoundAssign(posVarUnknown, 1), locateCoordVar, loopToTrackUnderiveds);
+      Stmt loopBody = ir::Block::make(addAssign(posVarUnknown, 1), locateCoordVar, loopToTrackUnderiveds);
       if (posIteratorLevel.getParent().hasPosIter()) { // TODO: if level is unique or not
         loopToTrackUnderiveds = IfThenElse::make(loopcond, loopBody);
       }
@@ -1418,7 +1460,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   }
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
-                              locators, inserters, appenders, reducedAccesses);
+                              locators, inserters, appenders, caseLattice, reducedAccesses);
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
@@ -1484,31 +1526,34 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
 
 }
 
-Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar,
-                                    IndexStmt statement,
+Stmt LowererImpl::lowerMergeLattice(MergeLattice caseLattice, IndexVar coordinateVar,
+                                    IndexStmt statement, 
                                     const std::set<Access>& reducedAccesses)
 {
+  // Lower merge lattice always gets called from lowerForAll. So we want loop lattice
+  MergeLattice loopLattice = caseLattice.getLoopLattice();
+
   Expr coordinate = getCoordinateVar(coordinateVar);
-  vector<Iterator> appenders = filter(lattice.results(),
+  vector<Iterator> appenders = filter(loopLattice.results(),
                                       [](Iterator it){return it.hasAppend();});
 
-  vector<Iterator> mergers = lattice.points()[0].mergers();
-  Stmt iteratorVarInits = codeToInitializeIteratorVars(lattice.iterators(), lattice.points()[0].rangers(), mergers, coordinate, coordinateVar);
+  vector<Iterator> mergers = loopLattice.points()[0].mergers();
+  Stmt iteratorVarInits = codeToInitializeIteratorVars(loopLattice.iterators(), loopLattice.points()[0].rangers(), mergers, coordinate, coordinateVar);
 
   // if modeiteratornonmerger then will be declared in codeToInitializeIteratorVars
   auto modeIteratorsNonMergers =
-          filter(lattice.points()[0].iterators(), [mergers](Iterator it){
+          filter(loopLattice.points()[0].iterators(), [mergers](Iterator it){
             bool isMerger = find(mergers.begin(), mergers.end(), it) != mergers.end();
             return it.isDimensionIterator() && !isMerger;
           });
   bool resolvedCoordDeclared = !modeIteratorsNonMergers.empty();
 
   vector<Stmt> mergeLoopsVec;
-  for (MergePoint point : lattice.points()) {
+  for (MergePoint point : loopLattice.points()) {
     // Each iteration of this loop generates a while loop for one of the merge
     // points in the merge lattice.
-    IndexStmt zeroedStmt = zero(statement, getExhaustedAccesses(point,lattice));
-    MergeLattice sublattice = lattice.subLattice(point);
+    IndexStmt zeroedStmt = zero(statement, getExhaustedAccesses(point, caseLattice));
+    MergeLattice sublattice = caseLattice.subLattice(point);
     Stmt mergeLoop = lowerMergePoint(sublattice, coordinate, coordinateVar, zeroedStmt, reducedAccesses, resolvedCoordDeclared);
     mergeLoopsVec.push_back(mergeLoop);
   }
@@ -1574,8 +1619,8 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
     );
     // Code to increment both iterator variables.
     auto incr = ir::Block::make(
-      compoundAssign(iter.getIteratorVar(), ir::Cast::make(Eq::make(iter.getCoordVar(), setMatch), iter.getIteratorVar().type())),
-      compoundAssign(indexSetIter.getIteratorVar(), ir::Cast::make(Eq::make(indexSetIter.getCoordVar(), setMatch), indexSetIter.getIteratorVar().type())),
+      addAssign(iter.getIteratorVar(), ir::Cast::make(Eq::make(iter.getCoordVar(), setMatch), iter.getIteratorVar().type())),
+      addAssign(indexSetIter.getIteratorVar(), ir::Cast::make(Eq::make(indexSetIter.getCoordVar(), setMatch), indexSetIter.getIteratorVar().type())),
       ir::Continue::make()
     );
     // Code that uses the defined parts together in the if-then-else.
@@ -1678,58 +1723,248 @@ Stmt LowererImpl::resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coor
 }
 
 Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
-                                  MergeLattice lattice,
+                                  MergeLattice caseLattice,
                                   const std::set<Access>& reducedAccesses)
 {
   vector<Stmt> result;
 
+  if (caseLattice.anyModeIteratorIsLeaf() && caseLattice.needExplicitZeroChecks()) {
+    // Can check value array of some tensor
+    Stmt body = lowerMergeCasesWithExplicitZeroChecks(coordinate, coordinateVar, stmt, caseLattice, reducedAccesses);
+    result.push_back(body);
+    return Block::make(result);
+  }
+
+  // Emitting structural cases so unconditionally apply lattice optimizations.
+  MergeLattice loopLattice = caseLattice.getLoopLattice();
+
   vector<Iterator> appenders;
   vector<Iterator> inserters;
-  tie(appenders, inserters) = splitAppenderAndInserters(lattice.results());
+  tie(appenders, inserters) = splitAppenderAndInserters(loopLattice.results());
 
-  // Just one iterator so no conditionals
-  if (lattice.iterators().size() == 1) {
+  if (loopLattice.iterators().size() == 1) {
+    // Just one iterator so no conditional
+    taco_iassert(!loopLattice.points()[0].isOmitter());
     Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
-                                appenders, reducedAccesses);
+                                appenders, loopLattice, reducedAccesses);
     result.push_back(body);
   }
-  else {
+  else if (!loopLattice.points().empty()) {
     vector<pair<Expr,Stmt>> cases;
-    for (MergePoint point : lattice.points()) {
+    for (MergePoint point : loopLattice.points()) {
+
+      // if(point.isOmitter()) {
+      //   continue;
+      // }
 
       // Construct case expression
-      vector<Expr> coordComparisons;
-      for (Iterator iterator : point.rangers()) {
-        if (!(provGraph.isCoordVariable(iterator.getIndexVar()) && provGraph.isDerivedFrom(iterator.getIndexVar(), coordinateVar))) {
-          coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
-        }
+      vector<Expr> coordComparisons = compareToResolvedCoordinate<Eq>(point.rangers(), coordinate, coordinateVar);
+      vector<Iterator> omittedRegionIterators = loopLattice.retrieveRegionIteratorsToOmit(point);
+      if (!point.isOmitter()) {
+        std::vector <Expr> neqComparisons = compareToResolvedCoordinate<Neq>(omittedRegionIterators, coordinate,
+                                                                             coordinateVar);
+        append(coordComparisons, neqComparisons);
       }
 
+      coordComparisons = filter(coordComparisons, [](const Expr& e) { return e.defined(); });
+
       // Construct case body
-      IndexStmt zeroedStmt = zero(stmt, getExhaustedAccesses(point, lattice));
+      IndexStmt zeroedStmt = zero(stmt, getExhaustedAccesses(point, loopLattice));
       Stmt body = lowerForallBody(coordinate, zeroedStmt, {},
-                                  inserters, appenders, reducedAccesses);
+                                  inserters, appenders, MergeLattice({point}), reducedAccesses);
       if (coordComparisons.empty()) {
         Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
-                                    appenders, reducedAccesses);
+                                    appenders, MergeLattice({point}), reducedAccesses);
         result.push_back(body);
         break;
       }
       cases.push_back({taco::ir::conjunction(coordComparisons), body});
     }
-    result.push_back(Case::make(cases, lattice.exact()));
+    result.push_back(Case::make(cases, loopLattice.exact()));
   }
 
   return Block::make(result);
 }
 
+ir::Expr LowererImpl::constructCheckForAccessZero(Access access) {
+  Expr tensorValue = lower(access);
+  IndexExpr zeroVal = Literal::zero(tensorValue.type()); //TODO ARRAY Generalize
+  return Neq::make(tensorValue, lower(zeroVal));
+}
+
+std::vector<Iterator> LowererImpl::getModeIterators(const std::vector<Iterator>& iters) {
+  // For now only check mode iterators.
+  return filter(iters, [](const Iterator& it){return it.isModeIterator();});
+}
+
+std::vector<ir::Stmt> LowererImpl::constructInnerLoopCasePreamble(ir::Expr coordinate, IndexVar coordinateVar,
+                                                                  MergeLattice lattice,
+                                                                  map<Iterator, Expr>& iteratorToConditionMap) {
+  vector<Stmt> result;
+
+  // First, get mode iterator coordinate comparisons
+  std::vector<Iterator> modeIterators = getModeIterators(lattice.iterators());
+  vector<Expr> coordComparisonsForModeIters = compareToResolvedCoordinate<Eq>(modeIterators, coordinate, coordinateVar);
+
+  std::vector<Iterator> modeItersWithIndexCases;
+  std::vector<Expr> coordComparisons;
+  for(size_t i = 0; i < coordComparisonsForModeIters.size(); ++i) {
+    Expr expr = coordComparisonsForModeIters[i];
+    if (expr.defined()) {
+      modeItersWithIndexCases.push_back(modeIterators[i]);
+      coordComparisons.push_back(expr);
+    }
+  }
+
+  // Construct tensor iterators with modeIterators first then locate iterators to keep a mapping between vector indices
+  vector<Iterator> tensorIterators = combine(modeItersWithIndexCases, lattice.locators());
+  tensorIterators = getModeIterators(tensorIterators);
+
+  // Get value comparisons for all tensor iterators
+  vector<Access> itAccesses;
+  vector<Expr> valueComparisons;
+  for(auto it : tensorIterators) {
+    Access itAccess = iterators.modeAccess(it).getAccess();
+    itAccesses.push_back(itAccess);
+    if(it.isLeaf()) {
+      valueComparisons.push_back(constructCheckForAccessZero(itAccess));
+    } else {
+      valueComparisons.push_back(Expr());
+    }
+  }
+
+  // Construct isNonZero cases
+  for(size_t i = 0; i < coordComparisons.size(); ++i) {
+    Expr nonZeroCase;
+    if(coordComparisons[i].defined() && valueComparisons[i].defined()) {
+      nonZeroCase = conjunction({coordComparisons[i], valueComparisons[i]});
+    } else if (valueComparisons[i].defined()) {
+      nonZeroCase = valueComparisons[i];
+    } else if (coordComparisons[i].defined()) {
+      nonZeroCase = coordComparisons[i];
+    } else {
+      continue;
+    }
+    Expr caseName = Var::make(itAccesses[i].getTensorVar().getName() + "_isNonZero", taco::Bool);
+    Stmt declaration = VarDecl::make(caseName, nonZeroCase);
+    result.push_back(declaration);
+    iteratorToConditionMap[tensorIterators[i]] = caseName;
+  }
+
+  for(size_t i = modeItersWithIndexCases.size(); i < valueComparisons.size(); ++i) {
+    Expr caseName = Var::make(itAccesses[i].getTensorVar().getName() + "_isNonZero", taco::Bool);
+    Stmt declaration = VarDecl::make(caseName, valueComparisons[i]);
+    result.push_back(declaration);
+    iteratorToConditionMap[tensorIterators[i]] = caseName;
+  }
+
+  return result;
+}
+
+vector<Stmt> LowererImpl::lowerCasesFromMap(map<Iterator, Expr> iteratorToCondition,
+                                            ir::Expr coordinate, IndexStmt stmt, const MergeLattice& lattice,
+                                            const std::set<Access>& reducedAccesses) {
+
+  vector<Iterator> appenders;
+  vector<Iterator> inserters;
+  tie(appenders, inserters) = splitAppenderAndInserters(lattice.results());
+
+  std::vector<Stmt> result;
+  vector<pair<Expr,Stmt>> cases;
+  for (MergePoint point : lattice.points()) {
+
+    if(point.isOmitter()) {
+      continue;
+    }
+
+    // Construct case expression
+    vector<Expr> isNonZeroComparisions;
+    for(auto& it : combine(point.rangers(), point.locators())) {
+      if(util::contains(iteratorToCondition, it)) {
+        taco_iassert(iteratorToCondition.at(it).type() == taco::Bool) << "Map must have boolean types";
+        isNonZeroComparisions.push_back(iteratorToCondition.at(it));
+      }
+    }
+
+    function<Expr(const Iterator& it)> getNegatedComparison = [&](const Iterator& it) {return ir::Neg::make(iteratorToCondition.at(it));};
+    vector<Iterator> omittedRegionIterators = lattice.retrieveRegionIteratorsToOmit(point);
+    for(auto& it : omittedRegionIterators) {
+      if(util::contains(iteratorToCondition, it)) {
+        isNonZeroComparisions.push_back(ir::Neg::make(iteratorToCondition.at(it)));
+      }
+    }
+
+    // Construct case body
+    IndexStmt zeroedStmt = zero(stmt, getExhaustedAccesses(point, lattice));
+    Stmt body = lowerForallBody(coordinate, zeroedStmt, {},
+                                inserters, appenders, MergeLattice({point}), reducedAccesses);
+    if (isNonZeroComparisions.empty()) {
+      Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
+                                  appenders, MergeLattice({point}), reducedAccesses);
+      result.push_back(body);
+      break;
+    }
+    cases.push_back({taco::ir::conjunction(isNonZeroComparisions), body});
+  }
+
+  vector<Iterator> inputs = combine(lattice.iterators(), lattice.locators());
+  inputs = getModeIterators(inputs);
+
+  if(!lattice.exact() && util::any(inserters, [](Iterator it){return it.isFull();}) && hasNoForAlls(stmt)
+     && any(inputs, [](Iterator it){return it.isFull();})) {
+    // Currently, if the lattice is not exact, the output is full and any of the inputs are full, we initialize
+    // the result tensor
+    vector<Stmt> stmts;
+    for(auto& it : inserters) {
+      if(it.isFull()) {
+        Access access = iterators.modeAccess(it).getAccess();
+        IndexStmt initStmt = Assignment(access, Literal::zero(access.getDataType()));
+        Stmt initialization = lowerForallBody(coordinate, initStmt, {}, inserters,
+                                              appenders, MergeLattice({}), reducedAccesses);
+        stmts.push_back(initialization);
+      }
+    }
+    Stmt backgroundInit = Block::make(stmts);
+    cases.push_back({Expr((bool) true), backgroundInit});
+    result.push_back(Case::make(cases, true));
+  } else {
+    result.push_back(Case::make(cases, lattice.exact()));
+  }
+  return result;
+}
+
+/// Lowers a merge lattice to cases assuming there are no more loops to be emitted in stmt.
+Stmt LowererImpl::lowerMergeCasesWithExplicitZeroChecks(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
+                                                        MergeLattice lattice, const std::set<Access>& reducedAccesses) {
+
+    vector<Stmt> result;
+    if (lattice.points().size() == 1 && lattice.iterators().size() == 1) {
+      // Just one iterator so no conditional
+      vector<Iterator> appenders;
+      vector<Iterator> inserters;
+      tie(appenders, inserters) = splitAppenderAndInserters(lattice.results());
+      taco_iassert(!lattice.points()[0].isOmitter());
+      Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
+                                  appenders, lattice, reducedAccesses);
+      result.push_back(body);
+    } else if (!lattice.points().empty()) {
+      map<Iterator, Expr> iteratorToConditionMap;
+
+      vector<Stmt> preamble = constructInnerLoopCasePreamble(coordinate, coordinateVar, lattice, iteratorToConditionMap);
+      util::append(result, preamble);
+      vector<Stmt> cases = lowerCasesFromMap(iteratorToConditionMap, coordinate, stmt, lattice, reducedAccesses);
+      util::append(result, cases);
+    }
+
+    return Block::make(result);
+}
 
 Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
                                   vector<Iterator> locators,
                                   vector<Iterator> inserters,
                                   vector<Iterator> appenders,
+                                  MergeLattice caseLattice,
                                   const set<Access>& reducedAccesses) {
-  Stmt initVals = resizeAndInitValues(appenders, reducedAccesses);
 
   // Inserter positions
   Stmt declInserterPosVars = declLocatePosVars(inserters);
@@ -1741,6 +1976,36 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
     capturedLocatePos = Block::make(declInserterPosVars, declLocatorPosVars);
     captureNextLocatePos = false;
   }
+
+  if (caseLattice.anyModeIteratorIsLeaf() && caseLattice.points().size() > 1) {
+
+    // Code of loop body statement
+    // Explicit zero checks needed
+    std::vector<Stmt> stmts;
+
+    // Need to emit checks based on case lattice
+    vector<Iterator> modeIterators = getModeIterators(combine(caseLattice.iterators(), caseLattice.locators()));
+    std::map<Iterator, Expr> caseMap;
+    for(auto it : modeIterators) {
+      if(it.isLeaf()) {
+        // Only emit explicit 0 checks for leaf iterators since these are the only iterators can can access tensor
+        // values array
+        Access itAccess = iterators.modeAccess(it).getAccess();
+        Expr accessCase = constructCheckForAccessZero(itAccess);
+        caseMap.insert({it, accessCase});
+      }
+    }
+
+    // This will lower the body for each case to actually compute. Therefore, we don't need to resize assembly arrays
+    std::vector<Stmt> loweredCases = lowerCasesFromMap(caseMap, coordinate, stmt, caseLattice, reducedAccesses);
+
+    append(stmts, loweredCases);
+    Stmt body = Block::make(stmts);
+
+    return Block::make(declInserterPosVars, declLocatorPosVars, body);
+  }
+
+  Stmt initVals = resizeAndInitValues(appenders, reducedAccesses);
 
   // Code of loop body statement
   Stmt body = lower(stmt);
@@ -2396,6 +2661,12 @@ Expr LowererImpl::lowerAccess(Access access) {
   return Load::make(vals, generateValueLocExpr(access));
 }
 
+Expr LowererImpl::lowerIndexVar(IndexVar var) {
+  taco_iassert(util::contains(indexVarToExprMap, var));
+  taco_iassert(provGraph.isRecoverable(var, definedIndexVars));
+  return indexVarToExprMap.at(var);
+}
+
 
 Expr LowererImpl::lowerLiteral(Literal literal) {
   switch (literal.getDataType().getKind()) {
@@ -2458,6 +2729,7 @@ Expr LowererImpl::lowerSub(Sub sub) {
 
 
 Expr LowererImpl::lowerMul(Mul mul) {
+  const IndexExpr t = mul.getA();
   Expr a = lower(mul.getA());
   Expr b = lower(mul.getB());
   return (mul.getDataType().getKind() == Datatype::Bool)
@@ -2489,6 +2761,25 @@ Expr LowererImpl::lowerCallIntrinsic(CallIntrinsic call) {
 }
 
 
+Expr LowererImpl::lowerTensorOp(Call op) {
+  auto definedArgs = op.getDefinedArgs();
+  std::vector<Expr> args;
+
+  if(util::contains(op.getDefs(), definedArgs)) {
+    auto lowerFunc = op.getDefs().at(definedArgs);
+    for (auto& argIdx : definedArgs) {
+      args.push_back(lower(op.getArgs()[argIdx]));
+    }
+    return lowerFunc(args);
+  }
+
+  for(const auto& arg : op.getArgs()) {
+    args.push_back(lower(arg));
+  }
+
+  return op.getFunc()(args);
+}
+
 Stmt LowererImpl::lower(IndexStmt stmt) {
   return visitor->lower(stmt);
 }
@@ -2508,6 +2799,14 @@ bool LowererImpl::generateComputeCode() const {
   return this->compute;
 }
 
+Stmt LowererImpl::emitEarlyExit(Expr reductionExpr, std::vector<Property>& properties) {
+  if (loopOrderAllowsShortCircuit && findProperty<Annihilator>(properties).defined()) {
+    Literal annh = findProperty<Annihilator>(properties).annihilator();
+    Expr isAnnihilator = ir::Eq::make(reductionExpr, lower(annh));
+    return IfThenElse::make(isAnnihilator, Block::make(Break::make()));
+  }
+  return Stmt();
+}
 
 Expr LowererImpl::getTensorVar(TensorVar tensorVar) const {
   taco_iassert(util::contains(this->tensorVars, tensorVar)) << tensorVar;
@@ -2623,6 +2922,7 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
     taco_iassert(!iterators.empty());
 
     Expr tensor = getTensorVar(write.getTensorVar());
+    Expr fill = GetProperty::make(tensor, TensorProperty::FillValue);
     Expr valuesArr = GetProperty::make(tensor, TensorProperty::Values);
     bool clearValuesAllocation = false;
 
@@ -2633,7 +2933,12 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
         Stmt init;
         // Initialize data structures for storing levels
         if (iterator.hasAppend()) {
-          size = 0;
+	        // TODO (stephenchouca): See if this makes sense.
+	        if (util::getFromEnv("TACO_VALUE_ALLOC_HACK", "0") != "0") {
+            size = iterator.getWidth();
+	        } else {
+	          size = 0;
+	        }
           init = iterator.getAppendInitLevel(parentSize, size);
         } else if (iterator.hasInsert()) {
           size = simplify(ir::Mul::make(parentSize, iterator.getWidth()));
@@ -2703,7 +3008,7 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
       // iteration of all the iterators is not full. We can check this by seeing if we can recover a
       // full iterator from our set of iterators.
       Expr size = generateAssembleCode() ? getCapacityVar(tensor) : parentSize;
-      result.push_back(zeroInitValues(tensor, 0, size));
+      result.push_back(initValues(tensor, fill, 0, size));
     }
   }
   return result.empty() ? Stmt() : Block::blanks(result);
@@ -2801,6 +3106,7 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
   vector<Stmt> result;
   for (auto& write : writes) {
     Expr tensor = getTensorVar(write.getTensorVar());
+    Expr fill = GetProperty::make(tensor, TensorProperty::FillValue);
     Expr values = GetProperty::make(tensor, TensorProperty::Values);
 
     vector<Iterator> iterators = getIteratorsFrom(var, getIterators(write));
@@ -2860,7 +3166,7 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
             util::contains(reducedAccesses, write)) {
           // Zero-initialize values array if might not assign to every element
           // in values array during compute
-          result.push_back(zeroInitValues(tensor, resultParentPos, stride));
+          result.push_back(initValues(tensor, fill, resultParentPos, stride));
         }
       }
     }
@@ -2906,18 +3212,20 @@ Stmt LowererImpl::resizeAndInitValues(const std::vector<Iterator>& appenders,
 }
 
 
-Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
+Stmt LowererImpl::initValues(Expr tensor, Expr initVal, Expr begin, Expr size) {
   Expr lower = simplify(ir::Mul::make(begin, size));
   Expr upper = simplify(ir::Mul::make(ir::Add::make(begin, 1), size));
   Expr p = Var::make("p" + util::toString(tensor), Int());
   Expr values = GetProperty::make(tensor, TensorProperty::Values);
-  Stmt zeroInit = Store::make(values, p, ir::Literal::zero(tensor.type()));
-  LoopKind parallel = (isa<ir::Literal>(size) &&
+  Stmt zeroInit = Store::make(values, p, initVal);
+  LoopKind parallel = (isa<ir::Literal>(size) && 
                        to<ir::Literal>(size)->getIntValue() < (1 << 10))
                       ? LoopKind::Serial : LoopKind::Static_Chunked;
   if (should_use_CUDA_codegen() && util::contains(parallelUnitSizes, ParallelUnit::GPUBlock)) {
     return ir::VarDecl::make(ir::Var::make("status", Int()),
-                                    ir::Call::make("cudaMemset", {values, ir::Literal::make(0, Int()), ir::Mul::make(ir::Sub::make(upper, lower), ir::Literal::make(values.type().getNumBytes()))}, Int()));
+                         ir::Call::make("cudaMemset", {values, ir::Literal::make(0, Int()),
+                             ir::Mul::make(ir::Sub::make(upper, lower),
+                             ir::Literal::make(values.type().getNumBytes()))}, Int()));
   }
   return For::make(p, lower, upper, 1, zeroInit, parallel);
 }
@@ -3003,7 +3311,7 @@ Stmt LowererImpl::reduceDuplicateCoordinates(Expr coordinate,
       // need a separate segend variable.
       segendVar = iterVar;
       if (alwaysReduce) {
-        result.push_back(compoundAssign(segendVar, 1));
+        result.push_back(addAssign(segendVar, 1));
       }
     } else {
       Expr segendInit = alwaysReduce ? ir::Add::make(iterVar, 1) : iterVar;
@@ -3013,9 +3321,9 @@ Stmt LowererImpl::reduceDuplicateCoordinates(Expr coordinate,
     vector<Stmt> dedupStmts;
     if (reducedVal.defined()) {
       Expr partialVal = Load::make(tensorVals, segendVar);
-      dedupStmts.push_back(compoundAssign(reducedVal, partialVal));
+      dedupStmts.push_back(addAssign(reducedVal, partialVal));
     }
-    dedupStmts.push_back(compoundAssign(segendVar, 1));
+    dedupStmts.push_back(addAssign(segendVar, 1));
     Stmt dedupBody = Block::make(dedupStmts);
 
     ModeFunction posAccess = iterator.posAccess(segendVar,
@@ -3066,7 +3374,7 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
                   iterator.getBeginVar() // target
           };
           result.push_back(
-                  VarDecl::make(iterVar, Call::make("taco_binarySearchAfter", binarySearchArgs, iterVar.type())));
+                  VarDecl::make(iterVar, ir::Call::make("taco_binarySearchAfter", binarySearchArgs, iterVar.type())));
         }
         else {
           result.push_back(VarDecl::make(iterVar, bounds[0]));
@@ -3177,7 +3485,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar,
     Expr ivar = iterators[0].getIteratorVar();
 
     if (iterators[0].isUnique()) {
-      return compoundAssign(ivar, 1);
+      return addAssign(ivar, 1);
     }
 
     // If iterator is over bottommost coordinate hierarchy level with
@@ -3204,7 +3512,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar,
                      : ir::Cast::make(Eq::make(iterator.getCoordVar(),
                                                coordinate),
                                       ivar.type());
-      result.push_back(compoundAssign(ivar, increment));
+      result.push_back(addAssign(ivar, increment));
     } else if (!iterator.isLeaf()) {
       result.push_back(Assign::make(ivar, iterator.getSegendVar()));
     }
@@ -3216,7 +3524,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar,
     bool isMerger = find(mergers.begin(), mergers.end(), iterator) != mergers.end();
     if (isMerger) {
       Expr ivar = iterator.getIteratorVar();
-      result.push_back(compoundAssign(ivar, 1));
+      result.push_back(addAssign(ivar, 1));
     }
     else {
       result.push_back(codeToLoadCoordinatesFromPosIterators(iterators, false));
@@ -3326,7 +3634,7 @@ Stmt LowererImpl::appendCoordinate(vector<Iterator> appenders, Expr coord) {
     }
 
     if (generateAssembleCode() || isLastAppender(appender)) {
-      appendStmts.push_back(compoundAssign(pos, 1));
+      appendStmts.push_back(addAssign(pos, 1));
 
       Stmt appendCode = Block::make(appendStmts);
       if (appenderChild.defined() && appenderChild.hasAppend()) {
@@ -3478,8 +3786,19 @@ Expr LowererImpl::generateAssembleGuard(IndexExpr expr) {
     }
 
     void visit(const ReductionNode* node) {
-      taco_ierror
-          << "Reduction nodes not supported in concrete index notation";
+      taco_unreachable;
+    }
+
+    void visit(const CallNode* node) {
+      Expr ret = false;
+      for (const auto& arg : node->args) {
+        ret = Or::make(ret, lower(arg));
+      }
+      expr = ret;
+    }
+
+    void visit(const IndexVarNode* node) {
+      expr = true;
     }
   };
 
@@ -3560,7 +3879,7 @@ Expr LowererImpl::searchForStartOfWindowPosition(Iterator iterator, ir::Expr sta
             // for the beginning of the window.
             iterator.getWindowLowerBound(),
     };
-    return Call::make("taco_binarySearchAfter", args, Datatype::UInt64);
+    return ir::Call::make("taco_binarySearchAfter", args, Datatype::UInt64);
 }
 
 
@@ -3574,7 +3893,7 @@ Expr LowererImpl::searchForEndOfWindowPosition(Iterator iterator, ir::Expr start
             // for the end of the window.
             iterator.getWindowUpperBound(),
     };
-    return Call::make("taco_binarySearchAfter", args, Datatype::UInt64);
+    return ir::Call::make("taco_binarySearchAfter", args, Datatype::UInt64);
 }
 
 

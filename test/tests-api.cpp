@@ -121,6 +121,8 @@ TEST_P(apiget, api) {
   ASSERT_ARRAY_EQ(GetParam().getExpectedValues(),
                   {(double*)storage.getValues().getData(),
                    storage.getIndex().getSize()});
+
+  ASSERT_TRUE(equals(tensor.getFillValue(), Literal::zero(tensor.getComponentType())));
 }
 
 TEST_P(apiwrb, api) {

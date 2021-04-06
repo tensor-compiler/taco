@@ -26,9 +26,12 @@ void free_mem(void *ptr) {
   }
 }
 
+// Note about fill:
+// It is planned to allow the fill of a result to be null and for TACO to set this when it does compute. This is the
+// case we currently expect the fill pointer to be null.
 taco_tensor_t* init_taco_tensor_t(int32_t order, int32_t csize,
                         int32_t* dimensions, int32_t* modeOrdering,
-                        taco_mode_t* mode_types) {
+                        taco_mode_t* mode_types, void* fill_ptr) {
   taco_tensor_t* t = (taco_tensor_t *) alloc_mem(sizeof(taco_tensor_t));
   t->order         = order;
   t->dimensions = (int32_t *) alloc_mem(order * sizeof(int32_t));
@@ -36,6 +39,16 @@ taco_tensor_t* init_taco_tensor_t(int32_t order, int32_t csize,
   t->mode_types = (taco_mode_t *) alloc_mem(order * sizeof(taco_mode_t));
   t->indices = (uint8_t ***) alloc_mem(order * sizeof(uint8_t***));
   t->csize         = csize;
+
+  int fill_bytes = csize / 8;
+  t->fill_value = (uint8_t*) alloc_mem(fill_bytes);
+
+  if (fill_ptr) {
+    uint8_t* fill_inp = (uint8_t*) fill_ptr;
+    for (int i = 0; i < fill_bytes; ++i) {
+      t->fill_value[i] = fill_inp[i];
+    }
+  }
 
   for (int32_t i = 0; i < order; i++) {
     t->dimensions[i]    = dimensions[i];
