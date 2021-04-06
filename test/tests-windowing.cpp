@@ -433,6 +433,16 @@ TEST_P(stride, windowing) {
   c(i, j) = a(i(0, 10, 5), j(0, 10, 5)) * b(i(0, 10, 5), j(0, 10, 5));
   c.evaluate();
   ASSERT_TRUE(equals(c, expectedMul)) << c << endl << expectedMul << endl;
+
+  // Test a strided assignment where the stride doesn't start at 0.
+  c(i, j) = a(i(1, 5, 2), j(2, 6, 2));
+  c.evaluate();
+  Tensor<int> expectedAssign2("expectedAssign2", {2, 2}, {Dense, Dense});
+  expectedAssign2.insert({0, 0}, 3); expectedAssign2.insert({0, 1}, 5);
+  expectedAssign2.insert({1, 0}, 5); expectedAssign2.insert({1, 1}, 7);
+  expectedAssign2.pack();
+  ASSERT_TRUE(equals(c, expectedAssign2)) << c << endl << expectedAssign2 << endl;
+
 }
 INSTANTIATE_TEST_CASE_P(
     windowing,

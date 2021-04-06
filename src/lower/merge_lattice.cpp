@@ -545,11 +545,53 @@ private:
     bool locateLeft = locateFromLeft(left, right);
 
     // Append all combinations of a and b merge points
-    for (auto& leftPoint : left.points()) {
-      for (auto& rightPoint : right.points()) {
-        points.push_back(intersectPoints(leftPoint, rightPoint, locateLeft));
+    struct pointSort {
+      bool operator()(const MergePoint& a, const MergePoint& b) {
+        size_t left_size  = a.iterators().size() + a.locators().size();
+        size_t right_size = b.iterators().size() + b.locators().size();
+        return left_size > right_size;
+      }
+    } pointSorter;
+
+    // Append all combinations of the merge points of a and b
+    auto sorted_apoint = left.points();
+    auto sorted_bpoint = right.points();
+    std::sort(sorted_apoint.begin(), sorted_apoint.end(), pointSorter);
+    std::sort(sorted_bpoint.begin(), sorted_bpoint.end(), pointSorter);
+
+    set<Iterator> apoint_root_set;
+    if (!sorted_apoint.empty())
+      apoint_root_set = sorted_apoint.begin()->tensorRegion();
+
+    set<Iterator>bpoint_root_set;
+    if (!sorted_bpoint.empty())
+      bpoint_root_set = sorted_bpoint.begin()->tensorRegion();
+
+
+    for (auto& apoint : sorted_apoint) {
+      for (auto& bpoint : sorted_bpoint) {
+        bool hasIntersection = true;
+
+        auto apoint_set = apoint.tensorRegion();
+        auto bpoint_set = bpoint.tensorRegion();
+
+        for (auto& it : apoint_set) {
+          if (!std::count(bpoint_set.begin(), bpoint_set.end(), it) &&
+              std::count(bpoint_root_set.begin(), bpoint_root_set.end(), it)) {
+            hasIntersection = false;
+          }
+        }
+        for (auto& it : bpoint_set) {
+          if (!std::count(apoint_set.begin(), apoint_set.end(), it) &&
+              std::count(apoint_root_set.begin(), apoint_root_set.end(), it)) {
+            hasIntersection = false;
+          }
+        }
+        if (hasIntersection)
+          points.push_back(intersectPoints(apoint, bpoint, locateLeft));
       }
     }
+    std::sort(points.begin(), points.end(), pointSorter);
 
     // Correctness: ensures that points produced on BOTH the left and the
     //              right lattices are produced in the final intersection.
@@ -561,7 +603,7 @@ private:
     //              points and resolves conflicts arising between omitters and
     //              producers
      points = removeDuplicatedTensorRegions(points, true);
-
+     
     // Optimization: Removed a subLattice of points if the entire subLattice is
     //               made of only omitters
     // points = removeUnnecessaryOmitterPoints(points);
@@ -581,10 +623,49 @@ private:
   {
     vector<MergePoint> points;
 
+    struct pointSort {
+      bool operator()(const MergePoint& a, const MergePoint& b) {
+        size_t left_size  = a.iterators().size() + a.locators().size();
+        size_t right_size = b.iterators().size() + b.locators().size();
+        return left_size > right_size;
+      }
+    } pointSorter;
+
     // Append all combinations of the merge points of a and b
-    for (auto& apoint : left.points()) {
-      for (auto& bpoint : right.points()) {
-        points.push_back(unionPoints(apoint, bpoint));
+    auto sorted_apoint = left.points();
+    auto sorted_bpoint = right.points();
+    std::sort(sorted_apoint.begin(), sorted_apoint.end(), pointSorter);
+    std::sort(sorted_bpoint.begin(), sorted_bpoint.end(), pointSorter);
+
+    set<Iterator> apoint_root_set;
+    if (!sorted_apoint.empty())
+      apoint_root_set = sorted_apoint.begin()->tensorRegion();
+
+    set<Iterator>bpoint_root_set;
+    if (!sorted_bpoint.empty())
+      bpoint_root_set = sorted_bpoint.begin()->tensorRegion();
+
+    for (auto& apoint : sorted_apoint) {
+      for (auto& bpoint : sorted_bpoint) {
+        bool hasIntersection = true;
+
+        auto apoint_set = apoint.tensorRegion();
+        auto bpoint_set = bpoint.tensorRegion();
+
+        for (auto& it : apoint_set) {
+          if (!std::count(bpoint_set.begin(), bpoint_set.end(), it) &&
+              std::count(bpoint_root_set.begin(), bpoint_root_set.end(), it)) {
+            hasIntersection = false;
+          }
+        }
+        for (auto& it : bpoint_set) {
+          if (!std::count(apoint_set.begin(), apoint_set.end(), it) &&
+              std::count(apoint_root_set.begin(), apoint_root_set.end(), it)) {
+            hasIntersection = false;
+          }
+        }
+        if (hasIntersection)
+          points.push_back(unionPoints(apoint, bpoint));
       }
     }
 
@@ -594,21 +675,12 @@ private:
     // Append the merge points of b
     util::append(points, right.points());
 
-    struct pointSort {
-      bool operator()(const MergePoint& a, const MergePoint& b) {
-        size_t left_size  = a.iterators().size() + a.locators().size();
-        size_t right_size = b.iterators().size() + b.locators().size();
-        return left_size > right_size;
-      }
-    } pointSorter;
-
     std::sort(points.begin(), points.end(), pointSorter);
 
     // Correctness: This ensures that points omitted on BOTH the left and the
     //              right lattices are omitted in the Union. Needed since some
     //              subpoints may produce leading to erroneous producer regions
     points = correctPointTypesAfterUnion(left.points(), right.points(), points);
-
 
     // Correctness: Deduplicate regions that are described by multiple lattice
     //              points and resolves conflicts arising between omitters and
@@ -675,6 +747,7 @@ private:
    */
   static MergePoint unionPoints(MergePoint left, MergePoint right)
   {
+
     vector<Iterator> iterators= combine(left.iterators(),right.iterators());
     vector<Iterator> locaters = combine(left.locators(), right.locators());
     vector<Iterator> results  = combine(left.results(),  right.results());
@@ -787,6 +860,21 @@ private:
     }
     return deduplicates;
   }
+
+  static vector<Iterator>
+  removeDimensionIterators(const vector<Iterator>& iterators)
+  {
+    vector<Iterator> result;
+
+    // Remove all but one of the dense iterators, which are all the same.
+    for (auto& iterator : iterators) {
+      if (!iterator.isDimensionIterator()) {
+        result.push_back(iterator);
+      }
+    }
+    return result;
+  }
+
 
   static vector<MergePoint>
   flipPoints(const vector<MergePoint>& points) {
@@ -1123,8 +1211,18 @@ ostream& operator<<(ostream& os, const MergeLattice& ml) {
 }
 
 bool operator==(const MergeLattice& a, const MergeLattice& b) {
-  auto& apoints = a.points();
-  auto& bpoints = b.points();
+  auto apoints = a.points();
+  auto bpoints = b.points();
+  struct pointSort {
+    bool operator()(const MergePoint& a, const MergePoint& b) {
+      size_t left_size  = a.iterators().size() + a.locators().size();
+      size_t right_size = b.iterators().size() + b.locators().size();
+      return left_size > right_size;
+    }
+  } pointSorter;
+
+  std::sort(apoints.begin(), apoints.end(), pointSorter);
+  std::sort(bpoints.begin(), bpoints.end(), pointSorter);
   if (apoints.size() != bpoints.size()) {
     return false;
   }
