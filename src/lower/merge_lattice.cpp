@@ -598,13 +598,13 @@ private:
       for (auto& bpoint : sorted_bpoint) {
         bool hasIntersection = true;
         for (auto& it : apoint.iterators()) {
-          if (std::count(bpoint.iterators().begin(), bpoint.iterators().end(), it) &&
+          if (!std::count(bpoint.iterators().begin(), bpoint.iterators().end(), it) &&
               std::count(bpoint_root->iterators().begin(), bpoint_root->iterators().end(), it)) {
             hasIntersection = false;
           }
         }
         for (auto& it : bpoint.iterators()) {
-          if (std::count(apoint.iterators().begin(), apoint.iterators().end(), it) &&
+          if (!std::count(apoint.iterators().begin(), apoint.iterators().end(), it) &&
               std::count(apoint_root->iterators().begin(), apoint_root->iterators().end(), it)) {
             hasIntersection = false;
           }
