@@ -1153,7 +1153,8 @@ MergePoint::MergePoint(const vector<Iterator>& iterators,
                        const vector<Iterator>& locators,
                        const vector<Iterator>& results,
                        bool omitPoint) : content_(new Content) {
-  taco_uassert(all(iterators,
+  taco_uassert(iterators.size() <= 1 ||
+               all(iterators,
                    [](Iterator it){ return it.hasLocate() || it.isOrdered(); }))
       << "Merge points do not support iterators that do not have locate and "
       << "that are not ordered.";
