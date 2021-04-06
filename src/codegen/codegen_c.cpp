@@ -483,8 +483,9 @@ void CodeGen_C::visit(const Min* op) {
     op->operands[0].accept(this);
     return;
   }
+  const auto opString = op->type.isFloat() ? "fmin" : "TACO_MIN";
   for (size_t i=0; i<op->operands.size()-1; i++) {
-    stream << "TACO_MIN(";
+    stream << opString << "(";
     op->operands[i].accept(this);
     stream << ",";
   }
