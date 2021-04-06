@@ -3427,7 +3427,7 @@ Expr LowererImpl::searchForEndOfWindowPosition(Iterator iterator, ir::Expr start
 Stmt LowererImpl::upperBoundGuardForWindowPosition(Iterator iterator, ir::Expr access) {
   taco_iassert(iterator.isWindowed());
   return ir::IfThenElse::make(
-    ir::Gte::make(access, ir::Sub::make(iterator.getWindowUpperBound(), iterator.getWindowLowerBound())),
+    ir::Gte::make(access, ir::Div::make(ir::Sub::make(iterator.getWindowUpperBound(), iterator.getWindowLowerBound()), iterator.getStride())),
     ir::Break::make()
   );
 }
@@ -3446,7 +3446,7 @@ Stmt LowererImpl::strideBoundsGuard(Iterator iterator, ir::Expr access, bool inc
   }
   // The guard makes sure that the coordinate being accessed is along the stride.
   return ir::IfThenElse::make(
-      ir::Neq::make(ir::Rem::make(access, iterator.getStride()), ir::Literal::make(0)),
+      ir::Neq::make(ir::Rem::make(ir::Sub::make(access, iterator.getWindowLowerBound()), iterator.getStride()), ir::Literal::make(0)),
       cont
   );
 }
@@ -3458,7 +3458,7 @@ Expr LowererImpl::projectWindowedPositionToCanonicalSpace(Iterator iterator, ir:
 
 
 Expr LowererImpl::projectCanonicalSpaceToWindowedPosition(Iterator iterator, ir::Expr expr) {
-  return ir::Mul::make(ir::Add::make(expr, iterator.getWindowLowerBound()), iterator.getStride());
+  return ir::Add::make(ir::Mul::make(expr, iterator.getStride()), iterator.getWindowLowerBound());
 }
 
 }
