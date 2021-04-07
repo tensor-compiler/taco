@@ -896,6 +896,10 @@ Stmt LowererImpl::lowerForallCloned(Forall forall) {
   }
 
   Stmt unvectorizedLoop;
+
+  taco_uassert(guardCondition.defined())
+    << "Unable to vectorize or unroll loop over unbound variable " << forall.getIndexVar();
+
   // build loop with guards (not vectorized)
   if (!varsWithGuard.empty()) {
     ignoreVectorize = true;
