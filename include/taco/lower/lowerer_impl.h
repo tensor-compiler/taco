@@ -472,6 +472,7 @@ protected:
 private:
   bool assemble;
   bool compute;
+  std::string funcname;
   bool loopOrderAllowsShortCircuit = false;
 
   int markAssignsAtomicDepth = 0;
