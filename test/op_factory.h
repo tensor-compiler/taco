@@ -71,6 +71,7 @@ struct IntersectGenDeMorgan {
 
 struct xorGen {
   IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
+//    return Intersect(regions[0], regions[1]);
     IterationAlgebra noIntersect = Complement(Intersect(regions[0], regions[1]));
     return Intersect(noIntersect, Union(regions[0], regions[1]));
   }
@@ -124,6 +125,14 @@ struct identityFunc {
 
 struct GeneralAdd {
   ir::Expr operator()(const std::vector<ir::Expr> &v) {
+//    return ir::Literal::make(int(v.size()));
+
+//    if (!v.size()) {
+//      return 0;
+//    }
+
+//    return 1;
+
     taco_iassert(v.size() >= 2) << "Add operator needs at least two operands";
     ir::Expr add = ir::Add::make(v[0], v[1]);
 

@@ -6,6 +6,7 @@
 #include <ostream>
 
 #include "taco/error.h"
+#include "taco/util/strings.h"
 
 namespace taco {
 namespace util {
@@ -56,7 +57,10 @@ public:
   }
 
   friend std::ostream& operator<<(std::ostream& os, ScopedSet<Key> sset) {
-    os << "ScopedSet:" << std::endl;
+    os << "ScopedSet: " << std::endl;
+    for (auto& s : sset.scopes) {
+      os << "scope: " << util::join(s) << std::endl;
+    }
     return os;
   }
 
