@@ -1398,7 +1398,7 @@ Stmt LowererImpl::lowerMergeLattice(MergeLattice caseLattice, IndexVar coordinat
     IndexStmt zeroedStmt = zero(statement, getExhaustedAccesses(point, caseLattice));
     std::cout << "Var: " << coordinateVar << " Merge Point: " << point << " Statement: " << statement << " Zeroed: " << zeroedStmt << std::endl;
     MergeLattice sublattice = caseLattice.subLattice(point);
-    std::cout << "sublattice: " << sublattice << std::endl;
+//    std::cout << "sublattice: " << sublattice << std::endl;
     Stmt mergeLoop = lowerMergePoint(sublattice, coordinate, coordinateVar, zeroedStmt, reducedAccesses, resolvedCoordDeclared);
     mergeLoopsVec.push_back(mergeLoop);
   }
@@ -1581,8 +1581,11 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, I
 //  }
 
   // Emitting structural cases so unconditionally apply lattice optimizations.
-  MergeLattice loopLattice = caseLattice.getLoopLattice();
-//  MergeLattice loopLattice = caseLattice;
+//  MergeLattice loopLattice = caseLattice.getLoopLattice();
+  MergeLattice loopLattice = caseLattice;
+
+//  std::cout << "LoopLattice: " << loopLattice << " CaseLattice: " << caseLattice << std::endl;
+  std::cout << " CaseLattice: " << caseLattice << std::endl;
 
   vector<Iterator> appenders;
   vector<Iterator> inserters;
@@ -1601,11 +1604,61 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, I
   }
   else if (!loopLattice.points().empty()) {
     vector<pair<Expr,Stmt>> cases;
+//    std::cout << "Accessible iterators: " << this->accessibleIterators << std::endl;
     for (MergePoint point : loopLattice.points()) {
-      std::cout << "In the loop lattice lowering phase " << point << std::endl;
+//      std::cout << "In the loop lattice lowering phase " << point << std::endl;
+
+      struct ReadyTensors : IndexNotationVisitor {
+        std::set<TensorVar> readyTensors;
+        std::set<IndexVar> definedIndexVars;
+
+        void visit(const AccessNode* node) {
+          bool ready = true;
+          for (auto& ivar : node->indexVars) {
+            if (!util::contains(definedIndexVars, ivar)) {
+              ready = false;
+              break;
+            }
+          }
+          if (ready) {
+            readyTensors.insert(node->tensorVar);
+          }
+        }
+      };
+
+      auto rt = ReadyTensors();
+      rt.definedIndexVars = this->definedIndexVars;
+      stmt.accept(&rt);
+
+      std::cout << "readyTensors: " << util::join(rt.readyTensors) << std::endl;
+
+      auto skipPoint = false;
+      for (auto& rl : loopLattice.points().front().locators()) {
+
+        auto rlit = rl.getTensor();
+        TensorVar rltv;
+        for (auto& kv : this->tensorVars) {
+          if (kv.second == rlit) {
+            rltv = kv.first;
+            break;
+          }
+        }
+
+        if (util::contains(rt.readyTensors, rltv)) {
+          std::cout << "Not considering tensorvar: " << rltv << std::endl;
+          continue;
+        }
+
+        if (!util::contains(point.locators(), rl)) {
+          std::cout << "skipping point: " << point << std::endl;
+          skipPoint = true;
+        }
+      }
+
+      if (skipPoint) continue;
 
        if(point.isOmitter() && hasNoForAlls(stmt)) {
-         std::cout << "omitting point: " << point << std::endl;
+//         std::cout << "omitting point: " << point << std::endl;
          continue;
        }
 
@@ -1614,6 +1667,11 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, I
       vector<Iterator> omittedRegionIterators = loopLattice.retrieveRegionIteratorsToOmit(point);
       if (!point.isOmitter()) {
 //        omittedRegionIterators = filter(omittedRegionIterators, [](const Iterator& it) {
+//          auto iterTensorVar = it.getTensor();
+//
+////          auto tensor
+////          this->tensorVars
+////          this->tens
 //          return false;
 //        });
         std::vector <Expr> neqComparisons = compareToResolvedCoordinate<Neq>(omittedRegionIterators, coordinate,
@@ -1621,7 +1679,7 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, I
         append(coordComparisons, neqComparisons);
       }
 
-      std::cout << util::join(coordComparisons) << std::endl;
+//      std::cout << util::join(coordComparisons) << std::endl;
 
       coordComparisons = filter(coordComparisons, [](const Expr& e) { return e.defined(); });
 

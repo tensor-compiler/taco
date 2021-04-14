@@ -1855,31 +1855,35 @@ TEST_STMT(XorTestOrder2,
 
 TEST(weija, weija) {
   auto dim = 2;
-//  Tensor<int> A("A", {dim, dim}, {Dense, Dense});
+//  Tensor<int> A("A", {dim, dim}, {Dense, Sparse});
+  Tensor<int> A("A", {dim, dim}, CSC);
+
 //      Tensor<int> A("A", {dim, dim}, {Dense, Sparse});
   Tensor<int> Z("Z", {dim}, {Sparse});
-  Tensor<int> A("A", {dim, dim}, {Dense, Sparse});
-//  Tensor<int> B("B", {dim, dim}, {Dense, Dense});
-  Tensor<int> B("B", {dim, dim}, {Dense, Sparse});
+  Tensor<int> B("B", {dim, dim}, {Dense, Dense});
+//  Tensor<int> B("B", {dim, dim}, {Dense, Sparse});
   Tensor<int> C("C", {dim, dim}, {Dense, Dense});
       Tensor<int> D("D", {dim, dim}, {Dense, Dense});
       Tensor<int> E("E", {dim, dim}, {Dense, Dense});
 
   A.insert({0, 0}, 1); A.insert({1, 1}, 1); A.pack();
   B.insert({0, 0}, 1); B.insert({0, 1}, 1); B.pack();
+  Z.insert({0}, 1); Z.insert({1}, 1); Z.pack();
 
   IndexVar i("i"), j("j"), k("k"), l("l"), m("m");
-//  C(i, j) = xorOp(A(i, j), Z(i));
+  C(i, j) = xorOp(A(i, j), Z(j));
 //  C(i, j) = A(i, j) * Z(i);
-//  C.compile(C.getAssignment().concretize().reorder({j, i}));
-  C(i, j) = xorOp(A(i, k), B(k, j));
+  auto stmt =C.getAssignment().concretize().reorder({j, i});
+  std::cout << stmt << std::endl;
+  C.compile(stmt);
+//  C(i, j) = xorOp(A(i, k), B(k, j));
 //  E(i, l) = xorOp(xorOp(A(i, k), B(k, j)), D(j, l));
 //  C(i, j) = xorOp(A(i, j), B(i, j));
 //  C(i, j) = A(i, j) * B(j, i);
 //  C(i, j) = xorOp(A(i, j), B(j, i));
 //  C.compile(C.getAssignment().concretize().reorder({i, j, k}));
-  std::cout << "starting" << std::endl;
-  C.compile();
+//  std::cout << "starting" << std::endl;
+//  C.compile();
   std::cout << C.getSource() << std::endl;
   C.evaluate();
 //  E.compile();
