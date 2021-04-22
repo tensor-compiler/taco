@@ -32,6 +32,7 @@
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/index_notation/index_notation_nodes.h"
+#include "taco/version.h"
 
 using namespace std;
 using namespace taco;
@@ -197,6 +198,8 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("help", "Print this usage information.");
   cout << endl;
+  printFlag("version", "Print version and build information.");
+  cout << endl;
   printFlag("help=scheduling",
             "Print information on the scheduling directives that can be passed "
             "to '-s'.");
@@ -262,6 +265,24 @@ static void printSchedulingHelp() {
               "NotParallel, GPUBlock, GPUWarp, GPUThread, CPUThread, CPUVector. "
               "Possible output race strategies are: "
               "IgnoreRaces, NoRaces, Atomics, Temporary, ParallelReduction.");
+}
+
+static void printVersionInfo() {
+  string gitsuffix("");
+  if(strlen(TACO_VERSION_GIT_SHORTHASH) > 0) {
+    gitsuffix = string("+git " TACO_VERSION_GIT_SHORTHASH);
+  }
+  cout << "TACO version: " << TACO_VERSION_MAJOR << "." << TACO_VERSION_MINOR << gitsuffix << endl;
+  if(TACO_FEATURE_OPENMP)
+    cout << "Built with OpenMP support." << endl;
+  if(TACO_FEATURE_PYTHON)
+    cout << "Built with Python support." << endl;
+  if(TACO_FEATURE_CUDA)
+    cout << "Built with CUDA support." << endl;
+  cout << endl;
+  cout << "Built on: " << TACO_BUILD_DATE << endl;
+  cout << "CMake build type: " << TACO_BUILD_TYPE << endl;
+  cout << "Built with compiler: " << TACO_BUILD_COMPILER_ID << " C++ version " << TACO_BUILD_COMPILER_VERSION << endl;
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -654,6 +675,10 @@ int main(int argc, char* argv[]) {
         } else {
             printUsageInfo();
         }
+        return 0;
+    }
+    if ("-version" == argName) {
+        printVersionInfo();
         return 0;
     }
     else if ("-f" == argName) {
