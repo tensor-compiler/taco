@@ -3197,20 +3197,23 @@ Stmt LowererImpl::generateAppendPositions(vector<Iterator> appenders) {
   vector<Stmt> result;
   if (generateAssembleCode()) {
     for (Iterator appender : appenders) {
-      if (!appender.isBranchless()) {
-        Expr pos = [](Iterator appender) {
-          // Get the position variable associated with the appender. If a mode
-          // is above a branchless mode, then the two modes can share the same
-          // position variable.
-          while (!appender.isLeaf() && appender.getChild().isBranchless()) {
-            appender = appender.getChild();
-          }
-          return appender.getPosVar();
-        }(appender);
-        Expr beginPos = appender.getBeginVar();
-        Expr parentPos = appender.getParent().getPosVar();
-        result.push_back(appender.getAppendEdges(parentPos, beginPos, pos));
+      if (appender.isBranchless() || 
+          isAssembledByUngroupedInsertion(appender.getTensor())) {
+        continue;
       }
+
+      Expr pos = [](Iterator appender) {
+        // Get the position variable associated with the appender. If a mode
+        // is above a branchless mode, then the two modes can share the same
+        // position variable.
+        while (!appender.isLeaf() && appender.getChild().isBranchless()) {
+          appender = appender.getChild();
+        }
+        return appender.getPosVar();
+      }(appender);
+      Expr beginPos = appender.getBeginVar();
+      Expr parentPos = appender.getParent().getPosVar();
+      result.push_back(appender.getAppendEdges(parentPos, beginPos, pos));
     }
   }
   return result.empty() ? Stmt() : Block::make(result);
