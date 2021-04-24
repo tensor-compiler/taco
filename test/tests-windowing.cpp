@@ -540,3 +540,15 @@ TEST(windowing, lhsIndexSet) {
   a.evaluate();
   ASSERT_TRUE(equals(a, expected)) << a << endl << expected << endl;
 }
+
+// See issue #451 for details about this test.
+TEST(windowing, compoundAssign) {
+  Tensor<double> A("A", {8}, Format{Dense});
+  Tensor<double> B("B", {3}, Format{Dense});
+  IndexVar i("i");
+  A(i(0,3)) += B(i);
+  // We explicitly call assemble here as the += makes evaluate not call it.
+  A.compile(); A.assemble(); A.compute();
+  A(i({1, 3, 6})) += B(i);
+  A.evaluate();
+}

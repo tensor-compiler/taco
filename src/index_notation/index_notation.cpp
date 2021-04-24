@@ -899,7 +899,14 @@ Assignment Access::operator=(const TensorVar& var) {
 
 Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
-  Assignment assignment = Assignment(result, getIndexVars(), expr, Add());
+  Assignment assignment = Assignment(
+    result,
+    getIndexVars(),
+    expr,
+    Add(),
+    // Include any windows on LHS index vars.
+    getNode(*this)->packageModifiers()
+  );
   // check(assignment); TODO: fix check for precompute
   const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
@@ -1686,8 +1693,9 @@ Assignment::Assignment(Access lhs, IndexExpr rhs, IndexExpr op)
 }
 
 Assignment::Assignment(TensorVar tensor, vector<IndexVar> indices,
-                       IndexExpr rhs, IndexExpr op)
-    : Assignment(Access(tensor, indices), rhs, op) {
+                       IndexExpr rhs, IndexExpr op,
+                       const std::map<int, std::shared_ptr<IndexVarIterationModifier>>& modifiers)
+    : Assignment(Access(tensor, indices, modifiers), rhs, op) {
 }
 
 Access Assignment::getLhs() const {
