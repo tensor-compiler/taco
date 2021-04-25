@@ -114,7 +114,9 @@ static bool needComputeValues(IndexStmt stmt, TensorVar tensor) {
 
   struct ReturnsTrue : public IndexExprRewriterStrict {
     void visit(const AccessNode* op) {
-      if (op->isAccessingStructure) {
+      if (op->isAccessingStructure || (
+          op->tensorVar.getFormat().getModeFormats().back().isZeroless() &&
+          equals(op->tensorVar.getFill(), Literal(false)))) {
         expr = op;
       }
     }
@@ -146,12 +148,27 @@ static bool needComputeValues(IndexStmt stmt, TensorVar tensor) {
     }
 
     void visit(const CallNode* op) {
-      for (const auto& arg : op->args) {
-        if (!rewrite(arg).defined()) {
-          return;
+      const auto annihilator = findProperty<Annihilator>(op->properties);
+
+      if (!annihilator.defined() || !annihilator.positions().empty()) {
+        return;
+      }
+
+      if (equals(annihilator.annihilator(), Literal(false))) {
+        for (const auto& arg : op->args) {
+          if (!rewrite(arg).defined()) {
+            return;
+          }
+        }
+        expr = op;
+      } else {
+        for (const auto& arg : op->args) {
+          if (rewrite(arg).defined()) {
+            expr = op;
+            return;
+          }
         }
       }
-      expr = op;
     }
 
     void visit(const SqrtNode* op) {}
