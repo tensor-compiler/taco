@@ -714,9 +714,11 @@ public:
   Assignment(Access lhs, IndexExpr rhs, IndexExpr op = IndexExpr());
 
   /// Create an assignment. Can specify an optional operator `op` that turns the
-  /// assignment into a compound assignment, e.g. `+=`.
+  /// assignment into a compound assignment, e.g. `+=`. Additionally, specify
+  /// any modifers on reduction index variables (windows, index sets, etc.).
   Assignment(TensorVar tensor, std::vector<IndexVar> indices, IndexExpr rhs,
-             IndexExpr op = IndexExpr());
+             IndexExpr op = IndexExpr(),
+             const std::map<int, std::shared_ptr<IndexVarIterationModifier>>& modifiers = {});
 
   /// Return the assignment's left-hand side.
   Access getLhs() const;
