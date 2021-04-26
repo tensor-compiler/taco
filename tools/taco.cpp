@@ -298,7 +298,13 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
     os << " \"" << argv[1] << "\"";
   }
   for (int i = 2; i < argc; i++) {
-    os << " " << argv[i];
+    os << " ";
+    std::string arg = argv[i];
+    if (arg.rfind("-s=", 0) == 0) {
+      arg.replace(0, 3, "-s=\"");
+      arg += "\"";
+    }
+    os << arg;
   }
 }
 
