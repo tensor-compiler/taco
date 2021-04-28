@@ -75,6 +75,8 @@ void IndexNotationPrinter::visit(const LiteralNode* op) {
     case Datatype::Complex128:
       os << op->getVal<std::complex<double>>();
       break;
+    case Datatype::CppType:
+      break;
     case Datatype::Undefined:
       break;
   }

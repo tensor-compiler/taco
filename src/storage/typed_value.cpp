@@ -27,6 +27,7 @@ size_t TypedComponent::getAsIndex(const ComponentTypeUnion mem) const {
     case Datatype::Float64: return (size_t) mem.float64Value;
     case Datatype::Complex64: taco_ierror; return 0;
     case Datatype::Complex128: taco_ierror; return 0;
+    case Datatype::CppType: taco_ierror; return 0;
     case Datatype::Undefined: taco_ierror; return 0;
   }
   taco_unreachable;
@@ -50,6 +51,7 @@ void TypedComponent::set(ComponentTypeUnion& mem, const ComponentTypeUnion& valu
     case Datatype::Float64: mem.float64Value = value.float64Value; break;
     case Datatype::Complex64:  mem.complex64Value = value.complex64Value;; break;
     case Datatype::Complex128:  mem.complex128Value = value.complex128Value;; break;
+    case Datatype::CppType: taco_ierror; break;
     case Datatype::Undefined: taco_ierror; break;
   }
 }
@@ -71,6 +73,7 @@ void TypedComponent::setInt(ComponentTypeUnion& mem, const int value) {
     case Datatype::Float64: mem.float64Value = value; break;
     case Datatype::Complex64:  mem.complex64Value = value; break;
     case Datatype::Complex128:  mem.complex128Value = value; break;
+    case Datatype::CppType: taco_ierror; break;
     case Datatype::Undefined: taco_ierror; break;
   }
 }
@@ -92,6 +95,7 @@ void TypedComponent::add(ComponentTypeUnion& result, const ComponentTypeUnion& a
     case Datatype::Float64: result.float64Value  = a.float64Value + b.float64Value; break;
     case Datatype::Complex64: result.complex64Value  = a.complex64Value + b.complex64Value; break;
     case Datatype::Complex128: result.complex128Value  = a.complex128Value + b.complex128Value; break;
+    case Datatype::CppType: taco_ierror; break;
     case Datatype::Undefined: taco_ierror; break;
   }
 }
@@ -113,6 +117,7 @@ void TypedComponent::addInt(ComponentTypeUnion& result, const ComponentTypeUnion
     case Datatype::Float64: result.float64Value  = a.float64Value + b; break;
     case Datatype::Complex64: result.complex64Value  = a.complex64Value + std::complex<float>(b, 0); break;
     case Datatype::Complex128: result.complex128Value  = a.complex128Value + std::complex<double>(b, 0); break;
+    case Datatype::CppType: taco_ierror; break;
     case Datatype::Undefined: taco_ierror; break;
   }
 }
@@ -136,6 +141,7 @@ void TypedComponent::negate(ComponentTypeUnion& result, const ComponentTypeUnion
     case Datatype::Float64: result.float64Value  = -a.float64Value; break;
     case Datatype::Complex64: result.complex64Value  = -a.complex64Value; break;
     case Datatype::Complex128: result.complex128Value  = -a.complex128Value; break;
+    case Datatype::CppType: taco_ierror; break;
     case Datatype::Undefined: taco_ierror; break;
   }
 }
@@ -157,6 +163,7 @@ void TypedComponent::multiply(ComponentTypeUnion& result, const ComponentTypeUni
     case Datatype::Float64: result.float64Value  = a.float64Value * b.float64Value; break;
     case Datatype::Complex64: result.complex64Value  = a.complex64Value * b.complex64Value; break;
     case Datatype::Complex128: result.complex128Value  = a.complex128Value * b.complex128Value; break;
+    case Datatype::CppType: taco_ierror; break;
     case Datatype::Undefined: taco_ierror; break;
   }
 }
@@ -178,6 +185,7 @@ void TypedComponent::multiplyInt(ComponentTypeUnion& result, const ComponentType
     case Datatype::Float64: result.float64Value  = a.float64Value * b; break;
     case Datatype::Complex64: result.complex64Value  = a.complex64Value * std::complex<float>(b, 0); break;
     case Datatype::Complex128: result.complex128Value  = a.complex128Value * std::complex<double>(b, 0); break;
+    case Datatype::CppType: taco_ierror; break;
     case Datatype::Undefined: taco_ierror; break;
   }
 }
@@ -469,6 +477,7 @@ bool operator>(const TypedComponentVal& a, const TypedComponentVal &other) {
     case Datatype::Float64: return a.get().float64Value > (other.get()).float64Value;
     case Datatype::Complex64: taco_ierror; return false;
     case Datatype::Complex128: taco_ierror; return false;
+    case Datatype::CppType: taco_ierror; return false;
     case Datatype::Undefined: taco_ierror; return false;
   }
   taco_unreachable;
@@ -493,6 +502,7 @@ bool operator==(const TypedComponentVal& a, const TypedComponentVal &other) {
     case Datatype::Float64: return a.get().float64Value == (other.get()).float64Value;
     case Datatype::Complex64: taco_ierror; return false;
     case Datatype::Complex128: taco_ierror; return false;
+    case Datatype::CppType: taco_ierror; return false;
     case Datatype::Undefined: taco_ierror; return false;
   }
   taco_unreachable;
@@ -532,6 +542,7 @@ bool operator>(const TypedComponentVal& a, const int other) {
     case Datatype::Float64: return a.get().float64Value > other;
     case Datatype::Complex64: taco_ierror; return false;
     case Datatype::Complex128: taco_ierror; return false;
+    case Datatype::CppType: taco_ierror; return false;
     case Datatype::Undefined: taco_ierror; return false;
   }
   taco_unreachable;
@@ -555,6 +566,7 @@ bool operator==(const TypedComponentVal& a, const int other) {
     case Datatype::Float64: return a.get().float64Value == other;
     case Datatype::Complex64: taco_ierror; return false;
     case Datatype::Complex128: taco_ierror; return false;
+    case Datatype::CppType: taco_ierror; return false;
     case Datatype::Undefined: taco_ierror; return false;
   }
   taco_unreachable;

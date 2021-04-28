@@ -202,6 +202,34 @@ void IRRewriter::visit(const Call* op) {
   }
 }
 
+void IRRewriter::visit(const MethodCall* op) {
+  auto var = rewrite(op->var);
+  std::vector<Expr> args;
+  bool rewritten = false;
+  for (auto& arg : op->args) {
+    Expr rewrittenArg = rewrite(arg);
+    args.push_back(rewrittenArg);
+    if (rewrittenArg != arg) {
+      rewritten = true;
+    }
+  }
+  if (rewritten || var != op->var) {
+    expr = MethodCall::make(var, op->func, args, op->deref, op->type);
+  }
+  else {
+    expr = op;
+  }
+}
+
+void IRRewriter::visit(const Deref* op) {
+  auto var = rewrite(op->var);
+  if (op->var != var) {
+    expr = Deref::make(var, op->type);
+  } else {
+    expr = op;
+  }
+}
+
 void IRRewriter::visit(const IfThenElse* op) {
   Expr cond      = rewrite(op->cond);
   Stmt then      = rewrite(op->then);

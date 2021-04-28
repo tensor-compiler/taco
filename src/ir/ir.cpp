@@ -491,13 +491,30 @@ Expr Call::make(const std::string& func, const std::vector<Expr>& args,
   return call;
 }
 
+Expr MethodCall::make(Expr var, const std::string &func, const std::vector<Expr> &args, bool deref, Datatype type) {
+  MethodCall *call = new MethodCall;
+  call->type = type;
+  call->var = var;
+  call->func = func;
+  call->args = args;
+  call->deref = deref;
+  return call;
+}
+
+Expr Deref::make(Expr var, Datatype type) {
+  Deref *deref = new Deref;
+  deref->type = type;
+  deref->var = var;
+  return deref;
+}
+
 // Load
 Expr Load::make(Expr arr) {
   return Load::make(arr, Literal::make((int64_t)0));
 }
 
 Expr Load::make(Expr arr, Expr loc) {
-  taco_iassert(loc.type().isInt() || loc.type().isUInt()) 
+  taco_iassert(loc.type().isInt() || loc.type().isUInt() || loc.type() == Datatype::CppType)
       << "Can't load from a non-integer offset";
   Load *load = new Load;
   load->type = arr.type();
@@ -728,7 +745,7 @@ Stmt VarDecl::make(Expr var, Expr rhs) {
 
 // VarAssign
 Stmt Assign::make(Expr lhs, Expr rhs, bool use_atomics, ParallelUnit atomic_parallel_unit) {
-  taco_iassert(lhs.as<Var>() || lhs.as<GetProperty>())
+  taco_iassert(lhs.as<Var>() || lhs.as<GetProperty>() || lhs.as<Load>())
     << "Can only assign to a Var or GetProperty";
   Assign *assign = new Assign;
   assign->lhs = lhs;
@@ -923,6 +940,8 @@ template<> void ExprNode<Cast>::accept(IRVisitorStrict *v)
     const { v->visit((const Cast*)this); }
 template<> void ExprNode<Call>::accept(IRVisitorStrict *v)
     const { v->visit((const Call*)this); }
+template<> void ExprNode<MethodCall>::accept(IRVisitorStrict *v)
+const { v->visit((const MethodCall*)this); }
 template<> void StmtNode<IfThenElse>::accept(IRVisitorStrict *v)
     const { v->visit((const IfThenElse*)this); }
 template<> void StmtNode<Case>::accept(IRVisitorStrict *v)
@@ -971,6 +990,8 @@ template<> void StmtNode<Sort>::accept(IRVisitorStrict *v)
   const { v->visit((const Sort*)this); }
 template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
   const { v->visit((const Break*)this); }
+template<> void ExprNode<Deref>::accept(IRVisitorStrict *v)
+const { v->visit((const Deref*)this); }
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {

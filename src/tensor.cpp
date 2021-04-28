@@ -1097,6 +1097,7 @@ bool equals(const TensorBase& a, const TensorBase& b) {
     case Datatype::Float64: return equalsTyped<double>(a, b);
     case Datatype::Complex64: return equalsTyped<std::complex<float>>(a, b);
     case Datatype::Complex128: return equalsTyped<std::complex<double>>(a, b);
+    case Datatype::CppType: taco_ierror << "no cpp types in tensors";
     case Datatype::Undefined: taco_ierror << "Undefined data type";
   }
   taco_unreachable;
@@ -1156,6 +1157,7 @@ ostream& operator<<(ostream& os, const TensorBase& tensor) {
       case Datatype::Float64: os << ((double*)(ptr+tensor.getOrder()))[0] << std::endl; break;
       case Datatype::Complex64: os << ((std::complex<float>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
       case Datatype::Complex128: os << ((std::complex<double>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::CppType: taco_ierror << "no cpp types in tensors";
       case Datatype::Undefined: taco_ierror; break;
     }
   }
@@ -1196,6 +1198,7 @@ ostream& operator<<(ostream& os, TensorBase& tensor) {
       case Datatype::Float64: os << ((double*)(ptr+tensor.getOrder()))[0] << std::endl; break;
       case Datatype::Complex64: os << ((std::complex<float>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
       case Datatype::Complex128: os << ((std::complex<double>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::CppType: taco_ierror << "no cpp types in tensors";
       case Datatype::Undefined: taco_ierror; break;
     }
   }

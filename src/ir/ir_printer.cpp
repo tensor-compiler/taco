@@ -240,6 +240,23 @@ void IRPrinter::visit(const Call* op) {
   stream << ")";
 }
 
+void IRPrinter::visit(const MethodCall* op) {
+  op->var.accept(this);
+  if (op->deref) {
+    stream << "->";
+  } else {
+    stream << ".";
+  }
+  stream << op->func << "(";
+  acceptJoin(this, stream, op->args, ", ");
+  stream << ")";
+}
+
+void IRPrinter::visit(const Deref* op) {
+  stream << "*";
+  op->var.accept(this);
+}
+
 void IRPrinter::visit(const IfThenElse* op) {
   taco_iassert(op->cond.defined());
   taco_iassert(op->then.defined());

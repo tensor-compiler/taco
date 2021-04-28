@@ -125,6 +125,17 @@ void IRVisitor::visit(const Call* op) {
   }
 }
 
+void IRVisitor::visit(const MethodCall* op) {
+  op->var.accept(this);
+  for (auto& arg : op->args) {
+    arg.accept(this);
+  }
+}
+
+void IRVisitor::visit(const Deref* op) {
+  op->var.accept(this);
+}
+
 void IRVisitor::visit(const IfThenElse* op) {
   op->cond.accept(this);
   op->then.accept(this);

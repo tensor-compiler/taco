@@ -26,6 +26,7 @@ struct And;
 struct Or;
 struct Cast;
 struct Call;
+struct MethodCall;
 struct IfThenElse;
 struct Case;
 struct Switch;
@@ -50,6 +51,7 @@ struct Print;
 struct GetProperty;
 struct Sort;
 struct Break;
+struct Deref;
 
 /// Extend this class to visit every node in the IR.
 class IRVisitorStrict {
@@ -78,6 +80,8 @@ public:
   virtual void visit(const Or*) = 0;
   virtual void visit(const Cast*) = 0;
   virtual void visit(const Call*) = 0;
+  virtual void visit(const MethodCall*) = 0;
+  virtual void visit(const Deref*) = 0;
   virtual void visit(const IfThenElse*) = 0;
   virtual void visit(const Case*) = 0;
   virtual void visit(const Switch*) = 0;
@@ -133,6 +137,8 @@ public:
   virtual void visit(const Or* op);
   virtual void visit(const Cast* op);
   virtual void visit(const Call* op);
+  virtual void visit(const MethodCall* op);
+  virtual void visit(const Deref*);
   virtual void visit(const IfThenElse* op);
   virtual void visit(const Case* op);
   virtual void visit(const Switch* op);

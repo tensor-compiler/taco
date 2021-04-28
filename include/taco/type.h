@@ -32,6 +32,7 @@ public:
     Float64,
     Complex64,
     Complex128,
+    CppType,
     Undefined  /// Undefined type
   };
 
@@ -41,8 +42,13 @@ public:
   /// Construct a taco basic type with default bit widths.
   Datatype(Kind);
 
+  /// Construct a Cpp datatype with a specialized name.
+  Datatype(std::string name);
+
   /// Return the kind of type this object represents.
   Kind getKind() const;
+
+  const std::string getName() const;
 
   /// Functions that return true if the type is the given type.
   /// @{
@@ -61,6 +67,7 @@ public:
 
 private:
   Kind kind;
+  std::string name;
 };
 
 std::ostream& operator<<(std::ostream&, const Datatype&);
@@ -87,6 +94,19 @@ extern Datatype Float64;
 Datatype Complex(int bits);
 extern Datatype Complex64;
 extern Datatype Complex128;
+
+// Some common legion types here.
+
+// A DomainPointColoring.
+extern Datatype DomainPointColoring;
+// An n-dimensional point.
+Datatype Point(int n);
+// An n-dimensional rectangle.
+Datatype Rect(int n);
+// An iterator through an n-dimensional rectangle.
+Datatype PointInDomainIterator(int n);
+// A n-dimensional domain.
+Datatype Domain(int n);
 
 Datatype max_type(Datatype a, Datatype b);
 

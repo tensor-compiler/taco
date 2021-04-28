@@ -1163,6 +1163,57 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   }
 
   std::vector<ir::Stmt> transfers;
+  if (forall.getTransfers().size() > 0) {
+    // TODO (rohany): For now, we have only single dimension domains.
+    auto dim = 1;
+    auto dimT = Domain(dim);
+    auto pointInDimT = PointInDomainIterator(dim);
+    auto pointT = Point(dim);
+    auto rectT = Rect(dim);
+
+    auto domain = ir::Var::make("domain", dimT);
+    transfers.push_back(ir::VarDecl::make(domain, ir::Call::make("getDomain", {}, dimT)));
+
+    // Make a coloring for each transfer.
+    std::vector<Expr> colorings;
+    for (auto& t : forall.getTransfers()) {
+      auto c = ir::Var::make(t.getAccess().getTensorVar().getName() + "Coloring", DomainPointColoring);
+      transfers.push_back(ir::VarDecl::make(c, ir::Call::make(DomainPointColoring.getName(), {}, DomainPointColoring)));
+      colorings.push_back(c);
+    }
+
+    auto domainIter = ir::Var::make("itr", pointInDimT);
+
+    std::vector<Stmt> partStmts;
+    auto point = ir::Var::make("point", pointT);
+    partStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, pointT)));
+
+    // Add a dummy partition object for each transfer.
+    for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
+      auto& t = forall.getTransfers()[idx];
+      auto n = t.getAccess().getTensorVar().getName();
+      auto start = ir::Var::make(n + "Start", pointT);
+      auto end = ir::Var::make(n + "End", pointT);
+      partStmts.push_back(ir::VarDecl::make(start, ir::Call::make(pointT.getName(), {0}, pointT)));
+      partStmts.push_back(ir::VarDecl::make(end, ir::Call::make(pointT.getName(), {0}, pointT)));
+      auto rect = ir::Var::make(n + "Rect", rectT);
+      partStmts.push_back(ir::VarDecl::make(rect, ir::Call::make(rectT.getName(), {start, end}, rectT)));
+
+      auto coloring = colorings[idx];
+      partStmts.push_back(ir::Assign::make(ir::Load::make(coloring, point), rect));
+    }
+
+    auto l = ir::For::make(
+          domainIter,
+          ir::Call::make(pointInDimT.getName(), {domain}, pointInDimT),
+          ir::MethodCall::make(domainIter, "valid", {}, false /* deref */, Datatype::Bool),
+          1 /* increment -- hack to get ++ */,
+          ir::Block::make(partStmts)
+    );
+    transfers.push_back(l);
+  }
+
+
   for (auto t : forall.getTransfers()) {
     auto v = ir::Var::make("tx", Datatype::Int32);
     auto tv = ir::Var::make(t.getAccess().getTensorVar().getName(), Datatype::Int32);
@@ -2343,6 +2394,9 @@ Expr LowererImpl::lowerLiteral(Literal literal) {
       return ir::Literal::make(literal.getVal<std::complex<float>>());
     case Datatype::Complex128:
       return ir::Literal::make(literal.getVal<std::complex<double>>());
+    case Datatype::CppType:
+      taco_unreachable;
+      break;
     case Datatype::Undefined:
       taco_unreachable;
       break;

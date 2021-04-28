@@ -67,7 +67,9 @@ enum class IRNodeType {
   GetProperty,
   Continue,
   Sort,
-  Break
+  Break,
+  MethodCall,
+  Deref
 };
 
 enum class TensorProperty {
@@ -483,6 +485,25 @@ struct Call : public ExprNode<Call> {
   static const IRNodeType _type_info = IRNodeType::Call;
 };
 
+struct MethodCall : public ExprNode<MethodCall> {
+  Expr var;
+  std::string func;
+  std::vector<Expr> args;
+  bool deref;
+
+  static Expr make(Expr var, const std::string& func, const std::vector<Expr>& args, bool deref, Datatype type);
+
+  static const IRNodeType _type_info = IRNodeType::MethodCall;
+};
+
+struct Deref : public ExprNode<Deref> {
+  Expr var;
+
+  static Expr make(Expr var, Datatype type);
+
+  static const IRNodeType _type_info = IRNodeType::Deref;
+};
+
 /** A load from an array: arr[loc]. */
 struct Load : public ExprNode<Load> {
   Expr arr;
@@ -614,6 +635,8 @@ struct For : public StmtNode<For> {
 
   // TODO (rohany): We might want to add a new IR construct for a task, but
   //  we'll evaluate that when we get there.
+  // An option is to make an IR node Task that holds onto a For within it
+  // as well as other stuff.
   bool isTask;
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,

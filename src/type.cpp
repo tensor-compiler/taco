@@ -19,8 +19,14 @@ Datatype::Datatype() : kind(Undefined) {
 Datatype::Datatype(Kind kind) : kind(kind) {
 }
 
+Datatype::Datatype(std::string name) : kind(CppType), name(name) {}
+
 Datatype::Kind Datatype::getKind() const {
   return this->kind;
+}
+
+const std::string Datatype::getName() const {
+  return this->name;
 }
 
 bool Datatype::isBool() const {
@@ -118,6 +124,8 @@ std::ostream& operator<<(std::ostream& os, const Datatype& type) {
   else if (type == Datatype::Float64) os << "double";
   else if (type == Datatype::Complex64) os << "float complex";
   else if (type == Datatype::Complex128) os << "double complex";
+  else if (type.getKind() == Datatype::CppType && type.getName() != "") os << type.getName();
+  else if (type.getKind() == Datatype::CppType) os << "auto";
   else os << "Undefined";
   return os;
 }
@@ -139,6 +147,7 @@ std::ostream& operator<<(std::ostream& os, const Datatype::Kind& kind) {
     case Datatype::Float64: os << "Float64"; break;
     case Datatype::Complex64: os << "Complex64"; break;
     case Datatype::Complex128: os << "Complex128"; break;
+    case Datatype::CppType: os << "CppType"; break;
     case Datatype::Undefined: os << "Undefined"; break;
   }
   return os;
@@ -371,6 +380,31 @@ std::ostream& operator<<(std::ostream& os, const Type& type) {
 
 bool isScalar(const Type& type) {
   return type.getOrder() == 0;
+}
+
+
+// Generator for C++ templated types.
+template<typename T>
+Datatype templateGen(std::string typ, T n) {
+  std::stringstream s;
+  s << typ << "<" << n << ">";
+  return Datatype(s.str());
+}
+
+
+// Legion types.
+Datatype DomainPointColoring = Datatype("DomainPointColoring");
+Datatype Point(int n) {
+  return templateGen("Point", n);
+}
+Datatype Rect(int n) {
+  return templateGen("Rect", n);
+}
+Datatype PointInDomainIterator(int n) {
+  return templateGen("PointInDomainIterator", n);
+}
+Datatype Domain(int n) {
+  return templateGen("Domain", n);
 }
 
 }

@@ -17,7 +17,7 @@ TEST(distributed, test) {
   stmt = stmt.distribute({i}, {in}, {il}, Grid(2));
 
   // Communication modification must go at the end.
-  stmt = stmt.pushCommUnder(a(i), in); //.pushCommUnder(b(i), in);
+  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
 
   auto lowered = lower(stmt, "compute", false, true);
   std::cout << lowered << std::endl;
