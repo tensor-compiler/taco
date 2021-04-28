@@ -392,7 +392,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
     for (auto t : accessesWithoutTransfers) {
       auto v = ir::Var::make("tx", Datatype::Int32);
       auto tv = ir::Var::make(t.getTensorVar().getName(), Datatype::Int32);
-      auto fcall = ir::Call::make("transfer", {tv}, Datatype::Int32);
+      auto fcall = ir::Call::make("top_level_transfer", {tv}, Datatype::Int32);
       stmts.push_back(ir::Assign::make(v, fcall));
     }
     topLevelTransfers = ir::Block::make(stmts);
@@ -1169,8 +1169,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto fcall = ir::Call::make("transfer", {tv}, Datatype::Int32);
     transfers.push_back(ir::Assign::make(v, fcall));
   }
+  auto isTask = forall.isDistributed() || (forall.getTransfers().size() > 0);
 
-  body = Block::make({ir::Block::make(transfers), recoveryStmt, body});
+  body = Block::make({recoveryStmt, body});
 
   Stmt posAppend = generateAppendPositions(appenders);
 
@@ -1188,9 +1189,14 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     kind = LoopKind::Runtime;
   }
 
-  return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
+  return Block::blanks(ir::Block::make(transfers),
+                       For::make(coordinate, bounds[0], bounds[1], 1, body,
                                  kind,
-                                 ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
+                                 ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(),
+                                 ignoreVectorize ? 0 : forall.getUnrollFactor(),
+                                 // TODO (rohany): What do we do for vector width here?
+                                 0,
+                                 isTask),
                        posAppend);
 }
 

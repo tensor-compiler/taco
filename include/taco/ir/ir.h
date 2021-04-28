@@ -611,10 +611,14 @@ struct For : public StmtNode<For> {
   int vec_width;  // vectorization width
   ParallelUnit parallel_unit;
   size_t unrollFactor;
+
+  // TODO (rohany): We might want to add a new IR construct for a task, but
+  //  we'll evaluate that when we get there.
+  bool isTask;
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
                    Stmt contents, LoopKind kind=LoopKind::Serial,
-                   ParallelUnit parallel_unit=ParallelUnit::NotParallel, size_t unrollFactor=0, int vec_width=0);
+                   ParallelUnit parallel_unit=ParallelUnit::NotParallel, size_t unrollFactor=0, int vec_width=0, bool isTask=false);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };

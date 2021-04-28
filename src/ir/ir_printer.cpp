@@ -380,6 +380,9 @@ void IRPrinter::visit(const For* op) {
   if (op->kind == LoopKind::Distributed) {
     stream << "distributed ";
   }
+  if (op->isTask) {
+    stream << "task ";
+  }
   stream << keywordString("for") << " (" 
          << keywordString(util::toString(op->var.type())) << " ";
   op->var.accept(this);
