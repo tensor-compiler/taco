@@ -1555,6 +1555,16 @@ IndexStmt IndexStmt::parallelize(IndexVar i, ParallelUnit parallel_unit, OutputR
   return transformed;
 }
 
+
+IndexStmt IndexStmt::distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Grid g) {
+  string reason;
+  auto transformed = Distribute(original, outerVars, innerVars, g).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
 IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
   // check access is contained in stmt
   bool foundAccess = false;
@@ -1763,7 +1773,7 @@ Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt)
-    : Forall(indexVar, stmt, ParallelUnit::NotParallel, OutputRaceStrategy::IgnoreRaces) {
+    : Forall(indexVar, stmt, ParallelUnit::NotParallel, OutputRaceStrategy::IgnoreRaces, false) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor)
@@ -1788,6 +1798,10 @@ OutputRaceStrategy Forall::getOutputRaceStrategy() const {
 
 size_t Forall::getUnrollFactor() const {
   return getNode(*this)->unrollFactor;
+}
+
+bool Forall::isDistributed() const {
+  return this->getParallelUnit() == ParallelUnit::DistributedNode;
 }
 
 Forall forall(IndexVar i, IndexStmt stmt) {

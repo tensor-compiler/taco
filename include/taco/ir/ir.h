@@ -591,7 +591,7 @@ struct Switch : public StmtNode<Switch> {
   static const IRNodeType _type_info = IRNodeType::Switch;
 };
 
-enum class LoopKind {Serial, Static, Dynamic, Runtime, Vectorized, Static_Chunked};
+enum class LoopKind {Serial, Static, Dynamic, Runtime, Vectorized, Static_Chunked, Distributed};
 
 /** A for loop from start to end by increment.
  * A vectorized loop will require the increment to be 1 and the

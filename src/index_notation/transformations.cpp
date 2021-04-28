@@ -682,6 +682,70 @@ std::ostream& operator<<(std::ostream& os, const Parallelize& parallelize) {
   return os;
 }
 
+// Distribution transformation related code.
+
+struct Distribute::Content {
+  std::vector<IndexVar> original;
+  std::vector<IndexVar> distVars;
+  std::vector<IndexVar> innerVars;
+  Grid grid;
+};
+
+Distribute::Distribute() : content(nullptr) {}
+
+Distribute::Distribute(std::vector<IndexVar> original, std::vector<IndexVar> distVars, std::vector<IndexVar> innerVars,
+                       Grid &g) : content(new Content) {
+  // TODO (rohany): Should assert many things here: g.dims == original.size(),
+  //  all index var vectors have the same size etc.
+  this->content->original = original;
+  this->content->distVars = distVars;
+  this->content->innerVars = innerVars;
+  this->content->grid = g;
+}
+
+IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
+  INIT_REASON(reason);
+
+  // TODO (rohany): Let's worry about collapsing multiple distributed loops into one later.
+
+  // Initial implementation:
+  // For each original variable, divide the loop into dimension of the grid pieces.
+  // Then reorder the loops so that it's distVars -> innerVars.
+
+  for (size_t i = 0; i < this->content->original.size(); i++) {
+    stmt = stmt.divide(this->content->original[i], this->content->distVars[i], this->content->innerVars[i],
+                       this->content->grid.getDimSize(i));
+  }
+
+  // Note that reorder drops parallel annotations on loops, so add the annotations later.
+  std::vector<IndexVar> order;
+  order.insert(order.end(), this->content->distVars.begin(), this->content->distVars.end());
+  order.insert(order.end(), this->content->innerVars.begin(), this->content->innerVars.end());
+  stmt = stmt.reorder(order);
+
+  // Mark for loops over the distributed variables as actually distributed.
+  struct DistributedForallMarker : public IndexNotationRewriter {
+    void visit(const ForallNode* node) {
+      if (util::contains(this->distVars, node->indexVar)) {
+        stmt = forall(node->indexVar, node->stmt, ParallelUnit::DistributedNode, node->output_race_strategy, node->unrollFactor);
+      } else {
+        stmt = node;
+      }
+      // TODO (rohany): How is this going to recurse under the forall?
+    }
+    std::set<IndexVar> distVars;
+  };
+  DistributedForallMarker m;
+  m.distVars.insert(this->content->distVars.begin(), this->content->distVars.end());
+  stmt = m.rewrite(stmt);
+
+//  std::cout << "final rewritten stmt: " << stmt << std::endl;
+  return stmt;
+}
+
+void Distribute::print(std::ostream& os) const {
+  os << "distribute(" << util::join(this->content->original) << ")";
+}
 
 // class SetAssembleStrategy 
 

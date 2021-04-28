@@ -21,6 +21,7 @@
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/ir_tags.h"
 #include "taco/index_notation/provenance_graph.h"
+#include "taco/index_notation/distribution.h"
 
 namespace taco {
 
@@ -623,6 +624,9 @@ public:
   /// that the racing reduction must be over the index variable being parallelized.
   IndexStmt parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy) const;
 
+  // TODO (rohany): Comment this up later.
+  IndexStmt distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Grid g);
+
   /// pos and coord create
   /// new index variables in their respective iteration spaces.
   /// pos requires a tensor access expression as input, that
@@ -772,6 +776,8 @@ public:
   OutputRaceStrategy getOutputRaceStrategy() const;
 
   size_t getUnrollFactor() const;
+
+  bool isDistributed() const;
 
   typedef ForallNode Node;
 };

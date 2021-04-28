@@ -377,6 +377,9 @@ void IRPrinter::visit(const Store* op) {
 
 void IRPrinter::visit(const For* op) {
   doIndent();
+  if (op->kind == LoopKind::Distributed) {
+    stream << "distributed ";
+  }
   stream << keywordString("for") << " (" 
          << keywordString(util::toString(op->var.type())) << " ";
   op->var.accept(this);

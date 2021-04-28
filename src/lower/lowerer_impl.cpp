@@ -647,6 +647,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
       }
     }
 
+    // TODO (rohany): Is there a way to pull this check into the loop guard?
     // If this index variable was divided into multiple equal chunks, then we
     // must add an extra guard to make sure that further scheduling operations
     // on descendent index variables exceed the bounds of each equal portion of
@@ -1128,10 +1129,12 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   std::vector<ir::Expr> bounds = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
 
   LoopKind kind = LoopKind::Serial;
-  if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
+  if (forall.isDistributed()) {
+//    std::cout << "marking forall as distributed dimension" << std::endl;
+    kind = LoopKind::Distributed;
+  } else if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
     kind = LoopKind::Vectorized;
-  }
-  else if (forall.getParallelUnit() != ParallelUnit::NotParallel
+  } else if (forall.getParallelUnit() != ParallelUnit::NotParallel
             && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
     kind = LoopKind::Runtime;
   }
@@ -1301,15 +1304,19 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   }
 
   LoopKind kind = LoopKind::Serial;
+  // TODO (rohany): This isn't needed right now.
+//  if (forall.isDistributed()) {
+//    std::cout << "marking forall as distributed position" << std::endl;
+//    kind = LoopKind::Distributed;
+//  } else
   if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
     kind = LoopKind::Vectorized;
-  }
-  else if (forall.getParallelUnit() != ParallelUnit::NotParallel
+  } else if (forall.getParallelUnit() != ParallelUnit::NotParallel
            && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
     kind = LoopKind::Runtime;
   }
 
-  // Loop with preamble and postamble
+// Loop with preamble and postamble
   return Block::blanks(
                        boundsCompute,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,

@@ -6,6 +6,7 @@
 #include <ostream>
 #include <vector>
 #include "index_notation.h"
+#include "distribution.h"
 
 namespace taco {
 
@@ -181,6 +182,18 @@ private:
 
 /// Print a parallelize command.
 std::ostream& operator<<(std::ostream&, const Parallelize&);
+
+class Distribute : public TransformationInterface {
+public:
+  Distribute();
+  Distribute(std::vector<IndexVar> original, std::vector<IndexVar> distVars, std::vector<IndexVar> innerVars, Grid& g);
+  IndexStmt apply(IndexStmt stmt, std::string* reason) const;
+  void print(std::ostream& os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
 
 
 class SetAssembleStrategy : public TransformationInterface {
