@@ -358,6 +358,46 @@ LowererImpl::lower(IndexStmt stmt, string name,
     }
   }
 
+  // If there are distributed loops, and no transfers present for an access, then that
+  // transfer is occurring at the top level, so add it here.
+  Stmt topLevelTransfers;
+  bool foundDistributed = false;
+  match(stmt, function<void(const ForallNode*)>([&](const ForallNode* node) {
+    foundDistributed |= node->parallel_unit == ParallelUnit::DistributedNode;
+  }));
+  if (foundDistributed) {
+    // Collect all transfers in the index stmt.
+    Transfers transfers;
+    match(stmt, function<void(const ForallNode*)>([&](const ForallNode* node) {
+      transfers.insert(transfers.end(), node->transfers.begin(), node->transfers.end());
+    }));
+
+    auto hasTransfer = [&](Access a) {
+      for (auto& t : transfers) {
+        if (t.getAccess().getTensorVar() == a.getTensorVar()) { return true; }
+      }
+      return false;
+    };
+
+    // For all accesses, see if they have transfers.
+    std::vector<Access> accessesWithoutTransfers;
+    match(stmt, function<void(const AccessNode*)>([&](const AccessNode* node) {
+      Access a(node);
+      if (!hasTransfer(a)) { accessesWithoutTransfers.push_back(a); }
+    }), function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
+      if (!hasTransfer(node->lhs)) { accessesWithoutTransfers.push_back(node->lhs); }
+    }));
+
+    std::vector<Stmt> stmts;
+    for (auto t : accessesWithoutTransfers) {
+      auto v = ir::Var::make("tx", Datatype::Int32);
+      auto tv = ir::Var::make(t.getTensorVar().getName(), Datatype::Int32);
+      auto fcall = ir::Call::make("transfer", {tv}, Datatype::Int32);
+      stmts.push_back(ir::Assign::make(v, fcall));
+    }
+    topLevelTransfers = ir::Block::make(stmts);
+  }
+
   // Allocate and initialize append and insert mode indices
   Stmt initializeResults = initResultArrays(resultAccesses, inputAccesses,
                                             reducedAccesses);
@@ -386,6 +426,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
   return Function::make(name, resultsIR, argumentsIR,
                         Block::blanks(Block::make(header),
                                       initializeResults,
+                                      topLevelTransfers,
                                       body,
                                       finalizeResults,
                                       Block::make(footer)));
@@ -1121,7 +1162,15 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     markAssignsAtomicDepth--;
   }
 
-  body = Block::make({recoveryStmt, body});
+  std::vector<ir::Stmt> transfers;
+  for (auto t : forall.getTransfers()) {
+    auto v = ir::Var::make("tx", Datatype::Int32);
+    auto tv = ir::Var::make(t.getAccess().getTensorVar().getName(), Datatype::Int32);
+    auto fcall = ir::Call::make("transfer", {tv}, Datatype::Int32);
+    transfers.push_back(ir::Assign::make(v, fcall));
+  }
+
+  body = Block::make({ir::Block::make(transfers), recoveryStmt, body});
 
   Stmt posAppend = generateAppendPositions(appenders);
 

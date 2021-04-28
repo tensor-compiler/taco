@@ -200,7 +200,7 @@ private:
   );
   ~~~~~~~~~~~~~~~
 
-  Alternatively, mathing rules can also accept a Context to be used to match
+  Alternatively, matching rules can also accept a Context to be used to match
   sub-expressions:
   ~~~~~~~~~~~~~~~{.cpp}
   match(expr,

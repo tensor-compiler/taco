@@ -1555,7 +1555,6 @@ IndexStmt IndexStmt::parallelize(IndexVar i, ParallelUnit parallel_unit, OutputR
   return transformed;
 }
 
-
 IndexStmt IndexStmt::distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Grid g) {
   string reason;
   auto transformed = Distribute(original, outerVars, innerVars, g).apply(*this, &reason);
@@ -1563,6 +1562,60 @@ IndexStmt IndexStmt::distribute(std::vector<IndexVar> original, std::vector<Inde
     taco_uerror << reason;
   }
   return transformed;
+}
+
+IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
+  // TODO (rohany): We should do a bunch of checks here, but I'll omit those for now.
+
+  auto stmt = *this;
+  // First, remove the transfer for the access, wherever it is.
+  struct TransferRemover : public IndexNotationRewriter {
+    TransferRemover(Access a) : a(a) {}
+    void visit(const ForallNode* node) {
+      auto foundIdx = -1;
+      for (size_t i = 0; i < node->transfers.size(); i++) {
+        if (node->transfers[i].getAccess().getTensorVar() == a.getTensorVar()) {
+          foundIdx = i;
+          break;
+        }
+      }
+
+      if (foundIdx != -1) {
+        // Copy the transfers over.
+        Transfers newTransfers = node->transfers;
+        newTransfers.erase(newTransfers.begin() + foundIdx);
+        stmt = forall(node->indexVar, node->stmt, node->parallel_unit, node->output_race_strategy, newTransfers, node->unrollFactor);
+      } else {
+        stmt = node;
+      }
+    }
+    Access a;
+  };
+  TransferRemover remover(a);
+  stmt = remover.rewrite(stmt);
+
+  // Now add the transfer to the desired forall.
+  struct TransferAdder : public IndexNotationRewriter {
+    TransferAdder(Access a, IndexVar i) : a(a), i(i) {}
+    void visit(const ForallNode* node) {
+      if (node->indexVar == i) {
+        // Copy the transfers over;
+        Transfers newTransfers = node->transfers;
+        newTransfers.push_back(this->a);
+        stmt = forall(node->indexVar, node->stmt, node->parallel_unit, node->output_race_strategy, newTransfers, node->unrollFactor);
+      } else {
+        stmt = node;
+      }
+    }
+    Access a;
+    IndexVar i;
+  };
+  TransferAdder adder(a, i);
+  stmt = adder.rewrite(stmt);
+
+  std::cout << "final stmt: " << stmt << std::endl;
+
+  return stmt;
 }
 
 IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
@@ -1666,7 +1719,7 @@ IndexStmt IndexStmt::unroll(IndexVar i, size_t unrollFactor) const {
 
     void visit(const ForallNode* node) {
       if (node->indexVar == i) {
-        stmt = Forall(i, rewrite(node->stmt), node->parallel_unit, node->output_race_strategy, unrollFactor);
+        stmt = Forall(i, rewrite(node->stmt), node->parallel_unit, node->output_race_strategy, node->transfers, unrollFactor);
       }
       else {
         IndexNotationRewriter::visit(node);
@@ -1773,11 +1826,11 @@ Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt)
-    : Forall(indexVar, stmt, ParallelUnit::NotParallel, OutputRaceStrategy::IgnoreRaces, false) {
+    : Forall(indexVar, stmt, ParallelUnit::NotParallel, OutputRaceStrategy::IgnoreRaces, {}, false) {
 }
 
-Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor)
-        : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor)) {
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, std::vector<Transfer> transfers, size_t unrollFactor)
+        : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, transfers, unrollFactor)) {
 }
 
 IndexVar Forall::getIndexVar() const {
@@ -1804,12 +1857,16 @@ bool Forall::isDistributed() const {
   return this->getParallelUnit() == ParallelUnit::DistributedNode;
 }
 
+const Transfers& Forall::getTransfers() const {
+  return getNode(*this)->transfers;
+}
+
 Forall forall(IndexVar i, IndexStmt stmt) {
   return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor) {
-  return Forall(i, stmt, parallel_unit, output_race_strategy, unrollFactor);
+Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, Transfers transfers, size_t unrollFactor) {
+  return Forall(i, stmt, parallel_unit, output_race_strategy, transfers, unrollFactor);
 }
 
 template <> bool isa<Forall>(IndexStmt s) {
@@ -3129,7 +3186,7 @@ private:
       stmt = op;
     }
     else {
-      stmt = new ForallNode(op->indexVar, body, op->parallel_unit, op->output_race_strategy, op->unrollFactor);
+      stmt = new ForallNode(op->indexVar, body, op->parallel_unit, op->output_race_strategy, op->transfers, op->unrollFactor);
     }
   }
 

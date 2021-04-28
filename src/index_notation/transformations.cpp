@@ -582,7 +582,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           );
           taco_iassert(!precomputeAssignments.empty());
 
-          IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
+          IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), node->transfers, foralli.getUnrollFactor());
           for (auto assignment : precomputeAssignments) {
             // Construct temporary of correct type and size of outer loop
             TensorVar w(string("w_") + ParallelUnit_NAMES[(int) parallelize.getParallelUnit()], Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense);
@@ -591,7 +591,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
             IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, w(i)}})).rewrite(precomputed_stmt);
             taco_iassert(isa<Forall>(producer));
             Forall producer_forall = to<Forall>(producer);
-            producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
+            producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), node->transfers, foralli.getUnrollFactor());
 
             // build consumer that writes from temporary to output, mark consumer as parallel reduction
             ParallelUnit reductionUnit = ParallelUnit::CPUThreadGroupReduction;
@@ -603,7 +603,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
                 reductionUnit = ParallelUnit::GPUBlockReduction;
               }
             }
-            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), reductionUnit, OutputRaceStrategy::ParallelReduction);
+            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), reductionUnit, OutputRaceStrategy::ParallelReduction, node->transfers);
             precomputed_stmt = where(consumer, producer);
           }
           stmt = precomputed_stmt;
@@ -617,12 +617,12 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
                                          false, true);
           stmt = forall(i, body, parallelize.getParallelUnit(), 
                         parallelize.getOutputRaceStrategy(), 
-                        foralli.getUnrollFactor());
+                        node->transfers, foralli.getUnrollFactor());
           return;
         }
 
 
-        stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
+        stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), node->transfers, foralli.getUnrollFactor());
         return;
       }
 
@@ -727,7 +727,7 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
   struct DistributedForallMarker : public IndexNotationRewriter {
     void visit(const ForallNode* node) {
       if (util::contains(this->distVars, node->indexVar)) {
-        stmt = forall(node->indexVar, node->stmt, ParallelUnit::DistributedNode, node->output_race_strategy, node->unrollFactor);
+        stmt = forall(node->indexVar, node->stmt, ParallelUnit::DistributedNode, node->output_race_strategy, node->transfers, node->unrollFactor);
       } else {
         stmt = node;
       }
@@ -868,7 +868,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
         stmt = op;
       } else if (s.defined()) {
         stmt = new ForallNode(op->indexVar, s, op->parallel_unit, 
-                              op->output_race_strategy, op->unrollFactor);
+                              op->output_race_strategy, op->transfers, op->unrollFactor);
       } else {
         stmt = IndexStmt();
       }
@@ -1103,7 +1103,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
         stmt = op;
       } else if (s.defined()) {
         stmt = new ForallNode(op->indexVar, s, op->parallel_unit, 
-                              op->output_race_strategy, op->unrollFactor);
+                              op->output_race_strategy, op->transfers, op->unrollFactor);
       } else {
         stmt = IndexStmt();
       }
@@ -1404,7 +1404,7 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
       taco_iassert(util::contains(sortedVars, i));
       stmt = innerBody;
       for (auto it = sortedVars.rbegin(); it != sortedVars.rend(); ++it) {
-        stmt = forall(*it, stmt, forallParallelUnit.at(*it), forallOutputRaceStrategy.at(*it), foralli.getUnrollFactor());
+        stmt = forall(*it, stmt, forallParallelUnit.at(*it), forallOutputRaceStrategy.at(*it), node->transfers, foralli.getUnrollFactor());
       }
       return;
     }
@@ -1544,7 +1544,7 @@ IndexStmt scalarPromote(IndexStmt stmt, ProvenanceGraph provGraph,
       }
 
       stmt = forall(i, body, foralli.getParallelUnit(),
-                    foralli.getOutputRaceStrategy(), foralli.getUnrollFactor());
+                    foralli.getOutputRaceStrategy(), node->transfers, foralli.getUnrollFactor());
       for (const auto& consumer : consumers) {
         stmt = where(consumer, stmt);
       }

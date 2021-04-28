@@ -30,6 +30,9 @@ class Dimension;
 class Format;
 class Schedule;
 
+class Grid;
+class Transfer;
+
 class IndexVar;
 class WindowedIndexVar;
 class IndexSetVar;
@@ -627,6 +630,8 @@ public:
   // TODO (rohany): Comment this up later.
   IndexStmt distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Grid g);
 
+  IndexStmt pushCommUnder(Access a, IndexVar i);
+
   /// pos and coord create
   /// new index variables in their respective iteration spaces.
   /// pos requires a tensor access expression as input, that
@@ -767,7 +772,7 @@ public:
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
-  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0);
+  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, std::vector<Transfer> transfers, size_t unrollFactor = 0);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
@@ -778,13 +783,14 @@ public:
   size_t getUnrollFactor() const;
 
   bool isDistributed() const;
+  const std::vector<Transfer>& getTransfers() const;
 
   typedef ForallNode Node;
 };
 
 /// Create a forall index statement.
 Forall forall(IndexVar i, IndexStmt stmt);
-Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0);
+Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, std::vector<Transfer> transfers, size_t unrollFactor = 0);
 
 
 /// A where statment has a producer statement that binds a tensor variable in
