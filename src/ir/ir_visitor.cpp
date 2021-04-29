@@ -245,6 +245,10 @@ void IRVisitor::visit(const Continue*) {
 void IRVisitor::visit(const Break*) {
 }
 
+void IRVisitor::visit(const SideEffect* s) {
+  s->e.accept(this);
+}
+
 void IRVisitor::visit(const Print* op) {
   for (auto e: op->params)
     e.accept(this);

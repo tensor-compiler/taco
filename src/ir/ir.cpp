@@ -97,6 +97,9 @@ Expr Literal::zero(Datatype datatype) {
     case Datatype::Complex128:
       zero = Literal::make(std::complex<double>());
       break;
+    case Datatype::CppType:
+      taco_ierror;
+      break;
     case Datatype::Undefined:
       taco_ierror;
       break;
@@ -234,6 +237,9 @@ bool Literal::equalsScalar(double scalar) const {
     case Datatype::Complex128:
       return compare<std::complex<double>>(this, scalar);
     break;
+    case Datatype::CppType:
+      taco_not_supported_yet;
+      break;
     case Datatype::Undefined:
       taco_not_supported_yet;
     break;
@@ -822,6 +828,12 @@ Stmt Print::make(std::string fmt, std::vector<Expr> params) {
   pr->params = params;
   return pr;
 }
+
+Stmt SideEffect::make(Expr e) {
+  SideEffect* se = new SideEffect;
+  se->e = e;
+  return se;
+}
   
 Expr GetProperty::make(Expr tensor, TensorProperty property, int mode,
                        int index, std::string name) {
@@ -887,6 +899,11 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
       break;
     case TensorProperty::ValuesSize:
       gp->name = tensorVar->name + "_vals_size";
+      break;
+    case TensorProperty::IndexSpace:
+      gp->name = tensorVar->name + "_index_space";
+      // This has an index space type (TODO: can I write it here without the dimensions?).
+      gp->type = Datatype(Datatype::CppType);
       break;
   }
   
@@ -992,6 +1009,8 @@ template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
   const { v->visit((const Break*)this); }
 template<> void ExprNode<Deref>::accept(IRVisitorStrict *v)
 const { v->visit((const Deref*)this); }
+template<> void StmtNode<SideEffect>::accept(IRVisitorStrict *v)
+const { v->visit((const SideEffect*)this); }
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {

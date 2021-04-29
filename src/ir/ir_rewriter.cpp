@@ -529,5 +529,13 @@ void IRRewriter::visit(const Sort* op) {
   }
 }
 
+void IRRewriter::visit(const SideEffect* op) {
+  Expr e = rewrite(op->e);
+  if (e == op->e) {
+    stmt = op;
+  } else {
+    stmt = SideEffect::make(e);
+  }
+}
 
 }}

@@ -393,7 +393,14 @@ Datatype templateGen(std::string typ, T n) {
 
 
 // Legion types.
+Datatype Auto = Datatype(Datatype::CppType);
+Datatype TaskLauncher = Datatype("TaskLauncher");
+Datatype IndexLauncher = Datatype("IndexLauncher");
+Datatype TaskArgument = Datatype("TaskArgument");
+Datatype ArgumentMap = Datatype("ArgumentMap");
+Datatype LogicalPartition = Datatype("LogicalPartition");
 Datatype DomainPointColoring = Datatype("DomainPointColoring");
+Datatype RegionRequirement = Datatype("RegionRequirement");
 Datatype Point(int n) {
   return templateGen("Point", n);
 }

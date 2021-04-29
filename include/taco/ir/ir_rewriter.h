@@ -72,6 +72,7 @@ protected:
   virtual void visit(const GetProperty* op);
   virtual void visit(const Sort *op);
   virtual void visit(const Break *op);
+  virtual void visit(const SideEffect* op);
 };
 
 }}

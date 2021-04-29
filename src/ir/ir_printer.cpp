@@ -111,6 +111,9 @@ void IRPrinter::visit(const Literal* op) {
       stream << val.real() << " + I*" << val.imag();
     }
     break;
+    case Datatype::CppType:
+      taco_ierror << "Undefined C++ literal in IR";
+      break;
     case Datatype::Undefined:
       taco_ierror << "Undefined type in IR";
     break;
@@ -255,6 +258,12 @@ void IRPrinter::visit(const MethodCall* op) {
 void IRPrinter::visit(const Deref* op) {
   stream << "*";
   op->var.accept(this);
+}
+
+void IRPrinter::visit(const SideEffect* op) {
+  doIndent();
+  op->e.accept(this);
+  stream << ";" << endl;
 }
 
 void IRPrinter::visit(const IfThenElse* op) {

@@ -97,8 +97,20 @@ extern Datatype Complex128;
 
 // Some common legion types here.
 
+// A generic inferred C++ type.
+extern Datatype Auto;
+// Task and Index launchers.
+extern Datatype TaskLauncher;
+extern Datatype IndexLauncher;
+// Task arguments.
+extern Datatype TaskArgument;
+extern Datatype ArgumentMap;
+// Partitions.
+extern Datatype LogicalPartition;
 // A DomainPointColoring.
 extern Datatype DomainPointColoring;
+// A RegionRequirement.
+extern Datatype RegionRequirement;
 // An n-dimensional point.
 Datatype Point(int n);
 // An n-dimensional rectangle.

@@ -69,7 +69,8 @@ enum class IRNodeType {
   Sort,
   Break,
   MethodCall,
-  Deref
+  Deref,
+  SideEffect,
 };
 
 enum class TensorProperty {
@@ -80,7 +81,8 @@ enum class TensorProperty {
   ModeTypes,
   Indices,
   Values,
-  ValuesSize
+  ValuesSize,
+  IndexSpace,
 };
 
 /** Base class for backend IR */
@@ -780,6 +782,14 @@ struct Print : public StmtNode<Print> {
   static Stmt make(std::string fmt, std::vector<Expr> params={});
   
   static const IRNodeType _type_info = IRNodeType::Print;
+};
+
+struct SideEffect : public StmtNode<SideEffect> {
+  Expr e;
+
+  static Stmt make(Expr e);
+
+  static const IRNodeType _type_info = IRNodeType::SideEffect;
 };
 
 /** A tensor property.

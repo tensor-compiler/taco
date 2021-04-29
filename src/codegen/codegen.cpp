@@ -255,13 +255,16 @@ string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
     tp = "int";
     ret << tp << " " << varname << " = (int)(" << tensor->name
         << "->dimensions[" << op->mode << "]);\n";
+  } else if (op->property == TensorProperty::IndexSpace) {
+    tp = "auto";
+    ret << tp << " " << varname << " = " << tensor->name << ".get_index_space();\n";
   } else {
-    taco_iassert(op->property == TensorProperty::Indices);
-    tp = "int*";
-    auto nm = op->index;
-    ret << tp << " " << restrictKeyword() << " " << varname << " = ";
-    ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
-    ret << "][" << nm << "]);\n";
+      taco_iassert(op->property == TensorProperty::Indices);
+      tp = "int*";
+      auto nm = op->index;
+      ret << tp << " " << restrictKeyword() << " " << varname << " = ";
+      ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
+      ret << "][" << nm << "]);\n";
   }
 
   return ret.str();

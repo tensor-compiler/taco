@@ -1381,14 +1381,25 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     markAssignsAtomicDepth--;
   }
 
+
+  auto isTask = forall.isDistributed() || (forall.getTransfers().size() > 0);
   std::vector<ir::Stmt> transfers;
-  if (forall.getTransfers().size() > 0) {
-    // TODO (rohany): For now, we have only single dimension domains.
+  if (isTask) {
+    auto taskID = this->taskCounter;
+    this->taskCounter++;
+    // TODO (rohany): For now, we have only single dimension domains. We will get
+    //  this from the access. Probably have to define each of these for each transfer,
+    //  Since different transfers could have different dimensions.
     auto dim = 1;
     auto dimT = Domain(dim);
     auto pointInDimT = PointInDomainIterator(dim);
     auto pointT = Point(dim);
     auto rectT = Rect(dim);
+    auto disjointPart = ir::Var::make("LEGION_DISJOINT_KIND", Auto);
+    auto readOnly = ir::Var::make("READ_ONLY", Auto);
+    auto exclusive = ir::Var::make("EXCLUSIVE", Auto);
+    auto ctx = ir::Var::make("ctx", Auto);
+    auto tensorIndexSpace = ir::Var::make("dummyIndexSpace", Auto);
 
     auto domain = ir::Var::make("domain", dimT);
     transfers.push_back(ir::VarDecl::make(domain, ir::Call::make("getDomain", {}, dimT)));
@@ -1406,8 +1417,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     std::vector<Stmt> partStmts;
     // TODO (rohany): Either we need to point the iterator at the
     //  var for the index var, or rewrite the bound expressions to reference the
-    //  point iterator.
-//    auto point = ir::Var::make("point", pointT);
+    //  point iterator. Aside from the initial partitioning phase, which could
+    //  use multiple dimensions, this should always be 1 dimensional.
+    // auto point = ir::Var::make("point", pointT);
     auto point = this->indexVarToExprMap[forall.getIndexVar()];
     partStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, pointT)));
 
@@ -1441,16 +1453,165 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           ir::Block::make(partStmts)
     );
     transfers.push_back(l);
-  }
+
+    std::map<TensorVar, Expr> partitionings;
+    for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
+      auto& t = forall.getTransfers()[idx];
+      auto& tv = t.getAccess().getTensorVar();
+      auto coloring = colorings[idx];
+      auto part = ir::Var::make(tv.getName() + "Partition", Auto);
+      partitionings[tv] = part;
+      auto partcall = ir::Call::make(
+          "runtime->create_index_partition",
+          // TODO (rohany): I'm assuming that these are disjoint partitions right now. This probably
+          // isn't going to work in the general case. Perhaps I should just ask Legion to compute it,
+          // but it seems like something I should be able to figure out. In debugging, we can run
+          // everything with -lg:partcheck and find out when it is wrong.
+          {ctx, ir::GetProperty::make(this->tensorVars[tv], TensorProperty::IndexSpace), domain, coloring, disjointPart},
+          Auto
+      );
+      transfers.push_back(ir::VarDecl::make(part, partcall));
+    }
 
 
-  for (auto t : forall.getTransfers()) {
-    auto v = ir::Var::make("tx", Datatype::Int32);
-    auto tv = ir::Var::make(t.getAccess().getTensorVar().getName(), Datatype::Int32);
-    auto fcall = ir::Call::make("transfer", {tv}, Datatype::Int32);
-    transfers.push_back(ir::Assign::make(v, fcall));
+    if (forall.isDistributed()) {
+      // In a distributed for-all, we have to make an index launch.
+      std::vector<Stmt> itlStmts;
+      std::vector<Expr> regionReqs;
+      std::vector<Expr> regionReqArgs;
+      for (auto& it : this->tensorVars) {
+        // If the tensor is being transferred at this level, then use the
+        // corresponding partition. Otherwise, use the tensorvar itself.
+        if (util::contains(partitionings, it.first)) {
+          auto part = ir::Var::make(it.first.getName() + "LogicalPartition", LogicalPartition);
+          auto call = ir::Call::make("runtime->get_logical_partition", {ctx, it.second, partitionings.at(it.first)}, LogicalPartition);
+          itlStmts.push_back(ir::VarDecl::make(part, call));
+          regionReqArgs = {part, 0, readOnly, exclusive, it.second};
+        } else {
+          regionReqArgs = {it.second, readOnly, exclusive, it.second};
+        }
+        auto regReq = ir::Var::make(it.first.getName() + "Req", RegionRequirement);
+        auto makeReq = ir::Call::make(
+            RegionRequirement.getName(),
+            regionReqArgs,
+            RegionRequirement
+        );
+        itlStmts.push_back(ir::VarDecl::make(regReq, makeReq));
+        regionReqs.push_back(regReq);
+      }
+
+      // These args have to be for each of the subtasks.
+      auto args = ir::Var::make("taskArgs", Auto);
+      itlStmts.push_back(ir::VarDecl::make(args, ir::Call::make("packArgs", {}, Auto)));
+
+      auto launcher = ir::Var::make("launcher", IndexLauncher);
+      auto launcherMake = ir::Call::make(
+          IndexLauncher.getName(),
+          {
+              ir::Call::make("taskID", {taskID}, Datatype::Int32),
+              domain,
+              ir::Call::make(TaskArgument.getName(), {args}, TaskArgument),
+              ir::Call::make(ArgumentMap.getName(), {}, ArgumentMap),
+          },
+          IndexLauncher
+      );
+      itlStmts.push_back(ir::VarDecl::make(launcher, launcherMake));
+      for (auto& req : regionReqs) {
+        auto mcall = ir::MethodCall::make(launcher, "add_region_requirement", {req}, false /* deref */, Auto);
+        itlStmts.push_back(ir::SideEffect::make(mcall));
+      }
+
+      auto fm = ir::Var::make("fm", Auto);
+      auto fmCall = ir::Call::make(
+          "runtime->execute_index_space",
+          {ctx, launcher},
+          Auto
+      );
+      itlStmts.push_back(ir::VarDecl::make(fm, fmCall));
+
+      transfers.push_back(ir::Block::make(itlStmts));
+    } else {
+      // Otherwise, we make a loop that launches the task.
+      std::vector<Stmt> taskCallStmts;
+      taskCallStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, pointT)));
+      std::vector<Expr> regionReqs;
+      std::vector<Expr> regionReqArgs;
+      for (auto& it : this->tensorVars) {
+        // If the tensor is being transferred at this level, then use the
+        // corresponding partition. Otherwise, use the tensorvar itself.
+        if (util::contains(partitionings, it.first)) {
+          auto call = ir::Call::make(
+              "runtime->get_logical_subregion_by_color",
+              {
+                  ctx,
+                  ir::Call::make(
+                      "runtime->get_logical_partition",
+                      {ctx, it.second, partitionings.at(it.first)},
+                      Auto
+                  ),
+                  point
+              },
+              Auto
+          );
+          auto subreg = ir::Var::make(it.first.getName() + "subReg", Auto);
+          taskCallStmts.push_back(ir::VarDecl::make(subreg, call));
+          regionReqArgs = {subreg, readOnly, exclusive, it.second};
+        } else {
+          regionReqArgs = {it.second, readOnly, exclusive, it.second};
+        }
+
+        // TODO (rohany): Add fields on here.
+        // TODO (rohany): Do analysis to virtually map regions that this task doesn't access.
+        // TODO (rohany): Figure out which one we're writing into and use the appropriate privilege.
+        // TODO (rohany): Figure out the exclusive vs simultaneous etc.
+        auto regReq = ir::Var::make(it.first.getName() + "Req", RegionRequirement);
+        auto makeReq = ir::Call::make(
+            RegionRequirement.getName(),
+            regionReqArgs,
+            RegionRequirement
+        );
+        taskCallStmts.push_back(ir::VarDecl::make(regReq, makeReq));
+        regionReqs.push_back(regReq);
+      }
+
+      auto args = ir::Var::make("taskArgs", Auto);
+      taskCallStmts.push_back(ir::VarDecl::make(args, ir::Call::make("packArgs", {}, Auto)));
+
+      auto launcher = ir::Var::make("launcher", TaskLauncher);
+      auto launcherMake = ir::Call::make(
+        TaskLauncher.getName(),
+        {
+          ir::Call::make("taskID", {taskID}, Datatype::Int32),
+          ir::Call::make(TaskArgument.getName(), {args}, TaskArgument),
+        },
+        TaskLauncher
+      );
+      taskCallStmts.push_back(ir::VarDecl::make(launcher, launcherMake));
+      for (auto& req : regionReqs) {
+        auto mcall = ir::MethodCall::make(launcher, "add_region_requirement", {req}, false /* deref */, Auto);
+        taskCallStmts.push_back(ir::SideEffect::make(mcall));
+      }
+      // The actual task call.
+      auto tcall = ir::Call::make("runtime->execute_task", {ctx, launcher}, Auto);
+      taskCallStmts.push_back(ir::SideEffect::make(tcall));
+
+      auto tcallLoop = ir::For::make(
+          domainIter,
+          ir::Call::make(pointInDimT.getName(), {domain}, pointInDimT),
+          ir::MethodCall::make(domainIter, "valid", {}, false /* deref */, Datatype::Bool),
+          1 /* increment -- hack to get ++ */,
+          ir::Block::make(taskCallStmts)
+      );
+      transfers.push_back(tcallLoop);
+    }
   }
-  auto isTask = forall.isDistributed() || (forall.getTransfers().size() > 0);
+
+//  for (auto t : forall.getTransfers()) {
+//    auto v = ir::Var::make("tx", Datatype::Int32);
+//    auto tv = ir::Var::make(t.getAccess().getTensorVar().getName(), Datatype::Int32);
+//    auto fcall = ir::Call::make("transfer", {tv}, Datatype::Int32);
+//    transfers.push_back(ir::Assign::make(v, fcall));
+//  }
 
   body = Block::make({recoveryStmt, body});
 
