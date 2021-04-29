@@ -727,11 +727,10 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
   struct DistributedForallMarker : public IndexNotationRewriter {
     void visit(const ForallNode* node) {
       if (util::contains(this->distVars, node->indexVar)) {
-        stmt = forall(node->indexVar, node->stmt, ParallelUnit::DistributedNode, node->output_race_strategy, node->transfers, node->unrollFactor);
+        stmt = forall(node->indexVar, rewrite(node->stmt), ParallelUnit::DistributedNode, node->output_race_strategy, node->transfers, node->unrollFactor);
       } else {
-        stmt = node;
+        IndexNotationRewriter::visit(node);
       }
-      // TODO (rohany): How is this going to recurse under the forall?
     }
     std::set<IndexVar> distVars;
   };
@@ -739,7 +738,6 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
   m.distVars.insert(this->content->distVars.begin(), this->content->distVars.end());
   stmt = m.rewrite(stmt);
 
-//  std::cout << "final rewritten stmt: " << stmt << std::endl;
   return stmt;
 }
 

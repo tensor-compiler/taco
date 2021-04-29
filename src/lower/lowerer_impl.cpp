@@ -14,6 +14,7 @@
 #include "taco/lower/merge_lattice.h"
 #include "mode_access.h"
 #include "taco/util/collections.h"
+#include "taco/ir/ir_rewriter.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -401,6 +402,212 @@ LowererImpl::lower(IndexStmt stmt, string name,
   // Allocate and initialize append and insert mode indices
   Stmt initializeResults = initResultArrays(resultAccesses, inputAccesses,
                                             reducedAccesses);
+
+
+
+  // Begin hacking on bounds inference.
+  // We'll pretend that the `request` annotations are here somewhere.
+
+  // BoundsInferenceExprRewriter rewrites ...
+  // TODO (rohany): I don't have a solid understanding yet of what this really does.
+  struct BoundsInferenceExprRewriter : public IRRewriter {
+    BoundsInferenceExprRewriter(ProvenanceGraph &pg, Iterators &iterators,
+                                std::map<IndexVar, std::vector<ir::Expr>> &underivedBounds,
+                                std::map<IndexVar, ir::Expr> &indexVarToExprMap,
+                                std::set<IndexVar> &inScopeVars,
+                                std::map<ir::Expr, IndexVar>& exprToIndexVarMap,
+                                std::vector<IndexVar>& definedIndexVars,
+                                bool lower,
+                                std::set<IndexVar> presentIvars)
+        : pg(pg), iterators(iterators), underivedBounds(underivedBounds), indexVarToExprMap(indexVarToExprMap),
+          definedIndexVars(definedIndexVars), exprToIndexVarMap(exprToIndexVarMap), inScopeVars(inScopeVars), lower(lower),
+          presentIvars(presentIvars) {}
+
+    void visit(const Var* var) {
+      auto ivar = this->exprToIndexVarMap.at(var);
+      if (util::contains(this->inScopeVars, ivar)) {
+        // If this ivar is in scope of the request, then access along it is fixed.
+        expr = var;
+      } else if (!util::contains(this->presentIvars, ivar)) {
+        expr = this->pg.recoverVariable(ivar, this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators);
+        this->changed = true;
+      } else {
+        // Otherwise, the full bounds of this ivar will be accessed. So, derive the
+        // bounds. Depending on whether we are deriving a lower or upper bound, use the
+        // appropriate one.
+        auto bounds = this->pg.deriveIterBounds(ivar, this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators);
+        auto idx = lower ? 0 : 1;
+//        std::cout << "derived iter bounds: " << var->name << " " << bounds[idx] << std::endl;
+//        std::cout << this->indexVarToExprMap.count(this->exprToIndexVarMap[var]) << std::endl;
+        this->changed = true;
+        // If we are deriving an upper bound, we substitute an inclusive
+        // bound here. This ensures that we calculate indices for only the
+        // exact locations we access, and will map cleanly to Legion partitioning.
+        expr = ir::Sub::make(bounds[idx], ir::Literal::make(idx));
+      }
+    }
+
+    void visit(const GetProperty* gp) {
+      // TODO (rohany): For some reason, I need to have this empty visit method
+      //  for GetProperty here.
+      expr = gp;
+    }
+
+    ProvenanceGraph& pg;
+    Iterators& iterators;
+    std::map<IndexVar, std::vector<ir::Expr>>& underivedBounds;
+    std::map<IndexVar, ir::Expr>& indexVarToExprMap;
+    std::vector<IndexVar>& definedIndexVars;
+
+    std::map<ir::Expr, IndexVar>& exprToIndexVarMap;
+
+    std::set<IndexVar>& inScopeVars;
+
+    bool lower;
+
+    std::set<IndexVar> presentIvars;
+
+    bool changed = false;
+  };
+
+  // BoundsInferenceVisitor infers the exact bounds (inclusive) that each tensor is accessed on.
+  // In an actual implementation, this would happen as part of the lowering process, not a separate step.
+  struct BoundsInferenceVisitor : public IndexNotationVisitor {
+
+    BoundsInferenceVisitor(std::map<TensorVar, Expr> &tvs, ProvenanceGraph &pg, Iterators &iterators,
+                           std::map<IndexVar, std::vector<ir::Expr>>& underivedBounds, std::map<IndexVar, ir::Expr>& indexVarToExprMap,
+                           std::set<IndexVar> presentIvars)
+        : pg(pg), iterators(iterators), underivedBounds(underivedBounds), indexVarToExprMap(indexVarToExprMap),
+        presentIvars(presentIvars) {
+      for (auto &it : tvs) {
+        this->inScopeVars[it.first] = {};
+      }
+      for (auto& it : indexVarToExprMap) {
+        exprToIndexVarMap[it.second] = it.first;
+      }
+    }
+
+    void inferBounds(IndexStmt stmt) {
+      IndexStmtVisitorStrict::visit(stmt);
+    }
+    void inferBounds(IndexExpr expr) {
+      IndexExprVisitorStrict::visit(expr);
+    }
+
+    void visit(const ForallNode* node) {
+      // Add the forall variable to the scope for each tensorVar that hasn't
+      // been requested yet.
+      for (auto& it : this->inScopeVars) {
+        if (!util::contains(this->requestedTensorVars, it.first)) {
+          it.second.insert(node->indexVar);
+        }
+      }
+
+      for (auto& t : node->transfers) {
+        this->requestedTensorVars.insert(t.getAccess().getTensorVar());
+      }
+
+      // Recurse down the index statement.
+      this->definedIndexVars.push_back(node->indexVar);
+      this->forallDepth++;
+      this->inferBounds(node->stmt);
+    }
+
+    void visit(const AssignmentNode* node) {
+      this->inferBounds(node->lhs);
+      this->inferBounds(node->rhs);
+    }
+
+    void visit(const AccessNode* node) {
+      // For each variable of the access, find its bounds.
+      for (auto& var : node->indexVars) {
+        auto children = this->pg.getChildren(var);
+//        std::cout << "Access " << Access(node) << ": " << util::join(children) << std::endl;
+//        if (children.size() > 1) {
+//          std::cout << "Access recurse " << Access(node) << ": " << util::join(this->pg.getChildren(children[1])) << std::endl;
+//          std::cout << this->pg.recoverVariable(children[1], this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators);
+//        }
+        // If the index variable has no children, then it is a raw access.
+        if (children.size() == 0) {
+          // If the index variable is in scope for the request, then we will need to
+          // just access that point of the index variable. Otherwise, we will access
+          // the full bounds of that variable.
+          if (util::contains(this->inScopeVars[node->tensorVar], var)) {
+            auto expr = this->indexVarToExprMap[var];
+            this->derivedBounds[node->tensorVar].push_back({expr, expr});
+          } else {
+            this->derivedBounds[node->tensorVar].push_back(this->pg.deriveIterBounds(var, this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators));
+          }
+        } else {
+          // If the index variable has children, then we need to recover how it accesses
+          // the tensors in the expression based on how those children are made. We first
+          // calculate how to recover the index variable.
+          auto accessExpr = this->pg.recoverVariable(var, this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators);
+
+          // First, rewrite the expression to remove any variables that aren't actually present.
+
+          // Next, we repeatedly replace variables the recovered expression until it
+          // no longer changes. Exactly how the rewriting is done is detailed in the
+          // BoundsInferenceExprRewriter.
+//          std::cout << "Raw bound for access: " << Access(node) << " is " << accessExpr << std::endl;
+          auto rwFn = [&](bool lower, ir::Expr bound) {
+            BoundsInferenceExprRewriter rw(this->pg, this->iterators, this->underivedBounds, this->indexVarToExprMap,
+                                           this->inScopeVars[node->tensorVar], this->exprToIndexVarMap,
+                                           this->definedIndexVars, lower, this->presentIvars);
+            do {
+              rw.changed = false;
+              bound = rw.rewrite(bound);
+//              std::cout << "after rewrite: " << lower << " " << bound << std::endl;
+            } while(rw.changed);
+            return bound;
+          };
+          auto lo = ir::simplify(rwFn(true, accessExpr));
+          auto hi = ir::simplify(rwFn(false, accessExpr));
+          this->derivedBounds[node->tensorVar].push_back({lo, hi});
+        }
+      }
+    }
+
+    ProvenanceGraph& pg;
+    Iterators& iterators;
+    std::map<IndexVar, std::vector<ir::Expr>>& underivedBounds;
+    std::map<IndexVar, ir::Expr>& indexVarToExprMap;
+
+    std::map<ir::Expr, IndexVar> exprToIndexVarMap;
+
+    std::vector<IndexVar> definedIndexVars;
+    std::map<TensorVar, std::set<IndexVar>> inScopeVars;
+    std::set<TensorVar> requestedTensorVars;
+
+    std::set<IndexVar> presentIvars;
+
+    std::map<TensorVar, std::vector<std::vector<ir::Expr>>> derivedBounds;
+
+    int forallDepth = 0;
+  };
+
+//  if (name == "weija") {
+//    cout << stmt << endl;
+
+    std::set<IndexVar> presentIvars;
+    match(stmt, function<void(const ForallNode*)>([&](const ForallNode* f) {
+      presentIvars.insert(f->indexVar);
+    }));
+
+    BoundsInferenceVisitor bi(this->tensorVars, this->provGraph, this->iterators, this->underivedBounds, this->indexVarToExprMap, presentIvars);
+    bi.inferBounds(stmt);
+
+    for (auto it : bi.derivedBounds) {
+      cout << "Bounds for: " << it.first.getName() << endl;
+      for (auto& bounds : it.second) {
+        cout << util::join(bounds) << endl;
+      }
+    }
+    this->derivedBounds = bi.derivedBounds;
+//  }
+
+
+
 
   // Lower the index statement to compute and/or assemble
   Stmt body = lower(stmt);
@@ -1185,17 +1392,28 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto domainIter = ir::Var::make("itr", pointInDimT);
 
     std::vector<Stmt> partStmts;
-    auto point = ir::Var::make("point", pointT);
+    // TODO (rohany): Either we need to point the iterator at the
+    //  var for the index var, or rewrite the bound expressions to reference the
+    //  point iterator.
+//    auto point = ir::Var::make("point", pointT);
+    auto point = this->indexVarToExprMap[forall.getIndexVar()];
     partStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, pointT)));
 
     // Add a dummy partition object for each transfer.
     for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
       auto& t = forall.getTransfers()[idx];
       auto n = t.getAccess().getTensorVar().getName();
+
+      auto bounds = this->derivedBounds[t.getAccess().getTensorVar()];
+      std::vector<Expr> los, his;
+      for (auto dimIdx = 0; dimIdx < dim; dimIdx++) {
+        los.push_back(bounds[dimIdx][0]);
+        his.push_back(bounds[dimIdx][1]);
+      }
       auto start = ir::Var::make(n + "Start", pointT);
       auto end = ir::Var::make(n + "End", pointT);
-      partStmts.push_back(ir::VarDecl::make(start, ir::Call::make(pointT.getName(), {0}, pointT)));
-      partStmts.push_back(ir::VarDecl::make(end, ir::Call::make(pointT.getName(), {0}, pointT)));
+      partStmts.push_back(ir::VarDecl::make(start, ir::Call::make(pointT.getName(),  los, pointT)));
+      partStmts.push_back(ir::VarDecl::make(end, ir::Call::make(pointT.getName(), his, pointT)));
       auto rect = ir::Var::make(n + "Rect", rectT);
       partStmts.push_back(ir::VarDecl::make(rect, ir::Call::make(rectT.getName(), {start, end}, rectT)));
 

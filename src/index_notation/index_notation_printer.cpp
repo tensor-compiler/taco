@@ -228,6 +228,8 @@ void IndexNotationPrinter::visit(const ForallNode* op) {
   op->stmt.accept(this);
   if (op->parallel_unit != ParallelUnit::NotParallel) {
     os << ", " << ParallelUnit_NAMES[(int) op->parallel_unit] << ", " << OutputRaceStrategy_NAMES[(int) op->output_race_strategy];
+  }
+  if (op->transfers.size() != 0) {
     os << ", transfers: " << util::join(op->transfers);
   }
   os << ")";

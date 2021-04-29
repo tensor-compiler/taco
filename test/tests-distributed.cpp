@@ -11,13 +11,16 @@ TEST(distributed, test) {
   Tensor<int> a("a", {dim}, Format{Dense});
   Tensor<int> b("b", {dim}, Format{Dense});
 
-  IndexVar i("i"), in("in"), il("il");
+  IndexVar i("i"), in("in"), il("il"), il1 ("il1"), il2("il2");
   a(i) = b(i);
   auto stmt = a.getAssignment().concretize();
   stmt = stmt.distribute({i}, {in}, {il}, Grid(2));
+  stmt = stmt.split(il, il1, il2, 256);
+
 
   // Communication modification must go at the end.
-  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
+  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), il1);
+//  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
 
   auto lowered = lower(stmt, "compute", false, true);
   std::cout << lowered << std::endl;

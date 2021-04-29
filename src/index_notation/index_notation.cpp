@@ -1584,9 +1584,9 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
         // Copy the transfers over.
         Transfers newTransfers = node->transfers;
         newTransfers.erase(newTransfers.begin() + foundIdx);
-        stmt = forall(node->indexVar, node->stmt, node->parallel_unit, node->output_race_strategy, newTransfers, node->unrollFactor);
+        stmt = forall(node->indexVar, rewrite(node->stmt), node->parallel_unit, node->output_race_strategy, newTransfers, node->unrollFactor);
       } else {
-        stmt = node;
+        IndexNotationRewriter::visit(node);
       }
     }
     Access a;
@@ -1598,13 +1598,14 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
   struct TransferAdder : public IndexNotationRewriter {
     TransferAdder(Access a, IndexVar i) : a(a), i(i) {}
     void visit(const ForallNode* node) {
+      auto istmt = rewrite(node->stmt);
       if (node->indexVar == i) {
         // Copy the transfers over;
         Transfers newTransfers = node->transfers;
         newTransfers.push_back(this->a);
-        stmt = forall(node->indexVar, node->stmt, node->parallel_unit, node->output_race_strategy, newTransfers, node->unrollFactor);
+        stmt = forall(node->indexVar, rewrite(node->stmt), node->parallel_unit, node->output_race_strategy, newTransfers, node->unrollFactor);
       } else {
-        stmt = node;
+        IndexNotationRewriter::visit(node);
       }
     }
     Access a;
@@ -1613,8 +1614,7 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
   TransferAdder adder(a, i);
   stmt = adder.rewrite(stmt);
 
-  std::cout << "final stmt: " << stmt << std::endl;
-
+  std::cout << "Statment: " << stmt << std::endl;
   return stmt;
 }
 

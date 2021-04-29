@@ -514,6 +514,8 @@ private:
   friend class Visitor;
   std::shared_ptr<Visitor> visitor;
 
+  std::map<TensorVar, std::vector<std::vector<ir::Expr>>> derivedBounds;
+
 };
 
 }
