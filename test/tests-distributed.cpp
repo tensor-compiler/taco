@@ -4,6 +4,7 @@
 #include "taco/index_notation/distribution.h"
 #include "taco/lower/lower.h"
 #include "codegen/codegen.h"
+#include "codegen/codegen_legion_c.h"
 
 using namespace taco;
 
@@ -21,15 +22,16 @@ TEST(distributed, test) {
 
   // Communication modification must go at the end.
   // TODO (rohany): name -- placement
-  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), il1);
+//  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), il1);
 //  stmt = stmt.pushCommUnder(a(i), il1).pushCommUnder(b(i), il1);
-//  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
+  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
 
   auto lowered = lower(stmt, "compute", false, true);
-  std::cout << lowered << std::endl;
+//  std::cout << lowered << std::endl;
 
 //  auto codegen = ir::CodeGen::init_default(std::cout, taco::ir::CodeGen::ImplementationGen);
-//  codegen->compile(lowered);
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(lowered);
 
   // TODO (rohany): Look at module.cpp:61 to see the raw C source code.
 }

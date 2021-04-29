@@ -58,12 +58,13 @@ protected:
   void doIndentStream(std::stringstream &stream);
   CodeGenType codeGenType;
 
+  virtual std::string unpackTensorProperty(std::string varname, const GetProperty* op,
+                                           bool is_output_prop);
+
 private:
   virtual std::string restrictKeyword() const { return ""; }
 
   std::string printTensorProperty(std::string varname, const GetProperty* op, bool is_ptr);
-  std::string unpackTensorProperty(std::string varname, const GetProperty* op,
-                              bool is_output_prop);
   std::string packTensorProperty(std::string varname, Expr tnsr, TensorProperty property,
                             int mode, int index);
   std::string pointTensorProperty(std::string varname);

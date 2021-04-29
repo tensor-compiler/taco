@@ -465,6 +465,12 @@ void CodeGen_C::visit(const While* op) {
 }
 
 void CodeGen_C::visit(const GetProperty* op) {
+  // TODO (rohany): Why are my properties not in the varmap?
+  if (varMap.count(op) == 0) {
+    out << op->name;
+    return;
+  }
+
   taco_iassert(varMap.count(op) > 0) <<
       "Property " << Expr(op) << " of " << op->tensor << " not found in varMap";
   out << varMap[op];

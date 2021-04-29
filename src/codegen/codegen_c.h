@@ -54,7 +54,7 @@ protected:
 
   class FindVars;
 
-private:
+//private:
   virtual std::string restrictKeyword() const { return "restrict"; }
 };
 
