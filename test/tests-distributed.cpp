@@ -26,10 +26,10 @@ TEST(distributed, test) {
 //  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
 
   auto lowered = lower(stmt, "compute", false, true);
-//  std::cout << lowered << std::endl;
+  std::cout << lowered << std::endl;
 
-  auto codegen = ir::CodeGen::init_default(std::cout, taco::ir::CodeGen::ImplementationGen);
-  codegen->compile(lowered);
+//  auto codegen = ir::CodeGen::init_default(std::cout, taco::ir::CodeGen::ImplementationGen);
+//  codegen->compile(lowered);
 
   // TODO (rohany): Look at module.cpp:61 to see the raw C source code.
 }

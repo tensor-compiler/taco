@@ -640,10 +640,13 @@ struct For : public StmtNode<For> {
   // An option is to make an IR node Task that holds onto a For within it
   // as well as other stuff.
   bool isTask;
+  int taskID = -1;
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
                    Stmt contents, LoopKind kind=LoopKind::Serial,
-                   ParallelUnit parallel_unit=ParallelUnit::NotParallel, size_t unrollFactor=0, int vec_width=0, bool isTask=false);
+                   ParallelUnit parallel_unit=ParallelUnit::NotParallel,
+                   size_t unrollFactor=0, int vec_width=0,
+                   bool isTask=false, int taskID=-1);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };

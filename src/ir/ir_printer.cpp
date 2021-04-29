@@ -407,7 +407,7 @@ void IRPrinter::visit(const For* op) {
     stream << "distributed ";
   }
   if (op->isTask) {
-    stream << "task ";
+    stream << "task #" << op->taskID << " " ;
   }
   stream << keywordString("for") << " (" 
          << keywordString(util::toString(op->var.type())) << " ";

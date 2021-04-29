@@ -331,7 +331,7 @@ void IRRewriter::visit(const For* op) {
   }
   else {
     stmt = For::make(var, start, end, increment, contents, op->kind,
-                     op->parallel_unit, op->unrollFactor, op->vec_width, op->isTask);
+                     op->parallel_unit, op->unrollFactor, op->vec_width, op->isTask, op->taskID);
   }
 }
 

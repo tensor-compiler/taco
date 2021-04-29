@@ -666,7 +666,8 @@ Stmt Switch::make(std::vector<std::pair<Expr,Stmt>> cases, Expr controlExpr) {
 
 // For loop
 Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
-  LoopKind kind, ParallelUnit parallel_unit, size_t unrollFactor, int vec_width, bool isTask) {
+  LoopKind kind, ParallelUnit parallel_unit, size_t unrollFactor, int vec_width,
+  bool isTask, int taskID) {
   For *loop = new For;
   loop->var = var;
   loop->start = start;
@@ -678,6 +679,7 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
   loop->vec_width = vec_width;
   loop->parallel_unit = parallel_unit;
   loop->isTask = isTask;
+  loop->taskID = taskID;
   return loop;
 }
 

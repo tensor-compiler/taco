@@ -1383,9 +1383,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
 
   auto isTask = forall.isDistributed() || (forall.getTransfers().size() > 0);
+  auto taskID = -1;
   std::vector<ir::Stmt> transfers;
   if (isTask) {
-    auto taskID = this->taskCounter;
+    taskID = this->taskCounter;
     this->taskCounter++;
     // TODO (rohany): For now, we have only single dimension domains. We will get
     //  this from the access. Probably have to define each of these for each transfer,
@@ -1638,7 +1639,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
                                  ignoreVectorize ? 0 : forall.getUnrollFactor(),
                                  // TODO (rohany): What do we do for vector width here?
                                  0,
-                                 isTask),
+                                 isTask, taskID),
                        posAppend);
 }
 

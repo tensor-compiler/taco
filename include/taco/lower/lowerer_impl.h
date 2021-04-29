@@ -510,7 +510,7 @@ private:
   /// Visitor methods can add code to emit it to the function footer.
   std::vector<ir::Stmt> footer;
 
-  int taskCounter = 0;
+  int taskCounter = 1;
 
   class Visitor;
   friend class Visitor;
