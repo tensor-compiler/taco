@@ -20,6 +20,7 @@ TEST(distributed, test) {
 
   // Communication modification must go at the end.
   stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), il1);
+//  stmt = stmt.pushCommUnder(a(i), il1).pushCommUnder(b(i), il1);
 //  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
 
   auto lowered = lower(stmt, "compute", false, true);

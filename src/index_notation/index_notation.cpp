@@ -1613,8 +1613,6 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
   };
   TransferAdder adder(a, i);
   stmt = adder.rewrite(stmt);
-
-  std::cout << "Statment: " << stmt << std::endl;
   return stmt;
 }
 

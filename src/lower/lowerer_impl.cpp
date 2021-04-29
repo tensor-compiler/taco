@@ -406,7 +406,6 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
 
   // Begin hacking on bounds inference.
-  // We'll pretend that the `request` annotations are here somewhere.
 
   // BoundsInferenceExprRewriter rewrites ...
   // TODO (rohany): I don't have a solid understanding yet of what this really does.
@@ -428,17 +427,43 @@ LowererImpl::lower(IndexStmt stmt, string name,
       if (util::contains(this->inScopeVars, ivar)) {
         // If this ivar is in scope of the request, then access along it is fixed.
         expr = var;
-      } else if (!util::contains(this->presentIvars, ivar)) {
-        expr = this->pg.recoverVariable(ivar, this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators);
-        this->changed = true;
-      } else {
+      }
+      else {
+
+        // If a variable being derived is not even going to be present in the loop
+        // (i.e. a variable that we split again), then we might want to expand it
+        // into the variables that derive it. However, if neither of those variables
+        // are in scope, then the bounds the provenance graph provides us for the
+        // suspect variable are the ones we should take.
+        if (!util::contains(this->presentIvars, ivar)) {
+          struct InscopeVarVisitor : public IRVisitor {
+            void visit(const Var* var) {
+              if (util::contains(this->inScopeVars, this->exprToIndexVarMap[var])) {
+                this->anyInScope = true;
+              }
+            }
+            std::set<IndexVar> inScopeVars;
+            std::map<Expr, IndexVar> exprToIndexVarMap;
+            bool anyInScope = false;
+          };
+          InscopeVarVisitor isv; isv.inScopeVars = this->inScopeVars; isv.exprToIndexVarMap = this->exprToIndexVarMap;
+          auto recovered = this->pg.recoverVariable(ivar, this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators);
+          recovered.accept(&isv);
+          // If there are some variables in scope, use this as the rewritten expression.
+          // A future call to the rewriter will expand the resulting variables.
+          if (isv.anyInScope) {
+            this->expr = recovered;
+            this->changed = true;
+            return;
+          }
+        }
+
+
         // Otherwise, the full bounds of this ivar will be accessed. So, derive the
         // bounds. Depending on whether we are deriving a lower or upper bound, use the
         // appropriate one.
         auto bounds = this->pg.deriveIterBounds(ivar, this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators);
         auto idx = lower ? 0 : 1;
-//        std::cout << "derived iter bounds: " << var->name << " " << bounds[idx] << std::endl;
-//        std::cout << this->indexVarToExprMap.count(this->exprToIndexVarMap[var]) << std::endl;
         this->changed = true;
         // If we are deriving an upper bound, we substitute an inclusive
         // bound here. This ensures that we calculate indices for only the
@@ -522,11 +547,6 @@ LowererImpl::lower(IndexStmt stmt, string name,
       // For each variable of the access, find its bounds.
       for (auto& var : node->indexVars) {
         auto children = this->pg.getChildren(var);
-//        std::cout << "Access " << Access(node) << ": " << util::join(children) << std::endl;
-//        if (children.size() > 1) {
-//          std::cout << "Access recurse " << Access(node) << ": " << util::join(this->pg.getChildren(children[1])) << std::endl;
-//          std::cout << this->pg.recoverVariable(children[1], this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators);
-//        }
         // If the index variable has no children, then it is a raw access.
         if (children.size() == 0) {
           // If the index variable is in scope for the request, then we will need to
@@ -544,12 +564,9 @@ LowererImpl::lower(IndexStmt stmt, string name,
           // calculate how to recover the index variable.
           auto accessExpr = this->pg.recoverVariable(var, this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators);
 
-          // First, rewrite the expression to remove any variables that aren't actually present.
-
           // Next, we repeatedly replace variables the recovered expression until it
           // no longer changes. Exactly how the rewriting is done is detailed in the
           // BoundsInferenceExprRewriter.
-//          std::cout << "Raw bound for access: " << Access(node) << " is " << accessExpr << std::endl;
           auto rwFn = [&](bool lower, ir::Expr bound) {
             BoundsInferenceExprRewriter rw(this->pg, this->iterators, this->underivedBounds, this->indexVarToExprMap,
                                            this->inScopeVars[node->tensorVar], this->exprToIndexVarMap,
@@ -557,7 +574,6 @@ LowererImpl::lower(IndexStmt stmt, string name,
             do {
               rw.changed = false;
               bound = rw.rewrite(bound);
-//              std::cout << "after rewrite: " << lower << " " << bound << std::endl;
             } while(rw.changed);
             return bound;
           };
@@ -586,28 +602,24 @@ LowererImpl::lower(IndexStmt stmt, string name,
     int forallDepth = 0;
   };
 
-//  if (name == "weija") {
-//    cout << stmt << endl;
+  std::set<IndexVar> presentIvars;
+  match(stmt, function<void(const ForallNode*)>([&](const ForallNode* f) {
+    presentIvars.insert(f->indexVar);
+  }));
 
-    std::set<IndexVar> presentIvars;
-    match(stmt, function<void(const ForallNode*)>([&](const ForallNode* f) {
-      presentIvars.insert(f->indexVar);
-    }));
+  BoundsInferenceVisitor bi(this->tensorVars, this->provGraph, this->iterators, this->underivedBounds, this->indexVarToExprMap, presentIvars);
+  bi.inferBounds(stmt);
+  this->derivedBounds = bi.derivedBounds;
 
-    BoundsInferenceVisitor bi(this->tensorVars, this->provGraph, this->iterators, this->underivedBounds, this->indexVarToExprMap, presentIvars);
-    bi.inferBounds(stmt);
-
-    for (auto it : bi.derivedBounds) {
-      cout << "Bounds for: " << it.first.getName() << endl;
-      for (auto& bounds : it.second) {
-        cout << util::join(bounds) << endl;
-      }
-    }
-    this->derivedBounds = bi.derivedBounds;
+//  for (auto it : bi.inScopeVars) {
+//    std::cout << "Vars in scope for " << it.first << ": " << util::join(it.second) << std::endl;
 //  }
-
-
-
+//  for (auto it : bi.derivedBounds) {
+//    cout << "Bounds for: " << it.first.getName() << endl;
+//    for (auto& bounds : it.second) {
+//      cout << util::join(bounds) << endl;
+//    }
+//  }
 
   // Lower the index statement to compute and/or assemble
   Stmt body = lower(stmt);
