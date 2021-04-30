@@ -3378,9 +3378,6 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
 
           if (this->legion) {
             // Emit the point accessor for it here.
-            auto ivars = getIndexVarFamily(locateIterator);
-//            std::cout << "ivar family for tensor: " << locator.getTensor() << " -> " << util::join(ivars) << std::endl;
-            auto pointT = Point(ivars.size());
             // TODO (rohany): Use a reverse map.
             TensorVar tv;
             for (auto& it : this->tensorVars) {
@@ -3388,17 +3385,17 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
                 tv = it.first;
               }
             }
-            // TODO (rohany): Declare this var in a map in the lowerer.
-            auto point = this->pointAccessVars[tv];
-            std::function<Expr(IndexVar)> getExpr = [&](IndexVar i) {
-//              if (!util::contains(this->indexVarToExprMap, i)) {
-//                std::cout << "couldn't find var " << i << " in map " << util::join(this->indexVarToExprMap) << std::endl;
-////                std::cout <<
-//              }
-              return this->indexVarToExprMap.at(i);
-            };
-            auto makePoint = makeConstructor(pointT, util::map(ivars, getExpr));
-            result.push_back(ir::VarDecl::make(point, makePoint));
+            if (!util::contains(this->emittedPointAccessors, tv)) {
+              auto ivars = getIndexVarFamily(locateIterator);
+              auto pointT = Point(ivars.size());
+              auto point = this->pointAccessVars[tv];
+              std::function<Expr(IndexVar)> getExpr = [&](IndexVar i) {
+                return this->indexVarToExprMap.at(i);
+              };
+              auto makePoint = makeConstructor(pointT, util::map(ivars, getExpr));
+              result.push_back(ir::VarDecl::make(point, makePoint));
+              this->emittedPointAccessors.insert(tv);
+            }
           }
           break;
         }

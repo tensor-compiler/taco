@@ -465,6 +465,7 @@ private:
   std::set<TensorVar> guardedTemps;
   // TODO (rohany): This assumes that TensorVars don't appear twice.
   std::map<TensorVar, ir::Expr> pointAccessVars;
+  std::set<TensorVar> emittedPointAccessors;
 
   /// Map from result tensors to variables tracking values array capacity.
   std::map<ir::Expr, ir::Expr> capacityVars;

@@ -1,5 +1,7 @@
 #include "codegen_legion_c.h"
 #include "codegen_c.h"
+#include "taco/util/strings.h"
+#include <algorithm>
 
 namespace taco {
 namespace ir {
@@ -120,13 +122,11 @@ std::string CodegenLegionC::unpackTensorProperty(std::string varname, const GetP
   ret << "  ";
   if (op->property == TensorProperty::Dimension) {
     tp = "int";
-    ret << tp << " " << varname << " = runtime->get_index_space_domain(" << tensor->name <<
-    ".get_index_space()).hi()[" << op->mode << "] + 1;\n";
-//    ret << tp << " " << varname << " = (int)(" << tensor->name
-//        << "->dimensions[" << op->mode << "]);\n";
+    ret << tp << " " << varname << " = runtime->get_index_space_domain(get_index_space(" << tensor->name <<
+    ")).hi()[" << op->mode << "] + 1;\n";
   } else if (op->property == TensorProperty::IndexSpace) {
     tp = "auto";
-    ret << tp << " " << varname << " = " << tensor->name << ".get_index_space();\n";
+    ret << tp << " " << varname << " = get_index_space(" << tensor->name << ");\n";
   } else if (op->property == TensorProperty::ValuesReadAccessor) {
     ret << "AccessorRO" << printType(op->type, false) << " " << varname << "(" << tensor->name << ", FID_VAL);\n";
   } else if (op->property == TensorProperty::ValuesWriteAccessor) {
@@ -171,6 +171,64 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
     auto func = stmt.as<Function>();
     this->regionArgs.insert(this->regionArgs.end(), func->outputs.begin(), func->outputs.end());
     this->regionArgs.insert(this->regionArgs.end(), func->inputs.begin(), func->inputs.end());
+  }
+
+  struct VarsUsedByTask : public IRVisitor {
+    void visit(const Var* v) {
+      if (this->usedVars.size() == 0) {
+        this->usedVars.push_back({});
+      }
+      this->usedVars.back().insert(v);
+    }
+
+    // We don't want to visit the variables within GetProperty objects.
+    void visit(const GetProperty* g) {}
+
+    void visit(const VarDecl* v) {
+      if (this->varsDeclared.size() == 0) {
+        this->varsDeclared.push_back({});
+      }
+      this->varsDeclared.back().insert(v->var);
+    }
+
+    void visit(const For* f) {
+      if (f->isTask) {
+        this->usedVars.push_back({});
+        this->varsDeclared.push_back({});
+      }
+      // If f is a task, then it needs it's iteration variable passed down. If f is
+      // a task, then we can treat it as _using_ the iteration variable.
+      if (!f->isTask) {
+        this->varsDeclared.back().insert(f->var);
+      } else {
+        this->usedVars.back().insert(f->var);
+      }
+
+      f->start.accept(this);
+      f->end.accept(this);
+      f->increment.accept(this);
+      f->contents.accept(this);
+    }
+
+    std::vector<std::set<Expr>> usedVars;
+    std::vector<std::set<Expr>> varsDeclared;
+  };
+  VarsUsedByTask v;
+  stmt.accept(&v);
+  for (auto it : v.usedVars) {
+    std::cout << "Used vars in task: " << util::join(it) << std::endl;
+  }
+  for (auto it : v.varsDeclared) {
+    std::cout << "Vars declared by task: " << util::join(it) << std::endl;
+  }
+
+  for (int i = v.usedVars.size() - 1; i > 0; i--) {
+    // Try to find the variables needed by a task. It's all the variables it uses that it doesn't
+    // declare and are used by tasks above it.
+    std::vector<Expr> uses;
+    std::set_difference(v.usedVars[i].begin(), v.usedVars[i].end(), v.varsDeclared[i].begin(), v.varsDeclared[i].end(), std::back_inserter(uses));
+    // I want to pass this uses set up to the parent so that they know about it.
+    std::cout << "Weija: " << util::join(uses) << std::endl;
   }
 
   for (auto& f : util::reverse(this->functions)) {
@@ -238,10 +296,7 @@ void CodegenLegionC::visit(const Function* func) {
     for (size_t i = 0; i < this->regionArgs.size(); i++) {
       doIndent();
       auto t = this->regionArgs[i];
-      out << "PhysicalRegion ";
-      IRPrinter p(out);
-      t.accept(&p);
-      out << " = regions[" << i << "];\n";
+      out << "PhysicalRegion " << t << " = regions[" << i << "];\n";
     }
     out << "\n";
   }
