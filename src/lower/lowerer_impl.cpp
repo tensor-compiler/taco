@@ -103,11 +103,7 @@ static void getDependentTensors(IndexStmt stmt, std::set<TensorVar>& tensors) {
   } while (prev != tensors);
 }
 
-static bool needComputeValues(IndexStmt stmt, TensorVar tensor) {
-  if (tensor.getType().getDataType() != Bool) {
-    return true;
-  }
-
+static bool returnsTrue(IndexExpr expr) {
   struct ReturnsTrue : public IndexExprRewriterStrict {
     void visit(const AccessNode* op) {
       if (op->isAccessingStructure) {
@@ -147,13 +143,19 @@ static bool needComputeValues(IndexStmt stmt, TensorVar tensor) {
     void visit(const CallIntrinsicNode* op) {}
     void visit(const ReductionNode* op) {}
   };
+  return ReturnsTrue().rewrite(expr).defined();
+}
+
+static bool needComputeValues(IndexStmt stmt, TensorVar tensor) {
+  if (tensor.getType().getDataType() != Bool) {
+    return true;
+  }
 
   bool needComputeValue = false;
   match(stmt,
     function<void(const AssignmentNode*, Matcher*)>([&](
         const AssignmentNode* n, Matcher* m) {
-      if (n->lhs.getTensorVar() == tensor &&
-          !ReturnsTrue().rewrite(n->rhs).defined()) {
+      if (n->lhs.getTensorVar() == tensor && !returnsTrue(n->rhs)) {
         needComputeValue = true;
       }
     })
@@ -529,7 +531,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
 }
 
 
-  Stmt LowererImpl::lowerYield(Yield yield) {
+Stmt LowererImpl::lowerYield(Yield yield) {
   std::vector<Expr> coords;
   for (auto& indexVar : yield.getIndexVars()) {
     coords.push_back(getCoordinateVar(indexVar));
@@ -1687,8 +1689,10 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, I
   vector<Iterator> inserters;
   tie(appenders, inserters) = splitAppenderAndInserters(lattice.results());
 
-  // Just one iterator so no conditionals
-  if (lattice.iterators().size() == 1) {
+  // Just one iterator or all cases require the same computation, so no 
+  // conditionals needed
+  if (lattice.iterators().size() == 1 || (lattice.exact() && 
+      isa<Assignment>(stmt) && returnsTrue(stmt.as<Assignment>().getRhs()))) {
     Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
                                 appenders, reducedAccesses);
     result.push_back(body);
@@ -1700,24 +1704,28 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, I
       // Construct case expression
       vector<Expr> coordComparisons;
       for (Iterator iterator : point.rangers()) {
-        if (!(provGraph.isCoordVariable(iterator.getIndexVar()) && provGraph.isDerivedFrom(iterator.getIndexVar(), coordinateVar))) {
+        if (!(provGraph.isCoordVariable(iterator.getIndexVar()) && 
+            provGraph.isDerivedFrom(iterator.getIndexVar(), coordinateVar))) {
           coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
         }
       }
 
-      // Construct case body
-      IndexStmt zeroedStmt = zero(stmt, getExhaustedAccesses(point, lattice));
-      Stmt body = lowerForallBody(coordinate, zeroedStmt, {},
-                                  inserters, appenders, reducedAccesses);
       if (coordComparisons.empty()) {
         Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
                                     appenders, reducedAccesses);
         result.push_back(body);
         break;
       }
+
+      // Construct case body
+      IndexStmt zeroedStmt = zero(stmt, getExhaustedAccesses(point, lattice));
+      Stmt body = lowerForallBody(coordinate, zeroedStmt, {},
+                                  inserters, appenders, reducedAccesses);
       cases.push_back({taco::ir::conjunction(coordComparisons), body});
     }
-    result.push_back(Case::make(cases, lattice.exact()));
+    if (!cases.empty()) {
+      result.push_back(Case::make(cases, lattice.exact()));
+    }
   }
 
   return Block::make(result);
@@ -2664,7 +2672,11 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
     // Initialize begin var
     if (resultIterator.hasAppend() && !resultIterator.isBranchless()) {
       Expr begin = resultIterator.getBeginVar();
-      result.push_back(VarDecl::make(begin, resultIterator.getPosVar()));
+      Iterator posIter = resultIterator;
+      while (!posIter.isLeaf() && posIter.getChild().isBranchless()) {
+        posIter = posIter.getChild();
+      }
+      result.push_back(VarDecl::make(begin, posIter.getPosVar()));
     }
 
     const bool isTopLevel = (iterators.size() == write.getIndexVars().size());
@@ -2818,7 +2830,8 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
           break;
         }
         locateIterator = locateIterator.getChild();
-      } while (accessibleIterators.contains(locateIterator));
+      } while (locateIterator.hasLocate() && 
+               accessibleIterators.contains(locateIterator));
     }
   }
   return result.empty() ? Stmt() : Block::make(result);

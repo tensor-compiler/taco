@@ -578,9 +578,9 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
                                      << tensor << "'";
 
       AssembleStrategy assemble_strategy;
-      if (strategy == "append") {
+      if (strategy == "Append") {
         assemble_strategy = AssembleStrategy::Append;
-      } else if (strategy == "insert") {
+      } else if (strategy == "Insert") {
         assemble_strategy = AssembleStrategy::Insert;
       } else {
         taco_uerror << "Assemble strategy not defined.";
@@ -1100,13 +1100,12 @@ int main(int argc, char* argv[]) {
   IndexStmt stmt =
       makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
   stmt = reorderLoopsTopologically(stmt);
-  stmt = insertTemporaries(stmt); // TODO: move back down
 
   if (setSchedule) {
     cuda |= setSchedulingCommands(scheduleCommands, parser, stmt);
   }
   else {
-    //stmt = insertTemporaries(stmt);
+    stmt = insertTemporaries(stmt);
     stmt = parallelizeOuterLoop(stmt);
   }
 

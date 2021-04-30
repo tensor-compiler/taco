@@ -13,6 +13,9 @@
 #include <iostream>
 #include <algorithm>
 #include <limits>
+#include <set>
+#include <map>
+#include <vector>
 
 using namespace std;
 
@@ -171,6 +174,12 @@ static bool containsExpr(Assignment assignment, IndexExpr expr) {
     IndexExpr expr;
     bool contains = false;
 
+    void visit(const AccessNode* node) {
+      if (equals(IndexExpr(node), expr)) {
+        contains = true;
+      }
+    }
+
     void visit(const UnaryExprNode* node) {
       if (equals(IndexExpr(node), expr)) {
         contains = true;
@@ -213,6 +222,60 @@ static Assignment getAssignmentContainingExpr(IndexStmt stmt, IndexExpr expr) {
   return assignment;
 }
 
+static IndexStmt eliminateRedundantReductions(IndexStmt stmt, 
+    const std::set<TensorVar>* const candidates = nullptr) {
+
+  struct ReduceToAssign : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    const std::set<TensorVar>* const candidates;
+    std::map<TensorVar,std::set<IndexVar>> availableVars;
+
+    ReduceToAssign(const std::set<TensorVar>* const candidates) :
+        candidates(candidates) {}
+
+    IndexStmt rewrite(IndexStmt stmt) {
+      for (const auto& result : getResults(stmt)) {
+        availableVars[result] = {};
+      }
+      return IndexNotationRewriter::rewrite(stmt);
+    }
+
+    void visit(const ForallNode* op) {
+      for (auto& it : availableVars) {
+        it.second.insert(op->indexVar);
+      }
+      IndexNotationRewriter::visit(op);
+      for (auto& it : availableVars) {
+        it.second.erase(op->indexVar);
+      }
+    }
+
+    void visit(const WhereNode* op) {
+      const auto workspaces = getResults(op->producer);
+      for (const auto& workspace : workspaces) {
+        availableVars[workspace] = {};
+      }
+      IndexNotationRewriter::visit(op);
+      for (const auto& workspace : workspaces) {
+        availableVars.erase(workspace);
+      }
+    }
+    
+    void visit(const AssignmentNode* op) {
+      const auto result = op->lhs.getTensorVar();
+      if (op->op.defined() && 
+          util::toSet(op->lhs.getIndexVars()) == availableVars[result] &&
+          (!candidates || util::contains(*candidates, result))) {
+        stmt = Assignment(op->lhs, op->rhs);
+        return;
+      }
+      stmt = op;
+    }
+  };
+  return ReduceToAssign(candidates).rewrite(stmt);
+}
+
 IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
   INIT_REASON(reason);
 
@@ -229,30 +292,68 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
 
     Precompute precompute;
 
-    void visit(const ForallNode* node) {
-      Forall foralli(node);
+    void visit(const ForallNode* op) {
+      Forall foralli(op);
       IndexVar i = precompute.geti();
+      IndexVar j = foralli.getIndexVar();
 
-      if (foralli.getIndexVar() == i) {
+      Assignment assign = getAssignmentContainingExpr(foralli, 
+                                                      precompute.getExpr());
+      if (j == i && assign.defined()) {
         IndexStmt s = foralli.getStmt();
         TensorVar ws = precompute.getWorkspace();
         IndexExpr e = precompute.getExpr();
         IndexVar iw = precompute.getiw();
 
         IndexStmt consumer = forall(i, replace(s, {{e, ws(i)}}));
-        IndexStmt producer = forall(iw, ws(iw) = replace(e, {{i,iw}}));
+        IndexStmt producer = forall(iw, Assignment(ws(iw), replace(e, {{i,iw}}), 
+                                                   assign.getOperator()));
         Where where(consumer, producer);
 
         stmt = where;
         return;
       }
-      IndexNotationRewriter::visit(node);
-    }
 
+      IndexStmt s = rewrite(op->stmt);
+      if (s == op->stmt) {
+        stmt = op;
+        return;
+      } else if (isa<Where>(s)) {
+        Where body = to<Where>(s);
+        const auto consumerHasJ = 
+            util::contains(body.getConsumer().getIndexVars(), j);
+        const auto producerHasJ = 
+            util::contains(body.getProducer().getIndexVars(), j);
+        if (consumerHasJ && !producerHasJ) {
+          const auto producer = body.getProducer();
+          const auto consumer = Forall(op->indexVar, body.getConsumer(), 
+                                       op->parallel_unit, 
+                                       op->output_race_strategy, 
+                                       op->unrollFactor);
+          stmt = Where(consumer, producer);
+          return;
+        } else if (producerHasJ && !consumerHasJ) {
+          const auto producer = Forall(op->indexVar, body.getProducer(), 
+                                       op->parallel_unit, 
+                                       op->output_race_strategy, 
+                                       op->unrollFactor);
+          const auto consumer = body.getConsumer();
+          stmt = Where(consumer, producer);
+          return;
+        }
+      }
+      stmt = Forall(op->indexVar, s, op->parallel_unit, 
+                    op->output_race_strategy, op->unrollFactor);
+    }
   };
   PrecomputeRewriter rewriter;
   rewriter.precompute = *this;
-  return rewriter.rewrite(stmt);
+  stmt = rewriter.rewrite(stmt);
+
+  // Convert redundant reductions to assignments
+  stmt = eliminateRedundantReductions(stmt);
+
+  return stmt;
 }
 
 void Precompute::print(std::ostream& os) const {
@@ -506,23 +607,24 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
       Iterators iterators(foralli, tensorVars);
       definedIndexVars.insert(foralli.getIndexVar());
       MergeLattice lattice = MergeLattice::make(foralli, iterators, provGraph, definedIndexVars);
-      // Precondition 3: No parallelization of variables under a reduction
+      // Precondition 1: No parallelization of variables under a reduction
       // variable (ie MergePoint has at least 1 result iterators)
-      if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::NoRaces && lattice.results().empty()
-          && lattice != MergeLattice({MergePoint({iterators.modeIterator(foralli.getIndexVar())}, {}, {})})) {
+      if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::NoRaces &&
+          (lattice.results().empty() || lattice.results()[0].getIndexVar() != foralli.getIndexVar()) &&
+          lattice != MergeLattice({MergePoint({iterators.modeIterator(foralli.getIndexVar())}, {}, {})})) {
         reason = "Precondition failed: Free variables cannot be dominated by reduction variables in the iteration graph, "
                  "as this causes scatter behavior and we do not yet emit parallel synchronization constructs";
         return;
       }
 
       if (foralli.getIndexVar() == i) {
-        // Precondition 1: No coiteration of node (ie Merge Lattice has only 1 iterator)
+        // Precondition 2: No coiteration of mode (ie Merge Lattice has only 1 iterator)
         if (lattice.iterators().size() != 1) {
           reason = "Precondition failed: The loop must not merge tensor dimensions, that is, it must be a for loop;";
           return;
         }
 
-        // Precondition 2: Every result iterator must have insert capability
+        // Precondition 3: Every result iterator must have insert capability
         for (Iterator iterator : lattice.results()) {
           if (util::contains(assembledByUngroupedInsert, iterator.getTensor())) {
             for (Iterator it = iterator; !it.isRoot(); it = it.getParent()) {
@@ -923,37 +1025,8 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
   }
 
   // Convert redundant reductions to assignments
-  struct ReduceToAssign : public IndexNotationRewriter {
-    using IndexNotationRewriter::visit;
-
-    const std::set<TensorVar>& insertedResults;
-    std::set<IndexVar> availableVars;
-
-    ReduceToAssign(const std::set<TensorVar>& insertedResults) :
-        insertedResults(insertedResults) {}
-
-    void visit(const ForallNode* op) {
-      availableVars.insert(op->indexVar);
-      IndexNotationRewriter::visit(op);
-      availableVars.erase(op->indexVar);
-    }
-    
-    void visit(const AssignmentNode* op) {
-      std::set<IndexVar> accessVars;
-      for (const auto& index : op->lhs.getIndexVars()) {
-        accessVars.insert(index);
-      }
-
-      if (op->op.defined() && accessVars == availableVars && 
-          util::contains(insertedResults, op->lhs.getTensorVar())) {
-        stmt = new AssignmentNode(op->lhs, op->rhs, IndexExpr());
-        return;
-      }
-
-      stmt = op;
-    }
-  };
-  loweredQueries = ReduceToAssign(insertedResults).rewrite(loweredQueries);
+  loweredQueries = eliminateRedundantReductions(loweredQueries, 
+                                                &insertedResults);
 
   // Inline definitions of temporaries into their corresponding uses, as long 
   // as the temporaries are not the results of reductions

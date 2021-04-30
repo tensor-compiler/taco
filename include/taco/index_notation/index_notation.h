@@ -34,6 +34,7 @@ class WindowedIndexVar;
 class IndexSetVar;
 class TensorVar;
 
+class IndexStmt;
 class IndexExpr;
 class Assignment;
 class Access;
@@ -62,6 +63,14 @@ struct SuchThatNode;
 
 class IndexExprVisitorStrict;
 class IndexStmtVisitorStrict;
+
+/// Return true if the index statement is of the given subtype.  The subtypes
+/// are Assignment, Forall, Where, Sequence, and Multi.
+template <typename SubType> bool isa(IndexExpr);
+
+/// Casts the index statement to the given subtype. Assumes S is a subtype and
+/// the subtypes are Assignment, Forall, Where, Sequence, and Multi.
+template <typename SubType> SubType to(IndexExpr);
 
 /// A tensor index expression describes a tensor computation as a scalar
 /// expression where tensors are indexed by index variables (`IndexVar`).  The
@@ -161,6 +170,12 @@ public:
   /// Returns the schedule of the index expression.
   const Schedule& getSchedule() const;
 
+  /// Casts index expression to specified subtype.
+  template <typename SubType>
+  SubType as() {
+    return to<SubType>(*this);
+  }
+
   /// Visit the index expression's sub-expressions.
   void accept(IndexExprVisitorStrict *) const;
 
@@ -203,14 +218,6 @@ IndexExpr operator*(const IndexExpr&, const IndexExpr&);
 /// A(i,j) = B(i,j) / C(i,j);  // Component-wise division
 /// ```
 IndexExpr operator/(const IndexExpr&, const IndexExpr&);
-
-/// Return true if the index statement is of the given subtype.  The subtypes
-/// are Assignment, Forall, Where, Sequence, and Multi.
-template <typename SubType> bool isa(IndexExpr);
-
-/// Casts the index statement to the given subtype. Assumes S is a subtype and
-/// the subtypes are Assignment, Forall, Where, Sequence, and Multi.
-template <typename SubType> SubType to(IndexExpr);
 
 
 /// An index expression that represents a tensor access, such as `A(i,j))`.
@@ -514,6 +521,14 @@ public:
 /// Create a summation index expression.
 Reduction sum(IndexVar i, IndexExpr expr);
 
+/// Return true if the index statement is of the given subtype.  The subtypes
+/// are Assignment, Forall, Where, Multi, and Sequence.
+template <typename SubType> bool isa(IndexStmt);
+
+/// Casts the index statement to the given subtype. Assumes S is a subtype and
+/// the subtypes are Assignment, Forall, Where, Multi, and Sequence.
+template <typename SubType> SubType to(IndexStmt);
+
 /// A an index statement computes a tensor.  The index statements are
 /// assignment, forall, where, multi, and sequence.
 class IndexStmt : public util::IntrusivePtr<const IndexStmtNode> {
@@ -633,9 +648,9 @@ public:
   ///
   /// Preconditions:
   /// The index variable supplied to the coord transformation must be in
-  /// position space. The index variable supplied to the pos transformation
-  /// must be in coordinate space. The pos transformation also takes an
-  /// input to indicate which position space to use. This input must appear in the computation
+  /// position space. The index variable supplied to the pos transformation must 
+  /// be in coordinate space. The pos transformation also takes an input to
+  /// indicate which position space to use. This input must appear in the computation
   /// expression and also be indexed by this index variable. In the case that this
   /// index variable is derived from multiple index variables, these variables must appear
   /// directly nested in the mode ordering of this datastructure. This allows for
@@ -661,28 +676,38 @@ public:
   /// to the pos transformation.
   IndexStmt fuse(IndexVar i, IndexVar j, IndexVar f) const;
 
-  ///  The precompute transformation is described in kjolstad2019
-  ///  allows us to leverage scratchpad memories and
-  ///  reorder computations to increase locality
+  /// The precompute transformation is described in kjolstad2019
+  /// allows us to leverage scratchpad memories and
+  /// reorder computations to increase locality
   IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const;
 
   /// bound specifies a compile-time constraint on an index variable's
   /// iteration space that allows knowledge of the
   /// size or structured sparsity pattern of the inputs to be
-  /// incorporated during bounds propagatio
+  /// incorporated during bounds propagation
   ///
   /// Preconditions:
-  /// The precondition for bound is that the computation bounds supplied are correct
-  /// given the inputs that this code will be run on.
+  /// The precondition for bound is that the computation bounds supplied are 
+  /// correct given the inputs that this code will be run on.
   IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const;
 
-  /// The unroll
-  /// primitive unrolls the corresponding loop by a statically-known
+  /// The unroll primitive unrolls the corresponding loop by a statically-known
   /// integer number of iterations
   /// Preconditions: unrollFactor is a positive nonzero integer
   IndexStmt unroll(IndexVar i, size_t unrollFactor) const;
 
+  /// The assemble primitive specifies whether a result tensor should be 
+  /// assembled by appending or inserting nonzeros into the result tensor.
+  /// In the latter case, the transformation inserts additional loops to 
+  /// precompute statistics about the result tensor that are required for 
+  /// preallocating memory and coordinating insertions of nonzeros.
   IndexStmt assemble(TensorVar result, AssembleStrategy strategy) const;
+
+  /// Casts index statement to specified subtype.
+  template <typename SubType>
+  SubType as() {
+    return to<SubType>(*this);
+  }
 };
 
 /// Check if two index statements are isomorphic.
@@ -694,13 +719,6 @@ bool equals(IndexStmt, IndexStmt);
 /// Print the index statement.
 std::ostream& operator<<(std::ostream&, const IndexStmt&);
 
-/// Return true if the index statement is of the given subtype.  The subtypes
-/// are Assignment, Forall, Where, Multi, and Sequence.
-template <typename SubType> bool isa(IndexStmt);
-
-/// Casts the index statement to the given subtype. Assumes S is a subtype and
-/// the subtypes are Assignment, Forall, Where, Multi, and Sequence.
-template <typename SubType> SubType to(IndexStmt);
 
 /// An assignment statement assigns an index expression to the locations in a
 /// tensor given by an lhs access expression.
