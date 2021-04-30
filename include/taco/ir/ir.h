@@ -83,6 +83,8 @@ enum class TensorProperty {
   Values,
   ValuesSize,
   IndexSpace,
+  ValuesReadAccessor,
+  ValuesWriteAccessor,
 };
 
 /** Base class for backend IR */
@@ -486,6 +488,10 @@ struct Call : public ExprNode<Call> {
 
   static const IRNodeType _type_info = IRNodeType::Call;
 };
+
+// makeConstructor is shorthand for using a C++ type as a function
+// call to mimic using a C++ constructor.
+Expr makeConstructor(Datatype type, std::vector<Expr> args);
 
 struct MethodCall : public ExprNode<MethodCall> {
   Expr var;

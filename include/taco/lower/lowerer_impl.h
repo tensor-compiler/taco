@@ -430,6 +430,7 @@ protected:
 private:
   bool assemble;
   bool compute;
+  bool legion = false;
 
   std::set<TensorVar> needCompute;
 
@@ -443,6 +444,9 @@ private:
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
+
+  // Set of tensors that will be written to.
+  std::set<TensorVar> resultTensors;
 
   struct TemporaryArrays {
     ir::Expr values;

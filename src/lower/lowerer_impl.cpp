@@ -189,6 +189,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
 {
   this->assemble = assemble;
   this->compute = compute;
+  this->legion = name == "computeLegion";
   definedIndexVarsOrdered = {};
   definedIndexVars = {};
 
@@ -196,6 +197,8 @@ LowererImpl::lower(IndexStmt stmt, string name,
   vector<TensorVar> results = getResults(stmt);
   vector<TensorVar> arguments = getArguments(stmt);
   vector<TensorVar> temporaries = getTemporaries(stmt);
+
+  this->resultTensors.insert(results.begin(), results.end());
 
   needCompute = {};
   if (generateAssembleCode()) {
@@ -215,9 +218,9 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   // Convert tensor results and arguments IR variables
   map<TensorVar, Expr> resultVars;
-  vector<Expr> resultsIR = createVars(results, &resultVars, unpack, name == "computeLegion");
+  vector<Expr> resultsIR = createVars(results, &resultVars, unpack);
   tensorVars.insert(resultVars.begin(), resultVars.end());
-  vector<Expr> argumentsIR = createVars(arguments, &tensorVars, pack, name == "computeLegion");
+  vector<Expr> argumentsIR = createVars(arguments, &tensorVars, pack);
 
   // Create variables for index sets on result tensors.
   vector<Expr> indexSetArgs;
@@ -1382,6 +1385,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   }
 
 
+  // Emit loop with preamble and postamble
+  std::vector<ir::Expr> bounds = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+
   auto isTask = forall.isDistributed() || (forall.getTransfers().size() > 0);
   auto taskID = -1;
   std::vector<ir::Stmt> transfers;
@@ -1396,13 +1402,28 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto pointInDimT = PointInDomainIterator(dim);
     auto pointT = Point(dim);
     auto rectT = Rect(dim);
+    auto indexSpaceT = IndexSpaceT(dim);
     auto disjointPart = ir::Var::make("LEGION_DISJOINT_KIND", Auto);
     auto readOnly = ir::Var::make("READ_ONLY", Auto);
+    auto readWrite = ir::Var::make("READ_WRITE", Auto);
     auto exclusive = ir::Var::make("EXCLUSIVE", Auto);
     auto ctx = ir::Var::make("ctx", Auto);
     auto tensorIndexSpace = ir::Var::make("dummyIndexSpace", Auto);
 
+    // Create an index space with the same domain as the for loop.
+    auto varIspace = ir::Var::make(forall.getIndexVar().getName() + "IndexSpace", Auto);
+    auto makeIspace = ir::Call::make(
+      "runtime->create_index_space",
+      {ctx, makeConstructor(rectT, {bounds[0], ir::Sub::make(bounds[1], 1)})},
+      Auto
+    );
+    transfers.push_back(ir::VarDecl::make(varIspace, makeIspace));
     auto domain = ir::Var::make("domain", dimT);
+    auto makeDomain = ir::Call::make(
+      "runtime->get_index_space_domain",
+      {ctx, makeConstructor(indexSpaceT, {varIspace})},
+      dimT
+    );
     transfers.push_back(ir::VarDecl::make(domain, ir::Call::make("getDomain", {}, dimT)));
 
     // Make a coloring for each transfer.
@@ -1474,6 +1495,13 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       transfers.push_back(ir::VarDecl::make(part, partcall));
     }
 
+    // TODO (rohany): Figure out when we have to emit reduction privilege.
+    auto getPriv = [&](const TensorVar& tv) {
+      if (util::contains(this->resultTensors, tv)) {
+        return readWrite;
+      }
+      return readOnly;
+    };
 
     if (forall.isDistributed()) {
       // In a distributed for-all, we have to make an index launch.
@@ -1481,15 +1509,16 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       std::vector<Expr> regionReqs;
       std::vector<Expr> regionReqArgs;
       for (auto& it : this->tensorVars) {
+        auto priv = getPriv(it.first);
         // If the tensor is being transferred at this level, then use the
         // corresponding partition. Otherwise, use the tensorvar itself.
         if (util::contains(partitionings, it.first)) {
           auto part = ir::Var::make(it.first.getName() + "LogicalPartition", LogicalPartition);
           auto call = ir::Call::make("runtime->get_logical_partition", {ctx, it.second, partitionings.at(it.first)}, LogicalPartition);
           itlStmts.push_back(ir::VarDecl::make(part, call));
-          regionReqArgs = {part, 0, readOnly, exclusive, it.second};
+          regionReqArgs = {part, 0, priv, exclusive, it.second};
         } else {
-          regionReqArgs = {it.second, readOnly, exclusive, it.second};
+          regionReqArgs = {it.second, priv, exclusive, it.second};
         }
         auto regReq = ir::Var::make(it.first.getName() + "Req", RegionRequirement);
         auto makeReq = ir::Call::make(
@@ -1540,6 +1569,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       for (auto& it : this->tensorVars) {
         // If the tensor is being transferred at this level, then use the
         // corresponding partition. Otherwise, use the tensorvar itself.
+        auto priv = getPriv(it.first);
         if (util::contains(partitionings, it.first)) {
           auto call = ir::Call::make(
               "runtime->get_logical_subregion_by_color",
@@ -1556,14 +1586,13 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           );
           auto subreg = ir::Var::make(it.first.getName() + "subReg", Auto);
           taskCallStmts.push_back(ir::VarDecl::make(subreg, call));
-          regionReqArgs = {subreg, readOnly, exclusive, it.second};
+          regionReqArgs = {subreg, priv, exclusive, it.second};
         } else {
-          regionReqArgs = {it.second, readOnly, exclusive, it.second};
+          regionReqArgs = {it.second, priv, exclusive, it.second};
         }
 
         // TODO (rohany): Add fields on here.
         // TODO (rohany): Do analysis to virtually map regions that this task doesn't access.
-        // TODO (rohany): Figure out which one we're writing into and use the appropriate privilege.
         // TODO (rohany): Figure out the exclusive vs simultaneous etc.
         auto regReq = ir::Var::make(it.first.getName() + "Req", RegionRequirement);
         auto makeReq = ir::Call::make(
@@ -1617,9 +1646,6 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   body = Block::make({recoveryStmt, body});
 
   Stmt posAppend = generateAppendPositions(appenders);
-
-  // Emit loop with preamble and postamble
-  std::vector<ir::Expr> bounds = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
 
   LoopKind kind = LoopKind::Serial;
   if (forall.isDistributed()) {
@@ -2881,9 +2907,19 @@ Expr LowererImpl::getCapacityVar(Expr tensor) const {
 
 ir::Expr LowererImpl::getValuesArray(TensorVar var) const
 {
-  return (util::contains(temporaryArrays, var))
-         ? temporaryArrays.at(var).values
-         : GetProperty::make(getTensorVar(var), TensorProperty::Values);
+  if (this->legion) {
+    // TODO (rohany): Handle temporary arrays at some point.
+    // TODO (rohany): Handle reduction accessors at some point.
+    if (util::contains(this->resultTensors, var)) {
+      return GetProperty::make(getTensorVar(var), TensorProperty::ValuesWriteAccessor);
+    } else {
+      return GetProperty::make(getTensorVar(var), TensorProperty::ValuesReadAccessor);
+    }
+  } else {
+    return (util::contains(temporaryArrays, var))
+           ? temporaryArrays.at(var).values
+           : GetProperty::make(getTensorVar(var), TensorProperty::Values);
+  }
 }
 
 

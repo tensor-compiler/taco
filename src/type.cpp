@@ -417,7 +417,10 @@ Datatype PointInDomainIterator(int n) {
   return templateGen("PointInDomainIterator", n);
 }
 Datatype Domain(int n) {
-  return templateGen("Domain", n);
+  return templateGen("DomainT", n);
+}
+Datatype IndexSpaceT(int n) {
+  return templateGen("IndexSpaceT", n);
 }
 
 }

@@ -479,7 +479,7 @@ string CodeGen::genUniqueName(string name) {
   return os.str();
 }
 
-static vector<const GetProperty*> sortProps(std::map<Expr, std::string, ExprCompare> map) {
+vector<const GetProperty*> sortProps(std::map<Expr, std::string, ExprCompare> map) {
   vector<const GetProperty*> sortedProps;
 
   for (auto const& p: map) {

@@ -495,6 +495,10 @@ Expr Call::make(const std::string& func, const std::vector<Expr>& args,
   call->func = func;
   call->args = args;
   return call;
+};
+
+Expr makeConstructor(Datatype type, std::vector<Expr> args) {
+  return ir::Call::make(type.getName(), args, type);
 }
 
 Expr MethodCall::make(Expr var, const std::string &func, const std::vector<Expr> &args, bool deref, Datatype type) {
@@ -906,6 +910,14 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
       gp->name = tensorVar->name + "_index_space";
       // This has an index space type (TODO: can I write it here without the dimensions?).
       gp->type = Datatype(Datatype::CppType);
+      break;
+    case TensorProperty::ValuesReadAccessor:
+      gp->type = tensor.type();
+      gp->name = tensorVar->name + "_vals";
+      break;
+    case TensorProperty::ValuesWriteAccessor:
+      gp->type = tensor.type();
+      gp->name = tensorVar->name + "_vals";
       break;
   }
   

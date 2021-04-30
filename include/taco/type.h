@@ -125,6 +125,8 @@ Datatype Rect(int n);
 Datatype PointInDomainIterator(int n);
 // A n-dimensional domain.
 Datatype Domain(int n);
+// A specialized IndexSpace.
+Datatype IndexSpaceT(int n);
 
 Datatype max_type(Datatype a, Datatype b);
 

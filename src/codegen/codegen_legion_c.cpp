@@ -22,6 +22,10 @@ std::string CodegenLegionC::unpackTensorProperty(std::string varname, const GetP
   } else if (op->property == TensorProperty::IndexSpace) {
     tp = "auto";
     ret << tp << " " << varname << " = " << tensor->name << ".get_index_space();\n";
+  } else if (op->property == TensorProperty::ValuesReadAccessor) {
+    ret << "AccessorRO" << printType(op->type, false) << " " << varname << "(regions[?], FID_VAL);\n";
+  } else if (op->property == TensorProperty::ValuesWriteAccessor) {
+    ret << "AccessorRW" << printType(op->type, false) << " " << varname << "(regions[?], FID_VAL);\n";
   } else {
     return CodeGen::unpackTensorProperty(varname, op, is_output_prop);
   }
@@ -72,6 +76,82 @@ void CodegenLegionC::visit(const For* node) {
   }
   CodeGen_C::visit(node);
 }
+
+// TODO (rohany): Duplicating alot of code here, but IDK a way around it.
+std::string CodegenLegionC::printFuncName(const Function *func,
+                              std::map<Expr, std::string, ExprCompare> inputMap,
+                              std::map<Expr, std::string, ExprCompare> outputMap) {
+  std::stringstream ret;
+
+  // Tasks need to have a void function type.
+  ret << "void " << func->name << "(";
+
+  std::string delimiter;
+//  const auto returnType = func->getReturnType();
+//  if (returnType.second != Datatype()) {
+//    ret << "void **" << ctxName << ", ";
+//    ret << "char *" << coordsName << ", ";
+//    ret << printType(returnType.second, true) << valName << ", ";
+//    ret << "int32_t *" << bufCapacityName;
+//    delimiter = ", ";
+//  }
+
+  bool unfoldOutput = false;
+  for (size_t i=0; i<func->outputs.size(); i++) {
+    auto var = func->outputs[i].as<Var>();
+    taco_iassert(var) << "Unable to convert output " << func->outputs[i]
+                      << " to Var";
+    if (var->is_parameter) {
+      unfoldOutput = true;
+      break;
+    }
+
+    if (var->is_tensor) {
+      ret << delimiter << "LogicalRegion " << var->name;
+    } else {
+      auto tp = printType(var->type, var->is_ptr);
+      ret << delimiter << tp << " " << var->name;
+    }
+    delimiter = ", ";
+  }
+
+  if (unfoldOutput) {
+    for (auto prop : sortProps(outputMap)) {
+      ret << delimiter << printTensorProperty(outputMap[prop], prop, true);
+      delimiter = ", ";
+    }
+  }
+
+  bool unfoldInput = false;
+  for (size_t i=0; i<func->inputs.size(); i++) {
+    auto var = func->inputs[i].as<Var>();
+    taco_iassert(var) << "Unable to convert output " << func->inputs[i]
+                      << " to Var";
+    if (var->is_parameter) {
+      unfoldInput = true;
+      break;
+    }
+
+    if (var->is_tensor) {
+      ret << delimiter << "LogicalRegion " << var->name;
+    } else {
+      auto tp = printType(var->type, var->is_ptr);
+      ret << delimiter << tp << " " << var->name;
+    }
+    delimiter = ", ";
+  }
+
+  if (unfoldInput) {
+    for (auto prop : sortProps(inputMap)) {
+      ret << delimiter << printTensorProperty(inputMap[prop], prop, false);
+      delimiter = ", ";
+    }
+  }
+
+  ret << ")";
+  return ret.str();
+}
+
 
 }
 }

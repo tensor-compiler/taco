@@ -15,6 +15,9 @@ public:
 
 private:
   std::string unpackTensorProperty(std::string varname, const GetProperty* op, bool is_output_prop) override;
+  std::string printFuncName(const Function *func,
+                            std::map<Expr, std::string, ExprCompare> inputMap,
+                            std::map<Expr, std::string, ExprCompare> outputMap) override;
 
   void visit(const For* node) override;
 
