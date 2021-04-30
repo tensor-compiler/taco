@@ -130,8 +130,13 @@ IndexStmt scheduleTTMCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, in
 
 IndexStmt scheduleMTTKRPCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
   IndexVar i1("i1"), i2("i2");
+  IndexExpr precomputeExpr = stmt.as<Forall>().getStmt().as<Forall>().getStmt()
+                                 .as<Forall>().getStmt().as<Forall>().getStmt()
+                                 .as<Assignment>().getRhs().as<Mul>().getA();
+  TensorVar w("w", Type(Float64, {Dimension(j)}), taco::dense);
   return stmt.split(i, i1, i2, CHUNK_SIZE)
           .reorder({i1, i2, k, l, j})
+          .precompute(precomputeExpr, j, j, w)
           .parallelize(i1, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }
 
