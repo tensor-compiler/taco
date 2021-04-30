@@ -22,10 +22,17 @@ private:
   void visit(const For* node) override;
   void visit(const Function* node) override;
 
+  std::string taskArgsName(std::string taskName) {
+    return taskName + "Args";
+  }
+
   class FindVars;
 
   std::vector<Stmt> functions;
   std::vector<Expr> regionArgs;
+
+  // Maps from tasks to packed arguments.
+  std::map<Stmt, std::vector<Expr>> taskArgs;
 };
 
 }

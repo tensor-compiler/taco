@@ -165,7 +165,9 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
   };
   TaskCollector tc;
   stmt.accept(&tc);
-  this->functions = tc.functions;
+  for (auto f : util::reverse(tc.functions)) {
+    this->functions.push_back(f);
+  }
 
   if (isa<Function>(stmt)) {
     auto func = stmt.as<Function>();
@@ -222,16 +224,38 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
     std::cout << "Vars declared by task: " << util::join(it) << std::endl;
   }
 
+  // TODO (rohany): Clean up this code.
+  auto funcIdx = 0;
   for (int i = v.usedVars.size() - 1; i > 0; i--) {
+    auto func = this->functions[funcIdx].as<Function>();
+    taco_iassert(func) << "must be func";
     // Try to find the variables needed by a task. It's all the variables it uses that it doesn't
     // declare and are used by tasks above it.
     std::vector<Expr> uses;
     std::set_difference(v.usedVars[i].begin(), v.usedVars[i].end(), v.varsDeclared[i].begin(), v.varsDeclared[i].end(), std::back_inserter(uses));
-    // I want to pass this uses set up to the parent so that they know about it.
-    std::cout << "Weija: " << util::join(uses) << std::endl;
+    // TODO (rohany):  I want to pass this uses set up to the parent so that they know about it.
+
+    // TODO (rohany): Emit a context struct for each one?
+    // TODO (rohany): Make this name combination a function.
+    out << "struct " << this->taskArgsName(func->name) << " {\n";
+    this->indent++;
+    for (auto& it : uses) {
+      auto var = it.as<Var>();
+      taco_iassert(var) << "must be var";
+      doIndent();
+      taco_iassert(!var->is_ptr) << "can't serialize pointer args";
+      out << printType(var->type, false) << " " << it << ";\n";
+    }
+    this->indent--;
+    out << "};\n";
+
+
+    this->taskArgs[func] = uses;
+
+    funcIdx++;
   }
 
-  for (auto& f : util::reverse(this->functions)) {
+  for (auto& f : this->functions) {
     CodeGen_C::compile(f, isFirst);
   }
 
@@ -300,6 +324,20 @@ void CodegenLegionC::visit(const Function* func) {
     }
     out << "\n";
   }
+
+  // Unpack arguments.
+  doIndent();
+  auto args = this->taskArgs[func];
+  out << taskArgsName(func->name) << "* args = (" << taskArgsName(func->name) << "*)(task->args);\n";
+  // Unpack arguments from the pack;
+  for (auto arg : args) {
+    auto var = arg.as<Var>();
+    taco_iassert(var) << "must be a var";
+    doIndent();
+    out << printType(var->type, false) << " " << arg << " = args->" << arg << ";\n";
+  }
+
+  out << "\n";
 
   // Print variable declarations
   out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << std::endl;
