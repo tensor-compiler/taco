@@ -394,10 +394,16 @@ Datatype templateGen(std::string typ, T n) {
 
 // Legion types.
 Datatype Auto = Datatype(Datatype::CppType);
+// TODO (rohany): It's a bit hacky to include the const here.
+Datatype Task = Datatype("const Task");
+Datatype PhysicalRegionVectorRef = Datatype("const std::vector<PhysicalRegion>&");
+Datatype Context = Datatype("Context");
+Datatype Runtime = Datatype("Runtime");
 Datatype TaskLauncher = Datatype("TaskLauncher");
 Datatype IndexLauncher = Datatype("IndexLauncher");
 Datatype TaskArgument = Datatype("TaskArgument");
 Datatype ArgumentMap = Datatype("ArgumentMap");
+Datatype LogicalRegion = Datatype("LogicalRegion");
 Datatype LogicalPartition = Datatype("LogicalPartition");
 Datatype DomainPointColoring = Datatype("DomainPointColoring");
 Datatype RegionRequirement = Datatype("RegionRequirement");

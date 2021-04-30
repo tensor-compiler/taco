@@ -99,13 +99,19 @@ extern Datatype Complex128;
 
 // A generic inferred C++ type.
 extern Datatype Auto;
+// Task function arguments.
+extern Datatype Task;
+extern Datatype PhysicalRegionVectorRef;
+extern Datatype Context;
+extern Datatype Runtime;
 // Task and Index launchers.
 extern Datatype TaskLauncher;
 extern Datatype IndexLauncher;
 // Task arguments.
 extern Datatype TaskArgument;
 extern Datatype ArgumentMap;
-// Partitions.
+// Regions and Partitions.
+extern Datatype LogicalRegion;
 extern Datatype LogicalPartition;
 // A DomainPointColoring.
 extern Datatype DomainPointColoring;

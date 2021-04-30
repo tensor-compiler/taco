@@ -37,7 +37,14 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
         auto func = ir::Function::make(
             funcName.str(),
             {},
-            {},
+            {
+              // TODO (rohany): Marking these as is_parameter = false stops some weird behavior
+              //  in the rest of the code generator.
+              ir::Var::make("task", Task, true, false, false),
+              ir::Var::make("regions", PhysicalRegionVectorRef, false, false, false),
+              ir::Var::make("ctx", Context, false, false, false),
+              ir::Var::make("runtime", Runtime, true, false, false),
+            },
             node->contents
         );
         this->functions.push_back(func);
@@ -51,8 +58,9 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
   stmt.accept(&tc);
   this->functions = tc.functions;
 
-  for (auto& f : this->functions) {
-    f.accept(this);
+  for (auto& f : util::reverse(this->functions)) {
+    CodeGen_C::compile(f, isFirst);
+//    f.accept(this);
   }
 
   CodeGen_C::compile(stmt, isFirst);

@@ -215,9 +215,9 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   // Convert tensor results and arguments IR variables
   map<TensorVar, Expr> resultVars;
-  vector<Expr> resultsIR = createVars(results, &resultVars, unpack);
+  vector<Expr> resultsIR = createVars(results, &resultVars, unpack, name == "computeLegion");
   tensorVars.insert(resultVars.begin(), resultVars.end());
-  vector<Expr> argumentsIR = createVars(arguments, &tensorVars, pack);
+  vector<Expr> argumentsIR = createVars(arguments, &tensorVars, pack, name == "computeLegion");
 
   // Create variables for index sets on result tensors.
   vector<Expr> indexSetArgs;

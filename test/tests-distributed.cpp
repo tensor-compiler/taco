@@ -22,11 +22,11 @@ TEST(distributed, test) {
 
   // Communication modification must go at the end.
   // TODO (rohany): name -- placement
-//  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), il1);
+  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), il1);
 //  stmt = stmt.pushCommUnder(a(i), il1).pushCommUnder(b(i), il1);
-  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
+//  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
 
-  auto lowered = lower(stmt, "compute", false, true);
+  auto lowered = lower(stmt, "computeLegion", false, true);
 //  std::cout << lowered << std::endl;
 
 //  auto codegen = ir::CodeGen::init_default(std::cout, taco::ir::CodeGen::ImplementationGen);

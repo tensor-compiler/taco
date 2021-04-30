@@ -1172,7 +1172,8 @@ std::vector<IndexVar> getReductionVars(IndexStmt stmt);
 /// Convert index notation tensor variables to IR pointer variables.
 std::vector<ir::Expr> createVars(const std::vector<TensorVar>& tensorVars,
                                  std::map<TensorVar, ir::Expr>* vars, 
-                                 bool isParameter=false);
+                                 bool isParameter=false,
+                                 bool useRegions=false);
 
 /// Convert index notation tensor variables in the index statement to IR 
 /// pointer variables.

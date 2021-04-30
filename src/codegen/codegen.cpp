@@ -4,6 +4,7 @@
 #include "codegen_c.h"
 #include <algorithm>
 #include <unordered_set>
+#include "taco/util/strings.h"
 
 using namespace std;
 
@@ -510,7 +511,12 @@ string CodeGen::printFuncName(const Function *func,
                               std::map<Expr, std::string, ExprCompare> outputMap) {
   stringstream ret;
 
-  ret << "int " << func->name << "(";
+  // Tasks need to have a void function type.
+  if (func->name.find("task") != std::string::npos) {
+    ret << "void " << func->name << "(";
+  } else {
+    ret << "int " << func->name << "(";
+  }
 
   string delimiter = "";
   const auto returnType = func->getReturnType();

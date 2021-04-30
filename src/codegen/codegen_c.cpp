@@ -195,6 +195,11 @@ protected:
   }
 
   virtual void visit(const For *op) {
+    // Don't count the variables inside the task as being used.
+    if (op->isTask) {
+      return;
+    }
+
     if (!util::contains(localVars, op->var)) {
       localVars.push_back(op->var);
     }
@@ -206,11 +211,12 @@ protected:
   }
 
   virtual void visit(const GetProperty *op) {
-    if (!util::contains(inputTensors, op->tensor) &&
-        !util::contains(outputTensors, op->tensor)) {
-      // Don't create header unpacking code for temporaries
-      return;
-    }
+    // TODO (rohany): This might be needed.
+//    if (!util::contains(inputTensors, op->tensor) &&
+//        !util::contains(outputTensors, op->tensor)) {
+//      // Don't create header unpacking code for temporaries
+//      return;
+//    }
 
     if (varMap.count(op) == 0) {
       auto key =
@@ -289,6 +295,11 @@ void CodeGen_C::visit(const Function* func) {
   func->body.accept(&varFinder);
   varMap = varFinder.varMap;
   localVars = varFinder.localVars;
+
+//  std::cout << "For function: " << func->name << std::endl;
+//  for (auto it : varFinder.varDecls) {
+//    std::cout << it.first << std::endl;
+//  }
 
   // Print variable declarations
   out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << endl;

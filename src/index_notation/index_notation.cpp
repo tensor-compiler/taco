@@ -2928,12 +2928,18 @@ std::vector<IndexVar> getReductionVars(IndexStmt stmt) {
 
 vector<ir::Expr> createVars(const vector<TensorVar>& tensorVars,
                             map<TensorVar, ir::Expr>* vars, 
-                            bool isParameter) {
+                            bool isParameter, bool useRegions) {
   taco_iassert(vars != nullptr);
   vector<ir::Expr> irVars;
   for (auto& var : tensorVars) {
-    ir::Expr irVar = ir::Var::make(var.getName(), var.getType().getDataType(),
-                                   true, true, isParameter);
+    ir::Expr irVar;
+    if (useRegions) {
+      irVar = ir::Var::make(var.getName(), LogicalRegion, false, false, isParameter);
+    } else {
+      irVar = ir::Var::make(var.getName(), var.getType().getDataType(),
+                            true, true, isParameter);
+    }
+
     irVars.push_back(irVar);
     vars->insert({var, irVar});
   }
