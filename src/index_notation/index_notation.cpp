@@ -1666,11 +1666,12 @@ IndexStmt IndexStmt::unroll(IndexVar i, size_t unrollFactor) const {
   return UnrollLoop(i, unrollFactor).rewrite(*this);
 }
 
-IndexStmt IndexStmt::assemble(TensorVar result, 
-                              AssembleStrategy strategy) const {
+IndexStmt IndexStmt::assemble(TensorVar result, AssembleStrategy strategy,
+                              bool separatelySchedulable) const {
   string reason;
   IndexStmt transformed = 
-      SetAssembleStrategy(result, strategy).apply(*this, &reason);
+      SetAssembleStrategy(result, strategy, 
+                          separatelySchedulable).apply(*this, &reason);
   if (!transformed.defined()) {
     taco_uerror << reason;
   }

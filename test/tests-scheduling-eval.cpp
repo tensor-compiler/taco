@@ -66,7 +66,7 @@ IndexStmt scheduleSpGEMMCPU(IndexStmt stmt, bool doPrecompute) {
                 {result.getType().getShape().getDimension(1)}), taco::dense);
     stmt = stmt.precompute(assign.getRhs(), j, j, w);
   }
-  stmt = stmt.assemble(result, AssembleStrategy::Insert);
+  stmt = stmt.assemble(result, AssembleStrategy::Insert, true);
 
   IndexVar qi = stmt.as<Assemble>().getQueries().as<Forall>().getIndexVar();
   stmt = stmt.parallelize(i, ParallelUnit::CPUThread,
@@ -86,7 +86,7 @@ IndexStmt scheduleSpAddCPU(IndexStmt stmt) {
   TensorVar result = assign.getLhs().getTensorVar();
 
   stmt = reorderLoopsTopologically(stmt);
-  stmt = stmt.assemble(result, AssembleStrategy::Insert);
+  stmt = stmt.assemble(result, AssembleStrategy::Insert, true);
 
   IndexVar qi = stmt.as<Assemble>().getQueries().as<Forall>().getIndexVar();
   stmt = stmt.parallelize(i, ParallelUnit::CPUThread,

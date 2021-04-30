@@ -560,12 +560,16 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       stmt = stmt.parallelize(findVar(i), parallel_unit, output_race_strategy);
 
     } else if (command == "assemble") {
-      taco_uassert(scheduleCommand.size() == 2) 
-          << "'assemble' scheduling directive takes 2 parameters: "
-          << "assemble(tensor, strategy)";
+      taco_uassert(scheduleCommand.size() == 2 || scheduleCommand.size() == 3) 
+          << "'assemble' scheduling directive takes 2 or 3 parameters: "
+          << "assemble(tensor, strategy [, separately_schedulable])";
 
       string tensor = scheduleCommand[0];
       string strategy = scheduleCommand[1];
+      string schedulable = "false";
+      if (scheduleCommand.size() == 3) {
+        schedulable = scheduleCommand[2];
+      }
 
       TensorVar result;
       for (auto a : getResultAccesses(stmt).first) {
@@ -587,7 +591,18 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
         goto end;
       }
 
-      stmt = stmt.assemble(result, assemble_strategy);
+      bool separately_schedulable;
+      if (schedulable == "true") {
+        separately_schedulable = true;
+      } else if (schedulable == "false") {
+        separately_schedulable = false;
+      } else {
+        taco_uerror << "Incorrectly specified whether computation of result "
+                    << "statistics should be separately schedulable.";
+        goto end;
+      }
+
+      stmt = stmt.assemble(result, assemble_strategy, separately_schedulable);
 
     } else {
       taco_uerror << "Unknown scheduling function \"" << command << "\"";

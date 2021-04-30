@@ -790,13 +790,16 @@ std::ostream& operator<<(std::ostream& os, const Parallelize& parallelize) {
 struct SetAssembleStrategy::Content {
   TensorVar result;
   AssembleStrategy strategy;
+  bool separatelySchedulable;
 };
 
 SetAssembleStrategy::SetAssembleStrategy(TensorVar result, 
-                                         AssembleStrategy strategy) : 
+                                         AssembleStrategy strategy,
+                                         bool separatelySchedulable) : 
     content(new Content) {
   content->result = result;
   content->strategy = strategy;
+  content->separatelySchedulable = separatelySchedulable;
 }
 
 TensorVar SetAssembleStrategy::getResult() const {
@@ -805,6 +808,10 @@ TensorVar SetAssembleStrategy::getResult() const {
 
 AssembleStrategy SetAssembleStrategy::getAssembleStrategy() const {
   return content->strategy;
+}
+
+bool SetAssembleStrategy::getSeparatelySchedulable() const {
+  return content->separatelySchedulable;
 }
 
 IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
@@ -849,11 +856,17 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
     }
   }
 
-  std::map<IndexVar,IndexVar> ivReplacements;
-  for (const auto& indexVar : getIndexVars(stmt)) {
-    ivReplacements[indexVar] = IndexVar("q" + indexVar.getName());
+  IndexStmt loweredQueries = stmt;
+
+  // If attribute query computation should be independently schedulable, then 
+  // need to use fresh index variables
+  if (getSeparatelySchedulable()) {
+    std::map<IndexVar,IndexVar> ivReplacements;
+    for (const auto& indexVar : getIndexVars(stmt)) {
+      ivReplacements[indexVar] = IndexVar("q" + indexVar.getName());
+    }
+    loweredQueries = replace(loweredQueries, ivReplacements);
   }
-  IndexStmt loweredQueries = replace(stmt, ivReplacements);
 
   // FIXME: Unneeded if scalar promotion is made default when concretizing
   loweredQueries = scalarPromote(loweredQueries);

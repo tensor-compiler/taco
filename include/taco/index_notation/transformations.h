@@ -185,10 +185,12 @@ std::ostream& operator<<(std::ostream&, const Parallelize&);
 
 class SetAssembleStrategy : public TransformationInterface {
 public:
-  SetAssembleStrategy(TensorVar result, AssembleStrategy strategy);
+  SetAssembleStrategy(TensorVar result, AssembleStrategy strategy, 
+                      bool separatelySchedulable);
 
   TensorVar getResult() const;
   AssembleStrategy getAssembleStrategy() const;
+  bool getSeparatelySchedulable() const;
 
   IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 

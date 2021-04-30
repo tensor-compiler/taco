@@ -701,7 +701,8 @@ public:
   /// In the latter case, the transformation inserts additional loops to 
   /// precompute statistics about the result tensor that are required for 
   /// preallocating memory and coordinating insertions of nonzeros.
-  IndexStmt assemble(TensorVar result, AssembleStrategy strategy) const;
+  IndexStmt assemble(TensorVar result, AssembleStrategy strategy, 
+                     bool separately_schedulable = false) const;
 
   /// Casts index statement to specified subtype.
   template <typename SubType>
