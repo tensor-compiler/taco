@@ -1,7 +1,112 @@
 #include "codegen_legion_c.h"
+#include "codegen_c.h"
 
 namespace taco {
 namespace ir {
+
+// find variables for generating declarations
+// generates a single var for each GetProperty
+class CodegenLegionC::FindVars : public IRVisitor {
+public:
+  std::map<Expr, std::string, ExprCompare> varMap;
+
+  // the variables for which we need to add declarations
+  std::map<Expr, std::string, ExprCompare> varDecls;
+
+  std::vector<Expr> localVars;
+
+  // this maps from tensor, property, mode, index to the unique var
+  std::map<std::tuple<Expr, TensorProperty, int, int>, std::string> canonicalPropertyVar;
+
+  // this is for convenience, recording just the properties unpacked
+  // from the output tensor so we can re-save them at the end
+  std::map<std::tuple<Expr, TensorProperty, int, int>, std::string> outputProperties;
+
+  // TODO: should replace this with an unordered set
+  std::vector<Expr> outputTensors;
+  std::vector<Expr> inputTensors;
+
+  CodegenLegionC *codeGen;
+
+  // copy inputs and outputs into the map
+  FindVars(std::vector<Expr> inputs, std::vector<Expr> outputs, CodegenLegionC *codeGen)
+      : codeGen(codeGen) {
+    for (auto v: inputs) {
+      auto var = v.as<Var>();
+      taco_iassert(var) << "Inputs must be vars in codegen";
+      taco_iassert(varMap.count(var)==0) << "Duplicate input found in codegen";
+      inputTensors.push_back(v);
+      varMap[var] = var->name;
+    }
+    for (auto v: outputs) {
+      auto var = v.as<Var>();
+      taco_iassert(var) << "Outputs must be vars in codegen";
+      taco_iassert(varMap.count(var)==0) << "Duplicate output found in codegen";
+      outputTensors.push_back(v);
+      varMap[var] = var->name;
+    }
+  }
+
+protected:
+  using IRVisitor::visit;
+
+  virtual void visit(const Var *op) {
+    if (varMap.count(op) == 0) {
+      varMap[op] = op->is_ptr? op->name : codeGen->genUniqueName(op->name);
+    }
+  }
+
+  virtual void visit(const VarDecl *op) {
+    if (!util::contains(localVars, op->var)) {
+      localVars.push_back(op->var);
+    }
+    op->var.accept(this);
+    op->rhs.accept(this);
+  }
+
+  virtual void visit(const For *op) {
+    // Don't count the variables inside the task as being used.
+    if (op->isTask) {
+      return;
+    }
+
+    if (!util::contains(localVars, op->var)) {
+      localVars.push_back(op->var);
+    }
+    op->var.accept(this);
+    op->start.accept(this);
+    op->end.accept(this);
+    op->increment.accept(this);
+    op->contents.accept(this);
+  }
+
+  virtual void visit(const GetProperty *op) {
+    // TODO (rohany): This might be needed.
+//    if (!util::contains(inputTensors, op->tensor) &&
+//        !util::contains(outputTensors, op->tensor)) {
+//      // Don't create header unpacking code for temporaries
+//      return;
+//    }
+
+    if (varMap.count(op) == 0) {
+      auto key =
+          std::tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
+                                             (size_t)op->mode,
+                                             (size_t)op->index);
+      if (canonicalPropertyVar.count(key) > 0) {
+        varMap[op] = canonicalPropertyVar[key];
+      } else {
+        auto unique_name = codeGen->genUniqueName(op->name);
+        canonicalPropertyVar[key] = unique_name;
+        varMap[op] = unique_name;
+        varDecls[op] = unique_name;
+        if (util::contains(outputTensors, op->tensor)) {
+          outputProperties[key] = unique_name;
+        }
+      }
+    }
+  }
+};
 
 CodegenLegionC::CodegenLegionC(std::ostream &dest, OutputKind outputKind, bool simplify)
   : CodeGen_C(dest, outputKind, simplify) {}
@@ -62,9 +167,14 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
   stmt.accept(&tc);
   this->functions = tc.functions;
 
+  if (isa<Function>(stmt)) {
+    auto func = stmt.as<Function>();
+    this->regionArgs.insert(this->regionArgs.end(), func->outputs.begin(), func->outputs.end());
+    this->regionArgs.insert(this->regionArgs.end(), func->inputs.begin(), func->inputs.end());
+  }
+
   for (auto& f : util::reverse(this->functions)) {
     CodeGen_C::compile(f, isFirst);
-//    f.accept(this);
   }
 
   CodeGen_C::compile(stmt, isFirst);
@@ -75,6 +185,91 @@ void CodegenLegionC::visit(const For* node) {
     return;
   }
   CodeGen_C::visit(node);
+}
+
+// TODO (rohany): This is duplicating alot of code.
+void CodegenLegionC::visit(const Function* func) {
+  // if generating a header, protect the function declaration with a guard
+  if (outputKind == HeaderGen) {
+    out << "#ifndef TACO_GENERATED_" << func->name << "\n";
+    out << "#define TACO_GENERATED_" << func->name << "\n";
+  }
+
+  int numYields = countYields(func);
+  emittingCoroutine = (numYields > 0);
+  funcName = func->name;
+  labelCount = 0;
+
+  resetUniqueNameCounters();
+  FindVars inputVarFinder(func->inputs, {}, this);
+  func->body.accept(&inputVarFinder);
+  FindVars outputVarFinder({}, func->outputs, this);
+  func->body.accept(&outputVarFinder);
+
+  // output function declaration
+  doIndent();
+  out << printFuncName(func, inputVarFinder.varDecls, outputVarFinder.varDecls);
+
+  // if we're just generating a header, this is all we need to do
+  if (outputKind == HeaderGen) {
+    out << ";\n";
+    out << "#endif\n";
+    return;
+  }
+
+  out << " {\n";
+
+  indent++;
+
+  // find all the vars that are not inputs or outputs and declare them
+  resetUniqueNameCounters();
+  FindVars varFinder(func->inputs, func->outputs, this);
+  func->body.accept(&varFinder);
+  varMap = varFinder.varMap;
+  localVars = varFinder.localVars;
+
+//  std::cout << "For function: " << func->name << std::endl;
+//  for (auto it : varFinder.varDecls) {
+//    std::cout << it.first << std::endl;
+//  }
+
+  // For tasks, unpack the regions.
+  if (func->name.find("task") != std::string::npos) {
+    for (size_t i = 0; i < this->regionArgs.size(); i++) {
+      doIndent();
+      auto t = this->regionArgs[i];
+      out << "PhysicalRegion ";
+      IRPrinter p(out);
+      t.accept(&p);
+      out << " = regions[" << i << "];\n";
+    }
+    out << "\n";
+  }
+
+  // Print variable declarations
+  out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << std::endl;
+
+  if (emittingCoroutine) {
+    out << printContextDeclAndInit(varMap, localVars, numYields, func->name)
+        << std::endl;
+  }
+
+  // output body
+  print(func->body);
+
+  // output repack only if we allocated memory
+  if (checkForAlloc(func))
+    out << std::endl << printPack(varFinder.outputProperties, func->outputs);
+
+  if (emittingCoroutine) {
+    out << printCoroutineFinish(numYields, funcName);
+  }
+
+//  doIndent();
+  indent--;
+
+  doIndent();
+  out << "}\n";
 }
 
 // TODO (rohany): Duplicating alot of code here, but IDK a way around it.

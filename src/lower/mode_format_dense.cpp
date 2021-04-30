@@ -50,6 +50,9 @@ ModeFormat DenseModeFormat::copy(
 ModeFunction DenseModeFormat::locate(ir::Expr parentPos,
                                    std::vector<ir::Expr> coords,
                                    Mode mode) const {
+  // TODO (rohany): Hack to directly access regions.
+//  return ModeFunction(Stmt(), {coords.back(), true});
+
   Expr pos = ir::Add::make(ir::Mul::make(parentPos, getWidth(mode)), coords.back());
   return ModeFunction(Stmt(), {pos, true});
 }

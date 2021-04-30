@@ -614,6 +614,12 @@ LowererImpl::lower(IndexStmt stmt, string name,
   bi.inferBounds(stmt);
   this->derivedBounds = bi.derivedBounds;
 
+  for (auto& it : this->tensorVars) {
+    auto pointT = Point(it.first.getType().getOrder());
+    auto accessor = ir::Var::make(it.first.getName() + "_access_point", pointT);
+    this->pointAccessVars[it.first] = accessor;
+  }
+
 //  for (auto it : bi.inScopeVars) {
 //    std::cout << "Vars in scope for " << it.first << ": " << util::join(it.second) << std::endl;
 //  }
@@ -1424,7 +1430,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       {ctx, makeConstructor(indexSpaceT, {varIspace})},
       dimT
     );
-    transfers.push_back(ir::VarDecl::make(domain, ir::Call::make("getDomain", {}, dimT)));
+    transfers.push_back(ir::VarDecl::make(domain, makeDomain));
 
     // Make a coloring for each transfer.
     std::vector<Expr> colorings;
@@ -3316,6 +3322,16 @@ Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
   return For::make(p, lower, upper, 1, zeroInit, parallel);
 }
 
+std::vector<IndexVar> getIndexVarFamily(const Iterator& it) {
+  if (it.isRoot() || it.getMode().getLevel() == 1) {
+    return {it.getIndexVar()};
+  }
+//  std::vector<IndexVar> result;
+  auto rcall = getIndexVarFamily(it.getParent());
+  rcall.push_back(it.getIndexVar());
+  return rcall;
+}
+
 Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
   vector<Stmt> result;
   for (Iterator& locator : locators) {
@@ -3359,8 +3375,34 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
         result.push_back(declarePosVar);
 
         if (locateIterator.isLeaf()) {
+
+          if (this->legion) {
+            // Emit the point accessor for it here.
+            auto ivars = getIndexVarFamily(locateIterator);
+//            std::cout << "ivar family for tensor: " << locator.getTensor() << " -> " << util::join(ivars) << std::endl;
+            auto pointT = Point(ivars.size());
+            // TODO (rohany): Use a reverse map.
+            TensorVar tv;
+            for (auto& it : this->tensorVars) {
+              if (it.second == locateIterator.getTensor()) {
+                tv = it.first;
+              }
+            }
+            // TODO (rohany): Declare this var in a map in the lowerer.
+            auto point = this->pointAccessVars[tv];
+            std::function<Expr(IndexVar)> getExpr = [&](IndexVar i) {
+//              if (!util::contains(this->indexVarToExprMap, i)) {
+//                std::cout << "couldn't find var " << i << " in map " << util::join(this->indexVarToExprMap) << std::endl;
+////                std::cout <<
+//              }
+              return this->indexVarToExprMap.at(i);
+            };
+            auto makePoint = makeConstructor(pointT, util::map(ivars, getExpr));
+            result.push_back(ir::VarDecl::make(point, makePoint));
+          }
           break;
         }
+//        std::cout << "iterator: " << locator.getIndexVar() << " has child " << locateIterator.getChild().getIndexVar() << std::endl;
         locateIterator = locateIterator.getChild();
       } while (accessibleIterators.contains(locateIterator));
     }
@@ -3768,6 +3810,11 @@ Expr LowererImpl::generateValueLocExpr(Access access) const {
   if (isScalar(access.getTensorVar().getType())) {
     return ir::Literal::make(0);
   }
+  // If using legion, return the PointT<...> accessor.
+  if (this->legion) {
+    return this->pointAccessVars.at(access.getTensorVar());
+  }
+
   Iterator it = getIterators(access).back();
 
   // to make indexing temporary arrays with index var work correctly

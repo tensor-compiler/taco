@@ -20,8 +20,12 @@ private:
                             std::map<Expr, std::string, ExprCompare> outputMap) override;
 
   void visit(const For* node) override;
+  void visit(const Function* node) override;
+
+  class FindVars;
 
   std::vector<Stmt> functions;
+  std::vector<Expr> regionArgs;
 };
 
 }

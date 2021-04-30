@@ -29,9 +29,18 @@ TEST(distributed, test) {
   auto lowered = lower(stmt, "computeLegion", false, true);
 //  std::cout << lowered << std::endl;
 
-//  auto codegen = ir::CodeGen::init_default(std::cout, taco::ir::CodeGen::ImplementationGen);
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(lowered);
+}
 
-  // TODO (rohany): Look at module.cpp:61 to see the raw C source code.
+TEST(distributed, nesting) {
+  int dim = 10;
+  Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+  Tensor<int> b("b", {dim, dim}, Format{Dense, Dense});
+
+  IndexVar i("i"), j("j");
+  a(i, j) = b(j, i);
+  auto stmt = a.getAssignment().concretize();
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  std::cout << lowered << std::endl;
 }

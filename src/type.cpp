@@ -408,7 +408,7 @@ Datatype LogicalPartition = Datatype("LogicalPartition");
 Datatype DomainPointColoring = Datatype("DomainPointColoring");
 Datatype RegionRequirement = Datatype("RegionRequirement");
 Datatype Point(int n) {
-  return templateGen("Point", n);
+  return templateGen("PointT", n);
 }
 Datatype Rect(int n) {
   return templateGen("Rect", n);

@@ -212,11 +212,11 @@ protected:
 
   virtual void visit(const GetProperty *op) {
     // TODO (rohany): This might be needed.
-//    if (!util::contains(inputTensors, op->tensor) &&
-//        !util::contains(outputTensors, op->tensor)) {
-//      // Don't create header unpacking code for temporaries
-//      return;
-//    }
+    if (!util::contains(inputTensors, op->tensor) &&
+        !util::contains(outputTensors, op->tensor)) {
+      // Don't create header unpacking code for temporaries
+      return;
+    }
 
     if (varMap.count(op) == 0) {
       auto key =
