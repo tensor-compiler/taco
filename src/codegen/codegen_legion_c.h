@@ -38,6 +38,8 @@ private:
   std::map<int, Stmt> idToFor;
   std::map<int, Stmt> idToFunc;
 
+  std::map<Stmt, Stmt> funcToFor;
+
   // Maps from tasks to packed arguments.
   std::map<Stmt, std::vector<Expr>> taskArgs;
 };

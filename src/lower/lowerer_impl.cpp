@@ -1552,7 +1552,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
       // These args have to be for each of the subtasks.
       auto args = ir::Var::make("taskArgs", Auto);
-      itlStmts.push_back(ir::VarDecl::make(args, ir::Call::make("packArgs", {}, Auto)));
+      itlStmts.push_back(ir::PackTaskArgs::make(args, taskID));
 
       auto launcher = ir::Var::make("launcher", IndexLauncher);
       auto launcherMake = ir::Call::make(
@@ -1560,7 +1560,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           {
               ir::Call::make("taskID", {taskID}, Datatype::Int32),
               domain,
-              ir::Call::make(TaskArgument.getName(), {args}, TaskArgument),
+              args,
               ir::Call::make(ArgumentMap.getName(), {}, ArgumentMap),
           },
           IndexLauncher

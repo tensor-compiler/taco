@@ -185,6 +185,7 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
         this->functions.push_back(func);
         this->idToFor[node->taskID] = node;
         this->idToFunc[node->taskID] = func;
+        this->funcToFor[func] = node;
       }
       node->contents.accept(this);
     }
@@ -193,6 +194,7 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
 
     std::map<int, Stmt> idToFor;
     std::map<int, Stmt> idToFunc;
+    std::map<Stmt, Stmt> funcToFor;
   };
   TaskCollector tc;
   stmt.accept(&tc);
@@ -201,6 +203,7 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
   }
   this->idToFor = tc.idToFor;
   this->idToFunc = tc.idToFunc;
+  this->funcToFor = tc.funcToFor;
 
   if (isa<Function>(stmt)) {
     auto func = stmt.as<Function>();
@@ -240,11 +243,17 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
       } else {
         this->usedVars.back().insert(f->var);
       }
+//      auto idx = this->usedVars.size();
 
       f->start.accept(this);
       f->end.accept(this);
       f->increment.accept(this);
       f->contents.accept(this);
+
+//      if (f->parallel_unit == ParallelUnit::DistributedNode) {
+//        std::cout << "removing " << f->var << std::endl;
+//        this->usedVars[idx - 1].erase(f->var);
+//      }
     }
 
     std::vector<std::set<Expr>> usedVars;
@@ -268,8 +277,22 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
     // declare and are used by tasks above it.
     std::vector<Expr> uses;
     std::set_difference(v.usedVars[i].begin(), v.usedVars[i].end(), v.varsDeclared[i].begin(), v.varsDeclared[i].end(), std::back_inserter(uses));
-    // TODO (rohany):  I want to pass this uses set up to the parent so that they know about it.
     v.usedVars[i-1].insert(uses.begin(), uses.end());
+
+    // TODO (rohany): For a distributed for loop, remove the iterator variable?
+    auto forL = this->funcToFor.at(func).as<For>();
+    if (forL->parallel_unit == ParallelUnit::DistributedNode) {
+      auto matchedIdx = -1;
+      for (size_t pos = 0; pos < uses.size(); pos++) {
+        if (uses[pos] == forL->var) {
+          matchedIdx = pos;
+          break;
+        }
+      }
+      if (matchedIdx != -1) {
+        uses.erase(uses.begin() + matchedIdx);
+      }
+    }
 
     // TODO (rohany): Emit a context struct for each one?
     // TODO (rohany): Make this name combination a function.
@@ -360,19 +383,33 @@ void CodegenLegionC::visit(const Function* func) {
     out << "\n";
   }
 
-  // Unpack arguments.
-  doIndent();
-  auto args = this->taskArgs[func];
-  out << taskArgsName(func->name) << "* args = (" << taskArgsName(func->name) << "*)(task->args);\n";
-  // Unpack arguments from the pack;
-  for (auto arg : args) {
-    auto var = arg.as<Var>();
-    taco_iassert(var) << "must be a var";
-    doIndent();
-    out << printType(var->type, false) << " " << arg << " = args->" << arg << ";\n";
+  // If this was a distributed for loop, emit the point as the loop index.
+  // TODO (rohany): Hacky way to tell that this function was a task.
+  if (func->name.find("task") != std::string::npos) {
+    auto forL = this->funcToFor.at(func).as<For>();
+    taco_iassert(forL) << "must be a for";
+    if (forL->parallel_unit == ParallelUnit::DistributedNode) {
+      doIndent();
+      // TODO (rohany): Extend this for multi-dimensional launches.
+      out << printType(forL->var.type(), false) << " " << forL->var << " = task->index_point[0];\n";
+    }
   }
 
-  out << "\n";
+  // Unpack arguments.
+  auto args = this->taskArgs[func];
+  if (args.size() > 0) {
+    doIndent();
+    out << taskArgsName(func->name) << "* args = (" << taskArgsName(func->name) << "*)(task->args);\n";
+    // Unpack arguments from the pack;
+    for (auto arg : args) {
+      auto var = arg.as<Var>();
+      taco_iassert(var) << "must be a var";
+      doIndent();
+      out << printType(var->type, false) << " " << arg << " = args->" << arg << ";\n";
+    }
+
+    out << "\n";
+  }
 
   // Print variable declarations
   out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << std::endl;
@@ -418,6 +455,11 @@ std::string CodegenLegionC::printFuncName(const Function *func,
 //    ret << "int32_t *" << bufCapacityName;
 //    delimiter = ", ";
 //  }
+
+  if (func->name.find("task") == std::string::npos) {
+    // Add the context and runtime arguments.
+    ret << "Context ctx, Runtime* runtime, ";
+  }
 
   bool unfoldOutput = false;
   for (size_t i=0; i<func->outputs.size(); i++) {
