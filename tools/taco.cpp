@@ -368,7 +368,7 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       stmt = stmt.split(findVar(i), split1, split2, splitFactor);
     } else if (command == "divide") {
       taco_uassert(scheduleCommand.size() == 4)
-          << "'divide' scheduling directive takes 4 parameters: split(i, i1, i2, divFactor)";
+          << "'divide' scheduling directive takes 4 parameters: divide(i, i1, i2, divFactor)";
       string i, i1, i2;
       i = scheduleCommand[0];
       i1 = scheduleCommand[1];
