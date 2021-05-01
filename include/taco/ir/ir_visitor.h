@@ -5,6 +5,7 @@ namespace taco {
 namespace ir {
 struct Literal;
 struct Var;
+struct Symbol;
 struct Neg;
 struct Sqrt;
 struct Add;
@@ -53,6 +54,7 @@ struct Sort;
 struct Break;
 struct Deref;
 struct SideEffect;
+struct PackTaskArgs;
 
 /// Extend this class to visit every node in the IR.
 class IRVisitorStrict {
@@ -60,6 +62,7 @@ public:
   virtual ~IRVisitorStrict();
   virtual void visit(const Literal*) = 0;
   virtual void visit(const Var*) = 0;
+  virtual void visit(const Symbol*) = 0;
   virtual void visit(const Neg*) = 0;
   virtual void visit(const Sqrt*) = 0;
   virtual void visit(const Add*) = 0;
@@ -108,6 +111,7 @@ public:
   virtual void visit(const Sort*) = 0;
   virtual void visit(const Break*) = 0;
   virtual void visit(const SideEffect*) = 0;
+  virtual void visit(const PackTaskArgs*) = 0;
 };
 
 
@@ -118,6 +122,7 @@ public:
   using IRVisitorStrict::visit;
   virtual void visit(const Literal* op);
   virtual void visit(const Var* op);
+  virtual void visit(const Symbol* op);
   virtual void visit(const Neg* op);
   virtual void visit(const Sqrt* op);
   virtual void visit(const Add* op);
@@ -166,6 +171,7 @@ public:
   virtual void visit(const Sort* op);
   virtual void visit(const Break* op);
   virtual void visit(const SideEffect*);
+  virtual void visit(const PackTaskArgs*);
 };
 
 }}

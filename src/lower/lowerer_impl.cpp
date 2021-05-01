@@ -1409,12 +1409,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto pointT = Point(dim);
     auto rectT = Rect(dim);
     auto indexSpaceT = IndexSpaceT(dim);
-    auto disjointPart = ir::Var::make("LEGION_DISJOINT_KIND", Auto);
-    auto readOnly = ir::Var::make("READ_ONLY", Auto);
-    auto readWrite = ir::Var::make("READ_WRITE", Auto);
-    auto exclusive = ir::Var::make("EXCLUSIVE", Auto);
-    auto ctx = ir::Var::make("ctx", Auto);
-    auto tensorIndexSpace = ir::Var::make("dummyIndexSpace", Auto);
+    auto disjointPart = ir::Symbol::make("LEGION_DISJOINT_KIND");
+    auto readOnly = ir::Symbol::make("READ_ONLY");
+    auto readWrite = ir::Symbol::make("READ_WRITE");
+    auto exclusive = ir::Symbol::make("EXCLUSIVE");
+    auto ctx = ir::Symbol::make("ctx");
 
     // Create an index space with the same domain as the for loop.
     auto varIspace = ir::Var::make(forall.getIndexVar().getName() + "IndexSpace", Auto);
@@ -1509,6 +1508,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       return readOnly;
     };
 
+    auto getLogicalRegion = [](Expr e) {
+      return ir::Call::make("get_logical_region", {e}, Auto);
+    };
+
     if (forall.isDistributed()) {
       // In a distributed for-all, we have to make an index launch.
       std::vector<Stmt> itlStmts;
@@ -1520,11 +1523,22 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         // corresponding partition. Otherwise, use the tensorvar itself.
         if (util::contains(partitionings, it.first)) {
           auto part = ir::Var::make(it.first.getName() + "LogicalPartition", LogicalPartition);
-          auto call = ir::Call::make("runtime->get_logical_partition", {ctx, it.second, partitionings.at(it.first)}, LogicalPartition);
+          auto call = ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(it.second), partitionings.at(it.first)}, LogicalPartition);
           itlStmts.push_back(ir::VarDecl::make(part, call));
-          regionReqArgs = {part, 0, priv, exclusive, it.second};
+          regionReqArgs = {
+              part,
+              0,
+              priv,
+              exclusive,
+              getLogicalRegion(it.second),
+          };
         } else {
-          regionReqArgs = {it.second, priv, exclusive, it.second};
+          regionReqArgs = {
+              getLogicalRegion(it.second),
+              priv,
+              exclusive,
+              getLogicalRegion(it.second),
+          };
         }
         auto regReq = ir::Var::make(it.first.getName() + "Req", RegionRequirement);
         auto makeReq = ir::Call::make(
@@ -1583,7 +1597,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
                   ctx,
                   ir::Call::make(
                       "runtime->get_logical_partition",
-                      {ctx, it.second, partitionings.at(it.first)},
+                      {ctx, getLogicalRegion(it.second), partitionings.at(it.first)},
                       Auto
                   ),
                   point
@@ -1592,9 +1606,19 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           );
           auto subreg = ir::Var::make(it.first.getName() + "subReg", Auto);
           taskCallStmts.push_back(ir::VarDecl::make(subreg, call));
-          regionReqArgs = {subreg, priv, exclusive, it.second};
+          regionReqArgs = {
+              subreg,
+              priv,
+              exclusive,
+              getLogicalRegion(it.second),
+          };
         } else {
-          regionReqArgs = {it.second, priv, exclusive, it.second};
+          regionReqArgs = {
+              getLogicalRegion(it.second),
+              priv,
+              exclusive,
+              getLogicalRegion(it.second)
+          };
         }
 
         // TODO (rohany): Add fields on here.
@@ -1611,14 +1635,14 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       }
 
       auto args = ir::Var::make("taskArgs", Auto);
-      taskCallStmts.push_back(ir::VarDecl::make(args, ir::Call::make("packArgs", {}, Auto)));
+      taskCallStmts.push_back(ir::PackTaskArgs::make(args, taskID));
 
       auto launcher = ir::Var::make("launcher", TaskLauncher);
       auto launcherMake = ir::Call::make(
         TaskLauncher.getName(),
         {
           ir::Call::make("taskID", {taskID}, Datatype::Int32),
-          ir::Call::make(TaskArgument.getName(), {args}, TaskArgument),
+          args,
         },
         TaskLauncher
       );

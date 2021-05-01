@@ -70,6 +70,10 @@ void IRRewriter::visit(const Var* op) {
   expr = op;
 }
 
+void IRRewriter::visit(const Symbol *op) {
+  expr = op;
+}
+
 void IRRewriter::visit(const Neg* op) {
   expr = visitUnaryOp(op, this);
 }
@@ -535,6 +539,15 @@ void IRRewriter::visit(const SideEffect* op) {
     stmt = op;
   } else {
     stmt = SideEffect::make(e);
+  }
+}
+
+void IRRewriter::visit(const PackTaskArgs* op) {
+  Expr var = rewrite(op->var);
+  if (var == op->var) {
+    stmt = op;
+  } else {
+    stmt = PackTaskArgs::make(var, op->forTaskID);
   }
 }
 

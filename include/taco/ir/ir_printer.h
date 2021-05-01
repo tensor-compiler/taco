@@ -25,6 +25,7 @@ public:
 protected:
   virtual void visit(const Literal*);
   virtual void visit(const Var*);
+  virtual void visit(const Symbol*);
   virtual void visit(const Neg*);
   virtual void visit(const Sqrt*);
   virtual void visit(const Add*);
@@ -73,6 +74,7 @@ protected:
   virtual void visit(const Sort*);
   virtual void visit(const Break*);
   virtual void visit(const SideEffect*);
+  virtual void visit(const PackTaskArgs*);
 
   std::ostream &stream;
   int indent;

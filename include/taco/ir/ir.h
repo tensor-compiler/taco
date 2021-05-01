@@ -71,6 +71,8 @@ enum class IRNodeType {
   MethodCall,
   Deref,
   SideEffect,
+  Symbol,
+  PackTaskArgs,
 };
 
 enum class TensorProperty {
@@ -268,6 +270,16 @@ struct Var : public ExprNode<Var> {
                    bool is_tensor=false, bool is_parameter=false);
 
   static const IRNodeType _type_info = IRNodeType::Var;
+};
+
+// Symbol is similar to a variable but are imported and shouldn't
+// be attempted to be tracked as program variables.
+struct Symbol : public ExprNode<Symbol> {
+  std::string name;
+
+  static Expr make(std::string name);
+
+  static const IRNodeType _type_info = IRNodeType::Symbol;
 };
 
 
@@ -816,6 +828,15 @@ struct GetProperty : public ExprNode<GetProperty> {
                    int index, std::string name);
   
   static const IRNodeType _type_info = IRNodeType::GetProperty;
+};
+
+struct PackTaskArgs : public StmtNode<PackTaskArgs> {
+  Expr var;
+  int forTaskID;
+
+  static Stmt make(Expr var, int forTaskID);
+
+  static const IRNodeType _type_info = IRNodeType::PackTaskArgs;
 };
 
 template <typename E>

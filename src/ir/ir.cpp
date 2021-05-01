@@ -261,6 +261,13 @@ Expr Var::make(std::string name, Datatype type,
   return var;
 }
 
+Expr Symbol::make(std::string name) {
+  Symbol* s = new Symbol;
+  s->type = Auto;
+  s->name = name;
+  return s;
+}
+
 Expr Neg::make(Expr a) {
   Neg *neg = new Neg;
   neg->a = a;
@@ -866,6 +873,12 @@ Stmt Sort::make(std::vector<Expr> args) {
   return sort;
 }
 
+Stmt PackTaskArgs::make(Expr var, int forTaskID) {
+  PackTaskArgs* pa = new PackTaskArgs;
+  pa->var = var;
+  pa->forTaskID = forTaskID;
+  return pa;
+}
 
 // GetProperty
 Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
@@ -929,6 +942,8 @@ template<> void ExprNode<Literal>::accept(IRVisitorStrict *v)
     const { v->visit((const Literal*)this); }
 template<> void ExprNode<Var>::accept(IRVisitorStrict *v)
     const { v->visit((const Var*)this); }
+template<> void ExprNode<Symbol>::accept(IRVisitorStrict *v)
+    const { v->visit((const Symbol*)this); }
 template<> void ExprNode<Neg>::accept(IRVisitorStrict *v)
     const { v->visit((const Neg*)this); }
 template<> void ExprNode<Sqrt>::accept(IRVisitorStrict *v)
@@ -1025,6 +1040,8 @@ template<> void ExprNode<Deref>::accept(IRVisitorStrict *v)
 const { v->visit((const Deref*)this); }
 template<> void StmtNode<SideEffect>::accept(IRVisitorStrict *v)
 const { v->visit((const SideEffect*)this); }
+template<> void StmtNode<PackTaskArgs>::accept(IRVisitorStrict *v)
+const { v->visit((const PackTaskArgs*)this); }
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {

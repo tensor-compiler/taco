@@ -438,10 +438,16 @@ void CodeGen_C::visit(const For* op) {
   stream << " = ";
   op->start.accept(this);
   stream << keywordString("; ");
-  op->var.accept(this);
-  stream << " < ";
-  parentPrecedence = BOTTOM;
-  op->end.accept(this);
+  // TODO (rohany): HACK.
+  if (isa<MethodCall>(op->end)) {
+    // Temporarily assume that method calls mean that this is a C++ style for loop.
+    op->end.accept(this);
+  } else {
+    op->var.accept(this);
+    stream << " < ";
+    parentPrecedence = BOTTOM;
+    op->end.accept(this);
+  }
   stream << keywordString("; ");
   op->var.accept(this);
 

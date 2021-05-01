@@ -137,6 +137,32 @@ std::string CodegenLegionC::unpackTensorProperty(std::string varname, const GetP
   return ret.str();
 }
 
+void CodegenLegionC::visit(const PackTaskArgs *node) {
+  doIndent();
+
+  auto func = this->idToFunc.at(node->forTaskID).as<Function>();
+  auto taskFor = this->idToFor.at(node->forTaskID).as<For>();
+  taco_iassert(func) << "must be func";
+  taco_iassert(taskFor) << "must be for";
+
+  // Use this information to look up what variables need to be packed into the struct.
+  auto stname = taskArgsName(func->name);
+
+  // Make a variable for the raw allocation of the arguments.
+  auto tempVar = node->var.as<Var>()->name + "Raw";
+  out << stname << "* " << tempVar << " = (" << stname << "*)" << "malloc(sizeof(" << stname << "));\n";
+  for (auto arg : this->taskArgs[func]) {
+    auto var = arg.as<Var>();
+    taco_iassert(var) << "must be a var";
+    doIndent();
+    out << tempVar << "->" << arg << " = " << arg << ";\n";
+  }
+
+  // Construct the actual TaskArgument from this packed data.
+  doIndent();
+  out << "TaskArgument " << node->var << " = TaskArgument(" << tempVar << ", sizeof(" << stname << "));\n";
+}
+
 void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
   struct TaskCollector : public IRVisitor {
     void visit(const For* node) {
@@ -157,17 +183,24 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
             node->contents
         );
         this->functions.push_back(func);
+        this->idToFor[node->taskID] = node;
+        this->idToFunc[node->taskID] = func;
       }
       node->contents.accept(this);
     }
 
     std::vector<Stmt> functions;
+
+    std::map<int, Stmt> idToFor;
+    std::map<int, Stmt> idToFunc;
   };
   TaskCollector tc;
   stmt.accept(&tc);
   for (auto f : util::reverse(tc.functions)) {
     this->functions.push_back(f);
   }
+  this->idToFor = tc.idToFor;
+  this->idToFunc = tc.idToFunc;
 
   if (isa<Function>(stmt)) {
     auto func = stmt.as<Function>();
@@ -180,7 +213,9 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
       if (this->usedVars.size() == 0) {
         this->usedVars.push_back({});
       }
-      this->usedVars.back().insert(v);
+      if (v->type.getKind() != Datatype::CppType) {
+        this->usedVars.back().insert(v);
+      }
     }
 
     // We don't want to visit the variables within GetProperty objects.
@@ -234,6 +269,7 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
     std::vector<Expr> uses;
     std::set_difference(v.usedVars[i].begin(), v.usedVars[i].end(), v.varsDeclared[i].begin(), v.varsDeclared[i].end(), std::back_inserter(uses));
     // TODO (rohany):  I want to pass this uses set up to the parent so that they know about it.
+    v.usedVars[i-1].insert(uses.begin(), uses.end());
 
     // TODO (rohany): Emit a context struct for each one?
     // TODO (rohany): Make this name combination a function.
@@ -248,7 +284,6 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
     }
     this->indent--;
     out << "};\n";
-
 
     this->taskArgs[func] = uses;
 

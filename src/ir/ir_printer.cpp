@@ -133,6 +133,10 @@ void IRPrinter::visit(const Var* op) {
   }
 }
 
+void IRPrinter::visit(const Symbol* op) {
+  stream << op->name;
+}
+
 void IRPrinter::visit(const Neg* op) {
   if(op->type.isBool()) {
     stream << "!";
@@ -264,6 +268,12 @@ void IRPrinter::visit(const SideEffect* op) {
   doIndent();
   op->e.accept(this);
   stream << ";" << endl;
+}
+
+void IRPrinter::visit(const PackTaskArgs* op) {
+  doIndent();
+  op->var.accept(this);
+  stream << " = packed args for task: " << op->forTaskID << ";" << endl;
 }
 
 void IRPrinter::visit(const IfThenElse* op) {

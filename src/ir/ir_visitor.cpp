@@ -20,6 +20,9 @@ void IRVisitor::visit(const Literal*) {
 void IRVisitor::visit(const Var*) {
 }
 
+void IRVisitor::visit(const Symbol*) {
+}
+
 void IRVisitor::visit(const Neg* op) {
   op->a.accept(this);
 }
@@ -247,6 +250,10 @@ void IRVisitor::visit(const Break*) {
 
 void IRVisitor::visit(const SideEffect* s) {
   s->e.accept(this);
+}
+
+void IRVisitor::visit(const PackTaskArgs* p) {
+  p->var.accept(this);
 }
 
 void IRVisitor::visit(const Print* op) {

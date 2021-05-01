@@ -19,8 +19,11 @@ private:
                             std::map<Expr, std::string, ExprCompare> inputMap,
                             std::map<Expr, std::string, ExprCompare> outputMap) override;
 
+  using IRPrinter::visit;
+
   void visit(const For* node) override;
   void visit(const Function* node) override;
+  void visit(const PackTaskArgs* node) override;
 
   std::string taskArgsName(std::string taskName) {
     return taskName + "Args";
@@ -30,6 +33,10 @@ private:
 
   std::vector<Stmt> functions;
   std::vector<Expr> regionArgs;
+
+  // Mapping task ID's to their corresponding IR constructs.
+  std::map<int, Stmt> idToFor;
+  std::map<int, Stmt> idToFunc;
 
   // Maps from tasks to packed arguments.
   std::map<Stmt, std::vector<Expr>> taskArgs;
