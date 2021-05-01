@@ -137,6 +137,26 @@ std::string CodegenLegionC::unpackTensorProperty(std::string varname, const GetP
   return ret.str();
 }
 
+std::string getVarName(Expr e) {
+  if (isa<Var>(e)) {
+    return e.as<Var>()->name;
+  }
+  if (isa<GetProperty>(e)) {
+    return e.as<GetProperty>()->name;
+  }
+  taco_ierror;
+}
+
+Datatype getVarType(Expr e) {
+  if (isa<Var>(e)) {
+    return e.as<Var>()->type;
+  }
+  if (isa<GetProperty>(e)) {
+    return e.as<GetProperty>()->type;
+  }
+  taco_ierror;
+}
+
 void CodegenLegionC::visit(const PackTaskArgs *node) {
   doIndent();
 
@@ -152,8 +172,6 @@ void CodegenLegionC::visit(const PackTaskArgs *node) {
   auto tempVar = node->var.as<Var>()->name + "Raw";
   out << stname << "* " << tempVar << " = (" << stname << "*)" << "malloc(sizeof(" << stname << "));\n";
   for (auto arg : this->taskArgs[func]) {
-    auto var = arg.as<Var>();
-    taco_iassert(var) << "must be a var";
     doIndent();
     out << tempVar << "->" << arg << " = " << arg << ";\n";
   }
@@ -222,7 +240,14 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
     }
 
     // We don't want to visit the variables within GetProperty objects.
-    void visit(const GetProperty* g) {}
+    void visit(const GetProperty* g) {
+      if (g->property == TensorProperty::Dimension) {
+        if (this->usedVars.size() == 0) {
+          this->usedVars.push_back({});
+        }
+        this->usedVars.back().insert(g);
+      }
+    }
 
     void visit(const VarDecl* v) {
       if (this->varsDeclared.size() == 0) {
@@ -299,11 +324,9 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
     out << "struct " << this->taskArgsName(func->name) << " {\n";
     this->indent++;
     for (auto& it : uses) {
-      auto var = it.as<Var>();
-      taco_iassert(var) << "must be var";
       doIndent();
-      taco_iassert(!var->is_ptr) << "can't serialize pointer args";
-      out << printType(var->type, false) << " " << it << ";\n";
+//      taco_iassert(!var->is_ptr) << "can't serialize pointer args";
+      out << printType(getVarType(it), false) << " " << it << ";\n";
     }
     this->indent--;
     out << "};\n";
@@ -318,6 +341,34 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
   }
 
   CodeGen_C::compile(stmt, isFirst);
+
+  // Output a function performing all of the task registration.
+  out << "void registerTacoTasks() {\n";
+  indent++;
+
+  for (auto& f : this->functions) {
+    auto func = f.as<Function>();
+    auto forL = this->funcToFor.at(func).as<For>();
+    doIndent();
+    out << "{\n";
+    indent++;
+
+    doIndent();
+    out << "TaskVariantRegistrar registrar(taskID(" << forL->taskID << "), \"" << func->name << "\");\n";
+
+    doIndent();
+    out << "registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));\n";
+
+    doIndent();
+    out << "Runtime::preregister_task_variant<" << func->name << ">(registrar, \"" <<  func->name << "\");\n";
+
+    indent--;
+
+    doIndent();
+    out << "}\n";
+  }
+
+  out << "}\n";
 }
 
 void CodegenLegionC::visit(const For* node) {
@@ -402,13 +453,31 @@ void CodegenLegionC::visit(const Function* func) {
     out << taskArgsName(func->name) << "* args = (" << taskArgsName(func->name) << "*)(task->args);\n";
     // Unpack arguments from the pack;
     for (auto arg : args) {
-      auto var = arg.as<Var>();
-      taco_iassert(var) << "must be a var";
+//      auto var = arg.as<Var>();
+//      taco_iassert(var) << "must be a var";
       doIndent();
-      out << printType(var->type, false) << " " << arg << " = args->" << arg << ";\n";
+      out << printType(getVarType(arg), false) << " " << arg << " = args->" << arg << ";\n";
     }
 
     out << "\n";
+  }
+
+
+  // TODO (rohany): Hack.
+  // TODO (rohany): Hacky way to tell that this function was a task.
+  if (func->name.find("task") != std::string::npos) {
+    std::vector<Expr> toRemove;
+    for (auto it : varFinder.varDecls) {
+      if (isa<GetProperty>(it.first)) {
+        auto g = it.first.as<GetProperty>();
+        if (g->property == TensorProperty::Dimension) {
+          toRemove.push_back(g);
+        }
+      }
+    }
+    for (auto it : toRemove) {
+      varFinder.varDecls.erase(it);
+    }
   }
 
   // Print variable declarations

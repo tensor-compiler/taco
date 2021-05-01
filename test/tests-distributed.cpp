@@ -12,19 +12,21 @@ TEST(distributed, test) {
   int dim = 10;
   Tensor<int> a("a", {dim}, Format{Dense});
   Tensor<int> b("b", {dim}, Format{Dense});
+  Tensor<int> c("c", {dim}, Format{Dense});
 
   IndexVar i("i"), in("in"), il("il"), il1 ("il1"), il2("il2");
-  a(i) = b(i);
+  a(i) = b(i) + c(i);
   auto stmt = a.getAssignment().concretize();
-  stmt = stmt.distribute({i}, {in}, {il}, Grid(2));
+  stmt = stmt.distribute({i}, {in}, {il}, Grid(4));
   stmt = stmt.split(il, il1, il2, 256);
 
 
   // Communication modification must go at the end.
   // TODO (rohany): name -- placement
-  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), il1);
+//  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), il1);
 //  stmt = stmt.pushCommUnder(a(i), il1).pushCommUnder(b(i), il1);
 //  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
+  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in).pushCommUnder(c(i), in);
 
   auto lowered = lower(stmt, "computeLegion", false, true);
 //  std::cout << lowered << std::endl;

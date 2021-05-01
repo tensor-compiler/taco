@@ -1413,6 +1413,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto readOnly = ir::Symbol::make("READ_ONLY");
     auto readWrite = ir::Symbol::make("READ_WRITE");
     auto exclusive = ir::Symbol::make("EXCLUSIVE");
+    auto fidVal = ir::Symbol::make("FID_VAL");
     auto ctx = ir::Symbol::make("ctx");
 
     // Create an index space with the same domain as the for loop.
@@ -1547,6 +1548,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
             RegionRequirement
         );
         itlStmts.push_back(ir::VarDecl::make(regReq, makeReq));
+        itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(regReq, "add_field", {fidVal}, false, Auto)));
         regionReqs.push_back(regReq);
       }
 
@@ -1578,6 +1580,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           Auto
       );
       itlStmts.push_back(ir::VarDecl::make(fm, fmCall));
+      itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(fm, "wait_all_results", {}, false, Auto)));
 
       transfers.push_back(ir::Block::make(itlStmts));
     } else {
@@ -1631,6 +1634,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
             RegionRequirement
         );
         taskCallStmts.push_back(ir::VarDecl::make(regReq, makeReq));
+        taskCallStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(regReq, "add_field", {fidVal}, false, Auto)));
         regionReqs.push_back(regReq);
       }
 
