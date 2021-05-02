@@ -260,8 +260,9 @@ void IRPrinter::visit(const MethodCall* op) {
 }
 
 void IRPrinter::visit(const Deref* op) {
-  stream << "*";
+  stream << "(*";
   op->var.accept(this);
+  stream << ")";
 }
 
 void IRPrinter::visit(const SideEffect* op) {

@@ -128,9 +128,9 @@ std::string CodegenLegionC::unpackTensorProperty(std::string varname, const GetP
     tp = "auto";
     ret << tp << " " << varname << " = get_index_space(" << tensor->name << ");\n";
   } else if (op->property == TensorProperty::ValuesReadAccessor) {
-    ret << "AccessorRO" << printType(op->type, false) << " " << varname << "(" << tensor->name << ", FID_VAL);\n";
+    ret << "AccessorRO" << printType(op->type, false) << op->mode << " " << varname << "(" << tensor->name << ", FID_VAL);\n";
   } else if (op->property == TensorProperty::ValuesWriteAccessor) {
-    ret << "AccessorRW" << printType(op->type, false) << " " << varname << "(" << tensor->name << ", FID_VAL);\n";
+    ret << "AccessorRW" << printType(op->type, false) << op->mode << " " << varname << "(" << tensor->name << ", FID_VAL);\n";
   } else {
     return CodeGen::unpackTensorProperty(varname, op, is_output_prop);
   }

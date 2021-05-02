@@ -528,6 +528,8 @@ LowererImpl::lower(IndexStmt stmt, string name,
       for (auto& it : this->inScopeVars) {
         if (!util::contains(this->requestedTensorVars, it.first)) {
           it.second.insert(node->indexVar);
+          auto fused = this->pg.getMultiFusedParents(node->indexVar);
+          it.second.insert(fused.begin(), fused.end());
         }
       }
 
@@ -607,7 +609,12 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   std::set<IndexVar> presentIvars;
   match(stmt, function<void(const ForallNode*)>([&](const ForallNode* f) {
-    presentIvars.insert(f->indexVar);
+    auto fused = this->provGraph.getMultiFusedParents(f->indexVar);
+    if (fused.size() > 0) {
+      presentIvars.insert(fused.begin(), fused.end());
+    } else {
+      presentIvars.insert(f->indexVar);
+    }
   }));
 
   BoundsInferenceVisitor bi(this->tensorVars, this->provGraph, this->iterators, this->underivedBounds, this->indexVarToExprMap, presentIvars);
@@ -1403,7 +1410,18 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     // TODO (rohany): For now, we have only single dimension domains. We will get
     //  this from the access. Probably have to define each of these for each transfer,
     //  Since different transfers could have different dimensions.
+    std::vector<IndexVar> distIvars = {forall.getIndexVar()};
     auto dim = 1;
+
+    // TODO (rohany): Comment.
+    {
+      auto fusedVars = this->provGraph.getMultiFusedParents(forall.getIndexVar());
+      if (fusedVars.size() > 0) {
+        dim = fusedVars.size();
+        distIvars = fusedVars;
+      }
+    }
+
     auto dimT = Domain(dim);
     auto pointInDimT = PointInDomainIterator(dim);
     auto pointT = Point(dim);
@@ -1418,9 +1436,22 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
     // Create an index space with the same domain as the for loop.
     auto varIspace = ir::Var::make(forall.getIndexVar().getName() + "IndexSpace", Auto);
+
+    auto lowerBound = ir::Var::make("lowerBound", pointT);
+    auto upperBound = ir::Var::make("upperBound", pointT);
+    std::vector<ir::Expr> lowerBoundExprs;
+    std::vector<ir::Expr> upperBoundExprs;
+    for (auto it : distIvars) {
+      auto bounds = provGraph.deriveIterBounds(it, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+      lowerBoundExprs.push_back(bounds[0]);
+      upperBoundExprs.push_back(ir::Sub::make(bounds[1], 1));
+    }
+    transfers.push_back(ir::VarDecl::make(lowerBound, makeConstructor(pointT, lowerBoundExprs)));
+    transfers.push_back(ir::VarDecl::make(upperBound, makeConstructor(pointT, upperBoundExprs)));
+
     auto makeIspace = ir::Call::make(
       "runtime->create_index_space",
-      {ctx, makeConstructor(rectT, {bounds[0], ir::Sub::make(bounds[1], 1)})},
+      {ctx, makeConstructor(rectT, {lowerBound, upperBound})},
       Auto
     );
     transfers.push_back(ir::VarDecl::make(varIspace, makeIspace));
@@ -1443,34 +1474,36 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto domainIter = ir::Var::make("itr", pointInDimT);
 
     std::vector<Stmt> partStmts;
-    // TODO (rohany): Either we need to point the iterator at the
-    //  var for the index var, or rewrite the bound expressions to reference the
-    //  point iterator. Aside from the initial partitioning phase, which could
-    //  use multiple dimensions, this should always be 1 dimensional.
-    // auto point = ir::Var::make("point", pointT);
-    auto point = this->indexVarToExprMap[forall.getIndexVar()];
-    partStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, pointT)));
+    for (size_t i = 0; i < distIvars.size(); i++) {
+      auto ivar = distIvars[i];
+      auto ivarExpr = this->indexVarToExprMap[ivar];
+      partStmts.push_back(ir::VarDecl::make(ivarExpr, ir::Load::make(ir::Deref::make(domainIter, pointT), int32_t(i))));
+    }
 
     // Add a dummy partition object for each transfer.
     for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
       auto& t = forall.getTransfers()[idx];
       auto n = t.getAccess().getTensorVar().getName();
 
+      auto tensorDim = t.getAccess().getIndexVars().size();
+      auto txPoint = Point(tensorDim);
+      auto txRect = Rect(tensorDim);
+
       auto bounds = this->derivedBounds[t.getAccess().getTensorVar()];
       std::vector<Expr> los, his;
-      for (auto dimIdx = 0; dimIdx < dim; dimIdx++) {
+      for (auto dimIdx = 0; dimIdx < tensorDim; dimIdx++) {
         los.push_back(bounds[dimIdx][0]);
         his.push_back(bounds[dimIdx][1]);
       }
-      auto start = ir::Var::make(n + "Start", pointT);
-      auto end = ir::Var::make(n + "End", pointT);
-      partStmts.push_back(ir::VarDecl::make(start, ir::Call::make(pointT.getName(),  los, pointT)));
-      partStmts.push_back(ir::VarDecl::make(end, ir::Call::make(pointT.getName(), his, pointT)));
-      auto rect = ir::Var::make(n + "Rect", rectT);
-      partStmts.push_back(ir::VarDecl::make(rect, ir::Call::make(rectT.getName(), {start, end}, rectT)));
+      auto start = ir::Var::make(n + "Start", txPoint);
+      auto end = ir::Var::make(n + "End", txPoint);
+      partStmts.push_back(ir::VarDecl::make(start, makeConstructor(txPoint, los)));
+      partStmts.push_back(ir::VarDecl::make(end, makeConstructor(txPoint, his)));
+      auto rect = ir::Var::make(n + "Rect", txRect);
+      partStmts.push_back(ir::VarDecl::make(rect, makeConstructor(txRect, {start, end})));
 
       auto coloring = colorings[idx];
-      partStmts.push_back(ir::Assign::make(ir::Load::make(coloring, point), rect));
+      partStmts.push_back(ir::Assign::make(ir::Load::make(coloring, ir::Deref::make(domainIter, Auto)), rect));
     }
 
     auto l = ir::For::make(
@@ -1584,6 +1617,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
       transfers.push_back(ir::Block::make(itlStmts));
     } else {
+      // TODO (rohany): This code assumes that we always distributed multi
+      //  dimensional task launches via index launches.
+      auto point = this->indexVarToExprMap[forall.getIndexVar()];
+
       // Otherwise, we make a loop that launches the task.
       std::vector<Stmt> taskCallStmts;
       taskCallStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, pointT)));
@@ -2944,10 +2981,11 @@ ir::Expr LowererImpl::getValuesArray(TensorVar var) const
   if (this->legion) {
     // TODO (rohany): Handle temporary arrays at some point.
     // TODO (rohany): Handle reduction accessors at some point.
+    // TODO (rohany): Hackingly including the size as the mode here.
     if (util::contains(this->resultTensors, var)) {
-      return GetProperty::make(getTensorVar(var), TensorProperty::ValuesWriteAccessor);
+      return GetProperty::make(getTensorVar(var), TensorProperty::ValuesWriteAccessor, var.getOrder());
     } else {
-      return GetProperty::make(getTensorVar(var), TensorProperty::ValuesReadAccessor);
+      return GetProperty::make(getTensorVar(var), TensorProperty::ValuesReadAccessor, var.getOrder());
     }
   } else {
     return (util::contains(temporaryArrays, var))

@@ -1567,6 +1567,9 @@ IndexStmt IndexStmt::distribute(std::vector<IndexVar> original, std::vector<Inde
 IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
   // TODO (rohany): We should do a bunch of checks here, but I'll omit those for now.
 
+  // Create a provenance graph to learn about some index var relations.
+  ProvenanceGraph pg(*this);
+
   auto stmt = *this;
   // First, remove the transfer for the access, wherever it is.
   struct TransferRemover : public IndexNotationRewriter {
@@ -1596,10 +1599,16 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
 
   // Now add the transfer to the desired forall.
   struct TransferAdder : public IndexNotationRewriter {
-    TransferAdder(Access a, IndexVar i) : a(a), i(i) {}
+    TransferAdder(Access a, IndexVar i, ProvenanceGraph& pg) : a(a), i(i), pg(pg) {}
     void visit(const ForallNode* node) {
       auto istmt = rewrite(node->stmt);
-      if (node->indexVar == i) {
+
+      // See if this is a collapsed distributed for loop.
+      std::set<IndexVar> collapsed;
+      auto fused = this->pg.getMultiFusedParents(node->indexVar);
+      collapsed.insert(fused.begin(), fused.end());
+
+      if (node->indexVar == i || util::contains(collapsed, i)) {
         // Copy the transfers over;
         Transfers newTransfers = node->transfers;
         newTransfers.push_back(this->a);
@@ -1610,9 +1619,11 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
     }
     Access a;
     IndexVar i;
+    ProvenanceGraph& pg;
   };
-  TransferAdder adder(a, i);
+  TransferAdder adder(a, i, pg);
   stmt = adder.rewrite(stmt);
+
   return stmt;
 }
 

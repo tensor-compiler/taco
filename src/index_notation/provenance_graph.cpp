@@ -46,6 +46,9 @@ void IndexVarRel::print(std::ostream& stream) const {
       case PRECOMPUTE:
         getNode<PrecomputeRelNode>()->print(stream);
         break;
+      case MULTIFUSE:
+        getNode<MultiFuseRelNode>()->print(stream);
+        break;
       default:
         taco_ierror;
     }
@@ -72,6 +75,8 @@ bool IndexVarRel::equals(const IndexVarRel &rel) const {
       return getNode<BoundRelNode>()->equals(*rel.getNode<BoundRelNode>());
     case PRECOMPUTE:
       return getNode<PrecomputeRelNode>()->equals(*rel.getNode<PrecomputeRelNode>());
+    case MULTIFUSE:
+      return getNode<MultiFuseRelNode>()->equals(*rel.getNode<MultiFuseRelNode>());
     default:
       taco_ierror;
       return false;
@@ -720,6 +725,89 @@ std::vector<ir::Expr> FuseRelNode::combineParentBounds(std::vector<ir::Expr> out
 
 bool operator==(const FuseRelNode& a, const FuseRelNode& b) {
   return a.equals(b);
+}
+
+struct MultiFuseRelNode::Content {
+  IndexVar fusedVar;
+  std::vector<IndexVar> toFuse;
+};
+
+MultiFuseRelNode::MultiFuseRelNode(IndexVar fusedVar, std::vector<IndexVar> toFuse)
+  : IndexVarRelNode(MULTIFUSE), content(new Content) {
+  content->fusedVar = fusedVar;
+  content->toFuse = toFuse;
+}
+
+std::vector<IndexVar> MultiFuseRelNode::getParents() const {
+  return this->content->toFuse;
+}
+
+std::vector<IndexVar> MultiFuseRelNode::getChildren() const {
+  return {this->content->fusedVar};
+}
+
+std::vector<IndexVar> MultiFuseRelNode::getIrregulars() const {
+  return {this->content->fusedVar};
+}
+
+std::vector<ir::Expr> MultiFuseRelNode::computeRelativeBound(std::set<IndexVar> definedVars,
+                                                             std::map<IndexVar, std::vector<ir::Expr>> computedBounds,
+                                                             std::map<IndexVar, ir::Expr> variableExprs,
+                                                             Iterators iterators, ProvenanceGraph provGraph) const {
+  // TODO (rohany): Incorporate the fancy logic of the FuseRelNode.
+  ir::Expr minBound = 0;
+  ir::Expr maxBound = 1;
+  for (auto ivar : this->content->toFuse) {
+    maxBound = ir::Mul::make(maxBound, computedBounds[ivar][1]);
+  }
+  return {minBound, maxBound};
+}
+
+std::vector<ir::Expr> MultiFuseRelNode::deriveIterBounds(IndexVar indexVar,
+                                                         std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                                         std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                                         std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                                         Iterators iterators, ProvenanceGraph provGraph) const {
+  // TODO (rohany): Incorporate the fancy logic of the FuseRelNode.
+  ir::Expr minBound = 0;
+  ir::Expr maxBound = 1;
+  for (auto ivar : this->content->toFuse) {
+    maxBound = ir::Mul::make(maxBound, parentIterBounds[ivar][1]);
+  }
+  return {minBound, maxBound};
+}
+
+ir::Expr MultiFuseRelNode::recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames,
+                                           Iterators iterators,
+                                           std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                           std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                           ProvenanceGraph provGraph) const {
+  // TODO (rohany): Hard code this to get the index point?
+  auto idx = -1;
+  for (size_t i = 0; i < this->content->toFuse.size(); i++) {
+    if (this->content->toFuse[i] == indexVar) {
+      idx = i;
+      break;
+    }
+  }
+  taco_iassert(idx != -1);
+  auto task = ir::Symbol::make("task");
+  return ir::Call::make("getIndexPoint", {task, idx}, Datatype::Int32);
+//  return
+}
+
+ir::Stmt MultiFuseRelNode::recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl,
+                                        Iterators iterators, ProvenanceGraph provGraph) const {
+  taco_not_supported_yet;
+  return ir::Stmt();
+}
+
+void MultiFuseRelNode::print(std::ostream &stream) const {
+  stream << "multiFuse({" << util::join(this->content->toFuse) << "}, " << this->content->toFuse << ")";
+}
+
+bool MultiFuseRelNode::equals(const MultiFuseRelNode &rel) const {
+  return this->content->fusedVar == rel.content->fusedVar && this->content->toFuse == rel.content->toFuse;
 }
 
 // BoundRelNode
@@ -1386,6 +1474,20 @@ bool ProvenanceGraph::isDivided(IndexVar indexVar) const {
     }
   }
   return false;
+}
+
+// TODO (rohany): Copied.
+std::vector<IndexVar> ProvenanceGraph::getMultiFusedParents(IndexVar indexVar) const {
+  // See if the indexVar has any parents. If so, look at the relation that
+  // created the parent-child relationship. If it is a divide, return true.
+  auto parents = this->getParents(indexVar);
+  if (parents.size() > 0) {
+    auto rel = this->parentRelMap.at(indexVar);
+    if (rel.getRelType() == MULTIFUSE) {
+      return parents;
+    }
+  }
+  return {};
 }
 
 }

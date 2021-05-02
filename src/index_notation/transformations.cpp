@@ -723,18 +723,33 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
   order.insert(order.end(), this->content->innerVars.begin(), this->content->innerVars.end());
   stmt = stmt.reorder(order);
 
+  IndexVar distFused("distFused");
+  if (this->content->distVars.size() > 1) {
+    IndexVarRel rel = IndexVarRel(new MultiFuseRelNode(distFused, this->content->distVars));
+    stmt = Transformation(AddSuchThatPredicates({rel})).apply(stmt, reason);
+    if (!stmt.defined()) {
+      taco_uerror << reason;
+    }
+    stmt = Transformation(ForAllReplace(this->content->distVars, {distFused})).apply(stmt, reason);
+    if (!stmt.defined()) {
+      taco_uerror << reason;
+    }
+  }
+
   // Mark for loops over the distributed variables as actually distributed.
   struct DistributedForallMarker : public IndexNotationRewriter {
     void visit(const ForallNode* node) {
-      if (util::contains(this->distVars, node->indexVar)) {
+      // TODO (rohany): Also need to mark the fused var.
+      if (util::contains(this->distVars, node->indexVar) || node->indexVar == this->distFused) {
         stmt = forall(node->indexVar, rewrite(node->stmt), ParallelUnit::DistributedNode, node->output_race_strategy, node->transfers, node->unrollFactor);
       } else {
         IndexNotationRewriter::visit(node);
       }
     }
     std::set<IndexVar> distVars;
+    IndexVar distFused;
   };
-  DistributedForallMarker m;
+  DistributedForallMarker m; m.distFused = distFused;
   m.distVars.insert(this->content->distVars.begin(), this->content->distVars.end());
   stmt = m.rewrite(stmt);
 

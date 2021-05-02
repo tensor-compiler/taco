@@ -5,7 +5,7 @@
 
 namespace taco {
 struct IndexVarRelNode;
-enum IndexVarRelType {UNDEFINED, SPLIT, DIVIDE, POS, FUSE, BOUND, PRECOMPUTE};
+enum IndexVarRelType {UNDEFINED, SPLIT, DIVIDE, POS, FUSE, BOUND, PRECOMPUTE, MULTIFUSE};
 
 /// A pointer class for IndexVarRelNodes provides some operations for all IndexVarRelTypes
 class IndexVarRel : public util::IntrusivePtr<const IndexVarRelNode> {
@@ -242,6 +242,25 @@ private:
   std::shared_ptr<Content> content;
 };
 
+// TODO (rohany): Separating this from the FuseRelNode because of it's use in distribution.
+struct MultiFuseRelNode : public IndexVarRelNode {
+  MultiFuseRelNode(IndexVar fusedVar, std::vector<IndexVar> toFuse);
+
+  void print(std::ostream& stream) const;
+  bool equals(const MultiFuseRelNode& rel) const;
+  std::vector<IndexVar> getParents() const; // toFuse
+  std::vector<IndexVar> getChildren() const; // fusedVar
+  std::vector<IndexVar> getIrregulars() const; // fusedVar
+
+  std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, ProvenanceGraph provGraph) const;
+  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators, ProvenanceGraph provGraph) const;
+  ir::Expr recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, ProvenanceGraph provGraph) const;
+  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl, Iterators iterators, ProvenanceGraph provGraph) const;
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
 bool operator==(const FuseRelNode&, const FuseRelNode&);
 
 /// The bound relation allows expressing a constraint or value known at compile-time that allows for compile-time optimizations
@@ -407,6 +426,8 @@ public:
   /// isDivided returns whether or not the target IndexVar was divided through
   /// a `.divide` scheduling operation.
   bool isDivided(IndexVar indexVar) const;
+
+  std::vector<IndexVar> getMultiFusedParents(IndexVar indexVar) const;
 
 private:
   std::map<IndexVar, IndexVarRel> childRelMap;
