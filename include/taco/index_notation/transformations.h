@@ -186,7 +186,12 @@ std::ostream& operator<<(std::ostream&, const Parallelize&);
 class Distribute : public TransformationInterface {
 public:
   Distribute();
+
+  // For distributing the index space onto a grid.
   Distribute(std::vector<IndexVar> original, std::vector<IndexVar> distVars, std::vector<IndexVar> innerVars, Grid& g);
+  // For distributing the index space based on a partition of a tensor.
+  Distribute(std::vector<IndexVar> original, std::vector<IndexVar> distVars, std::vector<IndexVar> innerVars, Access onto);
+
   IndexStmt apply(IndexStmt stmt, std::string* reason) const;
   void print(std::ostream& os) const;
 

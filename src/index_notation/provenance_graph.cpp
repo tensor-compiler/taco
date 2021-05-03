@@ -49,6 +49,9 @@ void IndexVarRel::print(std::ostream& stream) const {
       case MULTIFUSE:
         getNode<MultiFuseRelNode>()->print(stream);
         break;
+      case DIVIDE_ONTO_PARTITION:
+        getNode<DivideOntoPartition>()->print(stream);
+        break;
       default:
         taco_ierror;
     }
@@ -77,6 +80,8 @@ bool IndexVarRel::equals(const IndexVarRel &rel) const {
       return getNode<PrecomputeRelNode>()->equals(*rel.getNode<PrecomputeRelNode>());
     case MULTIFUSE:
       return getNode<MultiFuseRelNode>()->equals(*rel.getNode<MultiFuseRelNode>());
+    case DIVIDE_ONTO_PARTITION:
+      return getNode<DivideOntoPartition>()->equals(*rel.getNode<DivideOntoPartition>());
     default:
       taco_ierror;
       return false;
@@ -408,6 +413,115 @@ ir::Stmt DivideRelNode::recoverChild(taco::IndexVar indexVar,
 
 bool operator==(const DivideRelNode& a, const DivideRelNode& b) {
   return a.equals(b);
+}
+
+struct DivideOntoPartition::Content {
+  Content(Access access) : access(access) {}
+
+  IndexVar parentVar;
+  IndexVar outerVar;
+  IndexVar innerVar;
+  Access access;
+  int accessIdx;
+};
+
+DivideOntoPartition::DivideOntoPartition(IndexVar parentVar, IndexVar outerVar, IndexVar innerVar, Access access,
+                                         int accessIdx) : IndexVarRelNode(DIVIDE_ONTO_PARTITION), content(new Content(access)) {
+  content->parentVar = parentVar;
+  content->outerVar = outerVar;
+  content->innerVar = innerVar;
+  content->accessIdx = accessIdx;
+}
+
+TensorVar DivideOntoPartition::getTensorVar() const {
+  return this->content->access.getTensorVar();
+}
+
+void DivideOntoPartition::print(std::ostream &stream) const {
+  stream << "divideOntoPartition(" << this->content->parentVar << ", " << this->content->outerVar << ", " << this->content->innerVar << ", " << this->content->access << ")";
+}
+
+bool DivideOntoPartition::equals(const DivideOntoPartition &rel) const {
+  return this->content->parentVar == rel.content->parentVar &&
+         this->content->outerVar == rel.content->outerVar &&
+         this->content->innerVar == rel.content->innerVar &&
+         this->content->access == rel.content->access &&
+         this->content->accessIdx == rel.content->accessIdx;
+}
+
+std::vector<IndexVar> DivideOntoPartition::getParents() const {
+  return {this->content->parentVar};
+}
+
+std::vector<IndexVar> DivideOntoPartition::getChildren() const {
+  return {this->content->outerVar, this->content->innerVar};
+}
+
+std::vector<IndexVar> DivideOntoPartition::getIrregulars() const {
+  return {this->content->outerVar};
+}
+
+std::vector<ir::Expr> DivideOntoPartition::computeRelativeBound(std::set<IndexVar> definedVars,
+                                                                std::map<IndexVar, std::vector<ir::Expr>> computedBounds,
+                                                                std::map<IndexVar, ir::Expr> variableExprs,
+                                                                Iterators iterators, ProvenanceGraph provGraph) const {
+  std::vector<ir::Expr> parentBound = computedBounds.at(this->content->parentVar);
+  bool outerVarDefined = definedVars.count(this->content->outerVar);
+  bool innerVarDefined = definedVars.count(this->content->innerVar);
+
+  return parentBound;
+
+  // TODO (rohany): I'm not quite sure what's going on here in this case...
+
+  if (!outerVarDefined) {
+    return parentBound;
+  }
+
+  if (!innerVarDefined) {
+    return {};
+  } else {
+    taco_iassert(outerVarDefined && innerVarDefined);
+    return {};
+  }
+}
+
+std::vector<ir::Expr> DivideOntoPartition::deriveIterBounds(IndexVar indexVar,
+                                                            std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                                            std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                                            std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                                            Iterators iterators, ProvenanceGraph provGraph) const {
+  // I don't really care about bounds for other variables here.
+  if (indexVar == this->content->outerVar) {
+    auto colorSpace = provGraph.getPartitionColorSpaceVar();
+    auto lo = ir::Load::make(ir::MethodCall::make(colorSpace, "lo", {}, false, Int32), this->content->accessIdx);
+    // hi is inclusive, so we need to add 1 to it.
+    auto hi = ir::Load::make(ir::MethodCall::make(colorSpace, "hi", {}, false, Int32), this->content->accessIdx);
+    return {lo, ir::Add::make(hi, 1)};
+  } else if (indexVar == this->content->innerVar) {
+    // Use the appropriate bounds available on the partition to get the bounds.
+    auto bounds = provGraph.getPartitionBoundsVar();
+    auto lo = ir::Load::make(ir::MethodCall::make(bounds, "lo", {}, false, Int32), this->content->accessIdx);
+    // hi is inclusive, so we need to add 1 to it.
+    auto hi = ir::Load::make(ir::MethodCall::make(bounds, "hi", {}, false, Int32), this->content->accessIdx);
+    return {lo, ir::Add::make(hi, 1)};
+  }
+  taco_ierror;
+  return {};
+}
+
+ir::Expr DivideOntoPartition::recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames,
+                                              Iterators iterators,
+                                              std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                              std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                              ProvenanceGraph provGraph) const {
+  // The inner variable is exactly what we need.
+  return variableNames[this->content->innerVar];
+}
+
+ir::Stmt DivideOntoPartition::recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables,
+                                           bool emitVarDecl, Iterators iterators, ProvenanceGraph provGraph) const {
+  taco_not_supported_yet;
+  return ir::Stmt();
 }
 
 struct PosRelNode::Content {
@@ -793,7 +907,6 @@ ir::Expr MultiFuseRelNode::recoverVariable(IndexVar indexVar, std::map<IndexVar,
   taco_iassert(idx != -1);
   auto task = ir::Symbol::make("task");
   return ir::Call::make("getIndexPoint", {task, idx}, Datatype::Int32);
-//  return
 }
 
 ir::Stmt MultiFuseRelNode::recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl,
@@ -1023,6 +1136,12 @@ ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
       nodes.insert(child);
       parentRelMap[child] = rel;
       parentsMap[child] = parents;
+    }
+
+    if (rel.getRelType() == DIVIDE_ONTO_PARTITION && !this->partitionColorSpace.defined()) {
+      auto node = rel.getNode<DivideOntoPartition>();
+      this->partitionColorSpace = ir::Var::make(node->getTensorVar().getName() + "PartitionColorSpace", Auto);
+      this->partitionBounds = ir::Var::make(node->getTensorVar().getName() + "PartitionBounds", Auto);
     }
   }
 }
@@ -1488,6 +1607,14 @@ std::vector<IndexVar> ProvenanceGraph::getMultiFusedParents(IndexVar indexVar) c
     }
   }
   return {};
+}
+
+ir::Expr ProvenanceGraph::getPartitionColorSpaceVar() const {
+  return this->partitionColorSpace;
+}
+
+ir::Expr ProvenanceGraph::getPartitionBoundsVar() const {
+  return this->partitionBounds;
 }
 
 }

@@ -139,6 +139,10 @@ void IRVisitor::visit(const Deref* op) {
   op->var.accept(this);
 }
 
+void IRVisitor::visit(const FieldAccess* op) {
+  op->var.accept(this);
+}
+
 void IRVisitor::visit(const IfThenElse* op) {
   op->cond.accept(this);
   op->then.accept(this);

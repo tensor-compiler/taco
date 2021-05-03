@@ -525,6 +525,8 @@ private:
 
   std::map<TensorVar, std::vector<std::vector<ir::Expr>>> derivedBounds;
 
+  ir::Expr computingOnPartition;
+
 };
 
 }

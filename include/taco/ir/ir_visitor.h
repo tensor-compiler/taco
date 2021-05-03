@@ -55,6 +55,7 @@ struct Break;
 struct Deref;
 struct SideEffect;
 struct PackTaskArgs;
+struct FieldAccess;
 
 /// Extend this class to visit every node in the IR.
 class IRVisitorStrict {
@@ -86,6 +87,7 @@ public:
   virtual void visit(const Call*) = 0;
   virtual void visit(const MethodCall*) = 0;
   virtual void visit(const Deref*) = 0;
+  virtual void visit(const FieldAccess*) = 0;
   virtual void visit(const IfThenElse*) = 0;
   virtual void visit(const Case*) = 0;
   virtual void visit(const Switch*) = 0;
@@ -146,6 +148,7 @@ public:
   virtual void visit(const Call* op);
   virtual void visit(const MethodCall* op);
   virtual void visit(const Deref*);
+  virtual void visit(const FieldAccess*);
   virtual void visit(const IfThenElse* op);
   virtual void visit(const Case* op);
   virtual void visit(const Switch* op);

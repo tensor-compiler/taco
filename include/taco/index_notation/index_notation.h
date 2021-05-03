@@ -629,6 +629,7 @@ public:
 
   // TODO (rohany): Comment this up later.
   IndexStmt distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Grid g);
+  IndexStmt distributeOnto(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Access onto);
 
   IndexStmt pushCommUnder(Access a, IndexVar i);
 
@@ -772,7 +773,7 @@ public:
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
-  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, std::vector<Transfer> transfers, size_t unrollFactor = 0);
+  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, std::vector<Transfer> transfers, TensorVar computingOn, size_t unrollFactor = 0);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
@@ -784,13 +785,14 @@ public:
 
   bool isDistributed() const;
   const std::vector<Transfer>& getTransfers() const;
+  const TensorVar getComputingOn() const;
 
   typedef ForallNode Node;
 };
 
 /// Create a forall index statement.
 Forall forall(IndexVar i, IndexStmt stmt);
-Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, std::vector<Transfer> transfers, size_t unrollFactor = 0);
+Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, std::vector<Transfer> transfers, TensorVar computingOn, size_t unrollFactor = 0);
 
 
 /// A where statment has a producer statement that binds a tensor variable in

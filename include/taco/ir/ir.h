@@ -73,6 +73,7 @@ enum class IRNodeType {
   SideEffect,
   Symbol,
   PackTaskArgs,
+  FieldAccess,
 };
 
 enum class TensorProperty {
@@ -522,6 +523,16 @@ struct Deref : public ExprNode<Deref> {
   static Expr make(Expr var, Datatype type);
 
   static const IRNodeType _type_info = IRNodeType::Deref;
+};
+
+struct FieldAccess : public ExprNode<FieldAccess> {
+  Expr var;
+  std::string field;
+  bool isDeref;
+
+  static Expr make(Expr var, std::string field, bool isDeref, Datatype type);
+
+  static const IRNodeType _type_info = IRNodeType::FieldAccess;
 };
 
 /** A load from an array: arr[loc]. */

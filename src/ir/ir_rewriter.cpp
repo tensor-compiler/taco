@@ -234,6 +234,15 @@ void IRRewriter::visit(const Deref* op) {
   }
 }
 
+void IRRewriter::visit(const FieldAccess* op) {
+  auto var = rewrite(op->var);
+  if (op->var != var) {
+    expr = FieldAccess::make(var, op->field, op->isDeref, op->type);
+  } else {
+    expr = op;
+  }
+}
+
 void IRRewriter::visit(const IfThenElse* op) {
   Expr cond      = rewrite(op->cond);
   Stmt then      = rewrite(op->then);

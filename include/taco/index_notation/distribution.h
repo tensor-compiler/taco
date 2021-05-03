@@ -31,6 +31,8 @@ public:
     return this->dimensions[dim];
   }
 
+  bool defined() { return this->dimensions.size() > 0; }
+
 private:
   std::vector<int> dimensions;
 };

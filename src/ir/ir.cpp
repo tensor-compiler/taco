@@ -525,6 +525,15 @@ Expr Deref::make(Expr var, Datatype type) {
   return deref;
 }
 
+Expr FieldAccess::make(Expr var, std::string field, bool isDeref, Datatype type) {
+  FieldAccess* fa = new FieldAccess;
+  fa->type = type;
+  fa->var = var;
+  fa->field = field;
+  fa->isDeref = isDeref;
+  return fa;
+}
+
 // Load
 Expr Load::make(Expr arr) {
   return Load::make(arr, Literal::make((int64_t)0));
@@ -1038,6 +1047,8 @@ template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
   const { v->visit((const Break*)this); }
 template<> void ExprNode<Deref>::accept(IRVisitorStrict *v)
 const { v->visit((const Deref*)this); }
+template<> void ExprNode<FieldAccess>::accept(IRVisitorStrict *v)
+const { v->visit((const FieldAccess*)this); }
 template<> void StmtNode<SideEffect>::accept(IRVisitorStrict *v)
 const { v->visit((const SideEffect*)this); }
 template<> void StmtNode<PackTaskArgs>::accept(IRVisitorStrict *v)

@@ -66,6 +66,13 @@ protected:
     op->rhs.accept(this);
   }
 
+  virtual void visit(const PackTaskArgs* args) {
+    auto func = this->codeGen->idToFunc.at(args->forTaskID).as<Function>();
+    for (auto& e : this->codeGen->taskArgs[func]) {
+      e.accept(this);
+    }
+  }
+
   virtual void visit(const For *op) {
     // Don't count the variables inside the task as being used.
     if (op->isTask) {
@@ -145,6 +152,7 @@ std::string getVarName(Expr e) {
     return e.as<GetProperty>()->name;
   }
   taco_ierror;
+  return "";
 }
 
 Datatype getVarType(Expr e) {
@@ -155,6 +163,7 @@ Datatype getVarType(Expr e) {
     return e.as<GetProperty>()->type;
   }
   taco_ierror;
+  return Datatype();
 }
 
 void CodegenLegionC::visit(const PackTaskArgs *node) {
@@ -225,8 +234,16 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
 
   if (isa<Function>(stmt)) {
     auto func = stmt.as<Function>();
-    this->regionArgs.insert(this->regionArgs.end(), func->outputs.begin(), func->outputs.end());
-    this->regionArgs.insert(this->regionArgs.end(), func->inputs.begin(), func->inputs.end());
+    for (auto& arg : func->outputs) {
+      if (arg.as<Var>()->is_tensor) {
+        this->regionArgs.push_back(arg);
+      }
+    }
+    for (auto& arg : func->inputs) {
+      if (arg.as<Var>()->is_tensor) {
+        this->regionArgs.push_back(arg);
+      }
+    }
   }
 
   struct VarsUsedByTask : public IRVisitor {
@@ -286,12 +303,12 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
   };
   VarsUsedByTask v;
   stmt.accept(&v);
-  for (auto it : v.usedVars) {
-    std::cout << "Used vars in task: " << util::join(it) << std::endl;
-  }
-  for (auto it : v.varsDeclared) {
-    std::cout << "Vars declared by task: " << util::join(it) << std::endl;
-  }
+//  for (auto it : v.usedVars) {
+//    std::cout << "Used vars in task: " << util::join(it) << std::endl;
+//  }
+//  for (auto it : v.varsDeclared) {
+//    std::cout << "Vars declared by task: " << util::join(it) << std::endl;
+//  }
 
   // TODO (rohany): Clean up this code.
   auto funcIdx = 0;

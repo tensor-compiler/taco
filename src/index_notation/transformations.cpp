@@ -582,7 +582,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           );
           taco_iassert(!precomputeAssignments.empty());
 
-          IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), node->transfers, foralli.getUnrollFactor());
+          IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), node->transfers, node->computingOn, foralli.getUnrollFactor());
           for (auto assignment : precomputeAssignments) {
             // Construct temporary of correct type and size of outer loop
             TensorVar w(string("w_") + ParallelUnit_NAMES[(int) parallelize.getParallelUnit()], Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense);
@@ -591,7 +591,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
             IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, w(i)}})).rewrite(precomputed_stmt);
             taco_iassert(isa<Forall>(producer));
             Forall producer_forall = to<Forall>(producer);
-            producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), node->transfers, foralli.getUnrollFactor());
+            producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), node->transfers, node->computingOn, foralli.getUnrollFactor());
 
             // build consumer that writes from temporary to output, mark consumer as parallel reduction
             ParallelUnit reductionUnit = ParallelUnit::CPUThreadGroupReduction;
@@ -603,7 +603,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
                 reductionUnit = ParallelUnit::GPUBlockReduction;
               }
             }
-            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), reductionUnit, OutputRaceStrategy::ParallelReduction, node->transfers);
+            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), reductionUnit, OutputRaceStrategy::ParallelReduction, node->transfers, node->computingOn);
             precomputed_stmt = where(consumer, producer);
           }
           stmt = precomputed_stmt;
@@ -617,12 +617,12 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
                                          false, true);
           stmt = forall(i, body, parallelize.getParallelUnit(), 
                         parallelize.getOutputRaceStrategy(), 
-                        node->transfers, foralli.getUnrollFactor());
+                        node->transfers, node->computingOn, foralli.getUnrollFactor());
           return;
         }
 
 
-        stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), node->transfers, foralli.getUnrollFactor());
+        stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), node->transfers, node->computingOn, foralli.getUnrollFactor());
         return;
       }
 
@@ -685,10 +685,15 @@ std::ostream& operator<<(std::ostream& os, const Parallelize& parallelize) {
 // Distribution transformation related code.
 
 struct Distribute::Content {
+  Content() {}
+  Content(Access onto) : onto(onto) {}
+
   std::vector<IndexVar> original;
   std::vector<IndexVar> distVars;
   std::vector<IndexVar> innerVars;
+  // Only one of onto and grid is set.
   Grid grid;
+  Access onto;
 };
 
 Distribute::Distribute() : content(nullptr) {}
@@ -703,18 +708,41 @@ Distribute::Distribute(std::vector<IndexVar> original, std::vector<IndexVar> dis
   this->content->grid = g;
 }
 
+Distribute::Distribute(std::vector<IndexVar> original, std::vector<IndexVar> distVars, std::vector<IndexVar> innerVars,
+                       Access onto) : content(new Content(onto)) {
+  // TODO (rohany): Should assert many things here: g.dims == original.size(),
+  //  all index var vectors have the same size etc.
+  this->content->original = original;
+  this->content->distVars = distVars;
+  this->content->innerVars = innerVars;
+}
+
 IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
   INIT_REASON(reason);
-
-  // TODO (rohany): Let's worry about collapsing multiple distributed loops into one later.
 
   // Initial implementation:
   // For each original variable, divide the loop into dimension of the grid pieces.
   // Then reorder the loops so that it's distVars -> innerVars.
 
-  for (size_t i = 0; i < this->content->original.size(); i++) {
-    stmt = stmt.divide(this->content->original[i], this->content->distVars[i], this->content->innerVars[i],
-                       this->content->grid.getDimSize(i));
+  if (this->content->grid.defined()) {
+    for (size_t i = 0; i < this->content->original.size(); i++) {
+      stmt = stmt.divide(this->content->original[i], this->content->distVars[i], this->content->innerVars[i],
+                         this->content->grid.getDimSize(i));
+    }
+  } else {
+    taco_iassert(this->content->onto.defined());
+    for (size_t i = 0; i < this->content->original.size(); i++) {
+      taco_iassert(this->content->original[i] == this->content->onto.getIndexVars()[i]);
+      auto rel = IndexVarRel(new DivideOntoPartition(this->content->original[i], this->content->distVars[i], this->content->innerVars[i], this->content->onto, i));
+      stmt = Transformation(AddSuchThatPredicates({rel})).apply(stmt, reason);
+      if (!stmt.defined()) {
+        taco_uerror << reason;
+      }
+      stmt = Transformation(ForAllReplace({this->content->original[i]}, {this->content->distVars[i], this->content->innerVars[i]})).apply(stmt, reason);
+      if (!stmt.defined()) {
+        taco_uerror << reason;
+      }
+    }
   }
 
   // Note that reorder drops parallel annotations on loops, so add the annotations later.
@@ -741,15 +769,19 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
     void visit(const ForallNode* node) {
       // TODO (rohany): Also need to mark the fused var.
       if (util::contains(this->distVars, node->indexVar) || node->indexVar == this->distFused) {
-        stmt = forall(node->indexVar, rewrite(node->stmt), ParallelUnit::DistributedNode, node->output_race_strategy, node->transfers, node->unrollFactor);
+        stmt = forall(node->indexVar, rewrite(node->stmt), ParallelUnit::DistributedNode, node->output_race_strategy, node->transfers, this->computingOn, node->unrollFactor);
       } else {
         IndexNotationRewriter::visit(node);
       }
     }
     std::set<IndexVar> distVars;
     IndexVar distFused;
+    TensorVar computingOn;
   };
   DistributedForallMarker m; m.distFused = distFused;
+  if (this->content->onto.defined()) {
+    m.computingOn = this->content->onto.getTensorVar();
+  }
   m.distVars.insert(this->content->distVars.begin(), this->content->distVars.end());
   stmt = m.rewrite(stmt);
 
@@ -881,7 +913,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
         stmt = op;
       } else if (s.defined()) {
         stmt = new ForallNode(op->indexVar, s, op->parallel_unit, 
-                              op->output_race_strategy, op->transfers, op->unrollFactor);
+                              op->output_race_strategy, op->transfers, op->computingOn, op->unrollFactor);
       } else {
         stmt = IndexStmt();
       }
@@ -1116,7 +1148,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
         stmt = op;
       } else if (s.defined()) {
         stmt = new ForallNode(op->indexVar, s, op->parallel_unit, 
-                              op->output_race_strategy, op->transfers, op->unrollFactor);
+                              op->output_race_strategy, op->transfers, op->computingOn, op->unrollFactor);
       } else {
         stmt = IndexStmt();
       }
@@ -1417,7 +1449,7 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
       taco_iassert(util::contains(sortedVars, i));
       stmt = innerBody;
       for (auto it = sortedVars.rbegin(); it != sortedVars.rend(); ++it) {
-        stmt = forall(*it, stmt, forallParallelUnit.at(*it), forallOutputRaceStrategy.at(*it), node->transfers, foralli.getUnrollFactor());
+        stmt = forall(*it, stmt, forallParallelUnit.at(*it), forallOutputRaceStrategy.at(*it), node->transfers, node->computingOn, foralli.getUnrollFactor());
       }
       return;
     }
@@ -1557,7 +1589,7 @@ IndexStmt scalarPromote(IndexStmt stmt, ProvenanceGraph provGraph,
       }
 
       stmt = forall(i, body, foralli.getParallelUnit(),
-                    foralli.getOutputRaceStrategy(), node->transfers, foralli.getUnrollFactor());
+                    foralli.getOutputRaceStrategy(), node->transfers, node->computingOn, foralli.getUnrollFactor());
       for (const auto& consumer : consumers) {
         stmt = where(consumer, stmt);
       }

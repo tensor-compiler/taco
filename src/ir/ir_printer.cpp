@@ -265,6 +265,16 @@ void IRPrinter::visit(const Deref* op) {
   stream << ")";
 }
 
+void IRPrinter::visit(const FieldAccess* op) {
+  op->var.accept(this);
+  if (op->isDeref) {
+    stream << "->";
+  } else {
+    stream << ".";
+  }
+  stream << op->field;
+}
+
 void IRPrinter::visit(const SideEffect* op) {
   doIndent();
   op->e.accept(this);

@@ -49,6 +49,7 @@ protected:
   virtual void visit(const Call*);
   virtual void visit(const MethodCall*);
   virtual void visit(const Deref*);
+  virtual void visit(const FieldAccess*);
   virtual void visit(const IfThenElse*);
   virtual void visit(const Case*);
   virtual void visit(const Switch*);

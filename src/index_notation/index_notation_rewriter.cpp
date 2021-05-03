@@ -159,7 +159,7 @@ void IndexNotationRewriter::visit(const ForallNode* op) {
     stmt = op;
   }
   else {
-    stmt = new ForallNode(op->indexVar, s, op->parallel_unit, op->output_race_strategy, op->transfers, op->unrollFactor);
+    stmt = new ForallNode(op->indexVar, s, op->parallel_unit, op->output_race_strategy, op->transfers, op->computingOn, op->unrollFactor);
   }
 }
 
@@ -369,7 +369,7 @@ struct ReplaceIndexVars : public IndexNotationRewriter {
     }
     else {
       stmt = new ForallNode(iv, s, op->parallel_unit, op->output_race_strategy, 
-                            op->transfers, op->unrollFactor);
+                            op->transfers, op->computingOn, op->unrollFactor);
     }
   }
 };

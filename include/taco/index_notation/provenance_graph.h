@@ -5,7 +5,7 @@
 
 namespace taco {
 struct IndexVarRelNode;
-enum IndexVarRelType {UNDEFINED, SPLIT, DIVIDE, POS, FUSE, BOUND, PRECOMPUTE, MULTIFUSE};
+enum IndexVarRelType {UNDEFINED, SPLIT, DIVIDE, POS, FUSE, BOUND, PRECOMPUTE, MULTIFUSE, DIVIDE_ONTO_PARTITION};
 
 /// A pointer class for IndexVarRelNodes provides some operations for all IndexVarRelTypes
 class IndexVarRel : public util::IntrusivePtr<const IndexVarRelNode> {
@@ -116,55 +116,92 @@ bool operator==(const SplitRelNode&, const SplitRelNode&);
 // DivideRelNode takes a parentVar's iteration space and divides it into divFactor
 // equal pieces. outerVar iterates over the number of pieces, and innerVar iterates
 // over each piece.
-  struct DivideRelNode : public IndexVarRelNode {
-    DivideRelNode(IndexVar parentVar, IndexVar outerVar, IndexVar innerVar, size_t divFactor);
+struct DivideRelNode : public IndexVarRelNode {
+  DivideRelNode(IndexVar parentVar, IndexVar outerVar, IndexVar innerVar, size_t divFactor);
 
-    const IndexVar &getParentVar() const;
+  const IndexVar &getParentVar() const;
 
-    const IndexVar &getOuterVar() const;
+  const IndexVar &getOuterVar() const;
 
-    const IndexVar &getInnerVar() const;
+  const IndexVar &getInnerVar() const;
 
-    const size_t &getDivFactor() const;
+  const size_t &getDivFactor() const;
 
-    void print(std::ostream &stream) const;
+  void print(std::ostream &stream) const;
 
-    bool equals(const DivideRelNode &rel) const;
+  bool equals(const DivideRelNode &rel) const;
 
-    std::vector<IndexVar> getParents() const; // parentVar
-    std::vector<IndexVar> getChildren() const; // outerVar, innerVar
-    std::vector<IndexVar> getIrregulars() const; // innerVar
+  std::vector<IndexVar> getParents() const; // parentVar
+  std::vector<IndexVar> getChildren() const; // outerVar, innerVar
+  std::vector<IndexVar> getIrregulars() const; // innerVar
 
-    // computeRelativeBound performs similar logic to SplitRelNode::computeRelativeBound.
-    std::vector<ir::Expr>
-    computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds,
-                         std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators,
-                         ProvenanceGraph provGraph) const;
+  // computeRelativeBound performs similar logic to SplitRelNode::computeRelativeBound.
+  std::vector<ir::Expr>
+  computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds,
+                       std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators,
+                       ProvenanceGraph provGraph) const;
 
-    /// outerVar has bounds 0 -> divFactor and innerVar has parentBounds / divFactor.
-    std::vector<ir::Expr>
-    deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
-                     std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
-                     std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators,
-                     ProvenanceGraph provGraph) const;
+  /// outerVar has bounds 0 -> divFactor and innerVar has parentBounds / divFactor.
+  std::vector<ir::Expr>
+  deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                   std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                   std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators,
+                   ProvenanceGraph provGraph) const;
 
-    /// parentVar = outerVar * (parentBounds / divFactor) + innerVar.
-    ir::Expr recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators,
-                             std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
-                             std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
-                             ProvenanceGraph provGraph) const;
+  /// parentVar = outerVar * (parentBounds / divFactor) + innerVar.
+  ir::Expr recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators,
+                           std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                           std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                           ProvenanceGraph provGraph) const;
 
-    /// outerVar = parentVar / (parentBounds / divFactor), innerVar = parentVar - outerVar * (parentBounds / divFactor).
-    ir::Stmt
-    recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl, Iterators iterators,
-                 ProvenanceGraph provGraph) const;
+  /// outerVar = parentVar / (parentBounds / divFactor), innerVar = parentVar - outerVar * (parentBounds / divFactor).
+  ir::Stmt
+  recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl, Iterators iterators,
+               ProvenanceGraph provGraph) const;
 
-  private:
-    struct Content;
-    std::shared_ptr<Content> content;
-  };
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
 
 bool operator==(const DivideRelNode&, const DivideRelNode&);
+
+struct DivideOntoPartition : public IndexVarRelNode {
+  DivideOntoPartition(IndexVar parentVar, IndexVar outerVar, IndexVar innerVar, Access access, int accessIdx);
+
+  void print(std::ostream &stream) const;
+  bool equals(const DivideOntoPartition &rel) const;
+
+  std::vector<IndexVar> getParents() const; // parentVar
+  std::vector<IndexVar> getChildren() const; // outerVar, innerVar
+  std::vector<IndexVar> getIrregulars() const; // innerVar
+
+  TensorVar getTensorVar() const;
+
+  std::vector<ir::Expr>
+  computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds,
+                       std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators,
+                       ProvenanceGraph provGraph) const;
+
+  std::vector<ir::Expr>
+  deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                   std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                   std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators,
+                   ProvenanceGraph provGraph) const;
+
+  ir::Expr recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators,
+                           std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                           std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                           ProvenanceGraph provGraph) const;
+
+  ir::Stmt
+  recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl, Iterators iterators,
+               ProvenanceGraph provGraph) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
 
 /// The Pos relation maps an index variable to the position space of a given access
 struct PosRelNode : public IndexVarRelNode {
@@ -426,8 +463,10 @@ public:
   /// isDivided returns whether or not the target IndexVar was divided through
   /// a `.divide` scheduling operation.
   bool isDivided(IndexVar indexVar) const;
-
   std::vector<IndexVar> getMultiFusedParents(IndexVar indexVar) const;
+
+  ir::Expr getPartitionColorSpaceVar() const;
+  ir::Expr getPartitionBoundsVar() const;
 
 private:
   std::map<IndexVar, IndexVarRel> childRelMap;
@@ -437,6 +476,9 @@ private:
   std::map<IndexVar, std::vector<IndexVar>> childrenMap;
 
   std::set<IndexVar> nodes;
+
+  ir::Expr partitionColorSpace;
+  ir::Expr partitionBounds;
 };
 
 }

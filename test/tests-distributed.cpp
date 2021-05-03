@@ -52,6 +52,28 @@ TEST(distributed, multiDim) {
   codegen->compile(lowered);
 }
 
+TEST(distributed, basicComputeOnto) {
+  int dim = 10;
+//  Tensor<int> a("a", {dim}, Format{Dense});
+//  Tensor<int> b("b", {dim}, Format{Dense});
+  Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+  Tensor<int> b("b", {dim, dim}, Format{Dense, Dense});
+
+  IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl");
+//  a(i) = b(i);
+  a(i, j) = b(i, j);
+  auto stmt = a.getAssignment().concretize();
+//  stmt = stmt.distributeOnto({i}, {in}, {il}, a(i));
+  stmt = stmt.distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j));
+//  stmt = stmt.pushCommUnder(b(i), in);
+  stmt = stmt.pushCommUnder(b(i, j), jn);
+
+  auto lowered = lower(stmt, "computeLegion", false, true);
+//  std::cout << lowered << std::endl;
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(lowered);
+}
+
 TEST(distributed, nesting) {
   int dim = 10;
   Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
