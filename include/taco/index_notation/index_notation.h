@@ -633,6 +633,8 @@ public:
 
   IndexStmt pushCommUnder(Access a, IndexVar i);
 
+  IndexStmt stagger(IndexVar target, std::vector<IndexVar> staggerBy, IndexVar result);
+
   /// pos and coord create
   /// new index variables in their respective iteration spaces.
   /// pos requires a tensor access expression as input, that

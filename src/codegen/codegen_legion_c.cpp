@@ -251,7 +251,7 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
       if (this->usedVars.size() == 0) {
         this->usedVars.push_back({});
       }
-      if (v->type.getKind() != Datatype::CppType) {
+      if (v->type.getKind() != Datatype::CppType && !v->is_tensor) {
         this->usedVars.back().insert(v);
       }
     }
@@ -271,6 +271,7 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
         this->varsDeclared.push_back({});
       }
       this->varsDeclared.back().insert(v->var);
+      v->rhs.accept(this);
     }
 
     void visit(const For* f) {
@@ -278,6 +279,7 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
         this->usedVars.push_back({});
         this->varsDeclared.push_back({});
       }
+      // TODO (rohany): This comment doesn't make sense.
       // If f is a task, then it needs it's iteration variable passed down. If f is
       // a task, then we can treat it as _using_ the iteration variable.
       if (!f->isTask) {
@@ -287,17 +289,11 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
         taco_iassert(this->usedVars.size() > 0);
         this->usedVars.back().insert(f->var);
       }
-//      auto idx = this->usedVars.size();
 
       f->start.accept(this);
       f->end.accept(this);
       f->increment.accept(this);
       f->contents.accept(this);
-
-//      if (f->parallel_unit == ParallelUnit::DistributedNode) {
-//        std::cout << "removing " << f->var << std::endl;
-//        this->usedVars[idx - 1].erase(f->var);
-//      }
     }
 
     std::vector<std::set<Expr>> usedVars;

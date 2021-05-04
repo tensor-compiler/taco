@@ -98,6 +98,53 @@ TEST(distributed, summaMM) {
   codegen->compile(lowered);
 }
 
+TEST(distributed, cannonMM) {
+  int dim = 10;
+  Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+  Tensor<int> b("b", {dim, dim}, Format{Dense, Dense});
+  Tensor<int> c("c", {dim, dim}, Format{Dense, Dense});
+
+  IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko"), kos("kos");
+  a(i, j) = b(i, k) * c(k, j);
+  auto stmt = a.getAssignment().concretize();
+  stmt = stmt
+      .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j))
+      .divide(k, ko, ki, 2)
+      .reorder({ko, il, jl})
+      .stagger(ko, {in, jn}, kos)
+      .pushCommUnder(b(i, k), kos)
+      .pushCommUnder(c(k, j), kos)
+      ;
+
+  auto lowered = lower(stmt, "computeLegion", false, true);
+//  std::cout << lowered << std::endl;
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(lowered);
+}
+
+TEST(distributed, staggerNoDist) {
+  int dim = 10;
+  Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+  Tensor<int> b("b", {dim, dim}, Format{Dense, Dense});
+  Tensor<int> expected("expected", {dim, dim}, Format{Dense, Dense});
+
+  for (int i = 0; i < dim; i++) {
+    for (int j = 0; j < dim; j++) {
+      b.insert({i, j}, 1);
+      expected.insert({i, j}, 1);
+    }
+  }
+
+  IndexVar i("i"), j("j"), js("js");
+  a(i, j) = b(i, j);
+  auto stmt = a.getAssignment().concretize();
+  stmt = stmt.stagger(j, {i}, js);
+
+  a.compile(stmt);
+  a.evaluate();
+  ASSERT_TRUE(equals(a, expected));
+}
+
 TEST(distributed, nesting) {
   int dim = 10;
   Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});

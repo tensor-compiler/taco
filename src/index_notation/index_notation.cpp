@@ -1636,6 +1636,23 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
   return stmt;
 }
 
+IndexStmt IndexStmt::stagger(IndexVar target, std::vector<IndexVar> staggerBy, IndexVar result) {
+  auto rel = IndexVarRel(new StaggerRelNode(target, staggerBy, result));
+  string reason;
+
+  auto stmt = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
+  if (!stmt.defined()) {
+    taco_uerror << reason;
+  }
+
+  stmt = Transformation(ForAllReplace({target}, {result})).apply(stmt, &reason);
+  if (!stmt.defined()) {
+    taco_uerror << reason;
+  }
+
+  return stmt;
+}
+
 IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
   // check access is contained in stmt
   bool foundAccess = false;

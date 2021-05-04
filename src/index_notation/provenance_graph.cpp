@@ -52,6 +52,9 @@ void IndexVarRel::print(std::ostream& stream) const {
       case DIVIDE_ONTO_PARTITION:
         getNode<DivideOntoPartition>()->print(stream);
         break;
+      case STAGGER:
+        getNode<StaggerRelNode>()->print(stream);
+        break;
       default:
         taco_ierror;
     }
@@ -82,6 +85,8 @@ bool IndexVarRel::equals(const IndexVarRel &rel) const {
       return getNode<MultiFuseRelNode>()->equals(*rel.getNode<MultiFuseRelNode>());
     case DIVIDE_ONTO_PARTITION:
       return getNode<DivideOntoPartition>()->equals(*rel.getNode<DivideOntoPartition>());
+    case STAGGER:
+      return getNode<StaggerRelNode>()->equals(*rel.getNode<StaggerRelNode>());
     default:
       taco_ierror;
       return false;
@@ -1105,6 +1110,74 @@ bool operator==(const PrecomputeRelNode& a, const PrecomputeRelNode& b) {
   return a.equals(b);
 }
 
+struct StaggerRelNode::Content {
+  std::vector<IndexVar> staggerBy;
+  IndexVar toStagger;
+  IndexVar result;
+};
+
+StaggerRelNode::StaggerRelNode(IndexVar target, std::vector<IndexVar> by, IndexVar result)
+  : IndexVarRelNode(STAGGER), content(new Content) {
+  this->content->staggerBy = by;
+  this->content->toStagger = target;
+  this->content->result = result;
+}
+
+void StaggerRelNode::print(std::ostream &stream) const {
+  stream << "stagger(" << this->content->toStagger << ", by: " << util::join(this->content->staggerBy) << ", " << this->content->result << ")";
+}
+
+bool StaggerRelNode::equals(const StaggerRelNode &rel) const {
+  return this->content->result == rel.content->result &&
+         this->content->staggerBy == rel.content->staggerBy &&
+         this->content->toStagger == rel.content->toStagger;
+}
+
+std::vector<IndexVar> StaggerRelNode::getParents() const {
+  return {this->content->toStagger};
+}
+
+std::vector<IndexVar> StaggerRelNode::getChildren() const {
+  return {this->content->result};
+}
+
+std::vector<IndexVar> StaggerRelNode::getIrregulars() const {
+  return {this->content->result};
+}
+
+std::vector<ir::Expr> StaggerRelNode::computeRelativeBound(std::set<IndexVar> definedVars,
+                                                           std::map<IndexVar, std::vector<ir::Expr>> computedBounds,
+                                                           std::map<IndexVar, ir::Expr> variableExprs,
+                                                           Iterators iterators, ProvenanceGraph provGraph) const {
+  return computedBounds[this->content->toStagger];
+}
+
+std::vector<ir::Expr> StaggerRelNode::deriveIterBounds(IndexVar indexVar,
+                                                       std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                                       std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                                       Iterators iterators, ProvenanceGraph provGraph) const {
+  return parentIterBounds[this->content->toStagger];
+}
+
+ir::Expr StaggerRelNode::recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames,
+                                         Iterators iterators,
+                                         std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                         std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                         ProvenanceGraph provGraph) const {
+  ir::Expr add = variableNames[this->content->result];
+  for (auto ivar : this->content->staggerBy) {
+    add = ir::Add::make(variableNames[ivar], add);
+  }
+  return ir::Rem::make(add, parentIterBounds[this->content->toStagger][1]);
+}
+
+ir::Stmt StaggerRelNode::recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl,
+                                      Iterators iterators, ProvenanceGraph provGraph) const {
+  taco_not_supported_yet;
+  return ir::Stmt();
+}
+
 // class ProvenanceGraph
 ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
   // Add all nodes (not all nodes may be scheduled)
@@ -1607,6 +1680,18 @@ std::vector<IndexVar> ProvenanceGraph::getMultiFusedParents(IndexVar indexVar) c
     }
   }
   return {};
+}
+
+std::pair<bool, IndexVar> ProvenanceGraph::getStaggeredVar(IndexVar indexVar) const {
+  auto parents = this->getParents(indexVar);
+  if (parents.size() > 0) {
+    auto rel = this->parentRelMap.at(indexVar);
+    if (rel.getRelType() == STAGGER) {
+      return std::make_pair(true, parents[0]);
+    }
+  }
+
+  return std::make_pair(false, IndexVar());
 }
 
 ir::Expr ProvenanceGraph::getPartitionColorSpaceVar() const {

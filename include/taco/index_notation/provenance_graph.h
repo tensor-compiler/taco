@@ -5,7 +5,7 @@
 
 namespace taco {
 struct IndexVarRelNode;
-enum IndexVarRelType {UNDEFINED, SPLIT, DIVIDE, POS, FUSE, BOUND, PRECOMPUTE, MULTIFUSE, DIVIDE_ONTO_PARTITION};
+enum IndexVarRelType {UNDEFINED, SPLIT, DIVIDE, POS, FUSE, BOUND, PRECOMPUTE, MULTIFUSE, DIVIDE_ONTO_PARTITION, STAGGER};
 
 /// A pointer class for IndexVarRelNodes provides some operations for all IndexVarRelTypes
 class IndexVarRel : public util::IntrusivePtr<const IndexVarRelNode> {
@@ -359,6 +359,24 @@ private:
 
 bool operator==(const PrecomputeRelNode&, const PrecomputeRelNode&);
 
+struct StaggerRelNode : public IndexVarRelNode {
+  StaggerRelNode(IndexVar target, std::vector<IndexVar> by, IndexVar result);
+
+
+  void print(std::ostream& stream) const;
+  bool equals(const StaggerRelNode& rel) const;
+  std::vector<IndexVar> getParents() const;
+  std::vector<IndexVar> getChildren() const;
+  std::vector<IndexVar> getIrregulars() const;
+
+  std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, ProvenanceGraph provGraph) const;
+  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators, ProvenanceGraph provGraph) const;
+  ir::Expr recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, ProvenanceGraph provGraph) const;
+  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl, Iterators iterators, ProvenanceGraph provGraph) const;
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
 
 /// An IndexVarprovGraph is a side IR that takes in Concrete Index Notation and supports querying
 /// relationships between IndexVars. Gets relationships from SuchThat node in Concrete Index Notation
@@ -464,6 +482,7 @@ public:
   /// a `.divide` scheduling operation.
   bool isDivided(IndexVar indexVar) const;
   std::vector<IndexVar> getMultiFusedParents(IndexVar indexVar) const;
+  std::pair<bool, IndexVar> getStaggeredVar(IndexVar indexVar) const;
 
   ir::Expr getPartitionColorSpaceVar() const;
   ir::Expr getPartitionBoundsVar() const;
