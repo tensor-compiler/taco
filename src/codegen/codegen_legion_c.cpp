@@ -281,8 +281,10 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
       // If f is a task, then it needs it's iteration variable passed down. If f is
       // a task, then we can treat it as _using_ the iteration variable.
       if (!f->isTask) {
+        taco_iassert(this->varsDeclared.size() > 0);
         this->varsDeclared.back().insert(f->var);
       } else {
+        taco_iassert(this->usedVars.size() > 0);
         this->usedVars.back().insert(f->var);
       }
 //      auto idx = this->usedVars.size();

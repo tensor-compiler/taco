@@ -422,8 +422,13 @@ LowererImpl::lower(IndexStmt stmt, string name,
   }
 
   // Allocate and initialize append and insert mode indices
+  // TODO (rohany): I don't think that I want this. Or at least, it needs to be changed
+  //  to not write out of partitions.
   Stmt initializeResults = initResultArrays(resultAccesses, inputAccesses,
                                             reducedAccesses);
+  if (this->legion) {
+    initializeResults = ir::Block::make();
+  }
 
 
 
@@ -1416,6 +1421,13 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     atomicParallelUnit = forall.getParallelUnit();
   }
 
+  // TODO (rohany): Need some sort of stack mechanism to pop off the computing on
+  //  var once (if) we support nested distributions.
+  if (forall.getComputingOn().defined()) {
+    this->computingOnTensorVar = forall.getComputingOn();
+  }
+
+
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
 
@@ -1461,9 +1473,24 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto fidVal = ir::Symbol::make("FID_VAL");
     auto ctx = ir::Symbol::make("ctx");
 
-    if (forall.getComputingOn().defined()) {
+    // We need to emit accessing the partition for any child task that uses the partition.
+    // TODO (rohany): A hack that doesn't scale to nested distributions.
+    struct ContainsPartVar : public IRVisitor {
+      void visit(const Var* var) {
+        if (var == this->targetVar) {
+          this->found = true;
+        }
+      }
+      ir::Expr targetVar;
+      bool found = false;
+    };
+    ContainsPartVar c; c.targetVar = this->provGraph.getPartitionBoundsVar();
+    if (this->provGraph.getPartitionBoundsVar().defined()) {
+      body.accept(&c);
+    }
+    if (forall.getComputingOn().defined() || c.found) {
       // Add declaration of the partition bounds to the header of the body.
-      auto tensorIspace = ir::GetProperty::make(this->tensorVars[forall.getComputingOn()], TensorProperty::IndexSpace);
+      auto tensorIspace = ir::GetProperty::make(this->tensorVars[this->computingOnTensorVar], TensorProperty::IndexSpace);
       auto bounds = ir::Call::make("runtime->get_index_space_domain", {ctx, tensorIspace}, Auto);
       declarePartitionBounds = ir::VarDecl::make(this->provGraph.getPartitionBoundsVar(), bounds);
     }
