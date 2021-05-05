@@ -183,15 +183,15 @@ void CodegenLegionC::visit(const PackTaskArgs *node) {
 
   // Make a variable for the raw allocation of the arguments.
   auto tempVar = node->var.as<Var>()->name + "Raw";
-  out << stname << "* " << tempVar << " = (" << stname << "*)" << "malloc(sizeof(" << stname << "));\n";
+  out << stname << " " << tempVar << ";\n";
   for (auto arg : this->taskArgs[func]) {
     doIndent();
-    out << tempVar << "->" << arg << " = " << arg << ";\n";
+    out << tempVar << "." << arg << " = " << arg << ";\n";
   }
 
   // Construct the actual TaskArgument from this packed data.
   doIndent();
-  out << "TaskArgument " << node->var << " = TaskArgument(" << tempVar << ", sizeof(" << stname << "));\n";
+  out << "TaskArgument " << node->var << " = TaskArgument(&" << tempVar << ", sizeof(" << stname << "));\n";
 }
 
 struct AccessorInfo {
