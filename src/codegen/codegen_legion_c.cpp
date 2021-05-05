@@ -427,6 +427,20 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
   for (auto& f : this->functions) {
     auto func = f.as<Function>();
     auto forL = this->funcToFor.at(func).as<For>();
+
+    // Tasks that launch no tasks are leaf tasks, so let Legion know about that.
+    struct LeafTaskFinder : public IRVisitor {
+      void visit(const For* node) {
+        if (node->isTask) {
+          this->isLeaf = false;
+        }
+        node->contents.accept(this);
+      }
+      bool isLeaf = true;
+    };
+    LeafTaskFinder finder;
+    forL->contents.accept(&finder);
+
     doIndent();
     out << "{\n";
     indent++;
@@ -436,6 +450,11 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
 
     doIndent();
     out << "registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));\n";
+
+    if (finder.isLeaf) {
+      doIndent();
+      out << "registrar.set_leaf();\n";
+    }
 
     doIndent();
     out << "Runtime::preregister_task_variant<" << func->name << ">(registrar, \"" <<  func->name << "\");\n";
