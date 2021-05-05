@@ -723,6 +723,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
         taco_iassert(isa<taco::Add>(assignment.getOperator()));
         bool useAtomics = markAssignsAtomicDepth > 0 &&
                           !util::contains(whereTemps, result);
+        // TODO (rohany): Might have to do a reduction assignment here?
         computeStmt = compoundAssign(var, rhs, useAtomics, atomicParallelUnit);
       }
     }
@@ -766,9 +767,15 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
         computeStmt = Store::make(values, loc, rhs);
       }
       else {
-        computeStmt = compoundStore(values, loc, rhs,
-                                    markAssignsAtomicDepth > 0,
-                                    atomicParallelUnit);
+        if (this->legion && this->performingLegionReduction) {
+          computeStmt = Store::make(
+              values, loc, rhs, false, ParallelUnit::LegionReduction
+          );
+        } else {
+          computeStmt = compoundStore(values, loc, rhs,
+                                      markAssignsAtomicDepth > 0,
+                                      atomicParallelUnit);
+        }
       }
       taco_iassert(computeStmt.defined());
     }
@@ -1426,6 +1433,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   if (forall.getComputingOn().defined()) {
     this->computingOnTensorVar = forall.getComputingOn();
   }
+  if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction && forall.isDistributed()) {
+    this->performingLegionReduction = true;
+  }
 
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
@@ -1434,7 +1444,6 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
   }
-
 
   // Emit loop with preamble and postamble
   std::vector<ir::Expr> bounds = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
@@ -1467,9 +1476,12 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto rectT = Rect(dim);
     auto indexSpaceT = IndexSpaceT(dim);
     auto disjointPart = ir::Symbol::make("LEGION_DISJOINT_KIND");
+    auto aliasedPart = ir::Symbol::make("LEGION_COMPUTE_KIND");
     auto readOnly = ir::Symbol::make("READ_ONLY");
     auto readWrite = ir::Symbol::make("READ_WRITE");
+    auto reduce = ir::Symbol::make(LegionRedopString(this->resultTensors.begin()->getType().getDataType()));
     auto exclusive = ir::Symbol::make("EXCLUSIVE");
+    auto simultaneous = ir::Symbol::make("LEGION_SIMULTANEOUS");
     auto fidVal = ir::Symbol::make("FID_VAL");
     auto ctx = ir::Symbol::make("ctx");
 
@@ -1593,6 +1605,13 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     );
     transfers.push_back(l);
 
+    // If we're doing a reduction, we're most likely not operating on a disjoint
+    // partition. So, fall back to an aliased partition.
+    auto partKind = disjointPart;
+    if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction) {
+      partKind = aliasedPart;
+    }
+
     std::map<TensorVar, Expr> partitionings;
     for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
       auto& t = forall.getTransfers()[idx];
@@ -1602,22 +1621,20 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       partitionings[tv] = part;
       auto partcall = ir::Call::make(
           "runtime->create_index_partition",
-          // TODO (rohany): I'm assuming that these are disjoint partitions right now. This probably
-          // isn't going to work in the general case. Perhaps I should just ask Legion to compute it,
-          // but it seems like something I should be able to figure out. In debugging, we can run
-          // everything with -lg:partcheck and find out when it is wrong.
-          {ctx, ir::GetProperty::make(this->tensorVars[tv], TensorProperty::IndexSpace), domain, coloring, disjointPart},
+          {ctx, ir::GetProperty::make(this->tensorVars[tv], TensorProperty::IndexSpace), domain, coloring, partKind},
           Auto
       );
       transfers.push_back(ir::VarDecl::make(part, partcall));
     }
 
-    // TODO (rohany): Figure out when we have to emit reduction privilege.
     auto getPriv = [&](const TensorVar& tv) {
       if (util::contains(this->resultTensors, tv)) {
-        return readWrite;
+        if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction) {
+          return std::make_pair(reduce, simultaneous);
+        }
+        return std::make_pair(readWrite, exclusive);
       }
-      return readOnly;
+      return std::make_pair(readOnly, exclusive);
     };
 
     auto getLogicalRegion = [](Expr e) {
@@ -1640,23 +1657,23 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           regionReqArgs = {
               part,
               0,
-              priv,
-              exclusive,
+              priv.first,
+              priv.second,
               getLogicalRegion(it.second),
           };
         } else if (forall.getComputingOn().defined() && forall.getComputingOn() == it.first) {
           regionReqArgs = {
               this->computingOnPartition,
               0,
-              priv,
-              exclusive,
+              priv.first,
+              priv.second,
               getLogicalRegion(it.second),
           };
         } else {
           regionReqArgs = {
               getLogicalRegion(it.second),
-              priv,
-              exclusive,
+              priv.first,
+              priv.second,
               getLogicalRegion(it.second),
           };
         }
@@ -1734,15 +1751,15 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           taskCallStmts.push_back(ir::VarDecl::make(subreg, call));
           regionReqArgs = {
               subreg,
-              priv,
-              exclusive,
+              priv.first,
+              priv.second,
               getLogicalRegion(it.second),
           };
         } else {
           regionReqArgs = {
               getLogicalRegion(it.second),
-              priv,
-              exclusive,
+              priv.first,
+              priv.second,
               getLogicalRegion(it.second)
           };
         }
@@ -3069,6 +3086,9 @@ ir::Expr LowererImpl::getValuesArray(TensorVar var) const
     // TODO (rohany): Handle reduction accessors at some point.
     // TODO (rohany): Hackingly including the size as the mode here.
     if (util::contains(this->resultTensors, var)) {
+      if (this->performingLegionReduction) {
+        return GetProperty::make(getTensorVar(var), TensorProperty::ValuesReductionAccessor, var.getOrder());
+      }
       return GetProperty::make(getTensorVar(var), TensorProperty::ValuesWriteAccessor, var.getOrder());
     } else {
       return GetProperty::make(getTensorVar(var), TensorProperty::ValuesReadAccessor, var.getOrder());

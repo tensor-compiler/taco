@@ -941,6 +941,10 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
       gp->type = tensor.type();
       gp->name = tensorVar->name + "_vals";
       break;
+    case TensorProperty::ValuesReductionAccessor:
+      gp->type = tensor.type();
+      gp->name = tensorVar->name + "_vals";
+      break;
   }
   
   return gp;

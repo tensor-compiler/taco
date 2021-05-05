@@ -382,6 +382,29 @@ bool isScalar(const Type& type) {
   return type.getOrder() == 0;
 }
 
+std::string LegionRedopString(Datatype typ) {
+  std::string suffix;
+  switch (typ.getKind()) {
+    case Datatype::Int32:
+      suffix = "INT32";
+      break;
+    case Datatype::Int64:
+      suffix = "INT64";
+      break;
+    case Datatype::Float32:
+      suffix = "FLOAT32";
+      break;
+    case Datatype::Float64:
+      suffix = "FLOAT64";
+      break;
+    default:
+      taco_ierror << "unsupported legion redop " << typ;
+      return "";
+  }
+
+  return "LEGION_REDOP_SUM_" + suffix;
+}
+
 
 // Generator for C++ templated types.
 template<typename T>
@@ -390,8 +413,6 @@ Datatype templateGen(std::string typ, T n) {
   s << typ << "<" << n << ">";
   return Datatype(s.str());
 }
-
-
 // Legion types.
 Datatype Auto = Datatype(Datatype::CppType);
 // TODO (rohany): It's a bit hacky to include the const here.

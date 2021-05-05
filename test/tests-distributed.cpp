@@ -145,6 +145,29 @@ TEST(distributed, staggerNoDist) {
   ASSERT_TRUE(equals(a, expected));
 }
 
+TEST(distributed, reduction) {
+  int dim = 10;
+  Tensor<int> a("a", {dim}, Format{Dense});
+  Tensor<int> b("b", {dim, dim}, Format{Dense, Dense});
+  Tensor<int> c("c", {dim}, Format{Dense});
+
+  IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl");
+
+  a(i) = b(i, j) * c(j);
+  auto stmt = a.getAssignment().concretize();
+  stmt = stmt
+      .distribute({i, j}, {in, jn}, {il, jl}, Grid(2, 2))
+      .pushCommUnder(a(i), jn)
+      .pushCommUnder(b(i, j), jn)
+      .pushCommUnder(c(j), jn)
+      ;
+
+  auto lowered = lower(stmt, "computeLegion", false, true);
+//  std::cout << lowered << std::endl;
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(lowered);
+}
+
 TEST(distributed, nesting) {
   int dim = 10;
   Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});

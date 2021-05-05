@@ -137,7 +137,11 @@ std::string CodegenLegionC::unpackTensorProperty(std::string varname, const GetP
   } else if (op->property == TensorProperty::ValuesReadAccessor) {
     ret << "AccessorRO" << printType(op->type, false) << op->mode << " " << varname << "(" << tensor->name << ", FID_VAL);\n";
   } else if (op->property == TensorProperty::ValuesWriteAccessor) {
-    ret << "AccessorRW" << printType(op->type, false) << op->mode << " " << varname << "(" << tensor->name << ", FID_VAL);\n";
+    ret << "AccessorRW" << printType(op->type, false) << op->mode << " " << varname << "(" << tensor->name
+        << ", FID_VAL);\n";
+  } else if (op->property == TensorProperty::ValuesReductionAccessor) {
+    ret << "AccessorReduce" << printType(op->type, false) << op->mode << " " << varname << "(" << tensor->name
+        << ", FID_VAL, " << LegionRedopString(op->type) << ");\n";
   } else {
     return CodeGen::unpackTensorProperty(varname, op, is_output_prop);
   }

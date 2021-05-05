@@ -720,6 +720,31 @@ Distribute::Distribute(std::vector<IndexVar> original, std::vector<IndexVar> dis
 IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
   INIT_REASON(reason);
 
+  ProvenanceGraph pg(stmt);
+
+  OutputRaceStrategy raceStrategy = OutputRaceStrategy::NoRaces;
+  // For each variable being distributed, see if there is a reduction occuring.
+  // TODO (rohany): See how this differs from the parallelize check?
+  for (size_t i = 0; i < this->content->original.size(); i++) {
+    Forall target;
+    std::set<IndexVar> definedIndexVars;
+    match(stmt, function<void(const ForallNode*)>([&](const ForallNode* node) {
+      if (!target.defined()) {
+        definedIndexVars.insert(node->indexVar);
+      }
+      if (node->indexVar == this->content->original[i]) {
+        target = node;
+      }
+    }));
+
+    Iterators iterators(target);
+    auto lattice = MergeLattice::make(target, iterators, pg, definedIndexVars);
+    if (lattice.results().empty() && lattice != MergeLattice({MergePoint({iterators.modeIterator(target.getIndexVar())}, {}, {})})) {
+      // We've found a reduction that we're attempting to parallelize over.
+      raceStrategy = OutputRaceStrategy::ParallelReduction;
+    }
+  }
+
   // Initial implementation:
   // For each original variable, divide the loop into dimension of the grid pieces.
   // Then reorder the loops so that it's distVars -> innerVars.
@@ -769,7 +794,7 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
     void visit(const ForallNode* node) {
       // TODO (rohany): Also need to mark the fused var.
       if (util::contains(this->distVars, node->indexVar) || node->indexVar == this->distFused) {
-        stmt = forall(node->indexVar, rewrite(node->stmt), ParallelUnit::DistributedNode, node->output_race_strategy, node->transfers, this->computingOn, node->unrollFactor);
+        stmt = forall(node->indexVar, rewrite(node->stmt), ParallelUnit::DistributedNode, this->raceStrategy, node->transfers, this->computingOn, node->unrollFactor);
       } else {
         IndexNotationRewriter::visit(node);
       }
@@ -777,8 +802,9 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
     std::set<IndexVar> distVars;
     IndexVar distFused;
     TensorVar computingOn;
+    OutputRaceStrategy raceStrategy;
   };
-  DistributedForallMarker m; m.distFused = distFused;
+  DistributedForallMarker m; m.distFused = distFused; m.raceStrategy = raceStrategy;
   if (this->content->onto.defined()) {
     m.computingOn = this->content->onto.getTensorVar();
   }

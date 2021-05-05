@@ -415,7 +415,11 @@ void IRPrinter::visit(const Store* op) {
   stream << "[";
   parentPrecedence = Precedence::TOP;
   op->loc.accept(this);
-  stream << "] = ";
+  if (op->atomic_parallel_unit == ParallelUnit::LegionReduction) {
+    stream << "] <<= ";
+  } else {
+    stream << "] = ";
+  }
   parentPrecedence = Precedence::TOP;
   op->data.accept(this);
   stream << ";";

@@ -97,6 +97,8 @@ extern Datatype Complex128;
 
 // Some common legion types here.
 
+std::string LegionRedopString(Datatype typ);
+
 // A generic inferred C++ type.
 extern Datatype Auto;
 // Task function arguments.

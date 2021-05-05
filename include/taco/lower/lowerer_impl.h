@@ -528,6 +528,8 @@ private:
   ir::Expr computingOnPartition;
   TensorVar computingOnTensorVar;
 
+  bool performingLegionReduction = false;
+
 };
 
 }

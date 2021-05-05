@@ -88,6 +88,7 @@ enum class TensorProperty {
   IndexSpace,
   ValuesReadAccessor,
   ValuesWriteAccessor,
+  ValuesReductionAccessor,
 };
 
 /** Base class for backend IR */
