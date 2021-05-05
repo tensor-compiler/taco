@@ -773,7 +773,7 @@ Stmt VarDecl::make(Expr var, Expr rhs) {
 
 // VarAssign
 Stmt Assign::make(Expr lhs, Expr rhs, bool use_atomics, ParallelUnit atomic_parallel_unit) {
-  taco_iassert(lhs.as<Var>() || lhs.as<GetProperty>() || lhs.as<Load>())
+  taco_iassert(lhs.as<Var>() || lhs.as<GetProperty>() || lhs.as<Load>() || lhs.as<FieldAccess>())
     << "Can only assign to a Var or GetProperty";
   Assign *assign = new Assign;
   assign->lhs = lhs;

@@ -1484,6 +1484,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto simultaneous = ir::Symbol::make("LEGION_SIMULTANEOUS");
     auto fidVal = ir::Symbol::make("FID_VAL");
     auto ctx = ir::Symbol::make("ctx");
+    auto virtualMap = ir::Symbol::make("Mapping::DefaultMapper::VIRTUAL_MAP");
 
     // We need to emit accessing the partition for any child task that uses the partition.
     // TODO (rohany): A hack that doesn't scale to nested distributions.
@@ -1641,6 +1642,32 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       return ir::Call::make("get_logical_region", {e}, Auto);
     };
 
+    // AccessFinder finds is the task being lowered accesses the target tensor.
+    struct AccessFinder : public IRVisitor {
+      void visit(const GetProperty* prop) {
+        if (prop->tensor == this->targetVar) {
+          switch (prop->property) {
+            case ir::TensorProperty::ValuesReductionAccessor:
+            case ir::TensorProperty::ValuesWriteAccessor:
+            case ir::TensorProperty::ValuesReadAccessor:
+              this->readsVar = true;
+              break;
+            default:
+              return;
+          }
+        }
+      }
+      void visit(const For* node) {
+        if (node->isTask) { return; }
+        node->contents.accept(this);
+        // TODO (rohany): When considering sparse tensors, we will need to recurse into
+        //  the other parts of the for loop.
+      }
+
+      ir::Expr targetVar;
+      bool readsVar = false;
+    };
+
     if (forall.isDistributed()) {
       // In a distributed for-all, we have to make an index launch.
       std::vector<Stmt> itlStmts;
@@ -1685,6 +1712,16 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         );
         itlStmts.push_back(ir::VarDecl::make(regReq, makeReq));
         itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(regReq, "add_field", {fidVal}, false, Auto)));
+
+        // If the task being launched doesn't access the target region, then we can
+        // virtually map the region. But, if an explicit transfer is happening at this
+        // level, then we should physically map the region.
+        AccessFinder finder; finder.targetVar = it.second;
+        body.accept(&finder);
+        if (!finder.readsVar && !util::contains(partitionings, it.first)) {
+          itlStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
+        }
+
         regionReqs.push_back(regReq);
       }
 
@@ -1764,9 +1801,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           };
         }
 
-        // TODO (rohany): Add fields on here.
         // TODO (rohany): Do analysis to virtually map regions that this task doesn't access.
-        // TODO (rohany): Figure out the exclusive vs simultaneous etc.
         auto regReq = ir::Var::make(it.first.getName() + "Req", RegionRequirement);
         auto makeReq = ir::Call::make(
             RegionRequirement.getName(),
@@ -1775,6 +1810,16 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         );
         taskCallStmts.push_back(ir::VarDecl::make(regReq, makeReq));
         taskCallStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(regReq, "add_field", {fidVal}, false, Auto)));
+
+        // If the task being launched doesn't access the target region, then we can
+        // virtually map the region. But, if an explicit transfer is happening at this
+        // level, then we should physically map the region.
+        AccessFinder finder; finder.targetVar = it.second;
+        body.accept(&finder);
+        if (!finder.readsVar && !util::contains(partitionings, it.first)) {
+          taskCallStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
+        }
+
         regionReqs.push_back(regReq);
       }
 

@@ -253,6 +253,7 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
           << info.dims << ",coord_t>> Accessor" << suffix << printType(info.typ, false) << info.dims << ";\n";
     }
   }
+  out << "\n";
 
   struct TaskCollector : public IRVisitor {
     void visit(const For* node) {
