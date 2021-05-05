@@ -160,6 +160,13 @@ bool operator==(const Datatype& a, const Datatype& b) {
 bool operator!=(const Datatype& a, const Datatype& b) {
   return a.getKind() != b.getKind();
 }
+
+bool operator<(const Datatype& a, const Datatype& b) {
+  if (a.getKind() == Datatype::CppType && b.getKind() == Datatype::CppType) {
+    return a.getName() < b.getName();
+  }
+  return a.getKind() < b.getKind();
+}
   
 Datatype Bool = Datatype(Datatype::Bool);
 

@@ -194,7 +194,66 @@ void CodegenLegionC::visit(const PackTaskArgs *node) {
   out << "TaskArgument " << node->var << " = TaskArgument(" << tempVar << ", sizeof(" << stname << "));\n";
 }
 
+struct AccessorInfo {
+  TensorProperty prop;
+  int dims;
+  Datatype typ;
+
+  friend bool operator<(const AccessorInfo& a, const AccessorInfo& b) {
+    if (a.prop < b.prop) {
+      return true;
+    }
+    if (a.dims < b.dims) {
+      return true;
+    }
+    if (a.typ < b.typ) {
+      return true;
+    }
+    return false;
+  }
+};
+
 void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
+
+  // Figure out what accessors we need to emit.
+  struct AccessorCollector : public IRVisitor {
+    void visit(const GetProperty* op) {
+      switch (op->property) {
+        case TensorProperty::ValuesReadAccessor:
+        case TensorProperty::ValuesWriteAccessor:
+        case TensorProperty::ValuesReductionAccessor:
+          this->accessors.insert(AccessorInfo{op->property, op->mode, op->type});
+          break;
+        default:
+          return;
+      }
+    }
+    std::set<AccessorInfo> accessors;
+  };
+  AccessorCollector acol;
+  stmt.accept(&acol);
+
+  // Emit a field accessor for each kind.
+  for (auto info : acol.accessors) {
+    if (info.prop == TensorProperty::ValuesReductionAccessor) {
+      out << "typedef ReductionAccessor<SumReduction<" << printType(info.typ, false)
+          << ">,true," << info.dims << ",coord_t,Realm::AffineAccessor<" << printType(info.typ, false)
+          << "," << info.dims << ",coord_t>> AccessorReduce" << printType(info.typ, false) << info.dims << ";\n";
+    } else {
+      std::string priv, suffix;
+      if (info.prop == TensorProperty::ValuesWriteAccessor) {
+        priv = "READ_WRITE";
+        suffix = "RW";
+      } else {
+        priv = "READ_ONLY";
+        suffix = "RO";
+      }
+      out << "typedef FieldAccessor<" << priv << "," << printType(info.typ, false) << ","
+          << info.dims << ",coord_t,Realm::AffineAccessor<" << printType(info.typ, false) << ","
+          << info.dims << ",coord_t>> Accessor" << suffix << printType(info.typ, false) << info.dims << ";\n";
+    }
+  }
+
   struct TaskCollector : public IRVisitor {
     void visit(const For* node) {
       if (node->isTask) {

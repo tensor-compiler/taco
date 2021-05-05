@@ -73,6 +73,7 @@ private:
 std::ostream& operator<<(std::ostream&, const Datatype&);
 std::ostream& operator<<(std::ostream&, const Datatype::Kind&);
 bool operator==(const Datatype& a, const Datatype& b);
+bool operator<(const Datatype& a, const Datatype& b);
 bool operator!=(const Datatype& a, const Datatype& b);
 
 extern Datatype Bool;
