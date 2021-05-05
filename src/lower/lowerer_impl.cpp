@@ -667,6 +667,27 @@ LowererImpl::lower(IndexStmt stmt, string name,
 //    }
 //  }
 
+  if (this->legion) {
+    auto lookupTV = [&](ir::Expr e) {
+      for (auto it : this->tensorVars) {
+        if (it.second == e) {
+          return it.first;
+        }
+      }
+      taco_ierror << "couldn't reverse lookup tensor: " << e << "in: " << util::join(this->tensorVars) << std::endl;
+      return TensorVar();
+    };
+
+    for (auto ir : resultsIR) {
+      this->tensorVarOrdering.push_back(lookupTV(ir));
+    }
+    for (auto ir : argumentsIR) {
+      if (ir.as<Var>() && ir.as<Var>()->is_tensor) {
+        this->tensorVarOrdering.push_back(lookupTV(ir));
+      }
+    }
+  }
+
   // Lower the index statement to compute and/or assemble
   Stmt body = lower(stmt);
 
@@ -1673,38 +1694,40 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       std::vector<Stmt> itlStmts;
       std::vector<Expr> regionReqs;
       std::vector<Expr> regionReqArgs;
-      for (auto& it : this->tensorVars) {
-        auto priv = getPriv(it.first);
+      for (auto& it : this->tensorVarOrdering) {
+        auto tv = it;
+        auto tvIR = this->tensorVars[tv];
+        auto priv = getPriv(tv);
         // If the tensor is being transferred at this level, then use the
         // corresponding partition. Otherwise, use the tensorvar itself.
-        if (util::contains(partitionings, it.first)) {
-          auto part = ir::Var::make(it.first.getName() + "LogicalPartition", LogicalPartition);
-          auto call = ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(it.second), partitionings.at(it.first)}, LogicalPartition);
+        if (util::contains(partitionings, tv)) {
+          auto part = ir::Var::make(tv.getName() + "LogicalPartition", LogicalPartition);
+          auto call = ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(tvIR), partitionings.at(tv)}, LogicalPartition);
           itlStmts.push_back(ir::VarDecl::make(part, call));
           regionReqArgs = {
               part,
               0,
               priv.first,
               priv.second,
-              getLogicalRegion(it.second),
+              getLogicalRegion(tvIR),
           };
-        } else if (forall.getComputingOn().defined() && forall.getComputingOn() == it.first) {
+        } else if (forall.getComputingOn().defined() && forall.getComputingOn() == tv) {
           regionReqArgs = {
               this->computingOnPartition,
               0,
               priv.first,
               priv.second,
-              getLogicalRegion(it.second),
+              getLogicalRegion(tvIR),
           };
         } else {
           regionReqArgs = {
-              getLogicalRegion(it.second),
+              getLogicalRegion(tvIR),
               priv.first,
               priv.second,
-              getLogicalRegion(it.second),
+              getLogicalRegion(tvIR),
           };
         }
-        auto regReq = ir::Var::make(it.first.getName() + "Req", RegionRequirement);
+        auto regReq = ir::Var::make(tv.getName() + "Req", RegionRequirement);
         auto makeReq = ir::Call::make(
             RegionRequirement.getName(),
             regionReqArgs,
@@ -1716,9 +1739,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         // If the task being launched doesn't access the target region, then we can
         // virtually map the region. But, if an explicit transfer is happening at this
         // level, then we should physically map the region.
-        AccessFinder finder; finder.targetVar = it.second;
+        AccessFinder finder; finder.targetVar = tvIR;
         body.accept(&finder);
-        if (!finder.readsVar && !util::contains(partitionings, it.first)) {
+        if (!finder.readsVar && !util::contains(partitionings, tv)) {
           itlStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
         }
 
@@ -1766,43 +1789,44 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       taskCallStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, pointT)));
       std::vector<Expr> regionReqs;
       std::vector<Expr> regionReqArgs;
-      for (auto& it : this->tensorVars) {
+      for (auto& it : this->tensorVarOrdering) {
+        auto tv = it;
+        auto tvIR = this->tensorVars[tv];
         // If the tensor is being transferred at this level, then use the
         // corresponding partition. Otherwise, use the tensorvar itself.
-        auto priv = getPriv(it.first);
-        if (util::contains(partitionings, it.first)) {
+        auto priv = getPriv(tv);
+        if (util::contains(partitionings, tv)) {
           auto call = ir::Call::make(
               "runtime->get_logical_subregion_by_color",
               {
                   ctx,
                   ir::Call::make(
                       "runtime->get_logical_partition",
-                      {ctx, getLogicalRegion(it.second), partitionings.at(it.first)},
+                      {ctx, getLogicalRegion(tvIR), partitionings.at(tv)},
                       Auto
                   ),
                   point
               },
               Auto
           );
-          auto subreg = ir::Var::make(it.first.getName() + "subReg", Auto);
+          auto subreg = ir::Var::make(tv.getName() + "subReg", Auto);
           taskCallStmts.push_back(ir::VarDecl::make(subreg, call));
           regionReqArgs = {
               subreg,
               priv.first,
               priv.second,
-              getLogicalRegion(it.second),
+              getLogicalRegion(tvIR),
           };
         } else {
           regionReqArgs = {
-              getLogicalRegion(it.second),
+              getLogicalRegion(tvIR),
               priv.first,
               priv.second,
-              getLogicalRegion(it.second)
+              getLogicalRegion(tvIR)
           };
         }
 
-        // TODO (rohany): Do analysis to virtually map regions that this task doesn't access.
-        auto regReq = ir::Var::make(it.first.getName() + "Req", RegionRequirement);
+        auto regReq = ir::Var::make(tv.getName() + "Req", RegionRequirement);
         auto makeReq = ir::Call::make(
             RegionRequirement.getName(),
             regionReqArgs,
@@ -1814,9 +1838,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         // If the task being launched doesn't access the target region, then we can
         // virtually map the region. But, if an explicit transfer is happening at this
         // level, then we should physically map the region.
-        AccessFinder finder; finder.targetVar = it.second;
+        AccessFinder finder; finder.targetVar = tvIR;
         body.accept(&finder);
-        if (!finder.readsVar && !util::contains(partitionings, it.first)) {
+        if (!finder.readsVar && !util::contains(partitionings, tv)) {
           taskCallStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
         }
 
@@ -1855,20 +1879,12 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     }
   }
 
-//  for (auto t : forall.getTransfers()) {
-//    auto v = ir::Var::make("tx", Datatype::Int32);
-//    auto tv = ir::Var::make(t.getAccess().getTensorVar().getName(), Datatype::Int32);
-//    auto fcall = ir::Call::make("transfer", {tv}, Datatype::Int32);
-//    transfers.push_back(ir::Assign::make(v, fcall));
-//  }
-
   body = Block::make({recoveryStmt, declarePartitionBounds, body});
 
   Stmt posAppend = generateAppendPositions(appenders);
 
   LoopKind kind = LoopKind::Serial;
   if (forall.isDistributed()) {
-//    std::cout << "marking forall as distributed dimension" << std::endl;
     kind = LoopKind::Distributed;
   } else if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
     kind = LoopKind::Vectorized;

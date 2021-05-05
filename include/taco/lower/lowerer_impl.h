@@ -530,6 +530,8 @@ private:
 
   bool performingLegionReduction = false;
 
+  std::vector<TensorVar> tensorVarOrdering;
+
 };
 
 }
