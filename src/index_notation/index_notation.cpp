@@ -2702,7 +2702,9 @@ std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
     function<void(const AssembleNode*,Matcher*)>([&](const AssembleNode* op,
                                                   Matcher* ctx) {
       ctx->match(op->compute);
-      ctx->match(op->queries);
+      if (op->queries.defined()) {
+        ctx->match(op->queries);
+      }
     })
   );
   return temporaries;
@@ -2716,7 +2718,9 @@ std::vector<TensorVar> getAttrQueryResults(IndexStmt stmt) {
                                                   Matcher* ctx) {
       const auto queryResults = getResults(op->queries);
       results.insert(results.end(), queryResults.begin(), queryResults.end());
-      ctx->match(op->queries);
+      if (op->queries.defined()) {
+        ctx->match(op->queries);
+      }
       ctx->match(op->compute);
     })
   );
@@ -2732,7 +2736,9 @@ std::vector<TensorVar> getAssembledByUngroupedInsertion(IndexStmt stmt) {
       for (const auto& result : op->results) {
         results.push_back(result.first);
       }
-      ctx->match(op->queries);
+      if (op->queries.defined()) {
+        ctx->match(op->queries);
+      }
       ctx->match(op->compute);
     })
   );

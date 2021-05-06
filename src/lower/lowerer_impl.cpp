@@ -164,24 +164,30 @@ static bool needComputeValues(IndexStmt stmt, TensorVar tensor) {
   return needComputeValue;
 }
 
-/// Returns true iff a result mode is assembled by inserting a sparse set of
-/// result coordinates (e.g., compressed to dense).
-static
-bool hasSparseInserts(const std::vector<Iterator>& resultIterators,
-                      const std::multimap<IndexVar, Iterator>& inputIterators) {
-  for (const auto& resultIterator : resultIterators) {
-    if (resultIterator.hasInsert()) {
-      const auto indexVar = resultIterator.getIndexVar();
-      const auto accessedInputs = inputIterators.equal_range(indexVar);
-      for (auto inputIterator = accessedInputs.first;
-           inputIterator != accessedInputs.second; ++inputIterator) {
-        if (!inputIterator->second.isFull()) {
-          return true;
+/// Returns the set of result tensors that is assembled by inserting a sparse 
+/// set of coordinates (meaning they will not be fully initialized without an 
+/// explicit zero-initialization loop).
+static std::set<Expr> hasSparseInserts(IndexStmt stmt, Iterators iterators, 
+                                       ProvenanceGraph provGraph) {
+  std::set<Expr> ret;
+  std::set<IndexVar> definedIndexVars;
+
+  match(stmt,
+    function<void(const ForallNode*,Matcher*)>([&](const ForallNode* op, 
+                                                   Matcher* ctx) {
+      definedIndexVars.insert(op->indexVar);
+      const auto lattice = MergeLattice::make(Forall(op), iterators, 
+                                              provGraph, definedIndexVars);
+      if (!any(lattice.iterators(), [](Iterator it){ return it.isFull(); })) {
+        for (const auto& result : lattice.results()) {
+          ret.insert(result.getTensor());
         }
       }
-    }
-  }
-  return false;
+      ctx->match(op->stmt);
+      definedIndexVars.erase(op->indexVar);
+    })
+  );
+  return ret;
 }
 
 Stmt
@@ -359,10 +365,12 @@ LowererImpl::lower(IndexStmt stmt, string name,
       }
     }
   }
+  
+  // Identify the set of result tensors that must be explicitly initialized
+  nonFullyInitializedResults = hasSparseInserts(stmt, iterators, provGraph);
 
   // Allocate and initialize append and insert mode indices
-  Stmt initializeResults = initResultArrays(resultAccesses, inputAccesses,
-                                            reducedAccesses);
+  Stmt initializeResults = initResultArrays(resultAccesses, reducedAccesses);
 
   // Lower the index statement to compute and/or assemble
   Stmt body = lower(stmt);
@@ -696,7 +704,6 @@ Stmt LowererImpl::lowerForall(Forall forall)
   // Pre-allocate/initialize memory of value arrays that are full below this
   // loops index variable
   Stmt preInitValues = initResultArrays(forall.getIndexVar(), resultAccesses,
-                                        getArgumentAccesses(forall),
                                         reducedAccesses);
 
   // Emit temporary initialization if forall is sequential and leads to a where statement
@@ -739,8 +746,6 @@ Stmt LowererImpl::lowerForall(Forall forall)
     }
 
     // For now, this only works when consuming a single workspace.
-    //bool canAccelWithSparseIteration = inParallelLoopDepth == 0 && provGraph.isFullyDerived(iterator.getIndexVar()) &&
-    //                                   iterator.isDimensionIterator() && locators.size() == 1;
     bool canAccelWithSparseIteration =
         provGraph.isFullyDerived(iterator.getIndexVar()) &&
         iterator.isDimensionIterator() && locators.size() == 1;
@@ -2087,25 +2092,16 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
         size = ir::Mul::make(size, getDimension(indexVar));
       }
 
-      multimap<IndexVar, Iterator> readIterators;
-      for (auto& read : getArgumentAccesses(assemble.getQueries())) {
-        for (auto& readIterator : getIterators(read)) {
-          for (auto& underivedAncestor :
-              provGraph.getUnderivedAncestors(readIterator.getIndexVar())) {
-            readIterators.insert({underivedAncestor, readIterator});
-          }
-        }
-      }
-      const auto writeIterators = getIterators(queryAccess);
-      const bool zeroInit = hasSparseInserts(writeIterators, readIterators);
+      const bool zeroInit = isNonFullyInitialized(getTensorVar(queryResult)) ||
+          util::contains(getResultAccesses(assemble.getQueries()).second, 
+                         queryAccess);
       if (zeroInit) {
         Expr sizeOfElt = Sizeof::make(queryResult.getType().getDataType());
         Expr callocValues = ir::Call::make("calloc", {size, sizeOfElt},
                                            queryResult.getType().getDataType());
         Stmt allocResult = VarDecl::make(values, callocValues);
         allocStmts.push_back(allocResult);
-      }
-      else {
+      } else {
         Stmt declResult = VarDecl::make(values, 0);
         allocStmts.push_back(declResult);
 
@@ -2123,8 +2119,11 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
     queries = Block::blanks(allocResults, queries);
   }
 
+  vector<Access> resultAccesses;
+  set<Access> reducedAccesses;
+  std::tie(resultAccesses, reducedAccesses) = 
+      getResultAccesses(assemble.getCompute());
   const auto& queryResults = assemble.getAttrQueryResults();
-  const auto resultAccesses = getResultAccesses(assemble.getCompute()).first;
 
   std::vector<Stmt> initAssembleStmts;
   for (const auto& resultAccess : resultAccesses) {
@@ -2181,16 +2180,37 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
       coords.push_back(getCoordinateVar(resultIterator));
     }
 
+    Expr valuesArr = getValuesArray(resultTensor);
+    const bool zeroInit = isNonFullyInitialized(resultTensorVar) ||
+                          util::contains(reducedAccesses, resultAccess);
     if (generateAssembleCode()) {
       // TODO: call calloc if not compact or not unpadded
-      Expr valuesArr = getValuesArray(resultTensor);
-      Stmt initValues = Allocate::make(valuesArr, prevSize);
-      initAssembleStmts.push_back(initValues);
+      if (zeroInit && generateComputeCode()) {
+        const auto type = resultTensor.getType().getDataType();
+        Expr sizeOfElt = Sizeof::make(type);
+        Expr callocValues = ir::Call::make("calloc", {prevSize, sizeOfElt}, 
+                                           type);
+        Stmt allocResult = Assign::make(valuesArr, callocValues);
+        initAssembleStmts.push_back(allocResult);
+      } else {
+        Stmt initValues = Allocate::make(valuesArr, prevSize);
+        initAssembleStmts.push_back(initValues);
+      }
+    } else if (zeroInit) {
+      initAssembleStmts.push_back(zeroInitValues(resultTensorVar, 0, prevSize));
     }
   }
   Stmt initAssemble = Block::make(initAssembleStmts);
 
-  guardedTemps = util::toSet(getTemporaries(assemble.getCompute()));
+  if (assemble.getQueries().defined()) {
+    // If assembly requires precomputing statistics about result, then 
+    // allocation of memory might depend on these statistics being precise 
+    // (e.g., compressed modes cannot be allocated with uninitialized padding). 
+    // Since attribute queries are computed without accidental zeros being 
+    // filtered out, assume that accidental nonzeros must also be explicitly 
+    // inserted during assembly.
+    guardedTemps = util::toSet(getTemporaries(assemble.getCompute()));
+  }
   Stmt compute = lower(assemble.getCompute());
 
   std::vector<Stmt> finalizeAssembleStmts;
@@ -2457,17 +2477,7 @@ vector<Expr> LowererImpl::coordinates(vector<Iterator> iterators)
 
 
 Stmt LowererImpl::initResultArrays(vector<Access> writes,
-                                   vector<Access> reads,
                                    set<Access> reducedAccesses) {
-  multimap<IndexVar, Iterator> readIterators;
-  for (auto& read : reads) {
-    for (auto& readIterator : getIterators(read)) {
-      for (auto& underivedAncestor : provGraph.getUnderivedAncestors(readIterator.getIndexVar())) {
-        readIterators.insert({underivedAncestor, readIterator});
-      }
-    }
-  }
-
   std::vector<Stmt> result;
   for (auto& write : writes) {
     if (write.getTensorVar().getOrder() == 0 ||
@@ -2551,9 +2561,8 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
     }
 
     if (generateComputeCode() && iterators.back().hasInsert() &&
-        !isValue(parentSize, 0) &&
-        (hasSparseInserts(iterators, readIterators) ||
-         util::contains(reducedAccesses, write))) {
+        !isValue(parentSize, 0) && (isNonFullyInitialized(tensor) || 
+        util::contains(reducedAccesses, write))) {
       // Zero-initialize values array if size statically known and might not
       // assign to every element in values array during compute
       // TODO: Right now for scheduled code we check if any iterator is not full and then emit
@@ -2641,19 +2650,9 @@ vector<Iterator> getIteratorsFrom(IndexVar var,
 
 
 Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
-                                   vector<Access> reads,
                                    set<Access> reducedAccesses) {
   if (!generateAssembleCode()) {
     return Stmt();
-  }
-
-  multimap<IndexVar, Iterator> readIterators;
-  for (auto& read : reads) {
-    for (auto& readIterator : getIteratorsFrom(var, getIterators(read))) {
-      for (auto& underivedAncestor : provGraph.getUnderivedAncestors(readIterator.getIndexVar())) {
-        readIterators.insert({underivedAncestor, readIterator});
-      }
-    }
   }
 
   vector<Stmt> result;
@@ -2718,7 +2717,7 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
         Expr size = simplify(ir::Mul::make(resultParentPosNext, stride));
         result.push_back(atLeastDoubleSizeIfFull(values, capacityVar, size));
 
-        if (hasSparseInserts(iterators, readIterators) ||
+        if (isNonFullyInitialized(tensor) || 
             util::contains(reducedAccesses, write)) {
           // Zero-initialize values array if might not assign to every element
           // in values array during compute
@@ -3365,6 +3364,11 @@ bool LowererImpl::isAssembledByUngroupedInsertion(Expr result) {
     }
   }
   return false;
+}
+
+
+bool LowererImpl::isNonFullyInitialized(Expr result) {
+  return util::contains(nonFullyInitializedResults, result);
 }
 
 

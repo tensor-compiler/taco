@@ -301,7 +301,6 @@ protected:
 
   /// Generate code to initialize result indices.
   ir::Stmt initResultArrays(std::vector<Access> writes, 
-                            std::vector<Access> reads,
                             std::set<Access> reducedAccesses);
 
   /// Generate code to finalize result indices.
@@ -313,7 +312,6 @@ protected:
   ir::Stmt defineScalarVariable(TensorVar var, bool zero);
 
   ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes,
-                            std::vector<Access> reads,
                             std::set<Access> reducedAccesses);
 
   ir::Stmt resizeAndInitValues(const std::vector<Iterator>& appenders,
@@ -389,6 +387,8 @@ protected:
   bool isAssembledByUngroupedInsertion(TensorVar result);
   bool isAssembledByUngroupedInsertion(ir::Expr result);
 
+  bool isNonFullyInitialized(ir::Expr result);
+
   /// Check whether the statement writes to a result tensor
   bool hasStores(ir::Stmt stmt);
 
@@ -437,6 +437,8 @@ private:
   ParallelUnit atomicParallelUnit;
 
   std::set<TensorVar> assembledByUngroupedInsert;
+
+  std::set<ir::Expr> nonFullyInitializedResults;
 
   /// Map used to hoist temporary workspace initialization
   std::map<Forall, Where> temporaryInitialization;

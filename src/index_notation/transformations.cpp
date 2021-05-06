@@ -823,7 +823,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
 
   bool hasSeqInsertEdge = false;
   bool hasInsertCoord = false;
-  bool hasNonpureYieldPosForUniqueMode = false;
+  bool hasNonpureYieldPos = false;
   for (const auto& modeFormat : getResult().getFormat().getModeFormats()) {
     if (hasSeqInsertEdge) {
       if (modeFormat.hasSeqInsertEdge()) {
@@ -846,13 +846,14 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       }
       hasInsertCoord = (hasInsertCoord || modeFormat.hasInsertCoord());
     }
-    if (hasNonpureYieldPosForUniqueMode) {
+    if (hasNonpureYieldPos && !modeFormat.isBranchless()) {
       *reason = "Precondition failed: The output tensor does not support "
-                "ungrouped insertion (only last mode can have non-pure "
-                "implementation of yield_pos and be unique)";
+                "ungrouped insertion (a mode that has a non-pure "
+                "implementation of yield_pos cannot be followed by a "
+                "non-branchless mode)";
       return IndexStmt();
-    } else if (!modeFormat.isYieldPosPure() && modeFormat.isUnique()) {
-      hasNonpureYieldPosForUniqueMode = true;
+    } else if (!modeFormat.isYieldPosPure()) {
+      hasNonpureYieldPos = true;
     }
   }
 
@@ -918,8 +919,20 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       if (s == op->stmt) {
         stmt = op;
       } else if (s.defined()) {
-        stmt = new ForallNode(op->indexVar, s, op->parallel_unit, 
-                              op->output_race_strategy, op->unrollFactor);
+        stmt = Forall(op->indexVar, s, op->parallel_unit, 
+                      op->output_race_strategy, op->unrollFactor);
+      } else {
+        stmt = IndexStmt();
+      }
+    }
+
+    void visit(const WhereNode* op) {
+      IndexStmt producer = rewrite(op->producer);
+      IndexStmt consumer = rewrite(op->consumer);
+      if (producer == op->producer && consumer == op->consumer) {
+        stmt = op;
+      } else if (consumer.defined()) {
+        stmt = producer.defined() ? Where(consumer, producer) : consumer;
       } else {
         stmt = IndexStmt();
       }
