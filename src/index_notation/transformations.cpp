@@ -611,9 +611,11 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
       // variable (ie MergePoint has at least 1 result iterators)
       if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::NoRaces &&
           (lattice.results().empty() || lattice.results()[0].getIndexVar() != foralli.getIndexVar()) &&
-          lattice != MergeLattice({MergePoint({iterators.modeIterator(foralli.getIndexVar())}, {}, {})})) {
-        reason = "Precondition failed: Free variables cannot be dominated by reduction variables in the iteration graph, "
-                 "as this causes scatter behavior and we do not yet emit parallel synchronization constructs";
+          lattice != MergeLattice({MergePoint({iterators.modeIterator(foralli.getIndexVar())}, {}, {})}) &&
+          util::contains(foralli.getIndexVars(), i)) {
+        reason = "Precondition failed: Free variables cannot be dominated by "
+                 "reduction variables in the iteration graph as this causes "
+                 "scatter behavior, which requires synchronization";
         return;
       }
 
@@ -732,34 +734,6 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
         parentParallelUnits.insert(foralli.getParallelUnit());
       }
       IndexNotationRewriter::visit(node);
-    }
-
-    void visit(const AssembleNode* op) {
-      IndexVar i = parallelize.geti();
-      IndexStmt queries = util::contains(op->queries.getIndexVars(), i) 
-                        ? rewrite(op->queries) : op->queries;
-      IndexStmt compute = util::contains(op->compute.getIndexVars(), i) 
-                        ? rewrite(op->compute) : op->compute;
-      if (queries == op->queries && compute == op->compute) {
-        stmt = op;
-      }
-      else {
-        stmt = new AssembleNode(queries, compute, op->results);
-      }
-    }
-
-    void visit(const WhereNode* op) {
-      IndexVar i = parallelize.geti();
-      IndexStmt producer = util::contains(op->producer.getIndexVars(), i) 
-                        ? rewrite(op->producer) : op->producer;
-      IndexStmt consumer = util::contains(op->consumer.getIndexVars(), i) 
-                        ? rewrite(op->consumer) : op->consumer;
-      if (producer == op->producer && consumer == op->consumer) {
-        stmt = op;
-      }
-      else {
-        stmt = new WhereNode(consumer, producer);
-      }
     }
   };
 
