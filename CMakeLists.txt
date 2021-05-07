@@ -29,6 +29,7 @@ if (LLVM)
   # that we wish to use
   llvm_map_components_to_libnames(llvm_libs support core irreader)
   add_definitions(-DUSE_LLVM)
+  add_definitions(-DENABLE_TOSTRING_LLVM)
 endif(LLVM)
 
 SET(CMAKE_CONFIGURATION_TYPES "Release;Debug;MinSizeRel;RelWithDebInfo")
@@ -91,7 +92,7 @@ endif(OPENMP)
 
 set(C_CXX_FLAGS "${C_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${C_CXX_FLAGS}")
-set(CMAKE_CXX_FLAGS "${C_CXX_FLAGS} -std=c++14")
+set(CMAKE_CXX_FLAGS "${C_CXX_FLAGS} -std=c++17")
 
 set(TACO_PROJECT_DIR ${CMAKE_CURRENT_LIST_DIR})
 

@@ -1,6 +1,7 @@
 #include "llvm/IR/Module.h"
 
 #include "codegen_llvm.h"
+#include "taco/util/print.h"
 
 using namespace std;
 
@@ -108,6 +109,10 @@ void CodeGen_LLVM::pushSymbol(const std::string &name, llvm::Value *v) {
   this->symbolTable.insert({name, v});
 }
 
+void CodeGen_LLVM::removeSymbol(const std::string &name) {
+  this->symbolTable.remove(name);
+}
+
 llvm::Value *CodeGen_LLVM::getSymbol(const std::string &name) {
   return this->symbolTable.get(name);
 }
@@ -143,19 +148,6 @@ void CodeGen_LLVM::compile(Stmt stmt, bool isFirst) {
   init_codegen();
   stmt.accept(this);
 }
-
-// ; ModuleID = 'my compiler'
-// source_filename = "my compiler"
-//
-// %TensorType = type { i32, i32*, i32, i32*, i32*, i8***, i8*, i32 }
-//
-// define i32 @"my function"(%TensorType %0, %TensorType %1) {
-// entry:
-//   %2 = alloca %TensorType*, align 8
-//   store %TensorType %0, %TensorType** %2, align 8
-//   %3 = alloca %TensorType*, align 8
-//   store %TensorType %1, %TensorType** %3, align 8
-// }
 
 void CodeGen_LLVM::codegen(Stmt stmt) {
   llvm::errs() << "LLVM CodeGen Visiting stmt\n";
@@ -236,16 +228,17 @@ void CodeGen_LLVM::visit(const Literal *e) {
 
 void CodeGen_LLVM::visit(const Var *op) {
   llvm::errs() << "LLVM CodeGen Visiting Var '" << op->name << "'\n";
-  // llvm::errs() << getSymbol(op->name) << "\n";
-  // value = this->Builder->CreateLoad()
+  value = getSymbol(op->name);
 }
 
 void CodeGen_LLVM::visit(const Neg *op) {
   llvm::errs() << "LLVM CodeGen Visiting Neg\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Sqrt *op) {
   llvm::errs() << "LLVM CodeGen Visiting Sqrt\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Add *op) {
@@ -257,6 +250,7 @@ void CodeGen_LLVM::visit(const Add *op) {
 
 void CodeGen_LLVM::visit(const Sub *op) {
   llvm::errs() << "LLVM CodeGen Visiting Sub\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Mul *op) {
@@ -268,107 +262,124 @@ void CodeGen_LLVM::visit(const Mul *op) {
 
 void CodeGen_LLVM::visit(const Div *op) {
   llvm::errs() << "LLVM CodeGen Visiting Div\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Rem *op) {
   llvm::errs() << "LLVM CodeGen Visiting Rem\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Min *op) {
   llvm::errs() << "LLVM CodeGen Visiting Min\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Max *op) {
   llvm::errs() << "LLVM CodeGen Visiting Max\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const BitAnd *op) {
   llvm::errs() << "LLVM CodeGen Visiting BitAnd\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const BitOr *op) {
   llvm::errs() << "LLVM CodeGen Visiting BitOr\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Eq *op) {
   llvm::errs() << "LLVM CodeGen Visiting Eq\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Neq *op) {
   llvm::errs() << "LLVM CodeGen Visiting Neq\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Gt *op) {
   llvm::errs() << "LLVM CodeGen Visiting Gt\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Lt *op) {
   llvm::errs() << "LLVM CodeGen Visiting Lt\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Gte *op) {
   llvm::errs() << "LLVM CodeGen Visiting Gte\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Lte *op) {
   llvm::errs() << "LLVM CodeGen Visiting Lte\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const And *op) {
   llvm::errs() << "LLVM CodeGen Visiting And\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Or *op) {
   llvm::errs() << "LLVM CodeGen Visiting Or\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Cast *op) {
   llvm::errs() << "LLVM CodeGen Visiting Cast\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Call *op) {
   llvm::errs() << "LLVM CodeGen Visiting Call\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const IfThenElse *op) {
   llvm::errs() << "LLVM CodeGen Visiting IfThenElse\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Case *op) {
   llvm::errs() << "LLVM CodeGen Visiting Case\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Switch *op) {
   llvm::errs() << "LLVM CodeGen Visiting Switch\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Load *op) {
   llvm::errs() << "LLVM CodeGen Visiting Load\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Malloc *op) {
   llvm::errs() << "LLVM CodeGen Visiting Malloc\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Sizeof *op) {
   llvm::errs() << "LLVM CodeGen Visiting Sizeof\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Store *op) {
   llvm::errs() << "LLVM CodeGen Visiting Store\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const For *op) {
   llvm::errs() << "LLVM CodeGen Visiting For\n";
-  cout << "op->start " << op->start << "\n";
-  cout << op->var << "\n";
-  cout << "op->end " << op->end << "\n";
 
-  llvm::errs() << "codegen(op->start)\n";
   auto start = codegen(op->start);
-  llvm::errs() << "codegen(op->end)\n";
   auto end = codegen(op->end);
-  llvm::errs() << "done!\n";
   taco_iassert(start->getType()->isIntegerTy());
   taco_iassert(end->getType()->isIntegerTy());
 
@@ -383,22 +394,20 @@ void CodeGen_LLVM::visit(const For *op) {
 
   llvm::BasicBlock *latch =
       llvm::BasicBlock::Create(this->Context, "for_latch", this->F);
-  
+
   llvm::BasicBlock *exit =
       llvm::BasicBlock::Create(this->Context, "for_exit", this->F);
 
-  // Connect body to latch
-  this->Builder->SetInsertPoint(body);
-  this->Builder->CreateBr(latch);
+  this->Builder->CreateBr(header); // pre-header -> header
 
-  // Connect latch to header
-  this->Builder->SetInsertPoint(latch);
-  this->Builder->CreateBr(header);  // this must change
+  this->Builder->SetInsertPoint(header);
 
   // Initialize header with PHI node
-  this->Builder->SetInsertPoint(header);
   const Var *var = op->var.as<Var>();
-  auto phi = this->Builder->CreatePHI(start->getType(), 2 /* num values */, var->name);
+  auto phi =
+      this->Builder->CreatePHI(start->getType(), 2 /* num values */, var->name);
+  pushSymbol(var->name, phi);
+  this->Builder->CreateBr(body); // header -> body
 
   // Compute increment
   this->Builder->SetInsertPoint(latch);
@@ -407,22 +416,23 @@ void CodeGen_LLVM::visit(const For *op) {
   // Add values to the PHI node
   phi->addIncoming(start, pre_header);
   phi->addIncoming(incr, latch);
-  
+
   // Compute exit condition
-  llvm::errs() << *phi << "\n" << *start << "\n" << *end << "\n";
   auto cond = this->Builder->CreateICmpSLT(phi, end);
-  this->Builder->CreateCondBr(cond, body, exit);
+  this->Builder->CreateCondBr(cond, header, exit);
 
-  llvm::errs() << *this->F << "\n";
+  // Connect body to latch
+  this->Builder->SetInsertPoint(body);
+  op->contents.accept(this);
+  this->Builder->CreateBr(latch); // body -> latch
 
-  // op->var.accept(this);
-  // op->end.accept(this);
-  // op->increment.accept(this);
-  // op->contents.accept(this);
+  this->Builder->SetInsertPoint(exit);
+  removeSymbol(var->name);
 }
 
 void CodeGen_LLVM::visit(const While *op) {
   llvm::errs() << "LLVM CodeGen Visiting While\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Block *op) {
@@ -462,6 +472,7 @@ void CodeGen_LLVM::init_codegen() {
                                                   i32,   /* vals_size */
                                               },
                                               "TensorType");
+  this->tensorTypePtr = this->tensorType->getPointerTo();
 }
 
 void CodeGen_LLVM::visit(const Function *func) {
@@ -478,7 +489,7 @@ void CodeGen_LLVM::visit(const Function *func) {
   int n_args = func->inputs.size() + func->outputs.size();
   std::vector<llvm::Type *> args;
   for (int i = 0; i < n_args; i++) {
-    args.push_back(this->tensorType);
+    args.push_back(this->tensorTypePtr);
   }
   auto i32 = llvm::Type::getInt32Ty(this->Context);
 
@@ -489,28 +500,36 @@ void CodeGen_LLVM::visit(const Function *func) {
 
   // 5. Create the first basic block
   this->Builder->SetInsertPoint(
-      llvm::BasicBlock::Create(this->Context, "entry", F));
+      llvm::BasicBlock::Create(this->Context, "entry", this->F));
 
   // 6. Push arguments to symbol table
   pushScope();
   size_t idx = 0;
-  for (auto &arg : F->args()) {
-    // 6.1 Create ptr for tensor type
-    auto ptr = Builder->CreateAlloca(tensorType->getPointerTo());
-    Builder->CreateStore(&arg, ptr);
 
+  for (auto &arg : this->F->args()) {
     auto var = idx < func->inputs.size()
                    ? func->inputs[idx++].as<Var>()
                    : func->outputs[idx++ % func->inputs.size()].as<Var>();
-    // Shouldn't all arguments here be a parameter?
-    // assert(var->is_parameter);
-    pushSymbol(var->name, ptr);
-  }
 
-  llvm::errs() << *M << "\n";
+    // set arg name
+    arg.setName(var->name);
+
+    // set arg flags
+    arg.addAttr(llvm::Attribute::NoCapture);
+    // arg.addAttr(llvm::Attribute::ReadOnly);  // only set this for input
+    // tensors
+
+    // Shouldn't
+    // all arguments here be a parameter? assert(var->is_parameter);
+
+    // 6.1 push args to symbol table
+    pushSymbol(var->name, &arg);
+  }
 
   // 7. visit function body
   func->body.accept(this);
+
+  PRINT(*M);
 }
 
 void CodeGen_LLVM::visit(const VarDecl *op) {
@@ -525,68 +544,75 @@ void CodeGen_LLVM::visit(const VarDecl *op) {
 
   // Store the symbol/ptr in the symbol table
   const Var *lhs = op->var.as<Var>();
-  llvm::errs() << "Storing symbol " << lhs->name << " on symbol table\n";
   pushSymbol(lhs->name, ptr);
 }
 
 void CodeGen_LLVM::visit(const Assign *op) {
   llvm::errs() << "LLVM CodeGen Visiting Assign\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Yield *op) {
   llvm::errs() << "LLVM CodeGen Visiting Yield\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Allocate *op) {
   llvm::errs() << "LLVM CodeGen Visiting Allocate\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Free *op) {
   llvm::errs() << "LLVM CodeGen Visiting Free\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Comment *op) {
   llvm::errs() << "LLVM CodeGen Visiting Comment\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const BlankLine *op) {
   llvm::errs() << "LLVM CodeGen Visiting BlankLine\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Break *op) {
   llvm::errs() << "LLVM CodeGen Visiting Break\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const Print *op) {
   llvm::errs() << "LLVM CodeGen Visiting Print\n";
+  throw logic_error("Not Implemented.");
 }
 
 void CodeGen_LLVM::visit(const GetProperty *op) {
   llvm::errs() << "LLVM CodeGen Visiting GetProperty\n";
+
   const std::string &name = op->tensor.as<Var>()->name;
   llvm::Value *tensor = getSymbol(name);
-  llvm::errs() << "tensor : " << *tensor << "\n";
-  switch (op->property) {
-    case TensorProperty::Dimension:
-    {
-      auto *dim = this->Builder->CreateStructGEP(this->tensorType, tensor, (int)TensorProperty::Dimension, "tensor.dimension");
-      llvm::errs() << "here!\n";
-      value = this->Builder->CreateLoad(tensor, dim, "tensor.dimension");
-      break;
-    }
-    case TensorProperty::Order:
-    case TensorProperty::ComponentSize:
-    case TensorProperty::ModeOrdering:
-    case TensorProperty::ModeTypes:
-    case TensorProperty::Indices:
-    case TensorProperty::Values:
-    case TensorProperty::ValuesSize:
-    default:
-      throw logic_error("Not implemented!");
 
+  auto i32 = llvm::Type::getInt32Ty(this->Context);
+
+  switch (op->property) {
+  case TensorProperty::Dimension: {
+    auto *dim = this->Builder->CreateStructGEP(
+        tensor, (int)TensorProperty::Dimension, name + ".gep.dim");
+    value = this->Builder->CreateLoad(
+        this->Builder->CreateLoad(dim, name + ".load"), i32, name + ".dim");
+    break;
   }
-  llvm::errs() << "name: " << name << "\n";
-  llvm::errs() << "Value: " << *value << "\n";
+  case TensorProperty::Order:
+  case TensorProperty::ComponentSize:
+  case TensorProperty::ModeOrdering:
+  case TensorProperty::ModeTypes:
+  case TensorProperty::Indices:
+  case TensorProperty::Values:
+  case TensorProperty::ValuesSize:
+  default:
+    throw logic_error("Not implemented!");
+  }
 }
 
 } // namespace ir

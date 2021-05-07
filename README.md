@@ -66,6 +66,13 @@ Please also make sure that you have CUDA installed properly and that the followi
 
 If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag.
 
+## Building for LLVM Backend
+To build taco for LLVM, add `-DLLVM=ON` to the cmake line above. For example:
+
+    cmake -DCMAKE_BUILD_TYPE=Release -DLLVM=ON ..
+
+Make sure you have LLVM properly installed. 
+
 ## Running tests
 To run all tests:
 

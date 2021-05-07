@@ -24,6 +24,7 @@ private:
   class FindVars;
 
   llvm::StructType *tensorType;
+  llvm::PointerType *tensorTypePtr;
   llvm::Value *value; // last llvm value generated
 
 public:
@@ -38,6 +39,7 @@ protected:
 
   // symbol table related
   void pushSymbol(const std::string &name, llvm::Value *v);
+  void removeSymbol(const std::string &name);
   llvm::Value *getSymbol(const std::string &name);
   void pushScope();
   void popScope();
