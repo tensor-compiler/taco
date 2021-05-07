@@ -147,6 +147,14 @@ public:
   template <typename InputIterators>
   void setFromComponents(const InputIterators& begin, const InputIterators& end);
 
+  // Partitioning and data placement methods.
+
+  // TODO (rohany): When the grid dimension doesn't equal the dimension of
+  //  the tensor, then we also need to have some information about how the
+  //  grid dimensions map to the partitions of the tensor.
+  void partition(Grid g);
+  IndexStmt place(Grid g, GridPlacement gp);
+
   /* --- Read Methods        --- */
 
   template <typename CType>  
@@ -894,6 +902,8 @@ struct TensorBase::Content {
   bool               needsCompute;
   std::vector<std::weak_ptr<TensorBase::Content>> dependentTensors;
   unsigned int       uniqueId;
+
+  Grid partition;
 
   Content(std::string name, Datatype dataType, const std::vector<int>& dimensions,
           Format format)

@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "taco/index_notation/index_notation.h"
+#include "taco/util/strings.h"
 
 namespace taco {
 
@@ -33,9 +34,58 @@ public:
 
   bool defined() { return this->dimensions.size() > 0; }
 
+  friend std::ostream& operator<<(std::ostream& o, const Grid& g) {
+    o << "Grid(" << util::join(g.dimensions) << ")";
+    return o;
+  }
+
 private:
   std::vector<int> dimensions;
 };
+
+class GridPlacement {
+public:
+  GridPlacement() = default;
+
+  struct AxisMatch {
+    enum Kind {
+      Axis,
+      Face,
+      Replicated,
+    };
+    Kind kind;
+
+    // Used when kind == Axis.
+    int axis;
+
+    // Used when kind == Face.
+    int face;
+
+    AxisMatch() = default;
+
+    AxisMatch(int axis) : kind(Axis), axis(axis) {};
+
+    static AxisMatch makeFace(int face) {
+      AxisMatch a;
+      a.kind = Face;
+      a.face = face;
+      return a;
+    }
+
+    static AxisMatch makeReplicated() {
+      AxisMatch a;
+      a.kind = Replicated;
+      return a;
+    }
+  };
+
+  GridPlacement(std::vector<AxisMatch> axes) : axes(axes) {}
+
+  std::vector<AxisMatch> axes;
+};
+
+GridPlacement::AxisMatch Face(int face);
+GridPlacement::AxisMatch Replicate();
 
 // Transfer represents requesting a portion of data.
 // TODO (rohany): It seems like we're doing all equality on tensorvars, rather than the access.

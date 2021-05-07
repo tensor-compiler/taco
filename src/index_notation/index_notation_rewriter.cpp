@@ -217,6 +217,15 @@ void IndexNotationRewriter::visit(const SuchThatNode* op) {
   }
 }
 
+void IndexNotationRewriter::visit(const PlaceNode* op) {
+  IndexExpr expr = rewrite(op->expr);
+  if (expr == op->expr) {
+    stmt = op;
+  } else {
+    stmt = new PlaceNode(expr);
+  }
+}
+
 
 
 // Functions

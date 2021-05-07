@@ -123,4 +123,8 @@ void IndexNotationVisitor::visit(const SuchThatNode* op) {
   op->stmt.accept(this);
 }
 
+void IndexNotationVisitor::visit(const PlaceNode* op) {
+  op->expr.accept(this);
+}
+
 }

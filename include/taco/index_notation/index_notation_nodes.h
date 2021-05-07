@@ -383,6 +383,16 @@ struct AssembleNode : public IndexStmtNode {
   Assemble::AttrQueryResults results;
 };
 
+struct PlaceNode : public IndexStmtNode {
+  PlaceNode(IndexExpr e) : expr(e) {}
+
+  void accept(IndexStmtVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  IndexExpr expr;
+};
+
 
 /// Returns true if expression e is of type E.
 template <typename E>

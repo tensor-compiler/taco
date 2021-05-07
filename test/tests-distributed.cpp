@@ -168,6 +168,81 @@ TEST(distributed, reduction) {
   codegen->compile(lowered);
 }
 
+TEST(distributed, placement) {
+  int dim = 10;
+
+  auto toString = [](IndexStmt stmt) {
+    std::stringstream ss;
+    ss << stmt;
+    return ss.str();
+  };
+
+  {
+    // Simple partitioning of a vector onto a vector of processors.
+    Tensor<int> a("a", {dim}, Format{Dense});
+    auto grid = Grid(4);
+    a.partition(grid);
+    auto stmt = a.place(grid, GridPlacement({0}));
+    ASSERT_EQ(toString(stmt), "suchthat(forall(in, forall(il, place(a(i))), Distributed, ParallelReduction, transfers: transfer(a(i))), divide(i, in, il, 4))");
+  }
+  {
+    // Place a matrix onto a vector of processors.
+    Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+    // TODO (rohany): Here is a good place to test partitioning the other dimension of the matrix.
+    auto grid = Grid(4);
+    auto placeGrid = Grid(4);
+    a.partition(grid);
+    auto stmt = a.place(placeGrid, GridPlacement({0}));
+    ASSERT_EQ(toString(stmt), "suchthat(forall(in, forall(il, forall(j, place(a(i,j)))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), divide(i, in, il, 4))");
+    // TODO (rohany): It seems like doing GridPlacement({1}) mimics partitioning across the y axis.
+  }
+  {
+    // Place a vector onto a grid in different ways.
+    Tensor<int> a("a", {dim}, Format{Dense});
+    auto grid = Grid(4);
+    auto placeGrid = Grid(4, 4);
+    a.partition(grid);
+    // Place the vector so that each row of the processor grid holds the chunk of the vector.
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({0, Replicate()}))), "suchthat(forall(distFused, forall(il, forall(jl, place(a(i)))), Distributed, ParallelReduction, transfers: transfer(a(i))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and multiFuse({in, jn}, reorder(in, jn)))");
+    // Place the vector so that each column of the processor grid holds the chunk of the vector.
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({Replicate(), 0}))), "suchthat(forall(distFused, forall(il, forall(jl, place(a(j)))), Distributed, ParallelReduction, transfers: transfer(a(j))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and multiFuse({in, jn}, reorder(in, jn)))");
+  }
+  {
+    // Place a matrix onto a 3-dimensional grid in different ways.
+    Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+    auto grid = Grid(4, 4);
+    auto placeGrid = Grid(4, 4, 4);
+    a.partition(grid);
+    // Replicate the tensor along each dimension in turn.
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({0, 1, Replicate()}))), "suchthat(forall(distFused, forall(il, forall(jl, forall(kl, place(a(i,j))))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and multiFuse({in, jn, kn}, reorder(in, jn, kn)))");
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({0, Replicate(), 1}))), "suchthat(forall(distFused, forall(il, forall(jl, forall(kl, place(a(i,k))))), Distributed, ParallelReduction, transfers: transfer(a(i,k))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and multiFuse({in, jn, kn}, reorder(in, jn, kn)))");
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({Replicate(), 0, 1}))), "suchthat(forall(distFused, forall(il, forall(jl, forall(kl, place(a(j,k))))), Distributed, ParallelReduction, transfers: transfer(a(j,k))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and multiFuse({in, jn, kn}, reorder(in, jn, kn)))");
+    // Placing the tensor in different orientations (like put the columns along the first axis of the grid).
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({1, 0, Replicate()}))), "suchthat(forall(distFused, forall(il, forall(jl, forall(kl, place(a(j,i))))), Distributed, ParallelReduction, transfers: transfer(a(j,i))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and multiFuse({in, jn, kn}, reorder(in, jn, kn)))");
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({1, Replicate(), 0}))), "suchthat(forall(distFused, forall(il, forall(jl, forall(kl, place(a(k,i))))), Distributed, ParallelReduction, transfers: transfer(a(k,i))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and multiFuse({in, jn, kn}, reorder(in, jn, kn)))");
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({Replicate(), 1, 0}))), "suchthat(forall(distFused, forall(il, forall(jl, forall(kl, place(a(k,j))))), Distributed, ParallelReduction, transfers: transfer(a(k,j))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and multiFuse({in, jn, kn}, reorder(in, jn, kn)))");
+  }
+}
+
+TEST(distributed, placement2) {
+  int dim = 10;
+//  Tensor<int> a("a", {dim}, Format{Dense});
+//  auto grid = Grid(4);
+//  auto placeGrid = Grid(4, 4);
+//  a.partition(grid);
+//  auto stmt = a.place(placeGrid, GridPlacement({0, Replicate()}));
+  Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+  auto grid = Grid(3, 3);
+  auto placeGrid = Grid(3, 3, 3);
+  a.partition(grid);
+  // Replicate the tensor along each dimension in turn.
+//  auto stmt = a.place(placeGrid, GridPlacement({0, Replicate(), 1}));
+  auto stmt = a.place(placeGrid, GridPlacement({Replicate(), 0, 1}));
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(lowered);
+}
+
 TEST(distributed, nesting) {
   int dim = 10;
   Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});

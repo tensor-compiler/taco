@@ -37,6 +37,7 @@ public:
   void visit(const SequenceNode*);
   void visit(const AssembleNode*);
   void visit(const SuchThatNode*);
+  void visit(const PlaceNode*);
 
 private:
   std::ostream& os;

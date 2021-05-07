@@ -61,6 +61,7 @@ struct ForallNode;
 struct WhereNode;
 struct SequenceNode;
 struct AssembleNode;
+struct PlaceNode;
 struct MultiNode;
 struct SuchThatNode;
 
@@ -864,6 +865,16 @@ public:
 Assemble assemble(IndexStmt queries, IndexStmt compute, 
                   Assemble::AttrQueryResults results);
 
+class Place : public IndexStmt {
+public:
+  Place() = default;
+  Place(IndexExpr e);
+  Place(const PlaceNode*);
+
+  Access getAccess() const;
+
+  typedef PlaceNode Node;
+};
 
 /// A multi statement has two statements that are executed separately, and let
 /// us compute more than one tensor in a concrete index notation statement.

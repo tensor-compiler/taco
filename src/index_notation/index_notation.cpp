@@ -434,6 +434,15 @@ struct Isomorphic : public IndexNotationVisitorStrict {
     }
     eq = true;
   }
+
+  void visit(const PlaceNode* anode) {
+    if (!isa<PlaceNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<PlaceNode>(bStmt.ptr);
+    eq = check(anode->expr, bnode->expr);
+  }
 };
 
 bool isomorphic(IndexExpr a, IndexExpr b) {
@@ -740,6 +749,15 @@ struct Equals : public IndexNotationVisitorStrict {
       return;
     }
     eq = true;
+  }
+
+  void visit(const PlaceNode* anode) {
+    if (!isa<PlaceNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<PlaceNode>(bStmt.ptr);
+    eq = check(anode->expr, bnode->expr);
   }
 };
 
@@ -2022,6 +2040,13 @@ template <> Assemble to<Assemble>(IndexStmt s) {
   return Assemble(to<AssembleNode>(s.ptr));
 }
 
+Place::Place(IndexExpr e) : Place(new PlaceNode(e)) {}
+
+Place::Place(const PlaceNode * n) : IndexStmt(n) {}
+
+//Access Place::getAccess() const {
+//  return getNode(*this)->access;
+//}
 
 // class Multi
 Multi::Multi(const MultiNode* n) : IndexStmt(n) {
@@ -3268,6 +3293,17 @@ private:
     }
     else {
       stmt = new SuchThatNode(body, op->predicate);
+    }
+  }
+
+  void visit(const PlaceNode* op) {
+    auto expr = rewrite(op->expr);
+    if (!expr.defined()) {
+      stmt = IndexStmt();
+    } else if (expr == op->expr) {
+      stmt = op;
+    } else {
+      stmt = new PlaceNode(expr);
     }
   }
 };

@@ -341,6 +341,10 @@ private:
     taco_not_supported_yet;
   }
 
+  void visit(const PlaceNode* node) {
+    lattice = build(node->expr);
+  }
+
   /**
    * The intersection of two lattices is the result of merging all the
    * combinations of merge points from the two lattices.

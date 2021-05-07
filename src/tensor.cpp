@@ -1366,4 +1366,101 @@ int taco_get_num_threads() {
   return taco_num_threads;
 }
 
+// Partitioning and data placement related methods.
+
+void TensorBase::partition(Grid g) {
+  this->content->partition = g;
+}
+
+IndexStmt TensorBase::place(Grid g, GridPlacement gp) {
+  // The dimension of the partition must be less than or equal to the dimension of
+  // the grid that we are distributing onto. Otherwise, we'd have to decide somehow
+  // which dimensions of the partitioning to collapse.
+  taco_iassert(this->content->partition.getDim() <= g.getDim());
+  // The placement grid and the placement descriptor should have the same number
+  // of dimensions.
+  taco_iassert(size_t(g.getDim()) == gp.axes.size());
+  // The number of specified axes must equal the dimension of the partition.
+  int axisCount = 0;
+  for (auto axis : gp.axes) {
+    if (axis.kind == GridPlacement::AxisMatch::Axis) {
+      taco_iassert(axis.axis < this->content->partition.getDim());
+      axisCount++;
+    }
+  }
+  taco_iassert(this->content->partition.getDim() == axisCount);
+
+  // A vector of aesthetic index variable names for the generated code.
+  std::vector<std::string> ivarNames {"i", "j", "k", "l", "m", "n"};
+
+  // We need one variable for every dimension in the placement grid, excluding
+  // Face(f) dimensions. I'll not consider those at the moment.
+  std::vector<IndexVar> placementVars;
+  for (size_t i = 0; i < gp.axes.size(); i++) {
+    placementVars.push_back(IndexVar(ivarNames[i]));
+  }
+
+  // We'll use these vars to create an access for our tensor. Placement
+  // dimensions that have an Axis(i) marker are placed into the i'th
+  // position of the access.
+  std::vector<bool> setIndex(this->getOrder());
+  std::vector<IndexVar> accessVars(this->getOrder());
+  for (size_t i = 0; i < gp.axes.size(); i++) {
+    auto axis = gp.axes[i];
+    if (axis.kind == GridPlacement::AxisMatch::Axis) {
+      accessVars[axis.axis] = placementVars[i];
+      setIndex[axis.axis] = true;
+    }
+  }
+  // For any unset variable, we need a new index variable that ranges over
+  // the full dimension of the tensor (and we won't distribute these vars).
+  std::vector<IndexVar> extraAccessVars;
+  for (size_t i = 0; i < setIndex.size(); i++) {
+    // If this access position is not set, then create a new index var for this position.
+    if (!setIndex[i]) {
+      IndexVar var(ivarNames[placementVars.size() + extraAccessVars.size()]);
+      accessVars[i] = var;
+      extraAccessVars.push_back(var);
+      setIndex[i] = true;
+    }
+  }
+
+  // We are going to distribute for each variable in the processor grid. We note that
+  // both Replicate() and Axis() axes are included here. The key is that Replicate()
+  // axes are not included in the Access, so the the partitions created by the remaining
+  // axes will be projected onto those dimensions of the placement grid.
+  // TODO (rohany): We could imagine having Face(f) just be changing the dimension of the
+  //  grid to be 1 (I'm not sure that we would need mapper support to do such a thing).
+  //  It seems like it will require some mapper support, but we want to make it as easy
+  //  as possible (i.e. avoid having to introspect structs etc). If we could set the bounds
+  //  on the index space for any Face(f) axes, and tell the mapper about that, the mapper
+  //  could restrict the iteration over the processor grid to just that value f.
+  std::vector<IndexVar> distVars, localVars;
+  for (int i = 0; i < g.getDim(); i++) {
+    auto ivar = placementVars[i];
+    distVars.push_back(IndexVar(ivar.getName() + "n"));
+    localVars.push_back(IndexVar(ivar.getName() + "l"));
+  }
+
+  // Collect all variables that will be used in the foralls. We place the distribution
+  // variables first, followed by the extra access variables, which won't be part of
+  // the distribution.
+  std::vector<IndexVar> allVars;
+  allVars.insert(allVars.end(), placementVars.begin(), placementVars.end());
+  allVars.insert(allVars.end(), extraAccessVars.begin(), extraAccessVars.end());
+
+  // Start with an access and recursively build the forall.
+  auto access = Access(this->getTensorVar(), accessVars);
+  IndexStmt stmt = Place(access);
+  for (int i = allVars.size() - 1; i >= 0; i--) {
+    stmt = forall(allVars[i], stmt);
+  }
+
+  // Finally distribute and push communication underneath all of the distribution variables.
+  stmt = stmt.distribute(placementVars, distVars, localVars, g);
+  stmt = stmt.pushCommUnder(access, distVars.back());
+
+  return stmt;
+}
+
 }

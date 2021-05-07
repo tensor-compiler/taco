@@ -398,13 +398,35 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
       }
     }
 
-    // TODO (rohany): Emit a context struct for each one?
+    // Deduplicate any GetProperty uses so that they aren't emitted twice.
+    std::vector<const GetProperty*> collected;
+    std::vector<Expr> newUses;
+    for (auto& e : uses) {
+      if (isa<GetProperty>(e)) {
+        // See if this GetProperty is already present.
+        bool found = false;
+        auto gp = e.as<GetProperty>();
+        for (auto c : collected) {
+          if (gp->tensor == c->tensor && gp->property == c->property && gp->mode == c->mode) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          newUses.push_back(e);
+          collected.push_back(gp);
+        }
+      } else {
+        newUses.push_back(e);
+      }
+    }
+    uses = newUses;
+
     // TODO (rohany): Make this name combination a function.
     out << "struct " << this->taskArgsName(func->name) << " {\n";
     this->indent++;
     for (auto& it : uses) {
       doIndent();
-//      taco_iassert(!var->is_ptr) << "can't serialize pointer args";
       out << printType(getVarType(it), false) << " " << it << ";\n";
     }
     this->indent--;

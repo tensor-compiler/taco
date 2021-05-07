@@ -63,6 +63,7 @@ private:
   void visit(const ReductionNode* node)  {
     taco_ierror << "Reduction nodes not supported in concrete index notation";
   }
+  void visit(const PlaceNode* node) { expr = impl->lower(node->expr); }
 };
 
 LowererImpl::LowererImpl() : visitor(new Visitor(this)) {
@@ -327,6 +328,14 @@ LowererImpl::lower(IndexStmt stmt, string name,
         }
       })
     );
+
+    // TODO (rohany): Big Hack: If an index var is unbounded (can happen if we're generating
+    //  data placement code over a processor grid that is higher dimensional than the tensor
+    //  itself), then just substitute a dummy value for the dimension.
+    if (!dimension.defined()) {
+      dimension = ir::GetProperty::make(this->tensorVars.begin()->second, TensorProperty::Dimension, 0);
+    }
+
     dimensions.insert({indexVar, dimension});
     underivedBounds.insert({indexVar, {ir::Literal::make(0), dimension}});
   }
@@ -687,6 +696,10 @@ LowererImpl::lower(IndexStmt stmt, string name,
       }
     }
   }
+
+  match(stmt, function<void(const PlaceNode*)>([&](const PlaceNode* node) {
+    this->isPlacementCode = true;
+  }));
 
   // Lower the index statement to compute and/or assemble
   Stmt body = lower(stmt);
@@ -1462,6 +1475,13 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
 
+  // As a simple hack, don't emit code that actually performs the iteration within a placement node.
+  // We just care about emitting the actual distributed loop to do the data placement, not waste
+  // time iterating over the data within it.
+  if (forall.isDistributed() && this->isPlacementCode) {
+    body = ir::Block::make({});
+  }
+
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
   }
@@ -1500,7 +1520,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto aliasedPart = ir::Symbol::make("LEGION_COMPUTE_KIND");
     auto readOnly = ir::Symbol::make("READ_ONLY");
     auto readWrite = ir::Symbol::make("READ_WRITE");
-    auto reduce = ir::Symbol::make(LegionRedopString(this->resultTensors.begin()->getType().getDataType()));
+    // TODO (rohany): Assuming that all tensors have the same type right now.
+    auto reduce = ir::Symbol::make(LegionRedopString(this->tensorVars.begin()->first.getType().getDataType()));
     auto exclusive = ir::Symbol::make("EXCLUSIVE");
     auto simultaneous = ir::Symbol::make("LEGION_SIMULTANEOUS");
     auto fidVal = ir::Symbol::make("FID_VAL");

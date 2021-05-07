@@ -10,9 +10,10 @@ namespace taco {
 /// ParallelUnit::GPUThread causes for every iteration to be executed on a separate GPU thread
 enum class ParallelUnit {
   NotParallel, DefaultUnit, GPUBlock, GPUWarp, GPUThread, CPUThread, CPUVector, CPUThreadGroupReduction, GPUBlockReduction, GPUWarpReduction,
-  LegionReduction,
   // TODO (rohany): Can have more like dist gpu etc.
   DistributedNode,
+  // This is used to annotate legion distributed for loops.
+  LegionReduction,
 };
 extern const char *ParallelUnit_NAMES[];
 
