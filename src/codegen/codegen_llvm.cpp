@@ -130,8 +130,11 @@ llvm::Type *CodeGen_LLVM::llvmTypeOf(Datatype t) {
       taco_ierror << "Unable to find LLVM type for " << t;
       return nullptr;
     }
-  } else {
+  } else if (t.isInt()) {
     return llvm::Type::getIntNTy(this->Context, t.getNumBits());
+  } else {
+    taco_ierror << "Unable to find llvm type for " << t;
+    return nullptr;
   }
 }
 
@@ -140,6 +143,19 @@ void CodeGen_LLVM::compile(Stmt stmt, bool isFirst) {
   init_codegen();
   stmt.accept(this);
 }
+
+// ; ModuleID = 'my compiler'
+// source_filename = "my compiler"
+//
+// %TensorType = type { i32, i32*, i32, i32*, i32*, i8***, i8*, i32 }
+//
+// define i32 @"my function"(%TensorType %0, %TensorType %1) {
+// entry:
+//   %2 = alloca %TensorType*, align 8
+//   store %TensorType %0, %TensorType** %2, align 8
+//   %3 = alloca %TensorType*, align 8
+//   store %TensorType %1, %TensorType** %3, align 8
+// }
 
 void CodeGen_LLVM::codegen(Stmt stmt) {
   llvm::errs() << "LLVM CodeGen Visiting stmt\n";
@@ -344,15 +360,17 @@ void CodeGen_LLVM::visit(const Store *op) {
 
 void CodeGen_LLVM::visit(const For *op) {
   llvm::errs() << "LLVM CodeGen Visiting For\n";
-  cout << op->start << "\n";
+  cout << "op->start " << op->start << "\n";
   cout << op->var << "\n";
-  cout << op->end << "\n";
+  cout << "op->end " << op->end << "\n";
 
   llvm::errs() << "codegen(op->start)\n";
   auto start = codegen(op->start);
   llvm::errs() << "codegen(op->end)\n";
   auto end = codegen(op->end);
   llvm::errs() << "done!\n";
+  taco_iassert(start->getType()->isIntegerTy());
+  taco_iassert(end->getType()->isIntegerTy());
 
   llvm::BasicBlock *pre_header = this->Builder->GetInsertBlock();
 
@@ -375,7 +393,7 @@ void CodeGen_LLVM::visit(const For *op) {
 
   // Connect latch to header
   this->Builder->SetInsertPoint(latch);
-  this->Builder->CreateBr(header);
+  this->Builder->CreateBr(header);  // this must change
 
   // Initialize header with PHI node
   this->Builder->SetInsertPoint(header);
@@ -387,7 +405,7 @@ void CodeGen_LLVM::visit(const For *op) {
   auto incr = this->Builder->CreateAdd(phi, codegen(op->increment));
 
   // Add values to the PHI node
-  phi->addIncoming(start,pre_header);
+  phi->addIncoming(start, pre_header);
   phi->addIncoming(incr, latch);
   
   // Compute exit condition
@@ -422,7 +440,7 @@ void CodeGen_LLVM::visit(const Scope *op) {
 }
 
 void CodeGen_LLVM::init_codegen() {
-  Builder = new llvm::IRBuilder<>(this->Context);
+  this->Builder = new llvm::IRBuilder<>(this->Context);
 
   auto i32 = llvm::Type::getInt32Ty(this->Context);
   auto i32p = i32->getPointerTo();
@@ -447,7 +465,7 @@ void CodeGen_LLVM::init_codegen() {
 }
 
 void CodeGen_LLVM::visit(const Function *func) {
-  llvm::Module *M = new llvm::Module("my compiler", this->Context);
+  auto M = std::make_unique<llvm::Module>("my compiler", this->Context);
   llvm::errs() << "LLVM CodeGen Visiting Function\n";
 
   // 1. find the arguments to @func
@@ -463,11 +481,11 @@ void CodeGen_LLVM::visit(const Function *func) {
     args.push_back(this->tensorType);
   }
   auto i32 = llvm::Type::getInt32Ty(this->Context);
-  auto *FT = llvm::FunctionType::get(i32, args, false);
 
   // 4. create a new function in the module with the given types
-  this->F = llvm::Function::Create(FT, llvm::GlobalValue::ExternalLinkage,
-                                   "my function", M);
+  this->F = llvm::Function::Create(llvm::FunctionType::get(i32, args, false),
+                                   llvm::GlobalValue::ExternalLinkage,
+                                   "my function", M.get());
 
   // 5. Create the first basic block
   this->Builder->SetInsertPoint(
@@ -546,8 +564,29 @@ void CodeGen_LLVM::visit(const Print *op) {
 void CodeGen_LLVM::visit(const GetProperty *op) {
   llvm::errs() << "LLVM CodeGen Visiting GetProperty\n";
   const std::string &name = op->tensor.as<Var>()->name;
-  llvm::Value *val = getSymbol(name);
-  value = this->Builder->CreateLoad(val);
+  llvm::Value *tensor = getSymbol(name);
+  llvm::errs() << "tensor : " << *tensor << "\n";
+  switch (op->property) {
+    case TensorProperty::Dimension:
+    {
+      auto *dim = this->Builder->CreateStructGEP(this->tensorType, tensor, (int)TensorProperty::Dimension, "tensor.dimension");
+      llvm::errs() << "here!\n";
+      value = this->Builder->CreateLoad(tensor, dim, "tensor.dimension");
+      break;
+    }
+    case TensorProperty::Order:
+    case TensorProperty::ComponentSize:
+    case TensorProperty::ModeOrdering:
+    case TensorProperty::ModeTypes:
+    case TensorProperty::Indices:
+    case TensorProperty::Values:
+    case TensorProperty::ValuesSize:
+    default:
+      throw logic_error("Not implemented!");
+
+  }
+  llvm::errs() << "name: " << name << "\n";
+  llvm::errs() << "Value: " << *value << "\n";
 }
 
 } // namespace ir
