@@ -48,6 +48,7 @@ TEST(spatial, vecElemMul) {
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt compute = lower(stmt, "compute",  false, true);
   codegen->compile(compute, false);
+  set_Spatial_codegen_enabled(false);
 }
 
 TEST(spatial, tileCompute_vecElemMul) {
@@ -97,6 +98,7 @@ TEST(spatial, tileCompute_vecElemMul) {
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt compute = lower(stmt, "compute",  false, true);
   codegen->compile(compute, false);
+  set_Spatial_codegen_enabled(false);
 }
 
 TEST(spatial, tile_matElemMul) {
@@ -157,7 +159,7 @@ TEST(spatial, tile_matElemMul) {
 //  irp.print(compute);
 //  cout << endl;
   codegen->compile(compute, false);
-
+  set_Spatial_codegen_enabled(false);
 }
 
 TEST(spatial, reduction_dotProduct) {
@@ -210,7 +212,7 @@ TEST(spatial, reduction_dotProduct) {
 
   cout << "-----------Spatial Code---------------" << endl;
   codegen->compile(compute, false);
-
+  set_Spatial_codegen_enabled(false);
 }
 
 TEST(spatial, bound_elemMul) {
@@ -263,7 +265,7 @@ TEST(spatial, bound_elemMul) {
 
   cout << "-----------Spatial Code---------------" << endl;
   codegen->compile(compute, false);
-
+  set_Spatial_codegen_enabled(false);
 }
 
 TEST(spatial, reduction_GEMV) {
@@ -299,22 +301,22 @@ TEST(spatial, reduction_GEMV) {
 
 
   ir::IRPrinter irp = ir::IRPrinter(cout);
-  cout << stmt << endl;
+  cout << "Concrete Statement: " << stmt << endl;
 
   A.compile(stmt);
   A.assemble();
   A.compute();
 
-  Tensor<int> expected("expected", {16}, {Dense});
-  expected(i) = B(i, j) * C(j);
-  expected.compile();
-  expected.assemble();
-  expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
-
-  cout << "----------------Resulting Tensors-----------------" << endl;
-  cout << A << endl;
-  cout << expected << endl;
+//  Tensor<int> expected("expected", {16}, {Dense});
+//  expected(i) = B(i, j) * C(j);
+//  expected.compile();
+//  expected.assemble();
+//  expected.compute();
+//  ASSERT_TENSOR_EQ(A, expected);
+//
+//  cout << "----------------Resulting Tensors-----------------" << endl;
+//  cout << A << endl;
+//  cout << expected << endl;
 
   set_Spatial_codegen_enabled(true);
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
@@ -324,6 +326,7 @@ TEST(spatial, reduction_GEMV) {
 
   cout << "-----------Spatial Code---------------" << endl;
   codegen->compile(compute, false);
+  set_Spatial_codegen_enabled(false);
 }
 
 TEST(spatial, reduction_GEMM) {
@@ -386,6 +389,7 @@ TEST(spatial, reduction_GEMM) {
 
   cout << "-----------Spatial Code---------------" << endl;
   codegen->compile(compute, false);
+  set_Spatial_codegen_enabled(false);
 }
 
 TEST(spatial, outerProduct) {
@@ -444,6 +448,7 @@ TEST(spatial, outerProduct) {
 
   cout << "-----------Spatial Code---------------" << endl;
   codegen->compile(compute, false);
+  set_Spatial_codegen_enabled(false);
 }
 
 TEST(spatial, reduction_higherOrder) {
@@ -585,6 +590,7 @@ TEST(spatial, tile_vecElemMul) {
   cout << compute << endl;
 
   codegen->compile(compute, false);
+  set_Spatial_codegen_enabled(false);
 }
 
 TEST(spatial, tile_dotProduct) {
@@ -606,7 +612,6 @@ TEST(spatial, tile_dotProduct) {
   IndexVar i("i");
   IndexVar i_bounded("i_bounded");
   IndexVar i0("i0"), i1("i1");
-  IndexVar i2("i2"), iwb("iwb"), iwc("iwc"), iwp("iwp");
   IndexExpr BExpr = B(i);
   IndexExpr CExpr = C(i);
   IndexExpr precomputedExpr = (BExpr) * (CExpr);
@@ -660,11 +665,11 @@ TEST(spatial, tile_dotProduct) {
   cout << compute << endl;
 
   codegen->compile(compute, false);
+  set_Spatial_codegen_enabled(false);
 }
 
 TEST(spatial, tile_GEMV) {
-  // Enable spatial codegen
-  //should_use_Spatial_codegen();
+  set_Spatial_codegen_enabled(false);
 
   int n = 16;
   Tensor<int> A("A", {n}, {Dense}, MemoryLocation::SpatialDRAM);
@@ -684,17 +689,17 @@ TEST(spatial, tile_GEMV) {
   IndexVar i("i"), j("j");
   IndexVar i_bounded("i_bounded"), j_bounded("j_bounded");
   IndexVar i0("i0"), i1("i1");
-  IndexVar i2("i2"), iwb("iwb"), iwc("iwc"), iwp("iwp");
-  IndexVar j0("j0"), j1("i1");
+  IndexVar j0("j0"), j1("j1");
   IndexExpr BExpr = B(i, j);
   IndexExpr CExpr = C(j);
   IndexExpr precomputedExpr = (BExpr) * (CExpr);
   A(i) = precomputedExpr;
 
   IndexStmt stmt = A.getAssignment().concretize();
-  TensorVar B_sram("B_sram", Type(Int64 , {Dimension(i1), Dimension(j1)}), taco::dense, MemoryLocation::SpatialSRAM);
+  //TensorVar B_sram("B_sram", Type(Int64 , {Dimension(i1), Dimension(j1)}), taco::dense, MemoryLocation::SpatialSRAM);
   TensorVar C_sram("C_sram", Type(Int64, {Dimension(j1)}), taco::dense, MemoryLocation::SpatialSRAM);
-  TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense, MemoryLocation::SpatialSRAM);
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(j1)}), taco::dense, MemoryLocation::SpatialSRAM);
+  TensorVar A_sram("A_sram", Type(Float64, {Dimension(i1)}), taco::dense, MemoryLocation::SpatialSRAM);
 
   ir::IRPrinter irp = ir::IRPrinter(cout);
   cout << "----------------Pre-Schedule Stmt-----------------" << endl;
@@ -702,25 +707,19 @@ TEST(spatial, tile_GEMV) {
 
   stmt = stmt.bound(i, i_bounded, n, BoundType::MaxExact)
           .bound(j, j_bounded, n, BoundType::MaxExact)
-          .split(i_bounded, i0, i1, 32)
-          .split(j_bounded, j0, j1, 32)
+          .split(i_bounded, i0, i1, 4)
+          .split(j_bounded, j0, j1, 4)
           .parallelize(i0, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 1)
           .parallelize(j0, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 1)
           .precompute(precomputedExpr, j1, j1, precomputed);
   cout << "----------------Post-Schedule 1 Stmt-----------------" << endl;
+  //stmt = scalarPromote(stmt);
   cout << stmt << endl;
 
-//  stmt = stmt.precompute(BExpr, i1, i1, B_sram) // where (forall(i p = B_sram * C_sram, forall_i (B_sram = B(i))
-//              .precompute(BExpr, j1, j1, B_sram);
   cout << "----------------Post-Schedule 2 Stmt-----------------" << endl;
   cout << stmt << endl;
 
-  stmt = stmt.precompute(CExpr, j1, j1, C_sram)
-          .parallelize(i1, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 1);
-
-
-  cout << "----------------Post-Schedule 3 Stmt-----------------" << endl;
-  cout << stmt << endl;
+  // TODO: fix this app to use MemReduce
 
   A.compile(stmt);
   A.assemble();
@@ -743,14 +742,14 @@ TEST(spatial, tile_GEMV) {
   cout << compute << endl;
 
   codegen->compile(compute, false);
+  set_Spatial_codegen_enabled(false);
 }
 
-TEST(spatial, sparse_coo_spMdV) {
-  // Enable spatial codegen
-  //should_use_Spatial_codegen();
+TEST(spatial, sparse_csr_spMV) {
+  set_Spatial_codegen_enabled(false);
 
   Tensor<double> A("A", {16}, {Sparse}, taco::MemoryLocation::SpatialDRAM);
-  Tensor<double> B("B", {16, 16}, COO(2), taco::MemoryLocation::SpatialDRAM);
+  Tensor<double> B("B", {16, 16}, CSR, taco::MemoryLocation::SpatialDRAM);
   Tensor<double> C("C", {16}, {Dense}, taco::MemoryLocation::SpatialDRAM);
 
   for (int i = 0; i < 16; i++) {
@@ -782,4 +781,5 @@ TEST(spatial, sparse_coo_spMdV) {
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt compute = lower(stmt, "compute",  false, true);
   codegen->compile(compute, false);
+  set_Spatial_codegen_enabled(false);
 }

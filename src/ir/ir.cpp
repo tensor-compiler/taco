@@ -752,7 +752,7 @@ std::pair<std::vector<Datatype>,Datatype> Function::getReturnType() const {
 // VarDecl
 Stmt VarDecl::make(Expr var, Expr rhs, MemoryLocation mem) {
   taco_iassert(var.as<Var>())
-    << "Can only declare a Var";
+    << "Can only declare a Var" << var << "=" << rhs << MemoryLocation_NAMES[(int)mem];
   VarDecl* decl = new VarDecl;
   decl->var = var;
   decl->rhs = rhs;
@@ -1224,7 +1224,8 @@ Expr rewriteBulkExpr(Stmt stmt, IndexVar indexVar) {
     Stmt parentStmt;
     Expr e = Expr();
     Expr visit(Stmt stmt) {
-      stmt.accept(this);
+      if (stmt.defined())
+        stmt.accept(this);
       return e;
     }
     void visit(const Block* node) {
@@ -1254,6 +1255,7 @@ Expr rewriteBulkExpr(Stmt stmt, IndexVar indexVar) {
       }
     }
   };
+
   Expr rewrittenExpr = BulkExprFinder().visit(stmt);
   Expr returnExpr = BulkExprRewriter(indexVar).rewrite(rewrittenExpr);
   return returnExpr;

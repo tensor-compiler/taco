@@ -1267,6 +1267,7 @@ std::vector<ir::Expr> ProvenanceGraph::deriveIterBounds(IndexVar indexVar, std::
   if (!derivedVarOrderExceptLast.empty()) {
     derivedVarOrderExceptLast.pop_back();
   }
+
   taco_iassert(std::find(derivedVarOrderExceptLast.begin(), derivedVarOrderExceptLast.end(), indexVar) == derivedVarOrderExceptLast.end());
 
   std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds;

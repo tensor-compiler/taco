@@ -742,7 +742,6 @@ Stmt LowererImpl::lowerForall(Forall forall)
   definedIndexVarsOrdered.push_back(forall.getIndexVar());
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getParallelUnit() != ParallelUnit::Spatial) {
-    cout << "ParallelUnitSizes: " << parallelUnitSizes.count(forall.getParallelUnit()) << endl;
     taco_iassert(!parallelUnitSizes.count(forall.getParallelUnit()));
     taco_iassert(!parallelUnitIndexVars.count(forall.getParallelUnit()));
     parallelUnitIndexVars[forall.getParallelUnit()] = forall.getIndexVar();
@@ -865,6 +864,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     parallelUnitIndexVars.erase(forall.getParallelUnit());
     parallelUnitSizes.erase(forall.getParallelUnit());
   }
+
 
   return Block::blanks(preInitValues,
                        temporaryValuesInitFree[0],
@@ -1172,8 +1172,6 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
-
-  cout << "Lower Forall Dimension" << endl;
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth++;
     atomicParallelUnit = forall.getParallelUnit();
@@ -1208,12 +1206,18 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       Assignment forallExpr = to<Assignment>(forall.getStmt());
 
       Expr reg;
-      if (forallReductions.at(forall).first > 0)
-        reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(), forallExpr.getLhs().getDataType());
-      else
+      Stmt regDecl = Stmt();
+      if (forallReductions.at(forall).first > 0) {
+        reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(),
+                        forallExpr.getLhs().getDataType());
+        regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+      } else {
+        // TODO: If reduction across a non-scalar, need to use a memreduce into a SpatialSRAM
         reg = lower(forallExpr.getLhs());
-
-      Stmt regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+        // Only declare register for upper-most level if it is a scalar
+        if (isScalar(to<Access>(forallExpr.getLhs()).getTensorVar().getType()))
+          regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+      }
 
       Stmt reductionBody = lowerForallReductionBody(coordinate, forall.getStmt(),
                                                     locators, inserters, appenders, reducedAccesses);
@@ -1229,16 +1233,21 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       }
     }
      if (forallReductions.find(forall) != forallReductions.end() && !provGraph.getParents(forall.getIndexVar()).empty()) {
-        Assignment forallExpr = forallReductions.at(forall).second;
+       Assignment forallExpr = forallReductions.at(forall).second;
 
-        Expr reg;
-        if (forallReductions.at(forall).first > 0)
-          reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(),
-                             forallExpr.getLhs().getDataType());
-        else
-          reg = lower(forallExpr.getLhs());
-
-        Stmt regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+       Expr reg;
+       Stmt regDecl = Stmt();
+       if (forallReductions.at(forall).first > 0) {
+         reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(),
+                         forallExpr.getLhs().getDataType());
+         regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+       } else {
+         // TODO: If reduction across a non-scalar, need to use a memreduce into a SpatialSRAM
+         reg = lower(forallExpr.getLhs());
+         // Only declare register for upper-most level if it is a scalar
+         if (isScalar(to<Access>(forallExpr.getLhs()).getTensorVar().getType()))
+           regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+       }
 
         // FIXME: reduction can only handle adds for now
         taco_iassert(isa<taco::Add>(forallExpr.getOperator()));
@@ -1261,13 +1270,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
     //Stmt vars = lowerForallReductionBody(coordinate, forall.getStmt(),
     //                                     locators, inserters, appenders, reducedAccesses);
-
     auto locs = lowerForallBulk(forall, coordinate, forall.getStmt(),
                                  locators, inserters, appenders, reducedAccesses, recoveryStmt);
 
     Expr data = LoadBulk::make(valuesRhs, ir::Add::make(get<1>(locs[1]), bounds[0]), ir::Add::make(get<1>(locs[1]), bounds[1]));
-
-
 
     return Block::make(get<0>(locs[0]), StoreBulk::make(valuesLhs,
                                                                          ir::Add::make(get<1>(locs[0]), bounds[0]),
@@ -1881,9 +1887,6 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
 
   // Inserter positions
   Stmt declInserterPosVars = declLocatePosVars(inserters);
-  cout << "FORALL BODY" << endl;
-  cout << initVals << endl;
-  cout << declInserterPosVars << endl;
 
   // Locate positions
   Stmt declLocatorPosVars = declLocatePosVars(locators);
@@ -2259,7 +2262,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
   }
 
   Stmt producer = lower(where.getProducer());
-  if (accelerateDenseWorkSpace) {
+  if (accelerateDenseWorkSpace && !should_use_Spatial_codegen()) {
     const Expr indexListSizeExpr = tempToIndexListSize.at(temporary);
     const Stmt indexListSizeDecl = VarDecl::make(indexListSizeExpr, ir::Literal::make(0));
     initializeTemporary = Block::make(indexListSizeDecl, initializeTemporary);
@@ -2327,6 +2330,7 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
       }
       else {
         Stmt declResult = VarDecl::make(values, 0);
+
         allocStmts.push_back(declResult);
 
         Stmt allocResult = Allocate::make(values, size);

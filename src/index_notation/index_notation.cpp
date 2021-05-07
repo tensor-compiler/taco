@@ -917,7 +917,7 @@ template <> bool isa<Access>(IndexExpr e) {
 }
 
 template <> Access to<Access>(IndexExpr e) {
-  taco_iassert(isa<Access>(e));
+  taco_iassert(isa<Access>(e)) << e;
   return Access(to<AccessNode>(e.ptr));
 }
 
@@ -2734,9 +2734,10 @@ std::map<Forall, std::pair<int, Assignment>> getForallReductions(IndexStmt stmt)
           ctx->match(w->producer);
         }),
         function<void(const AssignmentNode*, Matcher*)>([&](const AssignmentNode* a, Matcher* ctx) {
-
-          if (!f.empty() && a->op.defined()) {
-            for (int i = 0; i < f.size(); i++)
+          bool rhsScalar = isa<Access>(a->rhs) && isScalar(to<Access>(a->rhs).getTensorVar().getType());
+          bool lhsArr = isa<Access>(a->lhs) && !isScalar(to<Access>(a->lhs).getTensorVar().getType());
+          if (!f.empty() && a->op.defined() && !(lhsArr && rhsScalar)) {
+            for (int i = 0; i < (int) f.size(); i++)
               forallReductions.insert({Forall(f[i]), {i, Assignment(a)}});
           }
           f.clear();
@@ -2754,8 +2755,14 @@ std::map<Forall, Assignment> getBulkMemTransfers(IndexStmt stmt) {
           f = op;
           ctx->match(op->stmt);
         }),
+        function<void(const WhereNode*, Matcher*)>([&](const WhereNode* w, Matcher* ctx) {
+          ctx->match(w->consumer);
+          ctx->match(w->producer);
+        }),
         function<void(const AssignmentNode*, Matcher*)>([&](const AssignmentNode* a, Matcher* ctx) {
-          if (!(f == IndexStmt()) && (isa<Access>(a->rhs)))
+          bool rhsArr = isa<Access>(a->rhs) && !isScalar(to<Access>(a->rhs).getTensorVar().getType());
+          bool lhsArr = isa<Access>(a->lhs) && !isScalar(to<Access>(a->lhs).getTensorVar().getType());
+          if (!(f == IndexStmt()) && lhsArr && rhsArr && !a->op.defined())
             bulkTransfers.insert({f, Assignment(a)});
         })
   );
