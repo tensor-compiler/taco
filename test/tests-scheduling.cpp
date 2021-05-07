@@ -865,7 +865,7 @@ TEST(scheduling, divide) {
   auto dim = 256;
   float sparsity = 0.1;
   Tensor<int> A("A", {dim, dim}, {Dense, Sparse});
-  Tensor<int> x("x", {dim}, {Dense});
+  Tensor<int> x("x", {dim}, Dense);
   IndexVar i("i"), i1("i1"), i2("i2"), j("j"), f("f"), fpos("fpos"), f0("f0"), f1("f1");
 
   srand(59393);
@@ -886,12 +886,12 @@ TEST(scheduling, divide) {
   x.pack(); A.pack();
 
   auto test = [&](std::function<IndexStmt(IndexStmt)> f) {
-    Tensor<int> y("y", {dim}, {Dense});
+    Tensor<int> y("y", {dim}, Dense);
     y(i) = A(i, j) * x(j);
     auto stmt = f(y.getAssignment().concretize());
     y.compile(stmt);
     y.evaluate();
-    Tensor<int> expected("expected", {dim}, {Dense});
+    Tensor<int> expected("expected", {dim}, Dense);
     expected(i) = A(i, j) * x(j);
     expected.evaluate();
     ASSERT_TRUE(equals(expected, y)) << expected << endl << y << endl;
