@@ -119,6 +119,7 @@ add_subdirectory(src)
 add_subdirectory(test)
 add_subdirectory(tools)
 add_subdirectory(apps)
+add_subdirectory(legion)
 string(REPLACE " -Wmissing-declarations" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 find_package(Git QUIET)
