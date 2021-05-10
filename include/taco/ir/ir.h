@@ -74,6 +74,7 @@ enum class IRNodeType {
   Symbol,
   PackTaskArgs,
   FieldAccess,
+  Return,
 };
 
 enum class TensorProperty {
@@ -849,6 +850,14 @@ struct PackTaskArgs : public StmtNode<PackTaskArgs> {
   static Stmt make(Expr var, int forTaskID);
 
   static const IRNodeType _type_info = IRNodeType::PackTaskArgs;
+};
+
+struct Return : public StmtNode<Return> {
+  Expr ret;
+
+  static Stmt make(Expr ret);
+
+  static const IRNodeType _type_info = IRNodeType::Return;
 };
 
 template <typename E>

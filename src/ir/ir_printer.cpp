@@ -650,6 +650,12 @@ void IRPrinter::visit(const Sort* op) {
   stream << endl;
 }
 
+void IRPrinter::visit(const Return* op) {
+  doIndent();
+  stream << "return ";
+  op->ret.accept(this);
+  stream << ";\n";
+}
 
 void IRPrinter::resetNameCounters() {
   // seed the unique names with all C99 keywords

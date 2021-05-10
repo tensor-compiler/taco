@@ -4,6 +4,9 @@ find_package(Legion REQUIRED)
 include_directories(include/)
 file(GLOB LG_SOURCES src/*)
 
+# Optimize these codes.
+SET(CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
+
 function(add_app_folder folder)
     file(GLOB SOURCES "${folder}/*.cpp" ${LG_SOURCES})
     add_executable("${folder}" ${SOURCES})

@@ -533,7 +533,6 @@ private:
   std::vector<TensorVar> tensorVarOrdering;
 
   bool isPlacementCode = false;
-
 };
 
 }

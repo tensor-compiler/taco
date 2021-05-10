@@ -31,14 +31,17 @@ private:
 
   class FindVars;
 
-  std::vector<Stmt> functions;
-  std::vector<Expr> regionArgs;
+  // Maybe needs Stmt -> map.
+  std::map<Stmt, std::vector<Expr>> regionArgs;
 
+  std::map<Stmt, std::vector<Stmt>> functions;
   // Mapping task ID's to their corresponding IR constructs.
   std::map<int, Stmt> idToFor;
   std::map<int, Stmt> idToFunc;
 
   std::map<Stmt, Stmt> funcToFor;
+
+  std::map<Stmt, Stmt> funcToParentFunc;
 
   // Maps from tasks to packed arguments.
   std::map<Stmt, std::vector<Expr>> taskArgs;

@@ -152,7 +152,7 @@ public:
   // TODO (rohany): When the grid dimension doesn't equal the dimension of
   //  the tensor, then we also need to have some information about how the
   //  grid dimensions map to the partitions of the tensor.
-  void partition(Grid g);
+  TensorBase& partition(Grid g);
   IndexStmt place(Grid g, GridPlacement gp);
 
   /* --- Read Methods        --- */

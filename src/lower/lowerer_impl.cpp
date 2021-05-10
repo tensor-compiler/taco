@@ -190,7 +190,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
 {
   this->assemble = assemble;
   this->compute = compute;
-  this->legion = name == "computeLegion";
+  this->legion = name.find("Legion") != std::string::npos;
   definedIndexVarsOrdered = {};
   definedIndexVars = {};
 
@@ -1798,6 +1798,14 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       );
       itlStmts.push_back(ir::VarDecl::make(fm, fmCall));
       itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(fm, "wait_all_results", {}, false, Auto)));
+
+      // Placement code should return the LogicalPartition.
+      if (this->isPlacementCode) {
+        auto tv = this->tensorVars.begin()->first;
+        auto tvIR = this->tensorVars.begin()->second;
+        auto call = ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(tvIR), partitionings.at(tv)}, LogicalPartition);
+        itlStmts.push_back(ir::Return::make(call));
+      }
 
       transfers.push_back(ir::Block::make(itlStmts));
     } else {

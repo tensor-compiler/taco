@@ -6,6 +6,9 @@ using namespace Legion;
 
 // Defined by the generated TACO code.
 void registerTacoTasks();
+LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a);
+LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b);
+LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c);
 void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, LogicalPartition aPartition);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
@@ -18,6 +21,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
       n = atoi(args.argv[++i]);
       continue;
     }
+    // TODO (rohany): Add a flag to do the validation or not.
   }
   if (n == -1) {
     std::cout << "Please provide an input matrix size with -n." << std::endl;
@@ -34,13 +38,25 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   runtime->fill_field(ctx, B, B, FID_VAL, 1);
   runtime->fill_field(ctx, C, C, FID_VAL, 1);
 
-  // TODO (rohany): Include placement code here.
-  // For now, just use an equal partition of A.
-  auto icspace = runtime->create_index_space(ctx, Rect<2>(Point<2>(0, 0), Point<2>(1, 1)));
-  auto part = runtime->create_equal_partition(ctx, A.get_index_space(), icspace);
-  computeLegion(ctx, runtime, A, B, C, runtime->get_logical_partition(A, part));
+  // Place the tensors.
+  auto part = placeLegionA(ctx, runtime, A);
+  placeLegionA(ctx, runtime, B);
+  placeLegionA(ctx, runtime, C);
 
-  // TODO (rohany): Include validation code here.
+  // Compute on the tensors.
+  // TODO (rohany): Add a benchmark utility function here, rather than prints.
+  std::cout << "placed matrix" << std::endl;
+  computeLegion(ctx, runtime, A, B, C, part);
+  std::cout << "done computing matrix" << std::endl;
+
+  auto a_reg = getRegionToWrite(ctx, runtime, A, A);
+  FieldAccessor<READ_WRITE,int32_t,2,coord_t, Realm::AffineAccessor<int32_t, 2, coord_t>> a_rw(a_reg, FID_VAL);
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      assert(a_rw[Point<2>(i, j)] == n);
+    }
+  }
+  runtime->unmap_region(ctx, a_reg);
 }
 
 TACO_MAIN()

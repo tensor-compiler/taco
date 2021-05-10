@@ -843,6 +843,12 @@ Stmt Break::make() {
   return new Break;
 }
 
+Stmt Return::make(Expr val) {
+  Return* ret = new Return;
+  ret->ret = val;
+  return ret;
+}
+
 // Print
 Stmt Print::make(std::string fmt, std::vector<Expr> params) {
   Print* pr = new Print;
@@ -1057,6 +1063,8 @@ template<> void StmtNode<SideEffect>::accept(IRVisitorStrict *v)
 const { v->visit((const SideEffect*)this); }
 template<> void StmtNode<PackTaskArgs>::accept(IRVisitorStrict *v)
 const { v->visit((const PackTaskArgs*)this); }
+template<> void StmtNode<Return>::accept(IRVisitorStrict *v)
+const { v->visit((const Return*)this); }
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {

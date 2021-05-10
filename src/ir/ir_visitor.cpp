@@ -270,5 +270,9 @@ void IRVisitor::visit(const Sort* op) {
     e.accept(this);
 }
 
+void IRVisitor::visit(const Return* op) {
+  op->ret.accept(this);
+}
+
 }  // namespace ir
 }  // namespace taco

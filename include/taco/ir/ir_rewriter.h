@@ -76,6 +76,7 @@ protected:
   virtual void visit(const Break *op);
   virtual void visit(const SideEffect* op);
   virtual void visit(const PackTaskArgs* op);
+  virtual void visit(const Return* op);
 };
 
 }}

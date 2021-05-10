@@ -1368,8 +1368,9 @@ int taco_get_num_threads() {
 
 // Partitioning and data placement related methods.
 
-void TensorBase::partition(Grid g) {
+TensorBase& TensorBase::partition(Grid g) {
   this->content->partition = g;
+  return *this;
 }
 
 IndexStmt TensorBase::place(Grid g, GridPlacement gp) {

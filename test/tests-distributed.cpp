@@ -85,6 +85,17 @@ TEST(distributed, summaMM) {
   IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko");
 
   a(i, j) = b(i, k) * c(k, j);
+
+  // Place each tensor onto a processor grid.
+  auto grid = Grid(2, 2);
+  auto placement = GridPlacement({0, 1});
+  auto placeA = a.partition(grid).place(grid, placement);
+  auto placeB = b.partition(grid).place(grid, placement);
+  auto placeC = c.partition(grid).place(grid, placement);
+  auto placeALowered = lower(placeA, "placeLegionA", false, true);
+  auto placeBLowered = lower(placeB, "placeLegionB", false, true);
+  auto placeCLowered = lower(placeC, "placeLegionC", false, true);
+
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
       .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j))
@@ -95,14 +106,16 @@ TEST(distributed, summaMM) {
       ;
 
   auto lowered = lower(stmt, "computeLegion", false, true);
-//  std::cout << lowered << std::endl;
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
-  codegen->compile(lowered);
+
+  // Code-generate all of the placement and compute code.
+  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
+  codegen->compile(all);
   // Also write it into a file.
   {
     ofstream f("../legion/summaMM/taco-generated.cpp");
     auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
-    codegen->compile(lowered);
+    codegen->compile(all);
     f.close();
   }
 }

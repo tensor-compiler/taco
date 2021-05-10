@@ -1,6 +1,7 @@
 #include "codegen_legion_c.h"
 #include "codegen_c.h"
 #include "taco/util/strings.h"
+#include "taco/ir/ir_rewriter.h"
 #include <algorithm>
 
 namespace taco {
@@ -233,6 +234,69 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
   AccessorCollector acol;
   stmt.accept(&acol);
 
+  // Collect all of the individual functions that we need to generate code for.
+  struct FunctionFinder : public IRVisitor {
+    void visit(const Function* func) {
+      this->funcs.push_back(func);
+    }
+    std::vector<Stmt> funcs;
+  };
+  FunctionFinder ff;
+  stmt.accept(&ff);
+
+  // Rewrite task ID's using a scan-like algorithm.
+  auto maxTaskID = 0;
+  for (size_t i = 0; i < ff.funcs.size(); i++) {
+    // Increment all task ID's present in the function by the maxTaskID.
+    struct TaskIDRewriter : public IRRewriter {
+      void visit(const For* node) {
+        auto body = rewrite(node->contents);
+        if (node->isTask) {
+          stmt = ir::For::make(node->var, node->start, node->end, node->increment, body, node->kind, node->parallel_unit, node->unrollFactor, node->vec_width, node->isTask, node->taskID + maxTaskID);
+        } else {
+          stmt = ir::For::make(node->var, node->start, node->end, node->increment, body, node->kind, node->parallel_unit, node->unrollFactor, node->vec_width, node->isTask, node->taskID);
+        }
+      }
+
+      void visit(const Call* call) {
+        if (call->func == "taskID") {
+          auto oldTaskID = call->args[0].as<Literal>()->getValue<int>();
+          expr = ir::Call::make("taskID", {oldTaskID + maxTaskID}, Auto);
+        } else {
+          std::vector<Expr> newArgs;
+          for (auto e : call->args) {
+            newArgs.push_back(rewrite(e));
+          }
+          expr = ir::Call::make(call->func, newArgs, call->type);
+        }
+      }
+
+      void visit(const PackTaskArgs* p) {
+        stmt = PackTaskArgs::make(p->var, p->forTaskID + this->maxTaskID);
+      }
+
+      int maxTaskID;
+    };
+    TaskIDRewriter rw; rw.maxTaskID = maxTaskID;
+    ff.funcs[i] = rw.rewrite(ff.funcs[i]);
+
+    struct MaxTaskIDFinder : public IRVisitor {
+      void visit(const For* node) {
+        if (node->isTask) {
+          this->maxTaskID = std::max(this->maxTaskID, node->taskID);
+        }
+        if (node->contents.defined()) {
+          node->contents.accept(this);
+        }
+      }
+      int maxTaskID;
+    };
+    MaxTaskIDFinder mf; mf.maxTaskID = maxTaskID;
+    ff.funcs[i].accept(&mf);
+    maxTaskID = mf.maxTaskID;
+  }
+
+
   // Emit the include.
   out << "#include \"taco_legion_header.h\"\n";
   out << "using namespace Legion;\n";
@@ -259,237 +323,239 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
   }
   out << "\n";
 
-  struct TaskCollector : public IRVisitor {
-    void visit(const For* node) {
-      if (node->isTask) {
-        std::stringstream funcName;
-        funcName << "task_" << node->taskID;
-        auto func = ir::Function::make(
-            funcName.str(),
-            {},
-            {
-              // TODO (rohany): Marking these as is_parameter = false stops some weird behavior
-              //  in the rest of the code generator.
-              ir::Var::make("task", Task, true, false, false),
-              ir::Var::make("regions", PhysicalRegionVectorRef, false, false, false),
-              ir::Var::make("ctx", Context, false, false, false),
-              ir::Var::make("runtime", Runtime, true, false, false),
-            },
-            node->contents
-        );
-        this->functions.push_back(func);
-        this->idToFor[node->taskID] = node;
-        this->idToFunc[node->taskID] = func;
-        this->funcToFor[func] = node;
-      }
-      node->contents.accept(this);
-    }
-
-    std::vector<Stmt> functions;
-
-    std::map<int, Stmt> idToFor;
-    std::map<int, Stmt> idToFunc;
-    std::map<Stmt, Stmt> funcToFor;
-  };
-  TaskCollector tc;
-  stmt.accept(&tc);
-  for (auto f : util::reverse(tc.functions)) {
-    this->functions.push_back(f);
-  }
-  this->idToFor = tc.idToFor;
-  this->idToFunc = tc.idToFunc;
-  this->funcToFor = tc.funcToFor;
-
-  if (isa<Function>(stmt)) {
-    auto func = stmt.as<Function>();
-    for (auto& arg : func->outputs) {
-      if (arg.as<Var>()->is_tensor) {
-        this->regionArgs.push_back(arg);
-      }
-    }
-    for (auto& arg : func->inputs) {
-      if (arg.as<Var>()->is_tensor) {
-        this->regionArgs.push_back(arg);
-      }
-    }
-  }
-
-  struct VarsUsedByTask : public IRVisitor {
-    void visit(const Var* v) {
-      if (this->usedVars.size() == 0) {
-        this->usedVars.push_back({});
-      }
-      if (v->type.getKind() != Datatype::CppType && !v->is_tensor) {
-        this->usedVars.back().insert(v);
-      }
-    }
-
-    // We don't want to visit the variables within GetProperty objects.
-    void visit(const GetProperty* g) {
-      if (g->property == TensorProperty::Dimension) {
-        if (this->usedVars.size() == 0) {
-          this->usedVars.push_back({});
-        }
-        this->usedVars.back().insert(g);
-      }
-    }
-
-    void visit(const VarDecl* v) {
-      if (this->varsDeclared.size() == 0) {
-        this->varsDeclared.push_back({});
-      }
-      this->varsDeclared.back().insert(v->var);
-      v->rhs.accept(this);
-    }
-
-    void visit(const For* f) {
-      if (f->isTask) {
-        this->usedVars.push_back({});
-        this->varsDeclared.push_back({});
-      }
-      // TODO (rohany): This comment doesn't make sense.
-      // If f is a task, then it needs it's iteration variable passed down. If f is
-      // a task, then we can treat it as _using_ the iteration variable.
-      if (!f->isTask) {
-        taco_iassert(this->varsDeclared.size() > 0);
-        this->varsDeclared.back().insert(f->var);
-      } else {
-        taco_iassert(this->usedVars.size() > 0);
-        this->usedVars.back().insert(f->var);
-      }
-
-      f->start.accept(this);
-      f->end.accept(this);
-      f->increment.accept(this);
-      f->contents.accept(this);
-    }
-
-    std::vector<std::set<Expr>> usedVars;
-    std::vector<std::set<Expr>> varsDeclared;
-  };
-  VarsUsedByTask v;
-  stmt.accept(&v);
-//  for (auto it : v.usedVars) {
-//    std::cout << "Used vars in task: " << util::join(it) << std::endl;
-//  }
-//  for (auto it : v.varsDeclared) {
-//    std::cout << "Vars declared by task: " << util::join(it) << std::endl;
-//  }
-
-  // TODO (rohany): Clean up this code.
-  auto funcIdx = 0;
-  for (int i = v.usedVars.size() - 1; i > 0; i--) {
-    auto func = this->functions[funcIdx].as<Function>();
-    taco_iassert(func) << "must be func";
-    // Try to find the variables needed by a task. It's all the variables it uses that it doesn't
-    // declare and are used by tasks above it.
-    std::vector<Expr> uses;
-    std::set_difference(v.usedVars[i].begin(), v.usedVars[i].end(), v.varsDeclared[i].begin(), v.varsDeclared[i].end(), std::back_inserter(uses));
-    v.usedVars[i-1].insert(uses.begin(), uses.end());
-
-    // TODO (rohany): For a distributed for loop, remove the iterator variable?
-    auto forL = this->funcToFor.at(func).as<For>();
-    if (forL->parallel_unit == ParallelUnit::DistributedNode) {
-      auto matchedIdx = -1;
-      for (size_t pos = 0; pos < uses.size(); pos++) {
-        if (uses[pos] == forL->var) {
-          matchedIdx = pos;
-          break;
-        }
-      }
-      if (matchedIdx != -1) {
-        uses.erase(uses.begin() + matchedIdx);
-      }
-    }
-
-    // Deduplicate any GetProperty uses so that they aren't emitted twice.
-    std::vector<const GetProperty*> collected;
-    std::vector<Expr> newUses;
-    for (auto& e : uses) {
-      if (isa<GetProperty>(e)) {
-        // See if this GetProperty is already present.
-        bool found = false;
-        auto gp = e.as<GetProperty>();
-        for (auto c : collected) {
-          if (gp->tensor == c->tensor && gp->property == c->property && gp->mode == c->mode) {
-            found = true;
-            break;
-          }
-        }
-        if (!found) {
-          newUses.push_back(e);
-          collected.push_back(gp);
-        }
-      } else {
-        newUses.push_back(e);
-      }
-    }
-    uses = newUses;
-
-    // TODO (rohany): Make this name combination a function.
-    out << "struct " << this->taskArgsName(func->name) << " {\n";
-    this->indent++;
-    for (auto& it : uses) {
-      doIndent();
-      out << printType(getVarType(it), false) << " " << it << ";\n";
-    }
-    this->indent--;
-    out << "};\n";
-
-    this->taskArgs[func] = uses;
-
-    funcIdx++;
-  }
-
-  for (auto& f : this->functions) {
-    CodeGen_C::compile(f, isFirst);
-  }
-
-  CodeGen_C::compile(stmt, isFirst);
-
-  // Output a function performing all of the task registration.
-  out << "void registerTacoTasks() {\n";
-  indent++;
-
-  for (auto& f : this->functions) {
-    auto func = f.as<Function>();
-    auto forL = this->funcToFor.at(func).as<For>();
-
-    // Tasks that launch no tasks are leaf tasks, so let Legion know about that.
-    struct LeafTaskFinder : public IRVisitor {
+  for (auto ffunc : ff.funcs) {
+    struct TaskCollector : public IRVisitor {
       void visit(const For* node) {
         if (node->isTask) {
-          this->isLeaf = false;
+          std::stringstream funcName;
+          funcName << "task_" << node->taskID;
+          auto func = ir::Function::make(
+              funcName.str(),
+              {},
+              {
+                  // TODO (rohany): Marking these as is_parameter = false stops some weird behavior
+                  //  in the rest of the code generator.
+                  ir::Var::make("task", Task, true, false, false),
+                  ir::Var::make("regions", PhysicalRegionVectorRef, false, false, false),
+                  ir::Var::make("ctx", Context, false, false, false),
+                  ir::Var::make("runtime", Runtime, true, false, false),
+              },
+              node->contents
+          );
+          this->functions.push_back(func);
+          this->idToFor[node->taskID] = node;
+          this->idToFunc[node->taskID] = func;
+          this->funcToFor[func] = node;
         }
         node->contents.accept(this);
       }
-      bool isLeaf = true;
+
+      std::vector<Stmt> functions;
+
+      std::map<int, Stmt> idToFor;
+      std::map<int, Stmt> idToFunc;
+      std::map<Stmt, Stmt> funcToFor;
     };
-    LeafTaskFinder finder;
-    forL->contents.accept(&finder);
+    TaskCollector tc;
+    ffunc.accept(&tc);
+    for (auto f : util::reverse(tc.functions)) {
+      this->functions[ffunc].push_back(f);
+      this->funcToParentFunc[f] = ffunc;
+    }
+    this->idToFor.insert(tc.idToFor.begin(), tc.idToFor.end());
+    this->idToFunc.insert(tc.idToFunc.begin(), tc.idToFunc.end());
+    this->funcToFor.insert(tc.funcToFor.begin(), tc.funcToFor.end());
 
-    doIndent();
-    out << "{\n";
-    indent++;
-
-    doIndent();
-    out << "TaskVariantRegistrar registrar(taskID(" << forL->taskID << "), \"" << func->name << "\");\n";
-
-    doIndent();
-    out << "registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));\n";
-
-    if (finder.isLeaf) {
-      doIndent();
-      out << "registrar.set_leaf();\n";
+    // Collect the region arguments that each function needs.
+    if (isa<Function>(ffunc)) {
+      auto func = ffunc.as<Function>();
+      for (auto& arg : func->outputs) {
+        if (arg.as<Var>()->is_tensor) {
+          this->regionArgs[func].push_back(arg);
+        }
+      }
+      for (auto& arg : func->inputs) {
+        if (arg.as<Var>()->is_tensor) {
+          this->regionArgs[func].push_back(arg);
+        }
+      }
     }
 
-    doIndent();
-    out << "Runtime::preregister_task_variant<" << func->name << ">(registrar, \"" <<  func->name << "\");\n";
+    // Find variables used by each task in the task call hierarchy.
+    struct VarsUsedByTask : public IRVisitor {
+      void visit(const Var* v) {
+        if (this->usedVars.size() == 0) {
+          this->usedVars.push_back({});
+        }
+        if (v->type.getKind() != Datatype::CppType && !v->is_tensor) {
+          this->usedVars.back().insert(v);
+        }
+      }
 
-    indent--;
+      // We don't want to visit the variables within GetProperty objects.
+      void visit(const GetProperty* g) {
+        if (g->property == TensorProperty::Dimension) {
+          if (this->usedVars.size() == 0) {
+            this->usedVars.push_back({});
+          }
+          this->usedVars.back().insert(g);
+        }
+      }
 
-    doIndent();
-    out << "}\n";
+      void visit(const VarDecl* v) {
+        if (this->varsDeclared.size() == 0) {
+          this->varsDeclared.push_back({});
+        }
+        this->varsDeclared.back().insert(v->var);
+        v->rhs.accept(this);
+      }
+
+      void visit(const For* f) {
+        if (f->isTask) {
+          this->usedVars.push_back({});
+          this->varsDeclared.push_back({});
+        }
+        // TODO (rohany): This comment doesn't make sense.
+        // If f is a task, then it needs it's iteration variable passed down. If f is
+        // a task, then we can treat it as _using_ the iteration variable.
+        if (!f->isTask) {
+          taco_iassert(this->varsDeclared.size() > 0);
+          this->varsDeclared.back().insert(f->var);
+        } else {
+          taco_iassert(this->usedVars.size() > 0);
+          this->usedVars.back().insert(f->var);
+        }
+
+        f->start.accept(this);
+        f->end.accept(this);
+        f->increment.accept(this);
+        f->contents.accept(this);
+      }
+
+      std::vector<std::set<Expr>> usedVars;
+      std::vector<std::set<Expr>> varsDeclared;
+    };
+    VarsUsedByTask v;
+    ffunc.accept(&v);
+
+    // TODO (rohany): Clean up this code.
+    auto funcIdx = 0;
+    for (int i = v.usedVars.size() - 1; i > 0; i--) {
+      auto func = this->functions[ffunc][funcIdx].as<Function>();
+      taco_iassert(func) << "must be func";
+      // Try to find the variables needed by a task. It's all the variables it uses that it doesn't
+      // declare and are used by tasks above it.
+      std::vector<Expr> uses;
+      std::set_difference(v.usedVars[i].begin(), v.usedVars[i].end(), v.varsDeclared[i].begin(), v.varsDeclared[i].end(), std::back_inserter(uses));
+      v.usedVars[i-1].insert(uses.begin(), uses.end());
+
+      // TODO (rohany): For a distributed for loop, remove the iterator variable?
+      auto forL = this->funcToFor.at(func).as<For>();
+      if (forL->parallel_unit == ParallelUnit::DistributedNode) {
+        auto matchedIdx = -1;
+        for (size_t pos = 0; pos < uses.size(); pos++) {
+          if (uses[pos] == forL->var) {
+            matchedIdx = pos;
+            break;
+          }
+        }
+        if (matchedIdx != -1) {
+          uses.erase(uses.begin() + matchedIdx);
+        }
+      }
+
+      // Deduplicate any GetProperty uses so that they aren't emitted twice.
+      std::vector<const GetProperty*> collected;
+      std::vector<Expr> newUses;
+      for (auto& e : uses) {
+        if (isa<GetProperty>(e)) {
+          // See if this GetProperty is already present.
+          bool found = false;
+          auto gp = e.as<GetProperty>();
+          for (auto c : collected) {
+            if (gp->tensor == c->tensor && gp->property == c->property && gp->mode == c->mode) {
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            newUses.push_back(e);
+            collected.push_back(gp);
+          }
+        } else {
+          newUses.push_back(e);
+        }
+      }
+      uses = newUses;
+
+      out << "struct " << this->taskArgsName(func->name) << " {\n";
+      this->indent++;
+      for (auto& it : uses) {
+        doIndent();
+        out << printType(getVarType(it), false) << " " << it << ";\n";
+      }
+      this->indent--;
+      out << "};\n";
+
+      this->taskArgs[func] = uses;
+
+      funcIdx++;
+    }
+  }
+
+
+  for (auto& f : ff.funcs) {
+    for (auto func : this->functions[f]) {
+      CodeGen_C::compile(func, isFirst);
+    }
+    CodeGen_C::compile(f, isFirst);
+  }
+
+  // Output a function performing all of the task registrations.
+  out << "void registerTacoTasks() {\n";
+  indent++;
+
+  for (auto ffunc : ff.funcs) {
+    for (auto& f : this->functions[ffunc]) {
+      auto func = f.as<Function>();
+      auto forL = this->funcToFor.at(func).as<For>();
+
+      // Tasks that launch no tasks are leaf tasks, so let Legion know about that.
+      struct LeafTaskFinder : public IRVisitor {
+        void visit(const For* node) {
+          if (node->isTask) {
+            this->isLeaf = false;
+          }
+          node->contents.accept(this);
+        }
+        bool isLeaf = true;
+      };
+      LeafTaskFinder finder;
+      forL->contents.accept(&finder);
+
+      doIndent();
+      out << "{\n";
+      indent++;
+
+      doIndent();
+      out << "TaskVariantRegistrar registrar(taskID(" << forL->taskID << "), \"" << func->name << "\");\n";
+
+      doIndent();
+      out << "registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));\n";
+
+      if (finder.isLeaf) {
+        doIndent();
+        out << "registrar.set_leaf();\n";
+      }
+
+      doIndent();
+      out << "Runtime::preregister_task_variant<" << func->name << ">(registrar, \"" <<  func->name << "\");\n";
+
+      indent--;
+
+      doIndent();
+      out << "}\n";
+    }
   }
 
   out << "}\n";
@@ -543,16 +609,12 @@ void CodegenLegionC::visit(const Function* func) {
   varMap = varFinder.varMap;
   localVars = varFinder.localVars;
 
-//  std::cout << "For function: " << func->name << std::endl;
-//  for (auto it : varFinder.varDecls) {
-//    std::cout << it.first << std::endl;
-//  }
-
   // For tasks, unpack the regions.
   if (func->name.find("task") != std::string::npos) {
-    for (size_t i = 0; i < this->regionArgs.size(); i++) {
+    auto parentFunc = this->funcToParentFunc[func];
+    for (size_t i = 0; i < this->regionArgs[parentFunc].size(); i++) {
       doIndent();
-      auto t = this->regionArgs[i];
+      auto t = this->regionArgs[parentFunc][i];
       out << "PhysicalRegion " << t << " = regions[" << i << "];\n";
     }
     out << "\n";
@@ -565,7 +627,6 @@ void CodegenLegionC::visit(const Function* func) {
     taco_iassert(forL) << "must be a for";
     if (forL->parallel_unit == ParallelUnit::DistributedNode) {
       doIndent();
-      // TODO (rohany): Extend this for multi-dimensional launches.
       out << printType(forL->var.type(), false) << " " << forL->var << " = task->index_point[0];\n";
     }
   }
@@ -577,8 +638,6 @@ void CodegenLegionC::visit(const Function* func) {
     out << taskArgsName(func->name) << "* args = (" << taskArgsName(func->name) << "*)(task->args);\n";
     // Unpack arguments from the pack;
     for (auto arg : args) {
-//      auto var = arg.as<Var>();
-//      taco_iassert(var) << "must be a var";
       doIndent();
       out << printType(getVarType(arg), false) << " " << arg << " = args->" << arg << ";\n";
     }
@@ -637,7 +696,11 @@ std::string CodegenLegionC::printFuncName(const Function *func,
   std::stringstream ret;
 
   // Tasks need to have a void function type.
-  ret << "void " << func->name << "(";
+  if (func->name.find("place") != std::string::npos) {
+    ret << "LogicalPartition " << func->name << "(";
+  } else {
+    ret << "void " << func->name << "(";
+  }
 
   std::string delimiter;
 //  const auto returnType = func->getReturnType();
