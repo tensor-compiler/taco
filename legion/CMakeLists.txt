@@ -14,3 +14,4 @@ function(add_app_folder folder)
 endfunction()
 
 add_app_folder(summaMM)
+add_app_folder(cannonMM)
