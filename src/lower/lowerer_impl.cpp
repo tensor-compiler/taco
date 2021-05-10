@@ -180,7 +180,9 @@ static std::set<Expr> hasSparseInserts(IndexStmt stmt, Iterators iterators,
                                               provGraph, definedIndexVars);
       if (!any(lattice.iterators(), [](Iterator it){ return it.isFull(); })) {
         for (const auto& result : lattice.results()) {
-          ret.insert(result.getTensor());
+          if (result.hasInsert()) {
+            ret.insert(result.getTensor());
+          }
         }
       }
       ctx->match(op->stmt);
@@ -2181,10 +2183,11 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
     }
 
     Expr valuesArr = getValuesArray(resultTensor);
+    // TODO: Also zero init if not compact or not unpadded? (This should 
+    // perhaps have been checked by `hasSparseInsert`.)
     const bool zeroInit = isNonFullyInitialized(resultTensorVar) ||
                           util::contains(reducedAccesses, resultAccess);
     if (generateAssembleCode()) {
-      // TODO: call calloc if not compact or not unpadded
       if (zeroInit && generateComputeCode()) {
         const auto type = resultTensor.getType().getDataType();
         Expr sizeOfElt = Sizeof::make(type);
