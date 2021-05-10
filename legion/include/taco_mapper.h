@@ -5,34 +5,34 @@
 #include "mappers/default_mapper.h"
 
 // Register the TACO mapper.
-static void register_taco_mapper(Machine machine, Runtime *runtime, const std::set<Processor> &local_procs);
+void register_taco_mapper(Legion::Machine machine, Legion::Runtime *runtime, const std::set<Legion::Processor> &local_procs);
 
-class TACOMapper : public DefaultMapper {
+class TACOMapper : public Legion::Mapping::DefaultMapper {
 public:
-  TACOMapper(MapperRuntime *rt, Machine& machine, const Processor& local)
+  TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine& machine, const Legion::Processor& local)
       : DefaultMapper(rt, machine, local) {}
 
-  void default_policy_select_constraints(MapperContext ctx,
-                                         LayoutConstraintSet &constraints, Memory target_memory,
-                                         const RegionRequirement &req) {
+  void default_policy_select_constraints(Legion::Mapping::MapperContext ctx,
+                                         Legion::LayoutConstraintSet &constraints, Legion::Memory target_memory,
+                                         const Legion::RegionRequirement &req) {
     // Ensure that regions are mapped in row-major order.
-    IndexSpace is = req.region.get_index_space();
-    Domain domain = runtime->get_index_space_domain(ctx, is);
+    Legion::IndexSpace is = req.region.get_index_space();
+    Legion::Domain domain = runtime->get_index_space_domain(ctx, is);
     int dim = domain.get_dim();
-    std::vector<DimensionKind> dimension_ordering(dim + 1);
+    std::vector<Legion::DimensionKind> dimension_ordering(dim + 1);
     for (int i = 0; i < dim; ++i) {
       dimension_ordering[dim - i - 1] =
-          static_cast<DimensionKind>(static_cast<int>(LEGION_DIM_X) + i);
+          static_cast<Legion::DimensionKind>(static_cast<int>(LEGION_DIM_X) + i);
     }
     dimension_ordering[dim] = LEGION_DIM_F;
-    constraints.add_constraint(OrderingConstraint(dimension_ordering, false/*contiguous*/));
+    constraints.add_constraint(Legion::OrderingConstraint(dimension_ordering, false/*contiguous*/));
     DefaultMapper::default_policy_select_constraints(ctx, constraints, target_memory, req);
   }
 
   void default_policy_select_target_processors(
-      MapperContext ctx,
-      const Task &task,
-      std::vector<Processor> &target_procs) {
+      Legion::Mapping::MapperContext ctx,
+      const Legion::Task &task,
+      std::vector<Legion::Processor> &target_procs) {
     // TODO (rohany): Add a TACO tag to the tasks.
     if (task.is_index_space) {
       // Index launches should be placed directly on the processor

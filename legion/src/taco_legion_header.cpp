@@ -1,7 +1,6 @@
-#ifndef TACO_LEGION_INCLUDES_H
-#define TACO_LEGION_INCLUDES_H
+#include "taco_legion_header.h"
 
-#include "legion.h"
+using namespace Legion;
 
 IndexSpace get_index_space(PhysicalRegion r) { return r.get_logical_region().get_index_space(); }
 IndexSpace get_index_space(LogicalRegion r) { return r.get_index_space(); }
@@ -12,8 +11,10 @@ LogicalRegion get_logical_region(LogicalRegion r) { return r; }
 IndexPartition get_index_partition(IndexPartition i) { return i; }
 IndexPartition get_index_partition(LogicalPartition l) { return l.get_index_partition(); }
 
-int getIndexPoint(const Task* task, int index) {
+int getIndexPoint(const Legion::Task* task, int index) {
   return task->index_point[index];
 }
 
-#endif // TACO_LEGION_INCLUDES_H
+TaskID taskID(int offset) {
+  return TACO_TASK_BASE_ID + offset;
+}

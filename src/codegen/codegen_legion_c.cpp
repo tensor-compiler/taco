@@ -233,6 +233,10 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
   AccessorCollector acol;
   stmt.accept(&acol);
 
+  // Emit the include.
+  out << "#include \"taco_legion_header.h\"\n";
+  out << "using namespace Legion;\n";
+
   // Emit a field accessor for each kind.
   for (auto info : acol.accessors) {
     if (info.prop == TensorProperty::ValuesReductionAccessor) {

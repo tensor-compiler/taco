@@ -6,6 +6,8 @@
 #include "codegen/codegen.h"
 #include "codegen/codegen_legion_c.h"
 
+#include <fstream>
+
 using namespace taco;
 
 TEST(distributed, test) {
@@ -96,6 +98,13 @@ TEST(distributed, summaMM) {
 //  std::cout << lowered << std::endl;
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(lowered);
+  // Also write it into a file.
+  {
+    ofstream f("../legion/summaMM/taco-generated.cpp");
+    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(lowered);
+    f.close();
+  }
 }
 
 TEST(distributed, cannonMM) {
