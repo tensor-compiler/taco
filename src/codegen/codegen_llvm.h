@@ -31,12 +31,11 @@ namespace taco
       llvm::PointerType *tensorTypePtr;
       llvm::Value *value; // last llvm value generated
 
-      std::unique_ptr<CodeGen_C> cprinter;
       int64_t indent = 0;
 
     public:
       CodeGen_LLVM(std::ostream &stream, OutputKind kind)
-          : CodeGen(stream, LLVM), outputKind(kind), cprinter(std::make_unique<CodeGen_C>(stream, kind, false)){};
+          : CodeGen(stream, LLVM), outputKind(kind){};
       void compile(Stmt stmt, bool isFirst = false) override;
 
     protected:
@@ -53,7 +52,6 @@ namespace taco
       void init_codegen();
       llvm::Type *llvmTypeOf(Datatype);
       static std::string tensorPropertyToString(const TensorProperty t);
-      void printVisiting(const std::string &type);
 
       void codegen(const Stmt);
       llvm::Value *codegen(const Expr);
@@ -116,10 +114,10 @@ namespace taco
           //└
           for (int64_t i = 0; i < parent_->indent-1; ++i)
           {
-            std::cout << "| ";
+            std::cout << "|  ";
           }
           if (parent_->indent > 0) {
-            std::cout << "├─[" << parent_->indent << "]";
+            std::cout << "├──[" << parent_->indent << "]";
           }
 
           std::cout << "LLVM CodeGen Visiting " << type;

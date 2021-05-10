@@ -1,4 +1,5 @@
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
 
 #include "codegen_llvm.h"
 #include "taco/util/print.h"
@@ -229,7 +230,7 @@ void CodeGen_LLVM::visit(const Var *op) {
   auto _ = CodeGen_LLVM::IndentHelper(this, "Var", op->name);
   auto *v = getSymbol(op->name);
   if (v->getType()->isPointerTy()) {
-    value = Builder->CreateLoad(v, "load." + op->name);
+    value = this->Builder->CreateLoad(v, "load." + op->name);
   } else {
     value = v;
   }
@@ -361,12 +362,11 @@ void CodeGen_LLVM::visit(const Switch *op) {
 
 void CodeGen_LLVM::visit(const Load *op) {
   auto _ = CodeGen_LLVM::IndentHelper(this, "Load");
+
   auto *loc = codegen(op->loc);
   auto *arr = codegen(op->arr);
-  PRINT(*loc);
-  PRINT(*arr);
-  // value = Builder->CreateLoad()
-  // throw logic_error("Not Implemented for Load.");
+  auto *gep = this->Builder->CreateInBoundsGEP(arr, loc);
+  value = this->Builder->CreateLoad(arr, gep);
 }
 
 void CodeGen_LLVM::visit(const Malloc *op) {
@@ -381,10 +381,13 @@ void CodeGen_LLVM::visit(const Sizeof *op) {
 
 void CodeGen_LLVM::visit(const Store *op) {
   auto _ = CodeGen_LLVM::IndentHelper(this, "Store");
-  codegen(op->data);
-  // codegen(op->loc);
-  PRINT(value);
-  throw logic_error("Not Implemented for Store.");
+
+  auto *loc = codegen(op->loc);
+  auto *arr = codegen(op->arr);
+  auto *gep = this->Builder->CreateInBoundsGEP(arr, loc); // arr[loc]
+  auto *data = codegen(op->data);                         // ... = data
+
+  this->Builder->CreateStore(data, gep); // arr[loc] = data
 }
 
 void CodeGen_LLVM::visit(const For *op) {
@@ -488,8 +491,14 @@ void CodeGen_LLVM::init_codegen() {
 }
 
 void CodeGen_LLVM::visit(const Function *func) {
-  auto M = std::make_unique<llvm::Module>("my compiler", this->Context);
   auto _ = CodeGen_LLVM::IndentHelper(this, "Function");
+
+  /*
+    This method creates a function. By calling convention, the function
+    returns 0 on success or 1 otherwise.
+  */
+
+  auto M = std::make_unique<llvm::Module>("my compiler", this->Context);
 
   // 1. find the arguments to @func
   FindVars varFinder(func->inputs, func->outputs, this);
@@ -528,11 +537,6 @@ void CodeGen_LLVM::visit(const Function *func) {
 
     // set arg flags
     arg.addAttr(llvm::Attribute::NoCapture);
-    // arg.addAttr(llvm::Attribute::ReadOnly);  // only set this for input
-    // tensors
-
-    // Shouldn't
-    // all arguments here be a parameter? assert(var->is_parameter);
 
     // 6.1 push args to symbol table
     pushSymbol(var->name, &arg);
@@ -540,6 +544,16 @@ void CodeGen_LLVM::visit(const Function *func) {
 
   // 7. visit function body
   func->body.accept(this);
+
+  // 8. Create an exit basic block and exit it
+  llvm::BasicBlock *exit =
+      llvm::BasicBlock::Create(this->Context, "exit", this->F);
+  this->Builder->CreateBr(exit);
+  this->Builder->SetInsertPoint(exit);                      // ... -> exit
+  this->Builder->CreateRet(llvm::ConstantInt::get(i32, 0)); // return 0
+
+  // 9. Verify the created module
+  llvm::verifyModule(*M, &llvm::errs());
 
   PRINT(*M);
 }
@@ -640,12 +654,17 @@ void CodeGen_LLVM::visit(const GetProperty *op) {
         this->Builder->CreateLoad(dim, name + ".load"), i32, name + ".dim");
     break;
   }
+  case TensorProperty::Values: {
+    auto *vals = this->Builder->CreateStructGEP(
+        tensor, (int)TensorProperty::Values, name + ".gep.vals");
+    value = this->Builder->CreateLoad(vals, name + ".vals");
+    break;
+  }
   case TensorProperty::Order:
   case TensorProperty::ComponentSize:
   case TensorProperty::ModeOrdering:
   case TensorProperty::ModeTypes:
   case TensorProperty::Indices:
-  case TensorProperty::Values:
   case TensorProperty::ValuesSize:
   default:
     throw logic_error("GetProperty not implemented for " +
