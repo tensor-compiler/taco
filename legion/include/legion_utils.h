@@ -1,5 +1,6 @@
 #ifndef TACO_LEGION_UTILS_H
 #define TACO_LEGION_UTILS_H
+#include <functional>
 
 #include "legion.h"
 #include "taco_legion_header.h"
@@ -16,6 +17,8 @@ Legion::PhysicalRegion getRegionToWrite(Legion::Context ctx, Legion::Runtime* ru
 const int TACO_FILL_TASK = 1;
 void tacoFill(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegion r, int val);
 void tacoFillTask(const Legion::Task* task, const std::vector<Legion::PhysicalRegion>& regions, Legion::Context ctx, Legion::Runtime* runtime);
+
+void benchmark(std::function<void(void)> f);
 
 #define TACO_MAIN() \
   int main(int argc, char **argv) { \

@@ -42,10 +42,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   placeLegionA(ctx, runtime, C);
 
   // Compute on the tensors.
-  // TODO (rohany): Add a benchmark utility function here, rather than prints.
-  std::cout << "placed matrix" << std::endl;
-  computeLegion(ctx, runtime, A, B, C, part);
-  std::cout << "done computing matrix" << std::endl;
+  benchmark([&]() { computeLegion(ctx, runtime, A, B, C, part); });
 
   auto a_reg = getRegionToWrite(ctx, runtime, A, A);
   FieldAccessor<READ_WRITE,int32_t,2,coord_t, Realm::AffineAccessor<int32_t, 2, coord_t>> a_rw(a_reg, FID_VAL);
