@@ -34,24 +34,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto A = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(A, "A");
   auto B = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(B, "B");
   auto C = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(C, "C");
-  {
-    int val = 0;
-    TaskLauncher l(TACO_FILL_TASK, TaskArgument(&val, sizeof(val)));
-    l.add_region_requirement(RegionRequirement(A, READ_WRITE, EXCLUSIVE, A).add_field(FID_VAL));
-    runtime->execute_task(ctx, l);
-  }
-  {
-    int val = 1;
-    TaskLauncher l(TACO_FILL_TASK, TaskArgument(&val, sizeof(val)));
-    l.add_region_requirement(RegionRequirement(B, READ_WRITE, EXCLUSIVE, B).add_field(FID_VAL));
-    runtime->execute_task(ctx, l);
-  }
-  {
-    int val = 1;
-    TaskLauncher l(TACO_FILL_TASK, TaskArgument(&val, sizeof(val)));
-    l.add_region_requirement(RegionRequirement(C, READ_WRITE, EXCLUSIVE, C).add_field(FID_VAL));
-    runtime->execute_task(ctx, l);
-  }
+  tacoFill(ctx, runtime, A, 0); tacoFill(ctx, runtime, B, 1); tacoFill(ctx, runtime, C, 1);
 
   // Place the tensors.
   auto part = placeLegionA(ctx, runtime, A);

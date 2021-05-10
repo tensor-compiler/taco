@@ -46,6 +46,13 @@ public:
     }
   }
 
+  // TODO (rohany): It may end up being necessary that we need to explicitly map
+  //  regions for placement tasks. If so, Manolis says the following approach
+  //  is the right thing:
+  //  * Slice tasks sends tasks where they are supposed to go.
+  //  * Map task needs to create a new instance of the region visible to the
+  //    target processor.
+
   // TODO (rohany): A strategy for slicing so that we can place data on faces:
   //  * Make a PointInRectIterator which iterates over the full processor grid
   //    desired by the data placement.
