@@ -149,8 +149,6 @@ TEST(distributed, cannonMM) {
       ;
 
   auto lowered = lower(stmt, "computeLegion", false, true);
-  // std::cout << lowered << std::endl;
-
   // Code-generate all of the placement and compute code.
   auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
@@ -197,6 +195,56 @@ TEST(distributed, johnsonMM) {
   // Also write it into a file.
   {
     ofstream f("../legion/johnsonMM/taco-generated.cpp");
+    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+}
+
+TEST(distributed, solomonikMM) {
+  int dim = 10;
+  Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+  Tensor<int> b("b", {dim, dim}, Format{Dense, Dense});
+  Tensor<int> c("c", {dim, dim}, Format{Dense, Dense});
+
+  int procs = 64;
+  int C = 2;
+  int rpoc = sqrt(procs / C);
+  int rpoc3 = sqrt(procs / (pow(C, 3)));
+
+  // All tensors are distributed onto the i-j face of the process cube.
+  Grid partGrid = Grid(rpoc, rpoc);
+  Grid procGrid = Grid(rpoc, rpoc, C);
+  auto placeA = a.partition(partGrid).place(procGrid, GridPlacement({0, 1, Face(0)}));
+  auto placeB = b.partition(partGrid).place(procGrid, GridPlacement({0, 1, Face(0)}));
+  auto placeC = c.partition(partGrid).place(procGrid, GridPlacement({0, 1, Face(0)}));
+  auto placeALowered = lower(placeA, "placeLegionA", false, true);
+  auto placeBLowered = lower(placeB, "placeLegionB", false, true);
+  auto placeCLowered = lower(placeC, "placeLegionC", false, true);
+
+  IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl"), k1("k1"), k2("k2"), k1s("k1s");
+  a(i, j) = b(i, k) * c(k, j);
+  auto stmt = a.getAssignment().concretize();
+  // To schedule for solomonik's algorithm, we'll distribute over i, j, k according to the
+  // processor grid. Then, we divide the kl loop into k1 and k2 so that each partition of C
+  // is operated on in chunks. Finally, we then stagger the k1 loop so that along each parallel
+  // slice of k, a Cannon style shifting occurs.
+  stmt = stmt
+      .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, procGrid)
+      .divide(kl, k1, k2, rpoc3)
+      .reorder({k1, il, jl})
+      .stagger(k1, {in, jn}, k1s)
+      .pushCommUnder(a(i, j), k1s)
+      .pushCommUnder(b(i, k), k1s)
+      .pushCommUnder(c(k, j), k1s)
+      ;
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  // Code-generate all of the placement and compute code.
+  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  {
+    ofstream f("../legion/solomonikMM/taco-generated.cpp");
     auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
     codegen->compile(all);
     f.close();

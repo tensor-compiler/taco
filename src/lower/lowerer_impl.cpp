@@ -470,8 +470,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
       if (util::contains(this->inScopeVars, ivar)) {
         // If this ivar is in scope of the request, then access along it is fixed.
         expr = var;
-      }
-      else {
+      } else {
 
         // If a variable being derived is not even going to be present in the loop
         // (i.e. a variable that we split again), then we might want to expand it
@@ -480,16 +479,30 @@ LowererImpl::lower(IndexStmt stmt, string name,
         // suspect variable are the ones we should take.
         if (!util::contains(this->presentIvars, ivar)) {
           struct InscopeVarVisitor : public IRVisitor {
+            InscopeVarVisitor(ProvenanceGraph& pg) : pg(pg) {}
             void visit(const Var* var) {
-              if (util::contains(this->inScopeVars, this->exprToIndexVarMap[var])) {
+              auto ivar = this->exprToIndexVarMap[var];
+              if (util::contains(this->inScopeVars, ivar)) {
                 this->anyInScope = true;
+                return;
+              }
+              // There's a special case here for staggered variables. These variables
+              // aren't really the subject of a parent-child relationship, so we flatten
+              // that relationship here when looking at bounds.
+              auto res = this->pg.getStaggeredVar(ivar);
+              if (res.first) {
+                if (util::contains(this->inScopeVars, res.second)) {
+                  this->anyInScope = true;
+                  return;
+                }
               }
             }
             std::set<IndexVar> inScopeVars;
             std::map<Expr, IndexVar> exprToIndexVarMap;
             bool anyInScope = false;
+            ProvenanceGraph& pg;
           };
-          InscopeVarVisitor isv; isv.inScopeVars = this->inScopeVars; isv.exprToIndexVarMap = this->exprToIndexVarMap;
+          InscopeVarVisitor isv(this->pg); isv.inScopeVars = this->inScopeVars; isv.exprToIndexVarMap = this->exprToIndexVarMap;
           auto recovered = this->pg.recoverVariable(ivar, this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators);
           recovered.accept(&isv);
           // If there are some variables in scope, use this as the rewritten expression.
@@ -500,7 +513,6 @@ LowererImpl::lower(IndexStmt stmt, string name,
             return;
           }
         }
-
 
         // Otherwise, the full bounds of this ivar will be accessed. So, derive the
         // bounds. Depending on whether we are deriving a lower or upper bound, use the
@@ -667,15 +679,15 @@ LowererImpl::lower(IndexStmt stmt, string name,
     this->pointAccessVars[it.first] = accessor;
   }
 
-//  for (auto it : bi.inScopeVars) {
-//    std::cout << "Vars in scope for " << it.first << ": " << util::join(it.second) << std::endl;
-//  }
-//  for (auto it : bi.derivedBounds) {
-//    cout << "Bounds for: " << it.first.getName() << endl;
-//    for (auto& bounds : it.second) {
-//      cout << util::join(bounds) << endl;
-//    }
-//  }
+  // for (auto it : bi.inScopeVars) {
+  //   std::cout << "Vars in scope for " << it.first << ": " << util::join(it.second) << std::endl;
+  // }
+  // for (auto it : bi.derivedBounds) {
+  //   cout << "Bounds for: " << it.first.getName() << endl;
+  //   for (auto& bounds : it.second) {
+  //     cout << util::join(bounds) << endl;
+  //   }
+  // }
 
   if (this->legion) {
     auto lookupTV = [&](ir::Expr e) {
@@ -1712,7 +1724,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
     auto getPriv = [&](const TensorVar& tv) {
       if (util::contains(this->resultTensors, tv)) {
-        if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction) {
+        // If we're already reducing, we can't go up the lattice to read_write
+        // so stay at reduction.
+        if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction || this->performingLegionReduction) {
           return std::make_pair(reduce, simultaneous);
         }
         return std::make_pair(readWrite, exclusive);

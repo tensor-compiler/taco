@@ -1683,11 +1683,14 @@ std::vector<IndexVar> ProvenanceGraph::getMultiFusedParents(IndexVar indexVar) c
 }
 
 std::pair<bool, IndexVar> ProvenanceGraph::getStaggeredVar(IndexVar indexVar) const {
-  auto parents = this->getParents(indexVar);
-  if (parents.size() > 0) {
-    auto rel = this->parentRelMap.at(indexVar);
+  // Look at the children of this index var for any stagger operations. Checking
+  // the children lets us find out if this variable _was staggered_, not that it
+  // is the result of a staggering operation.
+  auto children = this->getChildren(indexVar);
+  if (children.size() > 0) {
+    auto rel = this->childRelMap.at(indexVar);
     if (rel.getRelType() == STAGGER) {
-      return std::make_pair(true, parents[0]);
+      return std::make_pair(true, children[0]);
     }
   }
 
