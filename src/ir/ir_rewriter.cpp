@@ -556,7 +556,7 @@ void IRRewriter::visit(const PackTaskArgs* op) {
   if (var == op->var) {
     stmt = op;
   } else {
-    stmt = PackTaskArgs::make(var, op->forTaskID);
+    stmt = PackTaskArgs::make(var, op->forTaskID, op->prefixVars, op->prefixExprs);
   }
 }
 

@@ -15,3 +15,4 @@ endfunction()
 
 add_app_folder(summaMM)
 add_app_folder(cannonMM)
+add_app_folder(placement-test)

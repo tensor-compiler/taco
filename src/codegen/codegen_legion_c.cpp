@@ -185,6 +185,13 @@ void CodegenLegionC::visit(const PackTaskArgs *node) {
   // Make a variable for the raw allocation of the arguments.
   auto tempVar = node->var.as<Var>()->name + "Raw";
   out << stname << " " << tempVar << ";\n";
+
+  // First emit mandatory prefix arguments.
+  for (size_t i = 0; i < node->prefixVars.size(); i++) {
+    doIndent();
+    out << tempVar << "." << node->prefixVars[i] << " = " << node->prefixExprs[i] << ";\n";
+  }
+
   for (auto arg : this->taskArgs[func]) {
     doIndent();
     out << tempVar << "." << arg << " = " << arg << ";\n";
@@ -272,7 +279,7 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
       }
 
       void visit(const PackTaskArgs* p) {
-        stmt = PackTaskArgs::make(p->var, p->forTaskID + this->maxTaskID);
+        stmt = PackTaskArgs::make(p->var, p->forTaskID + this->maxTaskID, p->prefixVars, p->prefixExprs);
       }
 
       int maxTaskID;
@@ -299,6 +306,7 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
 
   // Emit the include.
   out << "#include \"taco_legion_header.h\"\n";
+  out << "#include \"taco_mapper.h\"\n";
   out << "using namespace Legion;\n";
 
   // Emit a field accessor for each kind.
@@ -488,8 +496,26 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
       }
       uses = newUses;
 
+      // Find any included arguments from PackTaskArgs for this function.
+      struct PackFinder : public IRVisitor {
+        void visit(const PackTaskArgs* pack) {
+          if (pack->forTaskID == taskID) {
+            this->packVars = pack->prefixVars;
+          }
+        }
+
+        std::vector<Expr> packVars;
+        int taskID;
+      };
+      PackFinder pf; pf.taskID = forL->taskID;
+      ffunc.accept(&pf);
+
       out << "struct " << this->taskArgsName(func->name) << " {\n";
       this->indent++;
+      for (auto& var : pf.packVars) {
+        doIndent();
+        out << printType(getVarType(var), false) << " " << var << ";\n";
+      }
       for (auto& it : uses) {
         doIndent();
         out << printType(getVarType(it), false) << " " << it << ";\n";

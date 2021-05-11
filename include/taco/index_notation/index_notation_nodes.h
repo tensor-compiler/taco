@@ -384,13 +384,15 @@ struct AssembleNode : public IndexStmtNode {
 };
 
 struct PlaceNode : public IndexStmtNode {
-  PlaceNode(IndexExpr e) : expr(e) {}
+  PlaceNode(IndexExpr e, Grid g, GridPlacement gp) : expr(e), g(g), gp(gp) {}
 
   void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
   }
 
   IndexExpr expr;
+  Grid g;
+  GridPlacement gp;
 };
 
 

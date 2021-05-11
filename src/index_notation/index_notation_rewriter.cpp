@@ -222,7 +222,7 @@ void IndexNotationRewriter::visit(const PlaceNode* op) {
   if (expr == op->expr) {
     stmt = op;
   } else {
-    stmt = new PlaceNode(expr);
+    stmt = new PlaceNode(expr, op->g, op->gp);
   }
 }
 

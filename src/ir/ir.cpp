@@ -888,10 +888,13 @@ Stmt Sort::make(std::vector<Expr> args) {
   return sort;
 }
 
-Stmt PackTaskArgs::make(Expr var, int forTaskID) {
+Stmt PackTaskArgs::make(Expr var, int forTaskID, std::vector<Expr> prefixVars, std::vector<Expr> prefixExprs) {
   PackTaskArgs* pa = new PackTaskArgs;
   pa->var = var;
   pa->forTaskID = forTaskID;
+  pa->prefixVars = prefixVars;
+  pa->prefixExprs = prefixExprs;
+  taco_iassert(prefixVars.size() == prefixExprs.size());
   return pa;
 }
 

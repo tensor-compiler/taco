@@ -533,6 +533,10 @@ private:
   std::vector<TensorVar> tensorVarOrdering;
 
   bool isPlacementCode = false;
+  GridPlacement placement;
+  Grid placementGrid;
+
+  std::map<IndexVar, int> indexVarFaces;
 };
 
 }

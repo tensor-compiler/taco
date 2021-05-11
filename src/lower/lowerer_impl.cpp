@@ -15,6 +15,7 @@
 #include "mode_access.h"
 #include "taco/util/collections.h"
 #include "taco/ir/ir_rewriter.h"
+#include "taco/tensor.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -699,7 +700,37 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   match(stmt, function<void(const PlaceNode*)>([&](const PlaceNode* node) {
     this->isPlacementCode = true;
+    this->placement = node->gp;
+    this->placementGrid = node->g;
   }));
+
+  if (this->isPlacementCode) {
+    // When generating placement code, we might need to do extra work if we
+    // were requested to place data onto a Face of the processor grid.
+    // We start by finding the index variable that is the collapsed
+    // variable for all of the distributed variables.
+    struct IndexVarCollector : public IndexNotationVisitor {
+      void visit(const ForallNode* node) {
+        this->vars.push_back(node->indexVar);
+        node->stmt.accept(this);
+      }
+      std::vector<IndexVar> vars;
+    };
+    IndexVarCollector col;
+    stmt.accept(&col);
+    auto fused = this->provGraph.getMultiFusedParents(col.vars[0]);
+    taco_iassert(fused.size() > 0);
+    taco_iassert(fused.size() == this->placement.axes.size());
+    // For all positions that are restricted to a Face of the processor grid,
+    // override the iteration bounds of that variable to just that face of the
+    // grid.
+    for (size_t i = 0; i < this->placement.axes.size(); i++) {
+      auto axis = this->placement.axes[i];
+      if (axis.kind == GridPlacement::AxisMatch::Face) {
+        this->indexVarFaces[fused[i]] = axis.face;
+      }
+    }
+  }
 
   // Lower the index statement to compute and/or assemble
   Stmt body = lower(stmt);
@@ -1527,6 +1558,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto fidVal = ir::Symbol::make("FID_VAL");
     auto ctx = ir::Symbol::make("ctx");
     auto virtualMap = ir::Symbol::make("Mapping::DefaultMapper::VIRTUAL_MAP");
+    auto placementMap = ir::Symbol::make("TACOMapper::PLACEMENT");
 
     // We need to emit accessing the partition for any child task that uses the partition.
     // TODO (rohany): A hack that doesn't scale to nested distributions.
@@ -1564,9 +1596,17 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       std::vector<ir::Expr> lowerBoundExprs;
       std::vector<ir::Expr> upperBoundExprs;
       for (auto it : distIvars) {
-        auto bounds = provGraph.deriveIterBounds(it, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
-        lowerBoundExprs.push_back(bounds[0]);
-        upperBoundExprs.push_back(ir::Sub::make(bounds[1], 1));
+        // If the bounds of an index variable have been overridden for placement code
+        // use those bounds instead of the ones derived from the Provenance Graph.
+        if (this->isPlacementCode && util::contains(this->indexVarFaces, it)) {
+          auto face = this->indexVarFaces[it];
+          lowerBoundExprs.push_back(face);
+          upperBoundExprs.push_back(face);
+        } else {
+          auto bounds = provGraph.deriveIterBounds(it, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+          lowerBoundExprs.push_back(bounds[0]);
+          upperBoundExprs.push_back(ir::Sub::make(bounds[1], 1));
+        }
       }
       transfers.push_back(ir::VarDecl::make(lowerBound, makeConstructor(pointT, lowerBoundExprs)));
       transfers.push_back(ir::VarDecl::make(upperBound, makeConstructor(pointT, upperBoundExprs)));
@@ -1771,7 +1811,34 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
       // These args have to be for each of the subtasks.
       auto args = ir::Var::make("taskArgs", Auto);
-      itlStmts.push_back(ir::PackTaskArgs::make(args, taskID));
+      bool unpackFaceArgs = false;
+      if (this->isPlacementCode) {
+        // Count the number of Face() axes placements.
+        int count = 0;
+        for (auto axis : this->placement.axes) {
+          if (axis.kind == GridPlacement::AxisMatch::Face) {
+            count++;
+          }
+        }
+        if (count > 0) {
+          std::vector<Expr> prefixVars, prefixExprs;
+          // If we are directed to place a tensor onto a Face of the placement
+          // grid, then we need to package up the full dimensions of the placement
+          // grid into the task's arguments so that the mapper can extract it.
+          for (int i = 0; i < this->placementGrid.getDim(); i++) {
+            std::stringstream varname;
+            varname << "dim" << i;
+            auto var = ir::Var::make(varname.str(), Int32);
+            prefixVars.push_back(var); prefixExprs.push_back(this->placementGrid.getDimSize(i));
+          }
+          itlStmts.push_back(ir::PackTaskArgs::make(args, taskID, prefixVars, prefixExprs));
+          unpackFaceArgs = true;
+        } else {
+          itlStmts.push_back(ir::PackTaskArgs::make(args, taskID, {}, {}));
+        }
+      } else {
+        itlStmts.push_back(ir::PackTaskArgs::make(args, taskID, {}, {}));
+      }
 
       auto launcher = ir::Var::make("launcher", IndexLauncher);
       auto launcherMake = ir::Call::make(
@@ -1788,6 +1855,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       for (auto& req : regionReqs) {
         auto mcall = ir::MethodCall::make(launcher, "add_region_requirement", {req}, false /* deref */, Auto);
         itlStmts.push_back(ir::SideEffect::make(mcall));
+      }
+      if (unpackFaceArgs) {
+        auto addTag = ir::Assign::make(ir::FieldAccess::make(launcher, "tag", false, Auto), placementMap);
+        itlStmts.push_back(addTag);
       }
 
       auto fm = ir::Var::make("fm", Auto);
@@ -1877,7 +1948,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       }
 
       auto args = ir::Var::make("taskArgs", Auto);
-      taskCallStmts.push_back(ir::PackTaskArgs::make(args, taskID));
+      taskCallStmts.push_back(ir::PackTaskArgs::make(args, taskID, {}, {}));
 
       auto launcher = ir::Var::make("launcher", TaskLauncher);
       auto launcherMake = ir::Call::make(

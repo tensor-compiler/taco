@@ -31,6 +31,7 @@ class Format;
 class Schedule;
 
 class Grid;
+class GridPlacement;
 class Transfer;
 
 class IndexVar;
@@ -868,7 +869,7 @@ Assemble assemble(IndexStmt queries, IndexStmt compute,
 class Place : public IndexStmt {
 public:
   Place() = default;
-  Place(IndexExpr e);
+  Place(IndexExpr e, Grid g, GridPlacement gp);
   Place(const PlaceNode*);
 
   Access getAccess() const;

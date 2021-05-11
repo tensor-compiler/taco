@@ -847,7 +847,10 @@ struct PackTaskArgs : public StmtNode<PackTaskArgs> {
   Expr var;
   int forTaskID;
 
-  static Stmt make(Expr var, int forTaskID);
+  std::vector<Expr> prefixVars;
+  std::vector<Expr> prefixExprs;
+
+  static Stmt make(Expr var, int forTaskID, std::vector<Expr> prefixVars, std::vector<Expr> prefixExprs);
 
   static const IRNodeType _type_info = IRNodeType::PackTaskArgs;
 };

@@ -12,6 +12,12 @@ public:
   TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine& machine, const Legion::Processor& local)
       : DefaultMapper(rt, machine, local) {}
 
+  // Mapping tags handled specific for the TACO mapper.
+  enum MappingTags {
+    // Indicates that this task launch is used for data placement.
+    PLACEMENT = (1 << 5),
+  };
+
   void default_policy_select_constraints(Legion::Mapping::MapperContext ctx,
                                          Legion::LayoutConstraintSet &constraints, Legion::Memory target_memory,
                                          const Legion::RegionRequirement &req) {
@@ -46,18 +52,87 @@ public:
     }
   }
 
+  void slice_task(const Legion::Mapping::MapperContext    ctx,
+                  const Legion::Task&                     task,
+                  const SliceTaskInput&                   input,
+                  SliceTaskOutput&                        output) {
+    if (task.tag & PLACEMENT) {
+      // Placement tasks will put the dimensions of the placement grid at the beginning
+      // of the task arguments. Here, we extract the packed placement grid dimensions.
+      int dim = input.domain.get_dim();
+      int* args = (int*)(task.args);
+      std::vector<int> gridDims(dim);
+      for (int i = 0; i < dim; i++) {
+        gridDims[i] = args[i];
+      }
+      switch (dim) {
+#define BLOCK(DIM) \
+        case DIM:  \
+          {        \
+            Legion::DomainT<DIM, Legion::coord_t> pointSpace = input.domain; \
+            this->decompose_points(pointSpace, gridDims, output.slices);        \
+            break;   \
+          }
+        LEGION_FOREACH_N(BLOCK)
+#undef BLOCK
+        default:
+          assert(false);
+      }
+    } else {
+      DefaultMapper::slice_task(ctx, task, input, output);
+    }
+  }
+
+  template<int DIM>
+  void decompose_points(const Legion::DomainT<DIM, Legion::coord_t> &point_space,
+                        std::vector<int>& gridDims,
+                        std::vector<TaskSlice> &slices) {
+    slices.reserve(point_space.volume());
+
+    // We'll allocate each node a point in the index space.
+    auto node = 0;
+    auto targets = this->remote_cpus;
+
+    // We'll iterate over the full placement grid.
+    Legion::Rect<DIM, Legion::coord_t> procRect;
+    for (int i = 0; i < DIM; i++) {
+      procRect.lo[i] = 0;
+      procRect.hi[i] = gridDims[i] - 1;
+    }
+
+    for (Legion::PointInRectIterator<DIM> itr(procRect); itr(); itr++) {
+      // Always increment the node counter -- we want to possibly skip nodes
+      // when we have a Face() placement restriction.
+      auto curNode = node++;
+      auto point = *itr;
+      // We'll skip any points that don't align with the faces.
+      if (!point_space.contains(point)) {
+        continue;
+      }
+
+      // Construct the output slice for Legion.
+      Legion::DomainT<DIM, Legion::coord_t> slice;
+      slice.bounds.lo = point;
+      slice.bounds.hi = point;
+      slice.sparsity = point_space.sparsity;
+      if (!slice.dense()) { slice = slice.tighten(); }
+      if (slice.volume() > 0) {
+        TaskSlice ts;
+        ts.domain = slice;
+        ts.proc = targets[curNode % targets.size()];
+        ts.recurse = false;
+        ts.stealable = false;
+        slices.push_back(ts);
+      }
+    }
+  }
+
   // TODO (rohany): It may end up being necessary that we need to explicitly map
   //  regions for placement tasks. If so, Manolis says the following approach
   //  is the right thing:
   //  * Slice tasks sends tasks where they are supposed to go.
   //  * Map task needs to create a new instance of the region visible to the
   //    target processor.
-
-  // TODO (rohany): A strategy for slicing so that we can place data on faces:
-  //  * Make a PointInRectIterator which iterates over the full processor grid
-  //    desired by the data placement.
-  //  * Don't assign processors with point values != to the face value.
-  //  * The last problem here is getting the face information over to the mapper.
 };
 
 #endif // TACO_MAPPER_H

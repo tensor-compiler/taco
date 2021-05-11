@@ -38,8 +38,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
 
   // Place the tensors.
   auto part = placeLegionA(ctx, runtime, A);
-  placeLegionA(ctx, runtime, B);
-  placeLegionA(ctx, runtime, C);
+  placeLegionB(ctx, runtime, B);
+  placeLegionC(ctx, runtime, C);
 
   // Compute on the tensors.
   benchmark([&]() { computeLegion(ctx, runtime, A, B, C, part); });

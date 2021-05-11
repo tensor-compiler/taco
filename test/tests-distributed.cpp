@@ -210,6 +210,24 @@ TEST(distributed, reduction) {
   codegen->compile(lowered);
 }
 
+TEST(distributed, packingPlacement) {
+  int dim = 10;
+  Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+  auto grid = Grid(4, 4);
+  auto placeGrid = Grid(4, 4, 4);
+  auto stmt = a.partition(grid).place(placeGrid, GridPlacement({0, 1, Face(0)}));
+  auto lowered = lower(stmt, "placeLegion", false, true);
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(lowered);
+  // Also write it into a file.
+  {
+    ofstream f("../legion/placement-test/taco-generated.cpp");
+    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(lowered);
+    f.close();
+  }
+}
+
 TEST(distributed, placement) {
   int dim = 10;
 

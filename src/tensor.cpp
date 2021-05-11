@@ -1452,7 +1452,7 @@ IndexStmt TensorBase::place(Grid g, GridPlacement gp) {
 
   // Start with an access and recursively build the forall.
   auto access = Access(this->getTensorVar(), accessVars);
-  IndexStmt stmt = Place(access);
+  IndexStmt stmt = Place(access, g, gp);
   for (int i = allVars.size() - 1; i >= 0; i--) {
     stmt = forall(allVars[i], stmt);
   }
