@@ -1,5 +1,6 @@
 #include "taco_legion_header.h"
 #include "taco_mapper.h"
+#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))
 using namespace Legion;
 
 struct task_1Args {
@@ -32,7 +33,7 @@ LogicalPartition placeLegion(Context ctx, Runtime* runtime, LogicalRegion a) {
     int32_t in = (*itr)[0];
     int32_t jn = (*itr)[1];
     Point<2> aStart = Point<2>((in * ((a1_dimension + 3) / 4)), (jn * ((a2_dimension + 3) / 4)));
-    Point<2> aEnd = Point<2>((in * ((a1_dimension + 3) / 4) + ((a1_dimension + 3) / 4 - 1)), (jn * ((a2_dimension + 3) / 4) + ((a2_dimension + 3) / 4 - 1)));
+    Point<2> aEnd = Point<2>(TACO_MIN((in * ((a1_dimension + 3) / 4) + ((a1_dimension + 3) / 4 - 1)),(a1_dimension - 1)), TACO_MIN((jn * ((a2_dimension + 3) / 4) + ((a2_dimension + 3) / 4 - 1)),(a2_dimension - 1)));
     Rect<2> aRect = Rect<2>(aStart, aEnd);
     aColoring[(*itr)] = aRect;
   }

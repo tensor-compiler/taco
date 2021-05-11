@@ -307,6 +307,7 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
   // Emit the include.
   out << "#include \"taco_legion_header.h\"\n";
   out << "#include \"taco_mapper.h\"\n";
+  out << "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n";
   out << "using namespace Legion;\n";
 
   // Emit a field accessor for each kind.

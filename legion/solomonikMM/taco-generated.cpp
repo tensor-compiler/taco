@@ -1,5 +1,6 @@
 #include "taco_legion_header.h"
 #include "taco_mapper.h"
+#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))
 using namespace Legion;
 typedef FieldAccessor<READ_ONLY,int32_t,2,coord_t,Realm::AffineAccessor<int32_t,2,coord_t>> AccessorROint32_t2;
 typedef ReductionAccessor<SumReduction<int32_t>,true,2,coord_t,Realm::AffineAccessor<int32_t,2,coord_t>> AccessorReduceint32_t2;
@@ -20,18 +21,21 @@ struct task_3Args {
   int32_t dim2;
 };
 struct task_4Args {
-  int32_t b1_dimension;
-  int32_t c2_dimension;
   int32_t k1s;
-  int32_t in;
-  int32_t jn;
-  int32_t kn;
   int32_t c1_dimension;
+  int32_t kn;
+  int32_t c2_dimension;
+  int32_t jn;
+  int32_t in;
+  int32_t b1_dimension;
 };
 struct task_5Args {
+  int32_t a1_dimension;
   int32_t b1_dimension;
-  int32_t c2_dimension;
+  int32_t b2_dimension;
   int32_t c1_dimension;
+  int32_t a2_dimension;
+  int32_t c2_dimension;
 };
 
 void task_1(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
@@ -58,7 +62,7 @@ LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a) {
     int32_t in = (*itr)[0];
     int32_t jn = (*itr)[1];
     Point<2> aStart = Point<2>((in * ((a1_dimension + 4) / 5)), (jn * ((a2_dimension + 4) / 5)));
-    Point<2> aEnd = Point<2>((in * ((a1_dimension + 4) / 5) + ((a1_dimension + 4) / 5 - 1)), (jn * ((a2_dimension + 4) / 5) + ((a2_dimension + 4) / 5 - 1)));
+    Point<2> aEnd = Point<2>(TACO_MIN((in * ((a1_dimension + 4) / 5) + ((a1_dimension + 4) / 5 - 1)),(a1_dimension - 1)), TACO_MIN((jn * ((a2_dimension + 4) / 5) + ((a2_dimension + 4) / 5 - 1)),(a2_dimension - 1)));
     Rect<2> aRect = Rect<2>(aStart, aEnd);
     aColoring[(*itr)] = aRect;
   }
@@ -104,7 +108,7 @@ LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b) {
     int32_t in = (*itr)[0];
     int32_t jn = (*itr)[1];
     Point<2> bStart = Point<2>((in * ((b1_dimension + 4) / 5)), (jn * ((b2_dimension + 4) / 5)));
-    Point<2> bEnd = Point<2>((in * ((b1_dimension + 4) / 5) + ((b1_dimension + 4) / 5 - 1)), (jn * ((b2_dimension + 4) / 5) + ((b2_dimension + 4) / 5 - 1)));
+    Point<2> bEnd = Point<2>(TACO_MIN((in * ((b1_dimension + 4) / 5) + ((b1_dimension + 4) / 5 - 1)),(b1_dimension - 1)), TACO_MIN((jn * ((b2_dimension + 4) / 5) + ((b2_dimension + 4) / 5 - 1)),(b2_dimension - 1)));
     Rect<2> bRect = Rect<2>(bStart, bEnd);
     bColoring[(*itr)] = bRect;
   }
@@ -150,7 +154,7 @@ LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c) {
     int32_t in = (*itr)[0];
     int32_t jn = (*itr)[1];
     Point<2> cStart = Point<2>((in * ((c1_dimension + 4) / 5)), (jn * ((c2_dimension + 4) / 5)));
-    Point<2> cEnd = Point<2>((in * ((c1_dimension + 4) / 5) + ((c1_dimension + 4) / 5 - 1)), (jn * ((c2_dimension + 4) / 5) + ((c2_dimension + 4) / 5 - 1)));
+    Point<2> cEnd = Point<2>(TACO_MIN((in * ((c1_dimension + 4) / 5) + ((c1_dimension + 4) / 5 - 1)),(c1_dimension - 1)), TACO_MIN((jn * ((c2_dimension + 4) / 5) + ((c2_dimension + 4) / 5 - 1)),(c2_dimension - 1)));
     Rect<2> cRect = Rect<2>(cStart, cEnd);
     cColoring[(*itr)] = cRect;
   }
@@ -178,13 +182,13 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   PhysicalRegion c = regions[2];
 
   task_4Args* args = (task_4Args*)(task->args);
-  int32_t b1_dimension = args->b1_dimension;
-  int32_t c2_dimension = args->c2_dimension;
   int32_t k1s = args->k1s;
-  int32_t in = args->in;
-  int32_t jn = args->jn;
-  int32_t kn = args->kn;
   int32_t c1_dimension = args->c1_dimension;
+  int32_t kn = args->kn;
+  int32_t c2_dimension = args->c2_dimension;
+  int32_t jn = args->jn;
+  int32_t in = args->in;
+  int32_t b1_dimension = args->b1_dimension;
 
   AccessorROint32_t2 b_vals(b, FID_VAL);
   AccessorROint32_t2 c_vals(c, FID_VAL);
@@ -214,8 +218,8 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
           continue;
 
         int32_t k = kn * ((c1_dimension + 1) / 2) + kl;
-        Point<2> c_access_point = Point<2>(k, j);
         Point<2> b_access_point = Point<2>(i, k);
+        Point<2> c_access_point = Point<2>(k, j);
         if (k >= c1_dimension)
           continue;
 
@@ -235,9 +239,12 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
 
   int32_t distFused = task->index_point[0];
   task_5Args* args = (task_5Args*)(task->args);
+  int32_t a1_dimension = args->a1_dimension;
   int32_t b1_dimension = args->b1_dimension;
-  int32_t c2_dimension = args->c2_dimension;
+  int32_t b2_dimension = args->b2_dimension;
   int32_t c1_dimension = args->c1_dimension;
+  int32_t a2_dimension = args->a2_dimension;
+  int32_t c2_dimension = args->c2_dimension;
 
   auto c_index_space = get_index_space(c);
   auto a_index_space = get_index_space(a);
@@ -256,15 +263,15 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   for (PointInDomainIterator<1> itr = PointInDomainIterator<1>(domain); itr.valid(); itr++) {
     int32_t k1s = (*itr)[0];
     Point<2> aStart = Point<2>((in * ((b1_dimension + 4) / 5)), (jn * ((c2_dimension + 4) / 5)));
-    Point<2> aEnd = Point<2>((in * ((b1_dimension + 4) / 5) + ((b1_dimension + 4) / 5 - 1)), (jn * ((c2_dimension + 4) / 5) + ((c2_dimension + 4) / 5 - 1)));
+    Point<2> aEnd = Point<2>(TACO_MIN((in * ((b1_dimension + 4) / 5) + ((b1_dimension + 4) / 5 - 1)),(a1_dimension - 1)), TACO_MIN((jn * ((c2_dimension + 4) / 5) + ((c2_dimension + 4) / 5 - 1)),(a2_dimension - 1)));
     Rect<2> aRect = Rect<2>(aStart, aEnd);
     aColoring[(*itr)] = aRect;
     Point<2> bStart = Point<2>((in * ((b1_dimension + 4) / 5)), (kn * ((c1_dimension + 1) / 2) + ((jn + (in + k1s)) % 2) * (((c1_dimension + 1) / 2 + 1) / 2)));
-    Point<2> bEnd = Point<2>((in * ((b1_dimension + 4) / 5) + ((b1_dimension + 4) / 5 - 1)), (kn * ((c1_dimension + 1) / 2) + (((jn + (in + k1s)) % 2) * (((c1_dimension + 1) / 2 + 1) / 2) + (((c1_dimension + 1) / 2 + 1) / 2 - 1))));
+    Point<2> bEnd = Point<2>(TACO_MIN((in * ((b1_dimension + 4) / 5) + ((b1_dimension + 4) / 5 - 1)),(b1_dimension - 1)), TACO_MIN((kn * ((c1_dimension + 1) / 2) + (((jn + (in + k1s)) % 2) * (((c1_dimension + 1) / 2 + 1) / 2) + (((c1_dimension + 1) / 2 + 1) / 2 - 1))),(b2_dimension - 1)));
     Rect<2> bRect = Rect<2>(bStart, bEnd);
     bColoring[(*itr)] = bRect;
     Point<2> cStart = Point<2>((kn * ((c1_dimension + 1) / 2) + ((jn + (in + k1s)) % 2) * (((c1_dimension + 1) / 2 + 1) / 2)), (jn * ((c2_dimension + 4) / 5)));
-    Point<2> cEnd = Point<2>((kn * ((c1_dimension + 1) / 2) + (((jn + (in + k1s)) % 2) * (((c1_dimension + 1) / 2 + 1) / 2) + (((c1_dimension + 1) / 2 + 1) / 2 - 1))), (jn * ((c2_dimension + 4) / 5) + ((c2_dimension + 4) / 5 - 1)));
+    Point<2> cEnd = Point<2>(TACO_MIN((kn * ((c1_dimension + 1) / 2) + (((jn + (in + k1s)) % 2) * (((c1_dimension + 1) / 2 + 1) / 2) + (((c1_dimension + 1) / 2 + 1) / 2 - 1))),(c1_dimension - 1)), TACO_MIN((jn * ((c2_dimension + 4) / 5) + ((c2_dimension + 4) / 5 - 1)),(c2_dimension - 1)));
     Rect<2> cRect = Rect<2>(cStart, cEnd);
     cColoring[(*itr)] = cRect;
   }
@@ -283,13 +290,13 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
     RegionRequirement cReq = RegionRequirement(csubReg, READ_ONLY, EXCLUSIVE, get_logical_region(c));
     cReq.add_field(FID_VAL);
     task_4Args taskArgsRaw;
-    taskArgsRaw.b1_dimension = b1_dimension;
-    taskArgsRaw.c2_dimension = c2_dimension;
     taskArgsRaw.k1s = k1s;
-    taskArgsRaw.in = in;
-    taskArgsRaw.jn = jn;
-    taskArgsRaw.kn = kn;
     taskArgsRaw.c1_dimension = c1_dimension;
+    taskArgsRaw.kn = kn;
+    taskArgsRaw.c2_dimension = c2_dimension;
+    taskArgsRaw.jn = jn;
+    taskArgsRaw.in = in;
+    taskArgsRaw.b1_dimension = b1_dimension;
     TaskArgument taskArgs = TaskArgument(&taskArgsRaw, sizeof(task_4Args));
     TaskLauncher launcher = TaskLauncher(taskID(4), taskArgs);
     launcher.add_region_requirement(aReq);
@@ -301,7 +308,10 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
 }
 
 void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c) {
+  int a1_dimension = runtime->get_index_space_domain(get_index_space(a)).hi()[0] + 1;
+  int a2_dimension = runtime->get_index_space_domain(get_index_space(a)).hi()[1] + 1;
   int b1_dimension = runtime->get_index_space_domain(get_index_space(b)).hi()[0] + 1;
+  int b2_dimension = runtime->get_index_space_domain(get_index_space(b)).hi()[1] + 1;
   int c1_dimension = runtime->get_index_space_domain(get_index_space(c)).hi()[0] + 1;
   int c2_dimension = runtime->get_index_space_domain(get_index_space(c)).hi()[1] + 1;
 
@@ -321,9 +331,12 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
   cReq.add_field(FID_VAL);
   cReq.tag = Mapping::DefaultMapper::VIRTUAL_MAP;
   task_5Args taskArgsRaw;
+  taskArgsRaw.a1_dimension = a1_dimension;
   taskArgsRaw.b1_dimension = b1_dimension;
-  taskArgsRaw.c2_dimension = c2_dimension;
+  taskArgsRaw.b2_dimension = b2_dimension;
   taskArgsRaw.c1_dimension = c1_dimension;
+  taskArgsRaw.a2_dimension = a2_dimension;
+  taskArgsRaw.c2_dimension = c2_dimension;
   TaskArgument taskArgs = TaskArgument(&taskArgsRaw, sizeof(task_5Args));
   IndexLauncher launcher = IndexLauncher(taskID(5), domain, taskArgs, ArgumentMap());
   launcher.add_region_requirement(aReq);

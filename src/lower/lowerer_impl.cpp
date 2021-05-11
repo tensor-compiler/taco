@@ -1678,7 +1678,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       std::vector<Expr> los, his;
       for (size_t dimIdx = 0; dimIdx < tensorDim; dimIdx++) {
         los.push_back(bounds[dimIdx][0]);
-        his.push_back(bounds[dimIdx][1]);
+        auto dimBound = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::Dimension, dimIdx);
+        auto upper = ir::Min::make(bounds[dimIdx][1], ir::Sub::make(dimBound, 1));
+        his.push_back(upper);
       }
       auto start = ir::Var::make(n + "Start", txPoint);
       auto end = ir::Var::make(n + "End", txPoint);
