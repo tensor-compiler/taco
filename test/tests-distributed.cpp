@@ -164,6 +164,45 @@ TEST(distributed, cannonMM) {
   }
 }
 
+TEST(distributed, johnsonMM) {
+  int dim = 10;
+  Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+  Tensor<int> b("b", {dim, dim}, Format{Dense, Dense});
+  Tensor<int> c("c", {dim, dim}, Format{Dense, Dense});
+
+  // Each tensor lives on a different face of the processor cube.
+  auto grid = Grid(2, 2);
+  auto cube = Grid(2, 2, 2);
+  auto placeA = a.partition(grid).place(cube, GridPlacement({0, 1, Face(0)}));
+  auto placeB = b.partition(grid).place(cube, GridPlacement({0, Face(0), 1}));
+  auto placeC = c.partition(grid).place(cube, GridPlacement({Face(0), 0, 1}));
+  auto placeALowered = lower(placeA, "placeLegionA", false, true);
+  auto placeBLowered = lower(placeB, "placeLegionB", false, true);
+  auto placeCLowered = lower(placeC, "placeLegionC", false, true);
+
+  IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
+  a(i, j) = b(i, k) * c(k, j);
+  auto stmt = a.getAssignment().concretize();
+  stmt = stmt
+      .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, cube)
+      .pushCommUnder(a(i, j), kn)
+      .pushCommUnder(b(i, k), kn)
+      .pushCommUnder(c(k, j), kn)
+      ;
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  // Code-generate all of the placement and compute code.
+  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  // Also write it into a file.
+  {
+    ofstream f("../legion/johnsonMM/taco-generated.cpp");
+    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+}
+
 TEST(distributed, staggerNoDist) {
   int dim = 10;
   Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
