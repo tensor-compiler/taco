@@ -496,6 +496,14 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
         }
       }
       uses = newUses;
+      struct ExprSorter {
+        bool operator() (Expr e1, Expr e2) {
+          auto e1Name = getVarName(e1);
+          auto e2Name = getVarName(e2);
+          return e1Name < e2Name;
+        }
+      } exprSorter;
+      std::sort(uses.begin(), uses.end(), exprSorter);
 
       // Find any included arguments from PackTaskArgs for this function.
       struct PackFinder : public IRVisitor {

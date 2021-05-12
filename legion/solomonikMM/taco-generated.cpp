@@ -21,20 +21,20 @@ struct task_3Args {
   int32_t dim2;
 };
 struct task_4Args {
-  int32_t k1s;
-  int32_t c1_dimension;
-  int32_t kn;
-  int32_t c2_dimension;
-  int32_t jn;
-  int32_t in;
   int32_t b1_dimension;
+  int32_t c1_dimension;
+  int32_t c2_dimension;
+  int32_t in;
+  int32_t jn;
+  int32_t k1s;
+  int32_t kn;
 };
 struct task_5Args {
   int32_t a1_dimension;
+  int32_t a2_dimension;
   int32_t b1_dimension;
   int32_t b2_dimension;
   int32_t c1_dimension;
-  int32_t a2_dimension;
   int32_t c2_dimension;
 };
 
@@ -182,16 +182,16 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   PhysicalRegion c = regions[2];
 
   task_4Args* args = (task_4Args*)(task->args);
-  int32_t k1s = args->k1s;
-  int32_t c1_dimension = args->c1_dimension;
-  int32_t kn = args->kn;
-  int32_t c2_dimension = args->c2_dimension;
-  int32_t jn = args->jn;
-  int32_t in = args->in;
   int32_t b1_dimension = args->b1_dimension;
+  int32_t c1_dimension = args->c1_dimension;
+  int32_t c2_dimension = args->c2_dimension;
+  int32_t in = args->in;
+  int32_t jn = args->jn;
+  int32_t k1s = args->k1s;
+  int32_t kn = args->kn;
 
-  AccessorROint32_t2 b_vals(b, FID_VAL);
   AccessorROint32_t2 c_vals(c, FID_VAL);
+  AccessorROint32_t2 b_vals(b, FID_VAL);
   AccessorReduceint32_t2 a_vals(a, FID_VAL, LEGION_REDOP_SUM_INT32);
 
   int32_t k1 = (jn + (in + k1s)) % 2;
@@ -240,10 +240,10 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t distFused = task->index_point[0];
   task_5Args* args = (task_5Args*)(task->args);
   int32_t a1_dimension = args->a1_dimension;
+  int32_t a2_dimension = args->a2_dimension;
   int32_t b1_dimension = args->b1_dimension;
   int32_t b2_dimension = args->b2_dimension;
   int32_t c1_dimension = args->c1_dimension;
-  int32_t a2_dimension = args->a2_dimension;
   int32_t c2_dimension = args->c2_dimension;
 
   auto c_index_space = get_index_space(c);
@@ -290,13 +290,13 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
     RegionRequirement cReq = RegionRequirement(csubReg, READ_ONLY, EXCLUSIVE, get_logical_region(c));
     cReq.add_field(FID_VAL);
     task_4Args taskArgsRaw;
-    taskArgsRaw.k1s = k1s;
-    taskArgsRaw.c1_dimension = c1_dimension;
-    taskArgsRaw.kn = kn;
-    taskArgsRaw.c2_dimension = c2_dimension;
-    taskArgsRaw.jn = jn;
-    taskArgsRaw.in = in;
     taskArgsRaw.b1_dimension = b1_dimension;
+    taskArgsRaw.c1_dimension = c1_dimension;
+    taskArgsRaw.c2_dimension = c2_dimension;
+    taskArgsRaw.in = in;
+    taskArgsRaw.jn = jn;
+    taskArgsRaw.k1s = k1s;
+    taskArgsRaw.kn = kn;
     TaskArgument taskArgs = TaskArgument(&taskArgsRaw, sizeof(task_4Args));
     TaskLauncher launcher = TaskLauncher(taskID(4), taskArgs);
     launcher.add_region_requirement(aReq);
@@ -332,10 +332,10 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
   cReq.tag = Mapping::DefaultMapper::VIRTUAL_MAP;
   task_5Args taskArgsRaw;
   taskArgsRaw.a1_dimension = a1_dimension;
+  taskArgsRaw.a2_dimension = a2_dimension;
   taskArgsRaw.b1_dimension = b1_dimension;
   taskArgsRaw.b2_dimension = b2_dimension;
   taskArgsRaw.c1_dimension = c1_dimension;
-  taskArgsRaw.a2_dimension = a2_dimension;
   taskArgsRaw.c2_dimension = c2_dimension;
   TaskArgument taskArgs = TaskArgument(&taskArgsRaw, sizeof(task_5Args));
   IndexLauncher launcher = IndexLauncher(taskID(5), domain, taskArgs, ArgumentMap());

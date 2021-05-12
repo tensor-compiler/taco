@@ -3683,6 +3683,9 @@ std::vector<IndexVar> getIndexVarFamily(const Iterator& it) {
 
 Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
   vector<Stmt> result;
+  // We first collect pointAccesses in a buffer to ensure that we always emit them in
+  // the same order.
+  vector<std::pair<TensorVar, Stmt>> pointAccesses;
   for (Iterator& locator : locators) {
     accessibleIterators.insert(locator);
 
@@ -3724,7 +3727,6 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
         result.push_back(declarePosVar);
 
         if (locateIterator.isLeaf()) {
-
           if (this->legion) {
             // Emit the point accessor for it here.
             // TODO (rohany): Use a reverse map.
@@ -3742,16 +3744,26 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
                 return this->indexVarToExprMap.at(i);
               };
               auto makePoint = makeConstructor(pointT, util::map(ivars, getExpr));
-              result.push_back(ir::VarDecl::make(point, makePoint));
+              pointAccesses.push_back(std::make_pair(tv, ir::VarDecl::make(point, makePoint)));
               this->emittedPointAccessors.insert(tv);
             }
           }
           break;
         }
-//        std::cout << "iterator: " << locator.getIndexVar() << " has child " << locateIterator.getChild().getIndexVar() << std::endl;
         locateIterator = locateIterator.getChild();
       } while (accessibleIterators.contains(locateIterator));
     }
+  }
+  // Sort the emitted point accesses at this level.
+  struct TensorVarSorter {
+    typedef std::pair<TensorVar, Stmt> elem;
+    bool operator() (elem e1, elem e2) {
+      return e1.first.getName() < e2.first.getName();
+    }
+  } tvs;
+  std::sort(pointAccesses.begin(), pointAccesses.end(), tvs);
+  for (auto it : pointAccesses) {
+    result.push_back(it.second);
   }
   return result.empty() ? Stmt() : Block::make(result);
 }

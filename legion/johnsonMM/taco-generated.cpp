@@ -22,8 +22,8 @@ struct task_3Args {
 };
 struct task_4Args {
   int32_t b1_dimension;
-  int32_t c2_dimension;
   int32_t c1_dimension;
+  int32_t c2_dimension;
 };
 
 void task_1(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
@@ -172,8 +172,8 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t distFused = task->index_point[0];
   task_4Args* args = (task_4Args*)(task->args);
   int32_t b1_dimension = args->b1_dimension;
-  int32_t c2_dimension = args->c2_dimension;
   int32_t c1_dimension = args->c1_dimension;
+  int32_t c2_dimension = args->c2_dimension;
 
   AccessorROint32_t2 b_vals(b, FID_VAL);
   AccessorROint32_t2 c_vals(c, FID_VAL);
@@ -201,8 +201,8 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
 
       for (int32_t kl = 0; kl < ((c1_dimension + 1) / 2); kl++) {
         int32_t k = kn * ((c1_dimension + 1) / 2) + kl;
-        Point<2> c_access_point = Point<2>(k, j);
         Point<2> b_access_point = Point<2>(i, k);
+        Point<2> c_access_point = Point<2>(k, j);
         if (k >= c1_dimension)
           continue;
 
@@ -264,8 +264,8 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
   cReq.add_field(FID_VAL);
   task_4Args taskArgsRaw;
   taskArgsRaw.b1_dimension = b1_dimension;
-  taskArgsRaw.c2_dimension = c2_dimension;
   taskArgsRaw.c1_dimension = c1_dimension;
+  taskArgsRaw.c2_dimension = c2_dimension;
   TaskArgument taskArgs = TaskArgument(&taskArgsRaw, sizeof(task_4Args));
   IndexLauncher launcher = IndexLauncher(taskID(4), domain, taskArgs, ArgumentMap());
   launcher.add_region_requirement(aReq);

@@ -13,10 +13,10 @@ struct task_3Args {
 };
 struct task_4Args {
   int32_t b1_dimension;
-  int32_t jn;
-  int32_t in;
-  int32_t c2_dimension;
   int32_t c1_dimension;
+  int32_t c2_dimension;
+  int32_t in;
+  int32_t jn;
   int32_t kos;
 };
 struct task_5Args {
@@ -156,15 +156,15 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
 
   task_4Args* args = (task_4Args*)(task->args);
   int32_t b1_dimension = args->b1_dimension;
-  int32_t jn = args->jn;
-  int32_t in = args->in;
-  int32_t c2_dimension = args->c2_dimension;
   int32_t c1_dimension = args->c1_dimension;
+  int32_t c2_dimension = args->c2_dimension;
+  int32_t in = args->in;
+  int32_t jn = args->jn;
   int32_t kos = args->kos;
 
   auto a_index_space = get_index_space(a);
-  AccessorROint32_t2 b_vals(b, FID_VAL);
   AccessorROint32_t2 c_vals(c, FID_VAL);
+  AccessorROint32_t2 b_vals(b, FID_VAL);
   AccessorRWint32_t2 a_vals(a, FID_VAL);
 
   int32_t ko = (jn + (in + kos)) % 2;
@@ -244,10 +244,10 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
     cReq.add_field(FID_VAL);
     task_4Args taskArgsRaw;
     taskArgsRaw.b1_dimension = b1_dimension;
-    taskArgsRaw.jn = jn;
-    taskArgsRaw.in = in;
-    taskArgsRaw.c2_dimension = c2_dimension;
     taskArgsRaw.c1_dimension = c1_dimension;
+    taskArgsRaw.c2_dimension = c2_dimension;
+    taskArgsRaw.in = in;
+    taskArgsRaw.jn = jn;
     taskArgsRaw.kos = kos;
     TaskArgument taskArgs = TaskArgument(&taskArgsRaw, sizeof(task_4Args));
     TaskLauncher launcher = TaskLauncher(taskID(4), taskArgs);

@@ -12,16 +12,16 @@ struct task_2Args {
 struct task_3Args {
 };
 struct task_4Args {
-  int32_t ko;
   int32_t b1_dimension;
-  int32_t c2_dimension;
   int32_t c1_dimension;
+  int32_t c2_dimension;
+  int32_t ko;
 };
 struct task_5Args {
   int32_t b1_dimension;
   int32_t b2_dimension;
-  int32_t c2_dimension;
   int32_t c1_dimension;
+  int32_t c2_dimension;
 };
 
 void task_1(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
@@ -153,14 +153,14 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   PhysicalRegion c = regions[2];
 
   task_4Args* args = (task_4Args*)(task->args);
-  int32_t ko = args->ko;
   int32_t b1_dimension = args->b1_dimension;
-  int32_t c2_dimension = args->c2_dimension;
   int32_t c1_dimension = args->c1_dimension;
+  int32_t c2_dimension = args->c2_dimension;
+  int32_t ko = args->ko;
 
   auto a_index_space = get_index_space(a);
-  AccessorROint32_t2 c_vals(c, FID_VAL);
   AccessorROint32_t2 b_vals(b, FID_VAL);
+  AccessorROint32_t2 c_vals(c, FID_VAL);
   AccessorRWint32_t2 a_vals(a, FID_VAL);
 
   auto aPartitionBounds = runtime->get_index_space_domain(ctx, a_index_space);
@@ -195,8 +195,8 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   task_5Args* args = (task_5Args*)(task->args);
   int32_t b1_dimension = args->b1_dimension;
   int32_t b2_dimension = args->b2_dimension;
-  int32_t c2_dimension = args->c2_dimension;
   int32_t c1_dimension = args->c1_dimension;
+  int32_t c2_dimension = args->c2_dimension;
 
   auto c_index_space = get_index_space(c);
   auto b_index_space = get_index_space(b);
@@ -235,10 +235,10 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
     RegionRequirement cReq = RegionRequirement(csubReg, READ_ONLY, EXCLUSIVE, get_logical_region(c));
     cReq.add_field(FID_VAL);
     task_4Args taskArgsRaw;
-    taskArgsRaw.ko = ko;
     taskArgsRaw.b1_dimension = b1_dimension;
-    taskArgsRaw.c2_dimension = c2_dimension;
     taskArgsRaw.c1_dimension = c1_dimension;
+    taskArgsRaw.c2_dimension = c2_dimension;
+    taskArgsRaw.ko = ko;
     TaskArgument taskArgs = TaskArgument(&taskArgsRaw, sizeof(task_4Args));
     TaskLauncher launcher = TaskLauncher(taskID(4), taskArgs);
     launcher.add_region_requirement(aReq);
@@ -272,8 +272,8 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
   task_5Args taskArgsRaw;
   taskArgsRaw.b1_dimension = b1_dimension;
   taskArgsRaw.b2_dimension = b2_dimension;
-  taskArgsRaw.c2_dimension = c2_dimension;
   taskArgsRaw.c1_dimension = c1_dimension;
+  taskArgsRaw.c2_dimension = c2_dimension;
   TaskArgument taskArgs = TaskArgument(&taskArgsRaw, sizeof(task_5Args));
   IndexLauncher launcher = IndexLauncher(taskID(5), domain, taskArgs, ArgumentMap());
   launcher.add_region_requirement(aReq);
