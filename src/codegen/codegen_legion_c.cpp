@@ -553,9 +553,13 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
           if (node->isTask) {
             this->isLeaf = false;
           }
+          if (node->parallel_unit == ParallelUnit::CPUThread) {
+            this->usesOpenMP = true;
+          }
           node->contents.accept(this);
         }
         bool isLeaf = true;
+        bool usesOpenMP = false;
       };
       LeafTaskFinder finder;
       forL->contents.accept(&finder);
@@ -568,7 +572,11 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
       out << "TaskVariantRegistrar registrar(taskID(" << forL->taskID << "), \"" << func->name << "\");\n";
 
       doIndent();
-      out << "registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));\n";
+      if (finder.usesOpenMP && finder.isLeaf) {
+        out << "registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));\n";
+      } else {
+        out << "registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));\n";
+      }
 
       if (finder.isLeaf) {
         doIndent();
