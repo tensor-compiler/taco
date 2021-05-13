@@ -48,34 +48,30 @@ class Stmt;
 class Expr;
 }
 
-  struct TemporaryArrays {
-    ir::Expr values;
-  };
-
 class LowererImpl : public util::Uncopyable {
 public:
   LowererImpl();
   virtual ~LowererImpl() = default;
 
   /// Lower an index statement to an IR function.
-  ir::Stmt lower(IndexStmt stmt, std::string name,
-                 bool assemble, bool compute, bool pack, bool unpack);
+  virtual ir::Stmt lower(IndexStmt stmt, std::string name, 
+                 bool assemble, bool compute, bool pack, bool unpack) = 0;
 
 protected:
 
   /// Lower an assignment statement.
-  virtual ir::Stmt lowerAssignment(Assignment assignment);
+  virtual ir::Stmt lowerAssignment(Assignment assignment) = 0;
 
   /// Lower a yield statement.
-  virtual ir::Stmt lowerYield(Yield yield);
+  virtual ir::Stmt lowerYield(Yield yield) = 0;
 
 
   /// Lower a forall statement.
-  virtual ir::Stmt lowerForall(Forall forall);
+  virtual ir::Stmt lowerForall(Forall forall) = 0;
 
   /// Lower a forall that needs to be cloned so that one copy does not have guards
   /// used for vectorized and unrolled loops
-  virtual ir::Stmt lowerForallCloned(Forall forall);
+  virtual ir::Stmt lowerForallCloned(Forall forall) = 0;
 
   /// Lower a forall that iterates over all the coordinates in the forall index
   /// var's dimension, and locates tensor positions from the locate iterators.
@@ -84,7 +80,7 @@ protected:
                                         std::vector<Iterator> inserters,
                                         std::vector<Iterator> appenders,
                                         std::set<Access> reducedAccesses,
-                                        ir::Stmt recoveryStmt);
+                                        ir::Stmt recoveryStmt) = 0;
 
   /// Lower a forall that iterates over all the coordinates in the forall index
   /// var's dimension, and locates tensor positions from the locate iterators.
@@ -93,7 +89,7 @@ protected:
                                                 std::vector<Iterator> inserters,
                                                 std::vector<Iterator> appenders,
                                                 std::set<Access> reducedAccesses,
-                                                ir::Stmt recoveryStmt);
+                                                ir::Stmt recoveryStmt) = 0;
 
 
   /// Lower a forall that iterates over the coordinates in the iterator, and
@@ -103,7 +99,7 @@ protected:
                                          std::vector<Iterator> inserters,
                                          std::vector<Iterator> appenders,
                                          std::set<Access> reducedAccesses,
-                                         ir::Stmt recoveryStmt);
+                                         ir::Stmt recoveryStmt) = 0;
 
   /// Lower a forall that iterates over the positions in the iterator, accesses
   /// the iterators coordinate, and locates tensor positions from the locate
@@ -113,18 +109,18 @@ protected:
                                        std::vector<Iterator> inserters,
                                        std::vector<Iterator> appenders,
                                        std::set<Access> reducedAccesses,
-                                       ir::Stmt recoveryStmt);
+                                       ir::Stmt recoveryStmt) = 0;
 
   virtual ir::Stmt lowerForallFusedPosition(Forall forall, Iterator iterator,
                                        std::vector<Iterator> locaters,
                                        std::vector<Iterator> inserters,
                                        std::vector<Iterator> appenders,
                                        std::set<Access> reducedAccesses,
-                                       ir::Stmt recoveryStmt);
+                                       ir::Stmt recoveryStmt) = 0;
 
   /// Used in lowerForallFusedPosition to generate code to
   /// search for the start of the iteration of the loop (a separate kernel on GPUs)
-  virtual ir::Stmt searchForFusedPositionStart(Forall forall, Iterator posIterator);
+  virtual ir::Stmt searchForFusedPositionStart(Forall forall, Iterator posIterator) = 0;
 
     /**
      * Lower the merge lattice to code that iterates over the sparse iteration
@@ -150,9 +146,9 @@ protected:
      */
   virtual ir::Stmt lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar,
                                      IndexStmt statement, 
-                                     const std::set<Access>& reducedAccesses);
+                                     const std::set<Access>& reducedAccesses) = 0;
 
-  virtual ir::Stmt resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coordinate, bool emitVarDecl);
+  virtual ir::Stmt resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coordinate, bool emitVarDecl) = 0;
 
     /**
      * Lower the merge point at the top of the given lattice to code that iterates
@@ -170,386 +166,72 @@ protected:
      */
   virtual ir::Stmt lowerMergePoint(MergeLattice pointLattice,
                                    ir::Expr coordinate, IndexVar coordinateVar, IndexStmt statement,
-                                   const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared);
+                                   const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared) = 0;
 
   /// Lower a merge lattice to cases.
   virtual ir::Stmt lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
                                    MergeLattice lattice,
-                                   const std::set<Access>& reducedAccesses);
+                                   const std::set<Access>& reducedAccesses) = 0;
 
   /// Lower a forall loop body.
   virtual ir::Stmt lowerForallBody(ir::Expr coordinate, IndexStmt stmt,
                                    std::vector<Iterator> locaters,
                                    std::vector<Iterator> inserters,
                                    std::vector<Iterator> appenders,
-                                   const std::set<Access>& reducedAccesses);
-
-  /// [SPATIAL] Lower a reduction loop body.
-  virtual ir::Stmt lowerForallReductionBody(ir::Expr coordinate, IndexStmt stmt,
-                                   std::vector<Iterator> locaters,
-                                   std::vector<Iterator> inserters,
-                                   std::vector<Iterator> appenders,
-                                   const std::set<Access>& reducedAccesses);
-
-  virtual std::vector<std::tuple<ir::Stmt,ir::Expr>> lowerForallBulk(Forall forall, ir::Expr coordinate, IndexStmt stmt,
-                                            std::vector<Iterator> locaters,
-                                            std::vector<Iterator> inserters,
-                                            std::vector<Iterator> appenders,
-                                            const std::set<Access>& reducedAccesses,  ir::Stmt recoveryStmt);
+                                   const std::set<Access>& reducedAccesses) = 0;
 
 
   /// Lower a where statement.
-  virtual ir::Stmt lowerWhere(Where where);
+  virtual ir::Stmt lowerWhere(Where where) = 0;
 
   /// Lower a sequence statement.
-  virtual ir::Stmt lowerSequence(Sequence sequence);
+  virtual ir::Stmt lowerSequence(Sequence sequence) = 0;
 
   /// Lower an assemble statement.
-  virtual ir::Stmt lowerAssemble(Assemble assemble);
+  virtual ir::Stmt lowerAssemble(Assemble assemble) = 0;
 
   /// Lower a multi statement.
-  virtual ir::Stmt lowerMulti(Multi multi);
+  virtual ir::Stmt lowerMulti(Multi multi) = 0;
 
   /// Lower a suchthat statement.
-  virtual ir::Stmt lowerSuchThat(SuchThat suchThat);
+  virtual ir::Stmt lowerSuchThat(SuchThat suchThat) = 0;
 
   /// Lower an access expression.
-  virtual ir::Expr lowerAccess(Access access);
+  virtual ir::Expr lowerAccess(Access access) = 0;
 
   /// Lower a literal expression.
-  virtual ir::Expr lowerLiteral(Literal literal);
+  virtual ir::Expr lowerLiteral(Literal literal) = 0;
 
   /// Lower a negate expression.
-  virtual ir::Expr lowerNeg(Neg neg);
+  virtual ir::Expr lowerNeg(Neg neg) = 0;
 	
   /// Lower an addition expression.
-  virtual ir::Expr lowerAdd(Add add);
+  virtual ir::Expr lowerAdd(Add add) = 0;
 
   /// Lower a subtraction expression.
-  virtual ir::Expr lowerSub(Sub sub);
+  virtual ir::Expr lowerSub(Sub sub) = 0;
 
   /// Lower a multiplication expression.
-  virtual ir::Expr lowerMul(Mul mul);
+  virtual ir::Expr lowerMul(Mul mul) = 0;
 
   /// Lower a division expression.
-  virtual ir::Expr lowerDiv(Div div);
+  virtual ir::Expr lowerDiv(Div div) = 0;
 
   /// Lower a square root expression.
-  virtual ir::Expr lowerSqrt(Sqrt sqrt);
+  virtual ir::Expr lowerSqrt(Sqrt sqrt) = 0;
 
   /// Lower a cast expression.
-  virtual ir::Expr lowerCast(Cast cast);
+  virtual ir::Expr lowerCast(Cast cast) = 0;
 
   /// Lower an intrinsic function call expression.
-  virtual ir::Expr lowerCallIntrinsic(CallIntrinsic call);
+  virtual ir::Expr lowerCallIntrinsic(CallIntrinsic call) = 0;
 
 
   /// Lower a concrete index variable statement.
-  ir::Stmt lower(IndexStmt stmt);
+  virtual ir::Stmt lower(IndexStmt stmt);
 
   /// Lower a concrete index variable expression.
-  ir::Expr lower(IndexExpr expr);
-
-
-  /// Check whether the lowerer should generate code to assemble result indices.
-  bool generateAssembleCode() const;
-
-  /// Check whether the lowerer should generate code to compute result values.
-  bool generateComputeCode() const;
-
-
-  /// Retrieve a tensor IR variable.
-  ir::Expr getTensorVar(TensorVar) const;
-
-  /// Retrieves a result values array capacity variable.
-  ir::Expr getCapacityVar(ir::Expr) const;
-
-  /// Retrieve the values array of the tensor var.
-  virtual ir::Expr getValuesArray(TensorVar) const;
-
-  /// Retrieve the dimension of an index variable (the values it iterates over),
-  /// which is encoded as the interval [0, result).
-  ir::Expr getDimension(IndexVar indexVar) const;
-
-  /// Retrieve the chain of iterators that iterate over the access expression.
-  std::vector<Iterator> getIterators(Access) const;
-
-  /// Retrieve the access expressions that have been exhausted.
-  std::set<Access> getExhaustedAccesses(MergePoint, MergeLattice) const;
-
-  /// Retrieve the reduced tensor component value corresponding to an access.
-  ir::Expr getReducedValueVar(Access) const;
-
-  /// Retrieve the coordinate IR variable corresponding to an index variable.
-  ir::Expr getCoordinateVar(IndexVar) const;
-
-  /// Retrieve the coordinate IR variable corresponding to an iterator.
-  ir::Expr getCoordinateVar(Iterator) const;
-
-
-  /**
-   * Retrieve the resolved coordinate variables of an iterator and it's parent
-   * iterators, which are the coordinates after per-iterator coordinates have
-   * been merged with the min function.
-   *
-   * \param iterator
-   *      A defined iterator (that take part in a chain of parent iterators).
-   *
-   * \return
-   *       IR expressions that resolve to resolved coordinates for the
-   *       iterators.  The first entry is the resolved coordinate of this
-   *       iterator followed by its parent's, its grandparent's, etc.
-   */
-  std::vector<ir::Expr> coordinates(Iterator iterator) const;
-
-  /**
-   * Retrieve the resolved coordinate variables of the iterators, which are the
-   * coordinates after per-iterator coordinates have been merged with the min
-   * function.
-   *
-   * \param iterators
-   *      A set of defined iterators.
-   *
-   * \return
-   *      IR expressions that resolve to resolved coordinates for the iterators,
-   *      in the same order they were given.
-   */
-  std::vector<ir::Expr> coordinates(std::vector<Iterator> iterators);
-
-  /// Generate code to initialize result indices.
-  ir::Stmt initResultArrays(std::vector<Access> writes, 
-                            std::vector<Access> reads,
-                            std::set<Access> reducedAccesses);
-
-  /// Generate code to finalize result indices.
-  ir::Stmt finalizeResultArrays(std::vector<Access> writes);
-
-  /**
-   * Replace scalar tensor pointers with stack scalar for lowering.
-   */
-  ir::Stmt defineScalarVariable(TensorVar var, bool zero);
-
-  ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes,
-                            std::vector<Access> reads,
-                            std::set<Access> reducedAccesses);
-
-  ir::Stmt resizeAndInitValues(const std::vector<Iterator>& appenders,
-                               const std::set<Access>& reducedAccesses);
-  /**
-   * Generate code to zero-initialize values array in range
-   * [begin * size, (begin + 1) * size).
-   */
-  ir::Stmt zeroInitValues(ir::Expr tensor, ir::Expr begin, ir::Expr size, TensorVar var);
-
-  /// Declare position variables and initialize them with a locate.
-  ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
-
-  /// Emit loops to reduce duplicate coordinates.
-  ir::Stmt reduceDuplicateCoordinates(ir::Expr coordinate, 
-                                      std::vector<Iterator> iterators, 
-                                      bool alwaysReduce);
-
-  /**
-   * Create code to declare and initialize while loop iteration variables,
-   * including both pos variables (of e.g. compressed modes) and crd variables
-   * (e.g. dense modes).
-   *
-   * \param iterators
-   *      Iterators whose iteration variables will be declared and initialized.
-   *
-   * \return
-   *      A IR statement that declares and initializes each iterator's iterators
-   *      variable
-   */
-  ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coord, IndexVar coordinateVar);
-  ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar);
-
-  /// Returns true iff the temporary used in the where statement is dense and sparse iteration over that
-  /// temporary can be automaticallty supported by the compiler.
-  std::pair<bool,bool> canAccelerateDenseTemp(Where where);
-
-  /// Initializes a temporary workspace
-  virtual std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
-
-  /// Gets the size of a temporary tensorVar in the where statement
-  ir::Expr getTemporarySize(Where where);
-
-  /// Initializes helper arrays to give dense workspaces sparse acceleration
-  std::vector<ir::Stmt> codeToInitializeDenseAcceleratorArrays(Where where);
-
-  /// Recovers a derived indexvar from an underived variable.
-  ir::Stmt codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar indexVar, bool emitVarDecl);
-
-  /// Conditionally increment iterator position variables.
-  ir::Stmt codeToIncIteratorVars(ir::Expr coordinate, IndexVar coordinateVar,
-          std::vector<Iterator> iterators, std::vector<Iterator> mergers);
-
-  ir::Stmt codeToLoadCoordinatesFromPosIterators(std::vector<Iterator> iterators, bool declVars);
-
-  /// Create statements to append coordinate to result modes.
-  ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
-
-  /// Create statements to append positions to result modes.
-  ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
-
-  /// Create an expression to index into a tensor value array.
-  ir::Expr generateValueLocExpr(Access access) const;
-
-  /// Expression that evaluates to true if none of the iterators are exhausted
-  ir::Expr checkThatNoneAreExhausted(std::vector<Iterator> iterators);
-
-  /// Create an expression that can be used to filter out (some) zeros in the
-  /// result
-  ir::Expr generateAssembleGuard(IndexExpr expr);
-
-  /// Check whether the result tensor should be assembled by ungrouped insertion
-  bool isAssembledByUngroupedInsertion(TensorVar result);
-  bool isAssembledByUngroupedInsertion(ir::Expr result);
-
-  /// Check whether the statement writes to a result tensor
-  bool hasStores(ir::Stmt stmt);
-
-  std::pair<std::vector<Iterator>,std::vector<Iterator>>
-  splitAppenderAndInserters(const std::vector<Iterator>& results);
-
-  /// Expression that returns the beginning of a window to iterate over
-  /// in a compressed iterator. It is used when operating over windows of
-  /// tensors, instead of the full tensor.
-  ir::Expr searchForStartOfWindowPosition(Iterator iterator, ir::Expr start, ir::Expr end);
-
-  /// Expression that returns the end of a window to iterate over
-  /// in a compressed iterator. It is used when operating over windows of
-  /// tensors, instead of the full tensor.
-  ir::Expr searchForEndOfWindowPosition(Iterator iterator, ir::Expr start, ir::Expr end);
-
-  /// Statement that guards against going out of bounds of the window that
-  /// the input iterator was configured with.
-  ir::Stmt upperBoundGuardForWindowPosition(Iterator iterator, ir::Expr access);
-
-  /// Expression that recovers a canonical index variable from a position in
-  /// a windowed position iterator. A windowed position iterator iterates over
-  /// values in the range [lo, hi). This expression projects values in that
-  /// range back into the canonical range of [0, n).
-  ir::Expr projectWindowedPositionToCanonicalSpace(Iterator iterator, ir::Expr expr);
-
-  // projectCanonicalSpaceToWindowedPosition is the opposite of
-  // projectWindowedPositionToCanonicalSpace. It takes an expression ranging
-  // through the canonical space of [0, n) and projects it up to the windowed
-  // range of [lo, hi).
-  ir::Expr projectCanonicalSpaceToWindowedPosition(Iterator iterator, ir::Expr expr);
-
-  /// strideBoundsGuard inserts a guard against accessing values from an
-  /// iterator that don't fit in the stride that the iterator is configured
-  /// with. It takes a boolean incrementPosVars to control whether the outer
-  /// loop iterator variable should be incremented when the guard is fired.
-  ir::Stmt strideBoundsGuard(Iterator iterator, ir::Expr access, bool incrementPosVar);
-
-  /// FIXME: Will need to change plugin interface. Currently accessor methods
-  /// Accessor methods needed for Spatial lowerer impl
-  /// Accessor method for private attribute accessibleIterators
-  util::ScopedSet<Iterator> getAccessibleIterators() const;
-
-  std::map<TensorVar, TemporaryArrays> getTemporaryArrays() const;
-  void insertTemporaryArrays(TensorVar key, TemporaryArrays val);
-
-  ProvenanceGraph getProvGraph() const;
-
-  Iterators getIterators() const;
-
-  std::map<IndexVar, ir::Expr> getIndexVarToExprMap() const;
-
-  std::vector<IndexVar> getDefinedIndexVarsOrdered() const;
-  std::map<IndexVar, std::vector<ir::Expr>> getUnderivedBounds() const;
-
-  std::map<TensorVar, Where> getTempNoZeroInit() const;
-
-  ParallelUnit getAtomicParallelUnit() const;
-
-private:
-  bool assemble;
-  bool compute;
-
-  std::set<TensorVar> needCompute;
-
-  int markAssignsAtomicDepth = 0;
-  ParallelUnit atomicParallelUnit;
-
-  std::set<TensorVar> assembledByUngroupedInsert;
-
-  /// Map used to hoist temporary workspace initialization
-  std::map<Forall, Where> temporaryInitialization;
-  std::map<TensorVar, Where> tempNoZeroInit;
-  std::map<Forall, Assignment> bulkMemTransfer;
-  std::map<Forall, std::pair<int, Assignment>> forallReductions;
-
-  /// Map from tensor variables in index notation to variables in the IR
-  std::map<TensorVar, ir::Expr> tensorVars;
-
-  std::map<TensorVar, TemporaryArrays> temporaryArrays;
-
-  /// Map form temporary to indexList var if accelerating dense workspace
-  std::map<TensorVar, ir::Expr> tempToIndexList;
-
-  /// Map form temporary to indexListSize if accelerating dense workspace
-  std::map<TensorVar, ir::Expr> tempToIndexListSize;
-
-  /// Map form temporary to bitGuard var if accelerating dense workspace
-  std::map<TensorVar, ir::Expr> tempToBitGuard;
-
-  std::set<TensorVar> guardedTemps;
-
-  /// Map from result tensors to variables tracking values array capacity.
-  std::map<ir::Expr, ir::Expr> capacityVars;
-
-  /// Map from index variables to their dimensions, currently [0, expr).
-  std::map<IndexVar, ir::Expr> dimensions;
-
-  /// Map from index variables to their bounds, currently also [0, expr) but allows adding minimum in future too
-  std::map<IndexVar, std::vector<ir::Expr>> underivedBounds;
-
-  /// Map from indexvars to their variable names
-  std::map<IndexVar, ir::Expr> indexVarToExprMap;
-
-  /// Tensor and mode iterators to iterate over in the lowered code
-  Iterators iterators;
-
-  /// Keep track of relations between IndexVars
-  ProvenanceGraph provGraph;
-
-  bool ignoreVectorize = false; // already being taken into account
-
-  std::vector<ir::Stmt> whereConsumers;
-  std::vector<TensorVar> whereTemps;
-  std::map<TensorVar, const AccessNode *> whereTempsToResult;
-
-  bool captureNextLocatePos = false;
-  ir::Stmt capturedLocatePos; // used for whereConsumer when want to replicate same locating
-
-  bool emitUnderivedGuards = true;
-
-  int inParallelLoopDepth = 0;
-
-  std::map<ParallelUnit, ir::Expr> parallelUnitSizes;
-  std::map<ParallelUnit, IndexVar> parallelUnitIndexVars;
-
-  /// Keep track of what IndexVars have already been defined
-  std::set<IndexVar> definedIndexVars;
-  std::vector<IndexVar> definedIndexVarsOrdered;
-
-  /// Map from tensor accesses to variables storing reduced values.
-  std::map<Access, ir::Expr> reducedValueVars;
-
-  /// Set of locate-capable iterators that can be legally accessed.
-  util::ScopedSet<Iterator> accessibleIterators;
-
-  /// Visitor methods can add code to emit it to the function header.
-  std::vector<ir::Stmt> header;
-
-  /// Visitor methods can add code to emit it to the function footer.
-  std::vector<ir::Stmt> footer;
-
-  /// SPATIAL ONLY
-  std::map<ir::Expr, int> tensorExprDefinedBound;
+  virtual ir::Expr lower(IndexExpr expr);
 
   class Visitor;
   friend class Visitor;

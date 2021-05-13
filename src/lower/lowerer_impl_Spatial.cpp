@@ -1,6 +1,6 @@
 #include <taco/lower/mode_format_compressed.h>
+#include "taco/lower/lowerer_impl_dataflow.h"
 #include "taco/lower/lowerer_impl_Spatial.h"
-#include "taco/lower/lowerer_impl.h"
 
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"

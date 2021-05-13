@@ -188,20 +188,6 @@ TEST(spatial, reduction_dotProduct) {
   ir::IRPrinter irp = ir::IRPrinter(cout);
   cout << stmt << endl;
 
-  A.compile(stmt);
-  A.assemble();
-  A.compute();
-
-  Tensor<int> expected("expected");
-  expected() = B(i) * C(i);
-  expected.compile();
-  expected.assemble();
-  expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
-
-  cout << "----------------Resulting Tensors-----------------" << endl;
-  cout << A << endl;
-  cout << expected << endl;
   set_Spatial_codegen_enabled(true);
 
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
@@ -569,18 +555,6 @@ TEST(spatial, tile_vecElemMul) {
   cout << "----------------Post-Schedule 3 Stmt-----------------" << endl;
   cout << stmt << endl;
 
-  A.compile(stmt);
-  A.assemble();
-  A.compute();
-
-  Tensor<double> expected("expected", {n}, {Dense});
-  expected(i) = B(i) * C(i);
-  expected.compile();
-  expected.assemble();
-  expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
-
-
   set_Spatial_codegen_enabled(true);
 
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
@@ -643,18 +617,6 @@ TEST(spatial, tile_dotProduct) {
 
   cout << "----------------Post-Schedule 3 Stmt-----------------" << endl;
   cout << stmt << endl;
-
-  A.compile(stmt);
-  A.assemble();
-  A.compute();
-
-  Tensor<int> expected("expected");
-  expected() = B(i) * C(i);
-  expected.compile();
-  expected.assemble();
-  expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
-
 
   set_Spatial_codegen_enabled(true);
 
@@ -720,17 +682,6 @@ TEST(spatial, tile_GEMV) {
   cout << stmt << endl;
 
   // TODO: fix this app to use MemReduce
-
-  A.compile(stmt);
-  A.assemble();
-  A.compute();
-
-  Tensor<int> expected("expected", {n}, {Dense});
-  expected(i) = B(i,j) * C(j);
-  expected.compile();
-  expected.assemble();
-  expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
 
 
   set_Spatial_codegen_enabled(true);

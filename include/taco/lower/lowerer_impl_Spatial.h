@@ -11,10 +11,10 @@
 #include "taco/util/scopedset.h"
 #include "taco/util/uncopyable.h"
 #include "taco/ir_tags.h"
-#include "taco/lower/lowerer_impl.h"
+#include "taco/lower/lowerer_impl_dataflow.h"
 
 namespace taco {
-class LowererImplSpatial : public LowererImpl {
+class LowererImplSpatial : public LowererImplDataflow {
 public:
   LowererImplSpatial();
   virtual ~LowererImplSpatial() = default;
