@@ -6,6 +6,9 @@
 #include "codegen/codegen.h"
 #include "codegen/codegen_legion_c.h"
 
+#include "taco/index_notation/transformations.h"
+#include "taco/index_notation/provenance_graph.h"
+
 #include <fstream>
 
 using namespace taco;
@@ -137,6 +140,7 @@ TEST(distributed, cannonMM) {
   auto placeCLowered = lower(placeC, "placeLegionC", false, true);
 
   IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko"), kos("kos");
+  std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
   a(i, j) = b(i, k) * c(k, j);
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
@@ -146,6 +150,8 @@ TEST(distributed, cannonMM) {
       .stagger(ko, {in, jn}, kos)
       .pushCommUnder(b(i, k), kos)
       .pushCommUnder(c(k, j), kos)
+      // This can be enabled on Sapling where we have an OpenMP + OpenBLAS build.
+      // .swapLeafKernel(il, gemm)
       ;
 
   auto lowered = lower(stmt, "computeLegion", false, true);

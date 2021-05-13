@@ -303,8 +303,21 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
     maxTaskID = mf.maxTaskID;
   }
 
+  struct BLASFinder : public IRVisitor {
+    void visit(const Call* node) {
+      if (node->func.find("blas") != std::string::npos) {
+        this->usesBLAS = true;
+      }
+    }
+    bool usesBLAS = false;
+  };
+  BLASFinder bs;
+  stmt.accept(&bs);
 
-  // Emit the include.
+  // Emit the includes.
+  if (bs.usesBLAS) {
+    out << "#include \"cblas.h\"\n";
+  }
   out << "#include \"taco_legion_header.h\"\n";
   out << "#include \"taco_mapper.h\"\n";
   out << "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n";
@@ -565,6 +578,11 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
             this->usesOpenMP = true;
           }
           node->contents.accept(this);
+        }
+        void visit(const Call* node) {
+          if (node->func.find("blas") != std::string::npos) {
+            this->usesOpenMP = true;
+          }
         }
         bool isLeaf = true;
         bool usesOpenMP = false;

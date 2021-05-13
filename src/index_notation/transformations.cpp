@@ -380,14 +380,16 @@ std::ostream& operator<<(std::ostream& os, const ForAllReplace& forallreplace) {
 // class AddSuchThatRels
 struct AddSuchThatPredicates::Content {
   std::vector<IndexVarRel> predicates;
+  std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls;
 };
 
 AddSuchThatPredicates::AddSuchThatPredicates() : content(nullptr) {
 }
 
-AddSuchThatPredicates::AddSuchThatPredicates(std::vector<IndexVarRel> predicates) : content(new Content) {
-  taco_iassert(!predicates.empty());
+AddSuchThatPredicates::AddSuchThatPredicates(std::vector<IndexVarRel> predicates, std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls) : content(new Content) {
+//  taco_iassert(!predicates.empty());
   content->predicates = predicates;
+  content->calls = calls;
 }
 
 std::vector<IndexVarRel> AddSuchThatPredicates::getPredicates() const {
@@ -408,10 +410,13 @@ IndexStmt AddSuchThatPredicates::apply(IndexStmt stmt, string* reason) const {
     vector<IndexVarRel> predicate = suchThat.getPredicate();
     vector<IndexVarRel> predicates = getPredicates();
     predicate.insert(predicate.end(), predicates.begin(), predicates.end());
-    return SuchThat(suchThat.getStmt(), predicate);
+    auto call = suchThat.getCalls();
+    auto calls = this->content->calls;
+    call.insert(calls.begin(), calls.end());
+    return SuchThat(suchThat.getStmt(), predicate, call);
   }
   else{
-    return SuchThat(stmt, content->predicates);
+    return SuchThat(stmt, content->predicates, this->content->calls);
   }
 }
 
@@ -1217,6 +1222,180 @@ std::ostream& operator<<(std::ostream& os,
   return os;
 }
 
+static bool compare(std::vector<IndexVar> vars1, std::vector<IndexVar> vars2) {
+  return vars1 == vars2;
+}
+
+  IndexVar getRootParent(ProvenanceGraph pg, IndexVar var) {
+  auto parents = pg.getParents(var);
+  if (parents.empty()) {
+    return var;
+  } else if (parents.size() == 1) {
+    return getRootParent(pg, parents[0]);
+  } else {
+    taco_ierror << "can we get here?" << std::endl;
+    return IndexVar();
+  }
+}
+
+struct GEMM::Content {
+  std::vector<TensorVar> tensorVars;
+  std::vector<IndexVar> ivars;
+  IndexVar rootIvar;
+};
+
+GEMM::GEMM() : content(new Content) {}
+
+void GEMM::print(std::ostream &os) const {
+  os << "GEMM";
+}
+
+IndexVar GEMM::getRootIvar() const {
+  return this->content->rootIvar;
+}
+
+void GEMM::canApply(IndexStmt stmt, ProvenanceGraph pg, IndexVar root, std::string *reason) const {
+  INIT_REASON(reason);
+
+  // Find the target set of loops we want to replace with a GEMM call.
+  struct Finder : IndexNotationVisitor {
+    void visit(const ForallNode* node) {
+      if (node->indexVar == this->target) {
+        this->root = node;
+      }
+      node->stmt.accept(this);
+    }
+
+    IndexStmt root;
+    IndexVar target;
+  };
+  Finder f; f.target = root;
+  stmt.accept(&f);
+
+  auto rootStmt = f.root;
+
+  struct IVarCollector : IndexNotationVisitor {
+    void visit(const ForallNode* node) {
+      this->vars.push_back(node->indexVar);
+      node->stmt.accept(this);
+    }
+    std::vector<IndexVar> vars;
+  };
+  IVarCollector c;
+  rootStmt.accept(&c);
+
+  auto indexVars = c.vars;
+
+  if (indexVars.size() != 3) {
+    taco_uerror << "vars to replace must be 3 nested loops.";
+  }
+
+  std::vector<IndexVar> rootVars;
+  for (auto var : indexVars) {
+    rootVars.push_back(getRootParent(pg, var));
+  }
+
+  // Get out the assignment.
+  taco_iassert(isa<Forall>(rootStmt)); auto iloop = to<Forall>(rootStmt);
+  taco_iassert(isa<Forall>(iloop.getStmt())); auto jloop = to<Forall>(iloop.getStmt());
+  taco_iassert(isa<Forall>(jloop.getStmt())); auto kloop = to<Forall>(jloop.getStmt());
+  taco_iassert(isa<Assignment>(kloop.getStmt())); auto assign = to<Assignment>(kloop.getStmt());
+  // Extract out the tensors.
+  taco_iassert(isa<Access>(assign.getLhs())); auto A = to<Access>(assign.getLhs());
+  taco_iassert(isa<Mul>(assign.getRhs())); auto mul = to<Mul>(assign.getRhs());
+  taco_iassert(isa<Access>(mul.getA())); auto B = to<Access>(mul.getA());
+  taco_iassert(isa<Access>(mul.getB())); auto C = to<Access>(mul.getB());
+  // Ensure that the variables are set up right.
+  taco_iassert(compare(A.getIndexVars(), {rootVars[0], rootVars[1]}));
+  taco_iassert(compare(B.getIndexVars(), {rootVars[0], rootVars[2]}));
+  taco_iassert(compare(C.getIndexVars(), {rootVars[2], rootVars[1]}));
+
+  taco_iassert(A.getTensorVar().getType().getDataType().isFloat());
+  taco_iassert(A.getTensorVar().getType().getDataType() == B.getTensorVar().getType().getDataType());
+  taco_iassert(B.getTensorVar().getType().getDataType() == C.getTensorVar().getType().getDataType());
+
+  // At this point, we've found a matrix multiply that we can use.
+  this->content->ivars = indexVars;
+  this->content->tensorVars = {A.getTensorVar(), B.getTensorVar(), C.getTensorVar()};
+  this->content->rootIvar = root;
+}
+
+ir::Stmt GEMM::replaceValidStmt(IndexStmt stmt,
+                          ProvenanceGraph pg,
+                          std::map<TensorVar, ir::Expr> tensorVars,
+                          bool inReduction,
+                          std::vector<IndexVar> definedVarOrder,
+                          std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
+                          std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                          Iterators iterators
+) const {
+  // TODO (rohany): We could walk the statement again here and make sure that it's
+  //  the same as the one we verified etc.
+
+  auto ctx = ir::Symbol::make("ctx");
+  auto rowMajor = ir::Symbol::make("CblasRowMajor");
+  auto noTrans = ir::Symbol::make("CblasNoTrans");
+
+  std::vector<ir::Expr> tvars;
+  for (auto var : this->content->tensorVars) {
+    tvars.push_back(tensorVars[var]);
+  }
+  auto ibounds = pg.deriveIterBounds(this->content->ivars[0], definedVarOrder, underivedBounds, variableNames, iterators);
+  auto jbounds = pg.deriveIterBounds(this->content->ivars[1], definedVarOrder, underivedBounds, variableNames, iterators);
+  auto kbounds = pg.deriveIterBounds(this->content->ivars[2], definedVarOrder, underivedBounds, variableNames, iterators);
+
+  auto aAccess = ir::GetProperty::make(tvars[0], ir::TensorProperty::ValuesWriteAccessor, this->content->tensorVars[0].getOrder());
+  if (inReduction) {
+    aAccess = ir::GetProperty::make(tvars[0], ir::TensorProperty::ValuesReductionAccessor, this->content->tensorVars[0].getOrder());
+  }
+  auto bAccess = ir::GetProperty::make(tvars[1], ir::TensorProperty::ValuesReadAccessor, this->content->tensorVars[1].getOrder());
+  auto cAccess = ir::GetProperty::make(tvars[2], ir::TensorProperty::ValuesReadAccessor, this->content->tensorVars[2].getOrder());
+
+  // We'll declare our own partition bounds here, and let the lowering machinery
+  // emit the partition bounds used in the loop guards.
+  auto aIndexSpace = ir::GetProperty::make(tvars[0], ir::TensorProperty::IndexSpace);
+  auto bIndexSpace = ir::GetProperty::make(tvars[1], ir::TensorProperty::IndexSpace);
+  auto cIndexSpace = ir::GetProperty::make(tvars[2], ir::TensorProperty::IndexSpace);
+
+  auto aBounds = ir::MethodCall::make(ir::Call::make("runtime->get_index_space_domain", {ctx, aIndexSpace}, Auto), "lo", {}, false /* deref */, Auto);
+  auto bBounds = ir::MethodCall::make(ir::Call::make("runtime->get_index_space_domain", {ctx, bIndexSpace}, Auto), "lo", {}, false /* deref */, Auto);
+  auto cBounds = ir::MethodCall::make(ir::Call::make("runtime->get_index_space_domain", {ctx, cIndexSpace}, Auto), "lo", {}, false /* deref */, Auto);
+
+  auto type = Type(this->content->tensorVars[0].getType().getDataType());
+  auto ldA = ir::Div::make(
+    ir::Load::make(ir::FieldAccess::make(ir::FieldAccess::make(aAccess, "accessor", false, Auto), "strides", false, Int64), 0),
+    ir::Sizeof::make(type)
+  );
+  auto ldB = ir::Div::make(
+    ir::Load::make(ir::FieldAccess::make(ir::FieldAccess::make(bAccess, "accessor", false, Auto), "strides", false, Int64), 0),
+    ir::Sizeof::make(type)
+  );
+  auto ldC = ir::Div::make(
+    ir::Load::make(ir::FieldAccess::make(ir::FieldAccess::make(cAccess, "accessor", false, Auto), "strides", false, Int64), 0),
+    ir::Sizeof::make(type)
+  );
+
+  std::vector<ir::Expr> args = {
+      rowMajor,
+      noTrans,
+      noTrans,
+      ir::Sub::make(ibounds[1], ibounds[0]),
+      ir::Sub::make(jbounds[1], jbounds[0]),
+      ir::Sub::make(kbounds[1], kbounds[0]),
+      1.f,
+      ir::MethodCall::make(bAccess, "ptr", {bBounds}, false /* deref */, Auto),
+      ldB,
+      ir::MethodCall::make(cAccess, "ptr", {cBounds}, false /* deref */, Auto),
+      ldC,
+      1.f,
+      ir::MethodCall::make(aAccess, "ptr", {aBounds}, false /* deref */, Auto),
+      ldA,
+  };
+
+  // TODO (rohany): Pick the right call between double and float here.
+  return ir::SideEffect::make(ir::Call::make("cblas_dgemm", args, Auto));
+}
+
 
 // Autoscheduling functions
 
@@ -1627,10 +1806,6 @@ IndexStmt scalarPromote(IndexStmt stmt, ProvenanceGraph provGraph,
 
 IndexStmt scalarPromote(IndexStmt stmt) {
   return scalarPromote(stmt, ProvenanceGraph(stmt), true, false);
-}
-
-static bool compare(std::vector<IndexVar> vars1, std::vector<IndexVar> vars2) {
-  return vars1 == vars2;
 }
 
 // TODO Temporary function to insert workspaces into SpMM kernels

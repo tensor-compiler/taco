@@ -347,7 +347,7 @@ struct MultiNode : public IndexStmtNode {
 };
 
 struct SuchThatNode : public IndexStmtNode {
-  SuchThatNode(IndexStmt stmt, std::vector<IndexVarRel> predicate) : stmt(stmt), predicate(predicate) {}
+  SuchThatNode(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls) : stmt(stmt), predicate(predicate), calls(calls) {}
 
   void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
@@ -355,6 +355,7 @@ struct SuchThatNode : public IndexStmtNode {
 
   IndexStmt stmt;
   std::vector<IndexVarRel> predicate;
+  std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls;
 };
 
 struct SequenceNode : public IndexStmtNode {

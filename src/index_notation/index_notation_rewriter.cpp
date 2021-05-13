@@ -213,7 +213,7 @@ void IndexNotationRewriter::visit(const SuchThatNode* op) {
     stmt = op;
   }
   else {
-    stmt = new SuchThatNode(s, op->predicate);
+    stmt = new SuchThatNode(s, op->predicate, op->calls);
   }
 }
 

@@ -1995,6 +1995,21 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     }
   }
 
+  // If this forall is supposed to be replaced with a call to a leaf kernel,
+  // do so and don't emit the surrounding loop and recovery statements.
+  if (util::contains(this->calls, forall.getIndexVar())) {
+    return Block::make({declarePartitionBounds, this->calls[forall.getIndexVar()]->replaceValidStmt(
+        forall,
+        this->provGraph,
+        this->tensorVars,
+        this->performingLegionReduction,
+        this->definedIndexVarsOrdered,
+        this->underivedBounds,
+        this->indexVarToExprMap,
+        this->iterators
+    )});
+  }
+
   body = Block::make({recoveryStmt, declarePartitionBounds, body});
 
   Stmt posAppend = generateAppendPositions(appenders);
@@ -3095,6 +3110,8 @@ Stmt LowererImpl::lowerMulti(Multi multi) {
 }
 
 Stmt LowererImpl::lowerSuchThat(SuchThat suchThat) {
+  auto scalls = suchThat.getCalls();
+  this->calls.insert(scalls.begin(), scalls.end());
   Stmt stmt = lower(suchThat.getStmt());
   return Block::make(stmt);
 }

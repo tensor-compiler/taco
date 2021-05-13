@@ -537,6 +537,7 @@ private:
   Grid placementGrid;
 
   std::map<IndexVar, int> indexVarFaces;
+  std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls;
 };
 
 }

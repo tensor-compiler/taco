@@ -1671,6 +1671,21 @@ IndexStmt IndexStmt::stagger(IndexVar target, std::vector<IndexVar> staggerBy, I
   return stmt;
 }
 
+IndexStmt IndexStmt::swapLeafKernel(IndexVar root, std::shared_ptr<LeafCallInterface> call) {
+  string reason;
+
+  call->canApply(*this, ProvenanceGraph(*this), root);
+
+  std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls;
+  calls[root] = call;
+  auto stmt = Transformation(AddSuchThatPredicates({}, calls)).apply(*this, &reason);
+  if (!stmt.defined()) {
+    taco_uerror << reason;
+  }
+
+  return stmt;
+}
+
 IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
   // check access is contained in stmt
   bool foundAccess = false;
@@ -2081,8 +2096,8 @@ template <> Multi to<Multi>(IndexStmt s) {
 SuchThat::SuchThat(const SuchThatNode* n) : IndexStmt(n) {
 }
 
-SuchThat::SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate)
-        : SuchThat(new SuchThatNode(stmt, predicate)) {
+SuchThat::SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls)
+        : SuchThat(new SuchThatNode(stmt, predicate, calls)) {
 }
 
 IndexStmt SuchThat::getStmt() const {
@@ -2093,8 +2108,12 @@ std::vector<IndexVarRel> SuchThat::getPredicate() const {
   return getNode(*this)->predicate;
 }
 
-SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate) {
-  return SuchThat(stmt, predicate);
+std::map<IndexVar, std::shared_ptr<LeafCallInterface>> SuchThat::getCalls() const {
+  return getNode(*this)->calls;
+}
+
+SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls) {
+  return SuchThat(stmt, predicate, calls);
 }
 
 template <> bool isa<SuchThat>(IndexStmt s) {
@@ -3292,7 +3311,7 @@ private:
       stmt = op;
     }
     else {
-      stmt = new SuchThatNode(body, op->predicate);
+      stmt = new SuchThatNode(body, op->predicate, op->calls);
     }
   }
 

@@ -22,6 +22,7 @@
 #include "taco/ir_tags.h"
 #include "taco/index_notation/provenance_graph.h"
 #include "taco/index_notation/distribution.h"
+#include "taco/index_notation/transformations.h"
 
 namespace taco {
 
@@ -68,6 +69,8 @@ struct SuchThatNode;
 
 class IndexExprVisitorStrict;
 class IndexStmtVisitorStrict;
+
+class LeafCallInterface;
 
 /// A tensor index expression describes a tensor computation as a scalar
 /// expression where tensors are indexed by index variables (`IndexVar`).  The
@@ -637,6 +640,8 @@ public:
 
   IndexStmt stagger(IndexVar target, std::vector<IndexVar> staggerBy, IndexVar result);
 
+  IndexStmt swapLeafKernel(IndexVar root, std::shared_ptr<LeafCallInterface> call);
+
   /// pos and coord create
   /// new index variables in their respective iteration spaces.
   /// pos requires a tensor access expression as input, that
@@ -1032,16 +1037,17 @@ class SuchThat : public IndexStmt {
 public:
   SuchThat() = default;
   SuchThat(const SuchThatNode*);
-  SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
+  SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls);
 
   IndexStmt getStmt() const;
   std::vector<IndexVarRel> getPredicate() const;
+  std::map<IndexVar, std::shared_ptr<LeafCallInterface>> getCalls() const;
 
   typedef SuchThatNode Node;
 };
 
 /// Create a suchthat index statement.
-SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
+SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls);
 
 /// A tensor variable in an index expression, which can either be an operand
 /// or the result of the expression.

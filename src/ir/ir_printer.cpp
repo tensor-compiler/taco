@@ -243,7 +243,26 @@ void IRPrinter::visit(const Cast* op) {
 void IRPrinter::visit(const Call* op) {
   stream << op->func << "(";
   parentPrecedence = Precedence::CALL;
-  acceptJoin(this, stream, op->args, ", ");
+  if (op->args.size() > 5) {
+    // For functions with alot of arguments, it's easier to read if we
+    // print the arguments out on separate lines.
+    indent++;
+    stream << "\n";
+    auto first = true;
+    for (auto arg : op->args) {
+      if (!first) {
+        stream << ",\n";
+      }
+      doIndent();
+      arg.accept(this);
+      first = false;
+    }
+    stream << "\n";
+    indent--;
+    doIndent();
+  } else {
+    acceptJoin(this, stream, op->args, ", ");
+  }
   stream << ")";
 }
 

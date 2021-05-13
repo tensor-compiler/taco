@@ -24,6 +24,8 @@ class Parallelize;
 class TopoReorder;
 class SetAssembleStrategy;
 
+class Grid;
+
 /// A transformation is an optimization that transforms a statement in the
 /// concrete index notation into a new statement that computes the same result
 /// in a different way.  Transformations affect the order things are computed
@@ -55,6 +57,43 @@ public:
   virtual void print(std::ostream &os) const = 0;
 };
 
+class LeafCallInterface {
+public:
+  virtual ~LeafCallInterface() = default;
+  virtual IndexVar getRootIvar() const = 0;
+  virtual void canApply(IndexStmt stmt, ProvenanceGraph pg, IndexVar root, std::string* reason = nullptr) const = 0;
+  virtual ir::Stmt replaceValidStmt(IndexStmt stmt,
+                            ProvenanceGraph pg,
+                            std::map<TensorVar, ir::Expr> tensorVars,
+                            bool inReduction,
+                            std::vector<IndexVar> definedVarOrder,
+                            std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
+                            std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                            Iterators iterators
+  ) const = 0;
+  virtual void print(std::ostream &os) const = 0;
+};
+
+class GEMM : public LeafCallInterface {
+public:
+  GEMM();
+  IndexVar getRootIvar() const;
+  void canApply(IndexStmt stmt, ProvenanceGraph pg, IndexVar root, std::string* reason = nullptr) const;
+  ir::Stmt replaceValidStmt(IndexStmt stmt,
+                            ProvenanceGraph pg,
+                            std::map<TensorVar, ir::Expr> tensorVars,
+                            bool inReduction,
+                            std::vector<IndexVar> definedVarOrder,
+                            std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
+                            std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                            Iterators iterators
+  ) const;
+  void print(std::ostream& os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
 
 /// The reorder optimization rewrites an index statement to swap the order of
 /// the `i` and `j` loops.
@@ -142,7 +181,7 @@ class AddSuchThatPredicates : public TransformationInterface {
 public:
   AddSuchThatPredicates();
 
-  AddSuchThatPredicates(std::vector<IndexVarRel> predicates);
+  AddSuchThatPredicates(std::vector<IndexVarRel> predicates, std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls = {});
 
   std::vector<IndexVarRel> getPredicates() const;
 
