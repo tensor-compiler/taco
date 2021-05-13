@@ -4,6 +4,7 @@
 
 #include "legion.h"
 #include "taco_legion_header.h"
+#include "mappers/default_mapper.h"
 
 template<typename T>
 void allocate_tensor_fields(Legion::Context ctx, Legion::Runtime* runtime, Legion::FieldSpace valSpace) {
@@ -17,9 +18,14 @@ Legion::PhysicalRegion getRegionToWrite(Legion::Context ctx, Legion::Runtime* ru
 const int TACO_FILL_TASK = 1;
 template<typename T>
 void tacoFill(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegion r, T val) {
-  Legion::TaskLauncher l(TACO_FILL_TASK, Legion::TaskArgument(&val, sizeof(T)));
-  l.add_region_requirement(Legion::RegionRequirement(r, WRITE_ONLY, EXCLUSIVE, r).add_field(FID_VAL));
-  runtime->execute_task(ctx, l);
+  // TODO (rohany): We can make this choose between GPU's, CPU's and OpenMP procs later.
+  auto pieces = runtime->select_tunable_value(ctx, Legion::Mapping::DefaultMapper::DEFAULT_TUNABLE_GLOBAL_CPUS).get<size_t>();
+  auto ispace = runtime->create_index_space(ctx, pieces);
+  auto ipart = runtime->create_equal_partition(ctx, r.get_index_space(), ispace);
+  auto lpart = runtime->get_logical_partition(ctx, r, ipart);
+  Legion::IndexLauncher l(TACO_FILL_TASK, runtime->get_index_space_domain(ispace), Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
+  l.add_region_requirement(Legion::RegionRequirement(lpart, 0, WRITE_ONLY, EXCLUSIVE, r).add_field(FID_VAL));
+  runtime->execute_index_space(ctx, l);
 }
 
 template<typename T>
