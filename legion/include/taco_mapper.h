@@ -45,8 +45,15 @@ public:
       // they were sliced to.
       target_procs.push_back(task.target_proc);
     } else if (std::string(task.get_task_name()).find("task_") != std::string::npos) {
-      // Other point tasks should stay on the originating processor.
-      target_procs.push_back(task.orig_proc);
+      // Other point tasks should stay on the originating processor, if they are
+      // using a CPU Proc. Otherwise, send the tasks where the default mapper
+      // says they should go. I think that the heuristics for OMP_PROC and TOC_PROC
+      // are correct for our use case.
+      if (task.target_proc.kind() == task.orig_proc.kind()) {
+        target_procs.push_back(task.orig_proc);
+      } else {
+        DefaultMapper::default_policy_select_target_processors(ctx, task, target_procs);
+      }
     } else {
       DefaultMapper::default_policy_select_target_processors(ctx, task, target_procs);
     }
