@@ -2,8 +2,8 @@
 #include "taco_mapper.h"
 #define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))
 using namespace Legion;
-typedef FieldAccessor<READ_ONLY,int32_t,2,coord_t,Realm::AffineAccessor<int32_t,2,coord_t>> AccessorROint32_t2;
-typedef FieldAccessor<READ_WRITE,int32_t,2,coord_t,Realm::AffineAccessor<int32_t,2,coord_t>> AccessorRWint32_t2;
+typedef FieldAccessor<READ_ONLY,double,2,coord_t,Realm::AffineAccessor<double,2,coord_t>> AccessorROdouble2;
+typedef FieldAccessor<READ_WRITE,double,2,coord_t,Realm::AffineAccessor<double,2,coord_t>> AccessorRWdouble2;
 
 struct task_1Args {
 };
@@ -163,9 +163,9 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t kos = args->kos;
 
   auto a_index_space = get_index_space(a);
-  AccessorROint32_t2 c_vals(c, FID_VAL);
-  AccessorROint32_t2 b_vals(b, FID_VAL);
-  AccessorRWint32_t2 a_vals(a, FID_VAL);
+  AccessorROdouble2 b_vals(b, FID_VAL);
+  AccessorROdouble2 c_vals(c, FID_VAL);
+  AccessorRWdouble2 a_vals(a, FID_VAL);
 
   int32_t ko = (jn + (in + kos)) % 2;
   auto aPartitionBounds = runtime->get_index_space_domain(ctx, a_index_space);
@@ -206,8 +206,8 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t c1_dimension = args->c1_dimension;
   int32_t c2_dimension = args->c2_dimension;
 
-  auto b_index_space = get_index_space(b);
   auto c_index_space = get_index_space(c);
+  auto b_index_space = get_index_space(b);
   auto a_index_space = get_index_space(a);
 
   int32_t in = getIndexPoint(task, 0);

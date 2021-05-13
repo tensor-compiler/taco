@@ -18,4 +18,4 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto part = placeLegion(ctx, runtime, A);
 }
 
-TACO_MAIN()
+TACO_MAIN(int32_t)

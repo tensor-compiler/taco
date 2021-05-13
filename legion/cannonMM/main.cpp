@@ -4,6 +4,8 @@
 
 using namespace Legion;
 
+typedef double valType;
+
 // Defined by the generated TACO code.
 void registerTacoTasks();
 LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a);
@@ -28,12 +30,12 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   }
 
   auto fspace = runtime->create_field_space(ctx);
-  allocate_tensor_fields<int32_t>(ctx, runtime, fspace);
+  allocate_tensor_fields<valType>(ctx, runtime, fspace);
   auto ispace = runtime->create_index_space(ctx, Rect<2>({0, 0}, {n - 1, n - 1}));
   auto A = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(A, "A");
   auto B = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(B, "B");
   auto C = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(C, "C");
-  tacoFill(ctx, runtime, A, 0); tacoFill(ctx, runtime, B, 1); tacoFill(ctx, runtime, C, 1);
+  tacoFill<valType>(ctx, runtime, A, 0); tacoFill<valType>(ctx, runtime, B, 1); tacoFill<valType>(ctx, runtime, C, 1);
 
   // Place the tensors.
   auto part = placeLegionA(ctx, runtime, A);
@@ -44,7 +46,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   benchmark([&]() { computeLegion(ctx, runtime, A, B, C, part); });
 
   auto a_reg = getRegionToWrite(ctx, runtime, A, A);
-  FieldAccessor<READ_WRITE,int32_t,2,coord_t, Realm::AffineAccessor<int32_t, 2, coord_t>> a_rw(a_reg, FID_VAL);
+  FieldAccessor<READ_WRITE,valType,2,coord_t, Realm::AffineAccessor<valType, 2, coord_t>> a_rw(a_reg, FID_VAL);
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < n; j++) {
       assert(a_rw[Point<2>(i, j)] == n);
@@ -53,4 +55,4 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   runtime->unmap_region(ctx, a_reg);
 }
 
-TACO_MAIN()
+TACO_MAIN(valType)

@@ -122,9 +122,9 @@ TEST(distributed, summaMM) {
 
 TEST(distributed, cannonMM) {
   int dim = 10;
-  Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
-  Tensor<int> b("b", {dim, dim}, Format{Dense, Dense});
-  Tensor<int> c("c", {dim, dim}, Format{Dense, Dense});
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense});
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense});
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense});
 
   // Place each tensor onto a processor grid.
   auto grid = Grid(2, 2);
