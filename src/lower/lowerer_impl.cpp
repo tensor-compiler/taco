@@ -697,13 +697,16 @@ Stmt LowererImpl::lowerForall(Forall forall)
                                         getArgumentAccesses(forall),
                                         reducedAccesses);
 
-  // Emit temporary initialization if forall is sequential or parallelized by cpu threads and leads to a where statement
+  // Emit temporary initialization if forall is sequential or parallelized by
+  // cpu threads and leads to a where statement
   // This is for workspace hoisting by 1-level
   vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
   auto temp = temporaryInitialization.find(forall);
-  if (temp != temporaryInitialization.end() && forall.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temp->second.getTemporary().getType()))
+  if (temp != temporaryInitialization.end() && forall.getParallelUnit() ==
+      ParallelUnit::NotParallel && !isScalar(temp->second.getTemporary().getType()))
     temporaryValuesInitFree = codeToInitializeTemporary(temp->second);
-  else if (temp != temporaryInitialization.end() && forall.getParallelUnit() == ParallelUnit::CPUThread && !isScalar(temp->second.getTemporary().getType())) {
+  else if (temp != temporaryInitialization.end() && forall.getParallelUnit() ==
+           ParallelUnit::CPUThread && !isScalar(temp->second.getTemporary().getType())) {
     temporaryValuesInitFree = codeToInitializeTemporaryParallel(temp->second, forall.getParallelUnit());
   }
 
@@ -2117,9 +2120,11 @@ Stmt LowererImpl::lowerWhere(Where where) {
   vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
   bool temporaryHoisted = false;
   for (auto it = temporaryInitialization.begin(); it != temporaryInitialization.end(); ++it) {
-    if (it->second == where && it->first.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temporary.getType())) {
+    if (it->second == where && it->first.getParallelUnit() ==
+        ParallelUnit::NotParallel && !isScalar(temporary.getType())) {
       temporaryHoisted = true;
-    } else if (it->second == where && it->first.getParallelUnit() == ParallelUnit::CPUThread && !isScalar(temporary.getType())) {
+    } else if (it->second == where && it->first.getParallelUnit() ==
+               ParallelUnit::CPUThread && !isScalar(temporary.getType())) {
       temporaryHoisted = true;
       auto decls = codeToInitializeLocalTemporaryParallel(where, it->first.getParallelUnit());
 
