@@ -587,11 +587,20 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
     map<TensorVar,ir::Expr> tensorVars;
     vector<ir::Expr> assembledByUngroupedInsert;
     set<IndexVar> definedIndexVars;
+    set<IndexVar> reductionIndexVars;
     set<ParallelUnit> parentParallelUnits;
     std::string reason = "";
 
     IndexStmt rewriteParallel(IndexStmt stmt) {
       provGraph = ProvenanceGraph(stmt);
+      const auto reductionVars = getReductionVars(stmt);
+      for (const auto& iv : stmt.getIndexVars()) {
+        if (util::contains(reductionVars, iv)) {
+          for (const auto& rv : provGraph.getFullyDerivedDescendants(iv)) {
+            reductionIndexVars.insert(rv);
+          }
+        }
+      }
       tensorVars = createIRTensorVars(stmt);
       assembledByUngroupedInsert.clear();
       for (const auto& result : getAssembledByUngroupedInsertion(stmt)) {
@@ -604,22 +613,20 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
       Forall foralli(node);
       IndexVar i = parallelize.geti();
 
-      Iterators iterators(foralli, tensorVars);
       definedIndexVars.insert(foralli.getIndexVar());
-      MergeLattice lattice = MergeLattice::make(foralli, iterators, provGraph, definedIndexVars);
-      // Precondition 1: No parallelization of variables under a reduction
-      // variable (ie MergePoint has at least 1 result iterators)
-      if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::NoRaces &&
-          (lattice.results().empty() || lattice.results()[0].getIndexVar() != foralli.getIndexVar()) &&
-          lattice != MergeLattice({MergePoint({iterators.modeIterator(foralli.getIndexVar())}, {}, {})}) &&
-          util::contains(foralli.getIndexVars(), i)) {
-        reason = "Precondition failed: Free variables cannot be dominated by "
-                 "reduction variables in the iteration graph as this causes "
-                 "scatter behavior, which requires synchronization";
-        return;
-      }
 
       if (foralli.getIndexVar() == i) {
+        // Precondition 1: No parallelization of reduction variables
+        if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::NoRaces &&
+            util::contains(reductionIndexVars, i)) {
+          reason = "Precondition failed: Cannot parallelize reduction loops "
+                   "without synchronization";
+          return;
+        }
+
+        Iterators iterators(foralli, tensorVars);
+        MergeLattice lattice = MergeLattice::make(foralli, iterators, provGraph, definedIndexVars);
+
         // Precondition 2: No coiteration of mode (ie Merge Lattice has only 1 iterator)
         if (lattice.iterators().size() != 1) {
           reason = "Precondition failed: The loop must not merge tensor dimensions, that is, it must be a for loop;";
@@ -1174,12 +1181,20 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
   string reason;
 
   if (should_use_CUDA_codegen()) {
+    for (const auto& temp : getTemporaries(stmt)) {
+      // Don't parallelize computations that use non-scalar temporaries. 
+      if (temp.getOrder() > 0) {
+        return stmt;
+      }
+    }
+
     IndexVar i1, i2;
     IndexStmt parallelized256 = stmt.split(forall.getIndexVar(), i1, i2, 256);
     parallelized256 = Parallelize(i1, ParallelUnit::GPUBlock, OutputRaceStrategy::NoRaces).apply(parallelized256, &reason);
     if (parallelized256 == IndexStmt()) {
       return stmt;
     }
+
     parallelized256 = Parallelize(i2, ParallelUnit::GPUThread, OutputRaceStrategy::NoRaces).apply(parallelized256, &reason);
     if (parallelized256 == IndexStmt()) {
       return stmt;
@@ -1474,7 +1489,14 @@ IndexStmt scalarPromote(IndexStmt stmt, ProvenanceGraph provGraph,
             !util::contains(hoistLevel, resultAccess)) {
           hoistLevel[resultAccess] = node;
           hoistIndices[resultAccess] = indices;
-          if (!isWholeStmt || resultIndices != derivedIndices) {
+
+          auto resultDerivedIndices = resultIndices;
+          for (const auto& iv : resultIndices) {
+            for (const auto& div : provGraph.getFullyDerivedDescendants(iv)) {
+              resultDerivedIndices.insert(div);
+            }
+          }
+          if (!isWholeStmt || resultDerivedIndices != derivedIndices) {
             reduceOp[resultAccess] = IndexExpr();
           }
         }

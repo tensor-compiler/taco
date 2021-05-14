@@ -9,6 +9,10 @@
 #include "taco/type.h"
 #include "taco/tensor.h"
 
+#if CUDA_BUILT
+#include <cuda_runtime_api.h>
+#endif
+
 // Add Python dictionary initializer with {tuple(coordinate) : data} pairs
 
 
@@ -53,7 +57,17 @@ static Tensor<T> fromNpArr(py::buffer_info& array_buffer, Format& fmt, bool copy
   TensorStorage& storage = tensor.getStorage();
   void *buf_data = array_buffer.ptr;
   Array::Policy policy = Array::Policy::UserOwns;
-  if(copy){
+  if(should_use_CUDA_codegen()){
+#if CUDA_BUILT
+    taco_iassert(should_use_CUDA_unified_memory());
+    buf_data = cuda_unified_alloc(size * array_buffer.itemsize);
+    cudaMemcpy(buf_data, array_buffer.ptr, size * array_buffer.itemsize, cudaMemcpyDefault);
+    policy = Array::Policy::Free;
+#else
+    taco_iassert(false);
+#endif
+  }
+  else if(copy){
     buf_data = new T[size];
     memcpy(buf_data, array_buffer.ptr, size*array_buffer.itemsize);
     policy = Array::Policy::Delete;
@@ -106,7 +120,12 @@ static Tensor<T> fromSpMatrix(py::array_t<IdxType> &ind_ptr, py::array_t<IdxType
   T *mat_data = static_cast<T *>(data_buf.ptr);
   Array::Policy policy = Array::Policy::UserOwns;
 
-  if(copy){
+  if(should_use_CUDA_codegen()){
+    taco_iassert(should_use_CUDA_unified_memory());
+    // TODO: Should copy arrays to unified memory
+    taco_not_supported_yet;
+  }
+  else if(copy){
     mat_ptr = new IdxType[ind_ptr_buf.size];
     mat_ind = new IdxType[inds_buf.size];
     mat_data = new T[data_buf.size];
@@ -129,7 +148,6 @@ static Tensor<T> fromSpMatrix(py::array_t<IdxType> &ind_ptr, py::array_t<IdxType
 
 template<typename T>
 static py::tuple toSpMatrix(Tensor<T> &tensor, bool tocsr) {
-
   if(tensor.getOrder() != 2) {
     throw py::value_error("Must be a matrix to convert to scipy");
   }
@@ -198,7 +216,6 @@ static py::tuple toSpMatrix(Tensor<T> &tensor, bool tocsr) {
   py::array_t<T> val_arr({val_arr_size}, {sizeof(T)}, np_vals, free_vals);
 
   return py::make_tuple(ptr_arr, idx_arr, val_arr);
-
 }
 
 template<typename CType, typename idxVar>

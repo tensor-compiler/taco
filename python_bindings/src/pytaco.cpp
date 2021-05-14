@@ -11,6 +11,8 @@
 void addHelpers(py::module &m) {
   m.def("unique_name", (std::string(*)(char)) &taco::util::uniqueName);
 
+  m.def("should_use_cuda_codegen", &taco::should_use_CUDA_codegen);
+
   py::options options;
   options.disable_function_signatures();
 

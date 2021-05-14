@@ -178,10 +178,14 @@ static std::set<Expr> hasSparseInserts(IndexStmt stmt, Iterators iterators,
       definedIndexVars.insert(op->indexVar);
       const auto lattice = MergeLattice::make(Forall(op), iterators, 
                                               provGraph, definedIndexVars);
-      if (!any(lattice.iterators(), [](Iterator it){ return it.isFull(); })) {
+      if (any(lattice.iterators(), 
+              [](Iterator it){ return !it.isFull() && 
+                                      !it.isDimensionIterator(); }) ||
+          any(lattice.points()[0].locators(), 
+              [](Iterator it) { return !it.isFull(); })) {
         for (const auto& result : lattice.results()) {
-          // FIXME: Also zero init if result is assembled by ungrouped insertion 
-          // and is not compact or not unpadded (i.e., if result allocates 
+          // FIXME: Also zero init if result is assembled by ungrouped insertion
+          // and is not compact or not unpadded (i.e., if result allocates
           // additional space for components that aren't explicitly inserted)
           if (result.hasInsert()) {
             ret.insert(result.getTensor());
@@ -646,19 +650,25 @@ Stmt LowererImpl::lowerForall(Forall forall)
       vector<IndexVar> children = provGraph.getChildren(varToRecover);
       bool hasDirectDivBound = false;
       std::vector<ir::Expr> iterBoundsInner = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
-
-        for (auto& c: children) {
-          if (provGraph.hasExactBound(c) && provGraph.derivationPath(varToRecover, c).size() == 2) {
-              std::vector<ir::Expr> iterBoundsUnderivedChild = provGraph.deriveIterBounds(c, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
-              if (iterBoundsUnderivedChild[1].as<ir::Literal>()->getValue<int>() % iterBoundsInner[1].as<ir::Literal>()->getValue<int>() == 0)
+      for (auto& c: children) {
+        if (provGraph.hasExactBound(c) && 
+            provGraph.derivationPath(varToRecover, c).size() == 2) {
+            const auto iterBoundsUnderivedChild = 
+                provGraph.deriveIterBounds(c, definedIndexVarsOrdered, 
+                                           underivedBounds, indexVarToExprMap, 
+                                           iterators);
+            if (iterBoundsUnderivedChild[1].as<ir::Literal>()->getValue<int>() % 
+                iterBoundsInner[1].as<ir::Literal>()->getValue<int>() == 0) {
               hasDirectDivBound = true;
               break;
-          }
+            }
+        }
       }
       if (!hasDirectDivBound) {
-          Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]),
-                                        Continue::make());
-          recoverySteps.push_back(guard);
+        Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], 
+                                      underivedBounds[varToRecover][1]),
+                                      Continue::make());
+        recoverySteps.push_back(guard);
       }
     }
 

@@ -5,6 +5,9 @@ add_subdirectory(pybind11)
 include_directories(${PYTHON_INCLUDE_DIRS})
 include_directories(${TACO_INCLUDE_DIR})
 include_directories(${TACO_PROJECT_DIR}/python_bindings/include)
+if(CUDA)
+  include_directories(${CUDA_INCLUDE_DIRS})
+endif(CUDA)
 
 set(PY_SRC_DIRS src)
 
