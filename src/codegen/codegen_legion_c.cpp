@@ -4,6 +4,8 @@
 #include "taco/ir/ir_rewriter.h"
 #include <algorithm>
 
+#include "taco/version.h"
+
 namespace taco {
 namespace ir {
 
@@ -574,18 +576,9 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
           if (node->isTask) {
             this->isLeaf = false;
           }
-          if (node->parallel_unit == ParallelUnit::CPUThread) {
-            this->usesOpenMP = true;
-          }
           node->contents.accept(this);
         }
-        void visit(const Call* node) {
-          if (node->func.find("blas") != std::string::npos) {
-            this->usesOpenMP = true;
-          }
-        }
         bool isLeaf = true;
-        bool usesOpenMP = false;
       };
       LeafTaskFinder finder;
       forL->contents.accept(&finder);
@@ -598,7 +591,7 @@ void CodegenLegionC::compile(Stmt stmt, bool isFirst) {
       out << "TaskVariantRegistrar registrar(taskID(" << forL->taskID << "), \"" << func->name << "\");\n";
 
       doIndent();
-      if (finder.usesOpenMP && finder.isLeaf) {
+      if (TACO_FEATURE_OPENMP) {
         out << "registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));\n";
       } else {
         out << "registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));\n";

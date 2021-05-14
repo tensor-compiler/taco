@@ -18,7 +18,7 @@ set(TACO_HEADERS ${TACO_HEADERS} ../include/taco/ir_tags.h)
 set(TACO_SOURCES ${TACO_SOURCES} ir_tags.cpp)
 
 add_definitions(${TACO_DEFINITIONS})
-include_directories(${TACO_SRC_DIR})
+include_directories(${TACO_SRC_DIR} "${CMAKE_BINARY_DIR}/include")
 add_library(taco ${TACO_LIBRARY_TYPE} ${TACO_HEADERS} ${TACO_SOURCES})
 if (CUDA)
   include_directories(${CUDA_INCLUDE_DIRS})

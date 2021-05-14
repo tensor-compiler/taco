@@ -1,7 +1,7 @@
 find_package(Legion REQUIRED)
 
 # Include the headers and supporting source files.
-include_directories(include/ OpenBLAS/install/include)
+include_directories(include/ OpenBLAS/install/include "${CMAKE_BINARY_DIR}/include")
 link_directories(OpenBLAS/install/lib)
 file(GLOB LG_SOURCES src/*)
 

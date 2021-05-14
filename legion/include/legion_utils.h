@@ -5,6 +5,7 @@
 #include "legion.h"
 #include "taco_legion_header.h"
 #include "mappers/default_mapper.h"
+#include "taco/version.h"
 
 template<typename T>
 void allocate_tensor_fields(Legion::Context ctx, Legion::Runtime* runtime, Legion::FieldSpace valSpace) {
@@ -58,12 +59,20 @@ void benchmark(std::function<void(void)> f);
     Runtime::set_top_level_task_id(TID_TOP_LEVEL); \
     {               \
       TaskVariantRegistrar registrar(TID_TOP_LEVEL, "top_level"); \
-      registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC)); \
+      if (TACO_FEATURE_OPENMP) {    \
+        registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC)); \
+      } else {              \
+        registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC)); \
+      }                     \
       Runtime::preregister_task_variant<top_level_task>(registrar, "top_level"); \
     }               \
     {               \
       TaskVariantRegistrar registrar(TACO_FILL_TASK, "taco_fill"); \
-      registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC)); \
+      if (TACO_FEATURE_OPENMP) {    \
+        registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC)); \
+      } else {              \
+        registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC)); \
+      }                     \
       Runtime::preregister_task_variant<tacoFillTask<FillType>>(registrar, "taco_fill"); \
     }               \
     Runtime::add_registration_callback(register_taco_mapper);     \
