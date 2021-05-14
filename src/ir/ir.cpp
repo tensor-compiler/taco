@@ -502,7 +502,7 @@ Expr Call::make(const std::string& func, const std::vector<Expr>& args,
   call->func = func;
   call->args = args;
   return call;
-};
+}
 
 Expr makeConstructor(Datatype type, std::vector<Expr> args) {
   return ir::Call::make(type.getName(), args, type);
