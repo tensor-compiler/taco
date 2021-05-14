@@ -276,6 +276,80 @@ TEST(scheduling, lowerSparseMulSparse) {
   //  codegen->compile(compute, true);
 }
 
+TEST(scheduling, precomputeIndependentIndexVars) {
+  Tensor<double> A("A", {16}, Format{Dense});
+  Tensor<double> B("B", {16}, Format{Dense});
+  Tensor<double> C("C", {16}, Format{Dense});
+
+  for (int i = 0; i < 16; i++) {
+      A.insert({i}, (double) i);
+      B.insert({i}, (double) i);
+  }
+
+  A.pack();
+  B.pack();
+
+  // Precompute expression
+  IndexVar i("i");
+  IndexVar iw("iw");
+  IndexExpr precomputedExpr = B(i) + C(i);
+  A(i) = precomputedExpr;
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar precomputed("precomputed", Type(Float64, {16}), taco::dense);
+  stmt = stmt.precompute(precomputedExpr, i, iw, precomputed);
+
+  A.compile(stmt.concretize());
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {16}, Format{Dense});
+  expected(i) = B(i) + C(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+
+  ASSERT_TENSOR_EQ(A, expected);
+}
+
+TEST(scheduling, precomputeIndependentIndexVarsSplit) {
+  Tensor<double> A("A", {16}, Format{Dense});
+  Tensor<double> B("B", {16}, Format{Dense});
+  Tensor<double> C("C", {16}, Format{Dense});
+
+  for (int i = 0; i < 16; i++) {
+      A.insert({i}, (double) i);
+      B.insert({i}, (double) i);
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i");
+  IndexVar iw("iw");
+  IndexVar i0("i0");
+  IndexVar i1("i1");
+  IndexExpr precomputedExpr = B(i) + C(i);
+  A(i) = precomputedExpr;
+
+  // Precompute then split iw tensor
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar precomputed("precomputed", Type(Float64, {16}), taco::dense);
+  stmt = stmt.precompute(precomputedExpr, i, iw, precomputed).split(iw,i0, i1, 8);
+
+  A.compile(stmt.concretize());
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {16}, Format{Dense});
+  expected(i) = B(i) + C(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+
+  ASSERT_TENSOR_EQ(A, expected);
+}
+
 TEST(scheduling, lowerSparseAddSparse) {
   Tensor<double> A("A", {8}, Format({Sparse}));
   Tensor<double> B("B", {8}, Format({Sparse}));

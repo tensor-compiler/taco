@@ -1513,13 +1513,6 @@ IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFa
 IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
   IndexStmt transformed = *this;
   string reason;
-  if (i != iw) {
-    IndexVarRel rel = IndexVarRel(new PrecomputeRelNode(i, iw));
-    transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed, &reason);
-    if (!transformed.defined()) {
-      taco_uerror << reason;
-    }
-  }
 
   transformed = Transformation(Precompute(expr, i, iw, workspace)).apply(transformed, &reason);
   if (!transformed.defined()) {
