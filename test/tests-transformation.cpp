@@ -223,21 +223,16 @@ INSTANTIATE_TEST_CASE_P(precompute, apply,
 INSTANTIATE_TEST_CASE_P(parallelize, precondition, Values(
   PreconditionTest(Parallelize(i),
                    forall(i, a(i) = b(i))),
-
   PreconditionTest(Parallelize(i),
                    forall(i, w(i) = a(i) + b(i)) ),
-
   PreconditionTest(Parallelize(i),
                    forall(i, forall(j, W(i, j) = D(i, j) * E(i, j)))),
   PreconditionTest(Parallelize(i),
                    forall(i, forall(j, A(i, j) = W(i, j)))),
   PreconditionTest(Parallelize(i),
-                   forall(i, forall(j, E(i, j) = W(i, j)))))
-
-  /*, TODO: add precondition when lowering supports reductions
-   PreconditionTest(Parallelize(j),
-   forall(i, forall(j, w(j) = W(i, j)))
-   )*/
+                   forall(i, forall(j, E(i, j) = W(i, j)))),
+  PreconditionTest(Parallelize(i),
+                   forall(i, forall(j, w(j) = W(i, j)))))
 );
 
 INSTANTIATE_TEST_CASE_P(parallelize, apply,

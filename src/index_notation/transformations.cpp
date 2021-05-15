@@ -593,7 +593,9 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
     IndexStmt rewriteParallel(IndexStmt stmt) {
       provGraph = ProvenanceGraph(stmt);
+
       const auto reductionVars = getReductionVars(stmt);
+      reductionIndexVars.clear();
       for (const auto& iv : stmt.getIndexVars()) {
         if (util::contains(reductionVars, iv)) {
           for (const auto& rv : provGraph.getFullyDerivedDescendants(iv)) {
@@ -601,11 +603,14 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           }
         }
       }
+
       tensorVars = createIRTensorVars(stmt);
+
       assembledByUngroupedInsert.clear();
       for (const auto& result : getAssembledByUngroupedInsertion(stmt)) {
         assembledByUngroupedInsert.push_back(tensorVars[result]);
       }
+
       return rewrite(stmt);
     }
 
@@ -625,16 +630,39 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
         }
 
         Iterators iterators(foralli, tensorVars);
-        MergeLattice lattice = MergeLattice::make(foralli, iterators, provGraph, definedIndexVars);
+        MergeLattice lattice = MergeLattice::make(foralli, iterators, provGraph, 
+                                                  definedIndexVars);
 
-        // Precondition 2: No coiteration of mode (ie Merge Lattice has only 1 iterator)
+        // Precondition 2: No coiteration of modes (i.e., merge lattice has 
+        //                 only one iterator)
         if (lattice.iterators().size() != 1) {
-          reason = "Precondition failed: The loop must not merge tensor dimensions, that is, it must be a for loop;";
+          reason = "Precondition failed: The loop must not merge tensor "
+                   "dimensions, that is, it must be a for loop;";
           return;
         }
 
+        vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(i);
+        IndexVar underivedAncestor = underivedAncestors.back();
+
+        // Get lattice that corresponds to underived ancestor. This is 
+        // bottom-most loop that shares underived ancestor
+        Forall underivedForall = foralli;
+        match(foralli.getStmt(),
+              function<void(const ForallNode*)>([&](const ForallNode* node) {
+                const auto nodeUnderivedAncestors = 
+                    provGraph.getUnderivedAncestors(node->indexVar);
+                definedIndexVars.insert(node->indexVar);
+                if (underivedAncestor == nodeUnderivedAncestors.back()) {
+                  underivedForall = Forall(node);
+                }
+              })
+        );
+        MergeLattice underivedLattice = MergeLattice::make(underivedForall, 
+                                                           iterators, provGraph, 
+                                                           definedIndexVars);
+
         // Precondition 3: Every result iterator must have insert capability
-        for (Iterator iterator : lattice.results()) {
+        for (Iterator iterator : underivedLattice.results()) {
           if (util::contains(assembledByUngroupedInsert, iterator.getTensor())) {
             for (Iterator it = iterator; !it.isRoot(); it = it.getParent()) {
               if (it.hasInsertCoord() || !it.isYieldPosPure()) {
@@ -646,7 +674,8 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           } else {
             while (true) {
               if (!iterator.hasInsert()) {
-                reason = "Precondition failed: The output tensor must allow inserts";
+                reason = "Precondition failed: The output tensor must support " 
+                         "inserts";
                 return;
               }
               if (iterator.isLeaf()) {
@@ -657,23 +686,8 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           }
         }
 
-        vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(i);
-        IndexVar underivedAncestor = underivedAncestors.back();
-
-        // get lattice that corresponds to underived ancestor. This is bottom-most loop that shares underived ancestor
-        Forall underivedForall = foralli;
-        match(foralli.getStmt(),
-              function<void(const ForallNode*)>([&](const ForallNode* node) {
-                vector<IndexVar> nodeUnderivedAncestors = provGraph.getUnderivedAncestors(node->indexVar);
-                if (underivedAncestor == nodeUnderivedAncestors.back()) {
-                  underivedForall = Forall(node);
-                }
-              })
-        );
-        MergeLattice underivedLattice = MergeLattice::make(underivedForall, iterators, provGraph, definedIndexVars);
-
-
-        if(underivedLattice.results().empty() && parallelize.getOutputRaceStrategy() == OutputRaceStrategy::Temporary) {
+        if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::Temporary &&
+            util::contains(reductionIndexVars, underivedForall.getIndexVar())) {
           // Need to precompute reduction
 
           // Find all occurrences of reduction in expression
