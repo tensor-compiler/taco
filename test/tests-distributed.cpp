@@ -5,6 +5,8 @@
 #include "taco/lower/lower.h"
 #include "codegen/codegen.h"
 #include "codegen/codegen_legion_c.h"
+#include "codegen/codegen_legion_cuda.h"
+#include "codegen/codegen_cuda.h"
 
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/provenance_graph.h"
@@ -23,8 +25,20 @@ TEST(distributed, test) {
   a(i) = b(i) + c(i);
   auto stmt = a.getAssignment().concretize();
   stmt = stmt.distribute({i}, {in}, {il}, Grid(4));
-  stmt = stmt.split(il, il1, il2, 256);
-
+//  stmt = stmt.split(il, il1, il2, 256);
+  int NNZ_PER_THREAD=8;
+  int WARP_SIZE = 32;
+  int BLOCK_SIZE=256;
+  int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
+  int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
+  IndexVar f1, f2, f3, f4, block, warp, thread;
+  stmt = stmt.split(il, block, f1, NNZ_PER_TB)
+    .split(f1, warp, f2, NNZ_PER_WARP)
+    .split(f2, thread, f3, NNZ_PER_THREAD)
+    .parallelize(block, ParallelUnit::GPUBlock, taco::OutputRaceStrategy::IgnoreRaces)
+    .parallelize(warp, ParallelUnit::GPUWarp, taco::OutputRaceStrategy::IgnoreRaces)
+    .parallelize(thread, ParallelUnit::GPUThread, taco::OutputRaceStrategy::IgnoreRaces)
+    ;
 
   // Communication modification must go at the end.
   // TODO (rohany): name -- placement
@@ -36,7 +50,8 @@ TEST(distributed, test) {
   auto lowered = lower(stmt, "computeLegion", false, true);
 //  std::cout << lowered << std::endl;
 
-  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+//  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(lowered);
 }
 

@@ -322,6 +322,10 @@ protected:
   using IRVisitor::visit;
 
   virtual void visit(const For *op) {
+    // Don't follow into task calls.
+    if (op->isTask) {
+      return;
+    }
     // Don't need to find/initialize loop bounds
     if (op->parallel_unit == ParallelUnit::GPUBlock) {
       op->var.accept(this);
@@ -378,6 +382,7 @@ protected:
   }
 
   virtual void visit(const Var *op) {
+    std::cout << "Visiting var: " << Expr(op) << std::endl;
     if (scopeMap.count(op) == 0) {
       string name = codeGen->genUniqueName(op->name);
       if (!inDeviceFunction) {
@@ -403,6 +408,7 @@ protected:
   }
 
   virtual void visit(const GetProperty *op) {
+    std::cout << "Visiting gp: " << Expr(op) << std::endl;
     if (scopeMap.count(op->tensor) == 0 && !inDeviceFunction) {
       auto key =
               tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
@@ -434,6 +440,7 @@ Stmt CodeGen_CUDA::simplifyFunctionBodies(Stmt stmt) {
     }
   };
   return FunctionBodySimplifier().rewrite(stmt);
+//  return stmt;
 }
 
 string CodeGen_CUDA::printDeviceFuncName(const vector<pair<string, Expr>> currentParameters, int index) {
@@ -454,9 +461,10 @@ string CodeGen_CUDA::printDeviceFuncName(const vector<pair<string, Expr>> curren
     else {
       auto tp = printCUDAType(var->type, var->is_ptr);
       ret << delimiter << tp << " ";
-      if (!var->is_ptr) {
-        ret << "&";
-      }
+      // TODO (rohany): Why does it do this?
+//      if (!var->is_ptr) {
+//        ret << "&";
+//      }
       ret << var->name;
     }
     // No non-tensor parameters
@@ -604,8 +612,8 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
     doIndent();
     stream << "cudaEventElapsedTime(&tot_ms, event1, event2);\n";
   }
-  doIndent();
-  stream << "cudaDeviceSynchronize();\n";
+//  doIndent();
+//  stream << "cudaDeviceSynchronize();\n";
 
 }
 
@@ -638,7 +646,7 @@ void CodeGen_CUDA::compile(Stmt stmt, bool isFirst) {
   }
   out << endl;
   // simplify all function bodies before so can find device functions
-  stmt = simplifyFunctionBodies(stmt);
+//  stmt = simplifyFunctionBodies(stmt);
   stmt.accept(this);
 }
 
@@ -1313,7 +1321,7 @@ void CodeGen_CUDA::visit(const Call* op) {
     // argument. This pointer information isn't carried anywhere in
     // the argument expressions, so we need to special case and not
     // emit an invalid cast for that argument.
-    auto opIsBinarySearch = op->func == "taco_binarySearchAfter" || op->func == "taco_binarySearchBefore";
+    auto opIsBinarySearch = op->func == "taco_binarySearchAfter" || op->func == "taco_binarySearchBefore" || op->func == "taskID";
     if (!opIsBinarySearch && (op->type != op->args[0].type() || isa<Literal>(op->args[0]))) {
       stream << "(" << printCUDAType(op->type, false) << ") ";
     }
