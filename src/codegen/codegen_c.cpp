@@ -34,9 +34,9 @@ const string cHeaders =
   "#include <math.h>\n"
   "#include <complex.h>\n"
   "#include <string.h>\n"
-#if USE_OPENMP
+  "#if _OPENMP\n"
   "#include <omp.h>\n"
-#endif
+  "#endif\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#define TACO_MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))\n"
   "#define TACO_DEREF(_a) (((___context___*)(*__ctx__))->_a)\n"
@@ -54,10 +54,10 @@ const string cHeaders =
   "  int32_t      vals_size;     // values array size\n"
   "} taco_tensor_t;\n"
   "#endif\n"
-#if USE_OPENMP == 0
+  "#if !_OPENMP\n"
   "int omp_get_thread_num() { return 0; }\n"
   "int omp_get_max_threads() { return 1; }\n"
-#endif
+  "#endif\n"
   "int cmp(const void *a, const void *b) {\n"
   "  return *((const int*)a) - *((const int*)b);\n"
   "}\n"
