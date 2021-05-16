@@ -66,7 +66,7 @@ TEST(distributed, cuda_test) {
   codegen->compile(lowered);
   {
     ofstream f("../legion/cuda-test/taco-generated.cu");
-    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
     codegen->compile(lowered);
     f.close();
   }

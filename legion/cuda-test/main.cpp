@@ -6,7 +6,7 @@ using namespace Legion;
 
 // Defined by the generated TACO code.
 void registerTacoTasks();
-LogicalPartition computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   auto args = runtime->get_input_args();
@@ -17,10 +17,9 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
       n = atoi(args.argv[++i]);
       continue;
     }
-    // TODO (rohany): Add a flag to do the validation or not.
   }
   if (n == -1) {
-    std::cout << "Please provide an input matrix size with -n." << std::endl;
+    std::cout << "Please provide an input vector size with -n." << std::endl;
     return;
   }
 
@@ -31,7 +30,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto B = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(B, "B");
   tacoFill(ctx, runtime, A, 0); tacoFill(ctx, runtime, B, 1);
 
-  benchmark([&]() { computeLegion(ctx, runtime, A, B); })
+  benchmark([&]() { computeLegion(ctx, runtime, A, B); });
 
   auto a_reg = getRegionToWrite(ctx, runtime, A, A);
   FieldAccessor<READ_WRITE,int32_t,1,coord_t, Realm::AffineAccessor<int32_t,1,coord_t>> a_rw(a_reg, FID_VAL);

@@ -9,6 +9,33 @@ struct task_1Args {
   int32_t b1_dimension;
 };
 
+__global__
+void task_1DeviceKernel0(AccessorRWint32_t1 a_vals, AccessorROint32_t1 b_vals, int32_t b1_dimension, int32_t in) {
+
+  int32_t i1344 = blockIdx.x;
+  int32_t i1346 = (threadIdx.x % (32));
+  int32_t i1345 = (threadIdx.x / 32);
+  if (threadIdx.x >= 256) {
+    return;
+  }
+
+  for (int32_t i1342 = 0; i1342 < 8; i1342++) {
+    int32_t i1341 = i1346 * 8 + i1342;
+    int32_t i1340 = i1345 * 256 + i1341;
+    int32_t il = i1344 * 2048 + i1340;
+    int32_t i = in * ((b1_dimension + 3) / 4) + il;
+    Point<1> a_access_point = Point<1>(i);
+    Point<1> b_access_point = Point<1>(i);
+    if (i >= b1_dimension)
+      break;
+
+    if (i >= (in + 1) * ((b1_dimension + 3) / 4))
+      break;
+
+    a_vals[a_access_point] = b_vals[b_access_point];
+  }
+}
+
 void task_1(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   PhysicalRegion a = regions[0];
   PhysicalRegion b = regions[1];
@@ -20,30 +47,7 @@ void task_1(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   AccessorROint32_t1 b_vals(b, FID_VAL);
   AccessorRWint32_t1 a_vals(a, FID_VAL);
 
-  #pragma omp parallel for schedule(runtime)
-  for (int32_t i1344 = 0; i1344 < (((b1_dimension + 3) / 4 + 2047) / 2048); i1344++) {
-    #pragma omp parallel for schedule(runtime)
-    for (int32_t i1345 = 0; i1345 < 8; i1345++) {
-      #pragma omp parallel for schedule(runtime)
-      for (int32_t i1346 = 0; i1346 < 32; i1346++) {
-        for (int32_t i1342 = 0; i1342 < 8; i1342++) {
-          int32_t i1341 = i1346 * 8 + i1342;
-          int32_t i1340 = i1345 * 256 + i1341;
-          int32_t il = i1344 * 2048 + i1340;
-          int32_t i = in * ((b1_dimension + 3) / 4) + il;
-          Point<1> a_access_point = Point<1>(i);
-          Point<1> b_access_point = Point<1>(i);
-          if (i >= b1_dimension)
-            continue;
-
-          if (i >= (in + 1) * ((b1_dimension + 3) / 4))
-            continue;
-
-          a_vals[a_access_point] = b_vals[b_access_point];
-        }
-      }
-    }
-  }
+  task_1DeviceKernel0<<<(((b1_dimension + 3) / 4 + 2047) / 2048), (32 * 8)>>>(a_vals, b_vals, b1_dimension, in);
 }
 
 void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b) {
@@ -90,7 +94,7 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
 void registerTacoTasks() {
   {
     TaskVariantRegistrar registrar(taskID(1), "task_1");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_1>(registrar, "task_1");
   }
