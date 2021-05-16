@@ -14,8 +14,18 @@ function(add_app_folder folder)
     target_link_libraries("${folder}" Legion::Legion openblas)
 endfunction()
 
+function(add_cuda_folder folder)
+    if (Legion_USE_CUDA)
+        file(GLOB SOURCES "${folder}/*.cpp" "${folder}/*.cu" ${LG_SOURCES})
+        cuda_add_executable("${folder}" ${SOURCES})
+        target_link_libraries("${folder}" Legion::Legion)
+    endif()
+endfunction()
+
 add_app_folder(summaMM)
 add_app_folder(cannonMM)
 add_app_folder(placement-test)
 add_app_folder(johnsonMM)
 add_app_folder(solomonikMM)
+
+add_cuda_folder(cuda-test)

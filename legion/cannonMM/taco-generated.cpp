@@ -206,8 +206,8 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t c1_dimension = args->c1_dimension;
   int32_t c2_dimension = args->c2_dimension;
 
-  auto c_index_space = get_index_space(c);
   auto b_index_space = get_index_space(b);
+  auto c_index_space = get_index_space(c);
   auto a_index_space = get_index_space(a);
 
   int32_t in = getIndexPoint(task, 0);

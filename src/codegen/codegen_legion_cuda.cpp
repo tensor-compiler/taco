@@ -482,8 +482,6 @@ void CodegenLegionCuda::visit(const Function* func) {
     out << printCoroutineFinish(numYields, funcName);
   }
 
-  doIndent();
-  out << "return 0;\n";
   indent--;
 
   doIndent();

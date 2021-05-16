@@ -936,10 +936,15 @@ void CodeGen_CUDA::visit(const For* op) {
   stream << " = ";
   op->start.accept(this);
   stream << keywordString("; ");
-  op->var.accept(this);
-  stream << " < ";
-  parentPrecedence = BOTTOM;
-  op->end.accept(this);
+  if (isa<MethodCall>(op->end)) {
+    // Temporarily assume that method calls mean that this is a C++ style for loop.
+    op->end.accept(this);
+  } else {
+    op->var.accept(this);
+    stream << " < ";
+    parentPrecedence = BOTTOM;
+    op->end.accept(this);
+  }
   stream << keywordString("; ");
   op->var.accept(this);
 
@@ -1321,18 +1326,19 @@ void CodeGen_CUDA::visit(const Call* op) {
     // argument. This pointer information isn't carried anywhere in
     // the argument expressions, so we need to special case and not
     // emit an invalid cast for that argument.
-    auto opIsBinarySearch = op->func == "taco_binarySearchAfter" || op->func == "taco_binarySearchBefore" || op->func == "taskID";
-    if (!opIsBinarySearch && (op->type != op->args[0].type() || isa<Literal>(op->args[0]))) {
-      stream << "(" << printCUDAType(op->type, false) << ") ";
-    }
+    // TODO (rohany): I still don't understand why these casts are necessary.
+    // auto opIsBinarySearch = op->func == "taco_binarySearchAfter" || op->func == "taco_binarySearchBefore" || op->func == "taskID";
+    // if (!opIsBinarySearch && (op->type != op->args[0].type() || isa<Literal>(op->args[0]))) {
+    //   stream << "(" << printCUDAType(op->type, false) << ") ";
+    // }
     op->args[0].accept(this);
   }
 
   for (size_t i=1; i < op->args.size(); ++i) {
     stream << ", ";
-    if (op->type != op->args[i].type() || isa<Literal>(op->args[i])) {
-      stream << "(" << printCUDAType(op->type, false) << ") ";
-    }
+    // if (op->type != op->args[i].type() || isa<Literal>(op->args[i])) {
+    //   stream << "(" << printCUDAType(op->type, false) << ") ";
+    // }
     op->args[i].accept(this);
   }
 

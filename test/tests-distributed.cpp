@@ -25,20 +25,6 @@ TEST(distributed, test) {
   a(i) = b(i) + c(i);
   auto stmt = a.getAssignment().concretize();
   stmt = stmt.distribute({i}, {in}, {il}, Grid(4));
-//  stmt = stmt.split(il, il1, il2, 256);
-  int NNZ_PER_THREAD=8;
-  int WARP_SIZE = 32;
-  int BLOCK_SIZE=256;
-  int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
-  int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
-  IndexVar f1, f2, f3, f4, block, warp, thread;
-  stmt = stmt.split(il, block, f1, NNZ_PER_TB)
-    .split(f1, warp, f2, NNZ_PER_WARP)
-    .split(f2, thread, f3, NNZ_PER_THREAD)
-    .parallelize(block, ParallelUnit::GPUBlock, taco::OutputRaceStrategy::IgnoreRaces)
-    .parallelize(warp, ParallelUnit::GPUWarp, taco::OutputRaceStrategy::IgnoreRaces)
-    .parallelize(thread, ParallelUnit::GPUThread, taco::OutputRaceStrategy::IgnoreRaces)
-    ;
 
   // Communication modification must go at the end.
   // TODO (rohany): name -- placement
@@ -49,10 +35,41 @@ TEST(distributed, test) {
 
   auto lowered = lower(stmt, "computeLegion", false, true);
 //  std::cout << lowered << std::endl;
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(lowered);
+}
 
-//  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+TEST(distributed, cuda_test) {
+  int dim = 10;
+  Tensor<int> a("a", {dim}, Format{Dense});
+  Tensor<int> b("b", {dim}, Format{Dense});
+  IndexVar i("i"), in("in"), il("il"), il1 ("il1"), il2("il2");
+  a(i) = b(i);
+  auto stmt = a.getAssignment().concretize();
+  stmt = stmt.distribute({i}, {in}, {il}, Grid(4));
+  int NNZ_PER_THREAD=8;
+  int WARP_SIZE = 32;
+  int BLOCK_SIZE=256;
+  int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
+  int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
+  IndexVar f1, f2, f3, f4, block, warp, thread;
+  stmt = stmt.split(il, block, f1, NNZ_PER_TB)
+      .split(f1, warp, f2, NNZ_PER_WARP)
+      .split(f2, thread, f3, NNZ_PER_THREAD)
+      .parallelize(block, ParallelUnit::GPUBlock, taco::OutputRaceStrategy::IgnoreRaces)
+      .parallelize(warp, ParallelUnit::GPUWarp, taco::OutputRaceStrategy::IgnoreRaces)
+      .parallelize(thread, ParallelUnit::GPUThread, taco::OutputRaceStrategy::IgnoreRaces)
+      ;
+  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
+  auto lowered = lower(stmt, "computeLegion", false, true);
   auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(lowered);
+  {
+    ofstream f("../legion/cuda-test/taco-generated.cu");
+    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(lowered);
+    f.close();
+  }
 }
 
 TEST(distributed, multiDim) {
