@@ -1191,7 +1191,7 @@ void CodeGen_CUDA::visit(const VarDecl* op) {
     stream << endl;
   }
   // f var can be passed to device function then allocated in uvm
-  else if (scalarVarsPassedToDeviceFunction.count(op->var) && isHostFunction) {
+  else if (scalarVarsPassedToDeviceFunction.count(op->var) && isHostFunction && false) {
     // type *x_ptr;
     // gpuErrchk(cudaMallocManaged((void**)&x_ptr, sizeof(type));
     // type &x = *x_ptr;

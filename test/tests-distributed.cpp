@@ -15,6 +15,12 @@
 
 using namespace taco;
 
+const int NNZ_PER_THREAD=8;
+const int WARP_SIZE = 32;
+const int BLOCK_SIZE=256;
+const int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
+const int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
+
 TEST(distributed, test) {
   int dim = 10;
   Tensor<int> a("a", {dim}, Format{Dense});
@@ -197,6 +203,27 @@ TEST(distributed, cannonMM) {
     auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
     codegen->compile(all);
     f.close();
+  }
+
+  // Schedule a GPU version of the kernel as well.
+  {
+    IndexVar f1, f2, f3, f4, block, warp, thread;
+    stmt = stmt.split(il, block, f1, NNZ_PER_TB)
+        .split(f1, warp, f2, NNZ_PER_WARP)
+        .split(f2, thread, f3, NNZ_PER_THREAD)
+        .parallelize(block, ParallelUnit::GPUBlock, taco::OutputRaceStrategy::IgnoreRaces)
+        .parallelize(warp, ParallelUnit::GPUWarp, taco::OutputRaceStrategy::IgnoreRaces)
+        .parallelize(thread, ParallelUnit::GPUThread, taco::OutputRaceStrategy::IgnoreRaces)
+        ;
+    auto lowered = lower(stmt, "computeLegion", false, true);
+    // Code-generate all of the placement and compute code.
+    auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
+    {
+      ofstream f("../legion/cannonMM/taco-generated.cu");
+      auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
+      codegen->compile(all);
+      f.close();
+    }
   }
 }
 

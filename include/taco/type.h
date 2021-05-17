@@ -127,6 +127,7 @@ Datatype Rect(int n);
 // An iterator through an n-dimensional rectangle.
 Datatype PointInDomainIterator(int n);
 // A n-dimensional domain.
+Datatype Domain();
 Datatype Domain(int n);
 // A specialized IndexSpace.
 Datatype IndexSpaceT(int n);

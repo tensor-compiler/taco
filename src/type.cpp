@@ -444,6 +444,9 @@ Datatype Rect(int n) {
 Datatype PointInDomainIterator(int n) {
   return templateGen("PointInDomainIterator", n);
 }
+Datatype Domain() {
+  return Datatype("Domain");
+}
 Datatype Domain(int n) {
   return templateGen("DomainT", n);
 }

@@ -149,6 +149,50 @@ LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c) {
 
 }
 
+__global__
+void task_4DeviceKernel0(Domain aPartitionBounds, int32_t in, int32_t jn, int32_t ko, AccessorRWdouble2 a_vals, AccessorROdouble2 b_vals, AccessorROdouble2 c_vals, int32_t b1_dimension, int32_t c1_dimension, int32_t c2_dimension, int32_t kos) {
+
+  int32_t i1654 = blockIdx.x + (aPartitionBounds.lo()[0] / 2048);
+  int32_t i1656 = (threadIdx.x % (32));
+  int32_t i1655 = (threadIdx.x / 32);
+  if (threadIdx.x >= 256) {
+    return;
+  }
+
+  for (int32_t i1652 = 0; i1652 < 8; i1652++) {
+    int32_t i1651 = i1656 * 8 + i1652;
+    int32_t i1650 = i1655 * 256 + i1651;
+    int32_t il = (i1654 * 2048 + i1650) + aPartitionBounds.lo()[0];
+    if (il >= b1_dimension)
+      break;
+
+    if (il >= (in + 1) * ((aPartitionBounds.hi()[0] + 1) - aPartitionBounds.lo()[0]))
+      break;
+
+    for (int32_t jl = aPartitionBounds.lo()[1]; jl < (aPartitionBounds.hi()[1] + 1); jl++) {
+      Point<2> a_access_point = Point<2>(il, jl);
+      if (jl >= c2_dimension)
+        break;
+
+      if (jl >= (jn + 1) * ((aPartitionBounds.hi()[1] + 1) - aPartitionBounds.lo()[1]))
+        break;
+
+      for (int32_t ki = 0; ki < ((c1_dimension + 1) / 2); ki++) {
+        int32_t k = ko * ((c1_dimension + 1) / 2) + ki;
+        Point<2> b_access_point = Point<2>(il, k);
+        Point<2> c_access_point = Point<2>(k, jl);
+        if (k >= c1_dimension)
+          break;
+
+        if (k >= (ko + 1) * ((c1_dimension + 1) / 2))
+          break;
+
+        a_vals[a_access_point] = a_vals[a_access_point] + b_vals[b_access_point] * c_vals[c_access_point];
+      }
+    }
+  }
+}
+
 void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   PhysicalRegion a = regions[0];
   PhysicalRegion b = regions[1];
@@ -169,35 +213,7 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
 
   int32_t ko = (jn + (in + kos)) % 2;
   Domain aPartitionBounds = runtime->get_index_space_domain(ctx, a_index_space);
-  for (int32_t il = aPartitionBounds.lo()[0]; il < (aPartitionBounds.hi()[0] + 1); il++) {
-    if (il >= b1_dimension)
-      continue;
-
-    if (il >= (in + 1) * ((aPartitionBounds.hi()[0] + 1) - aPartitionBounds.lo()[0]))
-      continue;
-
-    for (int32_t jl = aPartitionBounds.lo()[1]; jl < (aPartitionBounds.hi()[1] + 1); jl++) {
-      Point<2> a_access_point = Point<2>(il, jl);
-      if (jl >= c2_dimension)
-        continue;
-
-      if (jl >= (jn + 1) * ((aPartitionBounds.hi()[1] + 1) - aPartitionBounds.lo()[1]))
-        continue;
-
-      for (int32_t ki = 0; ki < ((c1_dimension + 1) / 2); ki++) {
-        int32_t k = ko * ((c1_dimension + 1) / 2) + ki;
-        Point<2> b_access_point = Point<2>(il, k);
-        Point<2> c_access_point = Point<2>(k, jl);
-        if (k >= c1_dimension)
-          continue;
-
-        if (k >= (ko + 1) * ((c1_dimension + 1) / 2))
-          continue;
-
-        a_vals[a_access_point] = a_vals[a_access_point] + b_vals[b_access_point] * c_vals[c_access_point];
-      }
-    }
-  }
+  task_4DeviceKernel0<<<((aPartitionBounds.hi()[0] + 2048) / 2048 - aPartitionBounds.lo()[0] / 2048), (32 * 8)>>>(aPartitionBounds, in, jn, ko, a_vals, b_vals, c_vals, b1_dimension, c1_dimension, c2_dimension, kos);
 }
 
 void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
@@ -212,9 +228,9 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t c1_dimension = args->c1_dimension;
   int32_t c2_dimension = args->c2_dimension;
 
-  auto c_index_space = get_index_space(c);
   auto b_index_space = get_index_space(b);
   auto a_index_space = get_index_space(a);
+  auto c_index_space = get_index_space(c);
 
   int32_t in = getIndexPoint(task, 0);
   int32_t jn = getIndexPoint(task, 1);
@@ -320,7 +336,7 @@ void registerTacoTasks() {
   }
   {
     TaskVariantRegistrar registrar(taskID(4), "task_4");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_4>(registrar, "task_4");
   }

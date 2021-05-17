@@ -9,9 +9,16 @@ file(GLOB LG_SOURCES src/*)
 SET(CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
 
 function(add_app_folder folder)
-    file(GLOB SOURCES "${folder}/*.cpp" ${LG_SOURCES})
+    file(GLOB SOURCES "${folder}/main.cpp" "${folder}/taco-generated.cpp" ${LG_SOURCES})
     add_executable("${folder}" ${SOURCES})
     target_link_libraries("${folder}" Legion::Legion openblas)
+
+    if (Legion_USE_CUDA)
+        if (EXISTS "${folder}/taco-generated.cu")
+            cuda_add_executable("${folder}-cuda" "${folder}/main.cpp" "${folder}/taco-generated.cu" ${LG_SOURCES})
+            target_link_libraries("${folder}-cuda" Legion::Legion)
+        endif()
+    endif()
 endfunction()
 
 function(add_cuda_folder folder)

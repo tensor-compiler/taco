@@ -516,10 +516,22 @@ void CodegenLegionCuda::printDeviceFunctions(const Function* func) {
   TensorAccessFinder taf;
   func->accept(&taf);
   for (auto& params : deviceFunctionParameters) {
+    // Collect the original set of parameters. We don't want to double count
+    // any of the parameters that we manually are adding.
+    std::set<Expr> existingParams;
+    for (auto param : params) {
+      existingParams.insert(param.second);
+    }
+    auto addParam = [&](std::pair<std::string, Expr> param) {
+      if (!util::contains(existingParams, param.second)) {
+        params.push_back(param);
+      }
+    };
+
     for (auto arg : this->regionArgs[this->funcToParentFunc[func]]) {
       auto op = taf.gps[arg];
       auto param = ir::Var::make(op->name, Datatype(accessorType(op)));
-      params.push_back(std::make_pair(getVarName(param), param));
+      addParam(std::make_pair(getVarName(param), param));
     }
 
     for (auto arg : this->taskArgs[func]) {
@@ -528,7 +540,7 @@ void CodegenLegionCuda::printDeviceFunctions(const Function* func) {
         auto gp = arg.as<GetProperty>();
         param = ir::Var::make(gp->name, gp->type);
       }
-      params.push_back(std::make_pair(getVarName(param), param));
+      addParam(std::make_pair(getVarName(param), param));
     }
 
     // If this was a distributed for loop, emit the point as the loop index.
@@ -537,9 +549,21 @@ void CodegenLegionCuda::printDeviceFunctions(const Function* func) {
       auto forL = this->funcToFor.at(func).as<For>();
       taco_iassert(forL) << "must be a for";
       if (forL->parallel_unit == ParallelUnit::DistributedNode) {
-        params.push_back(std::make_pair(getVarName(forL->var), forL->var));
+        addParam(std::make_pair(getVarName(forL->var), forL->var));
       }
     }
+  }
+
+  // Remove tensor arguments from the parameters. We do this because for a Legion
+  // backend, we don't have taco_tensor_t* objects to pass around!
+  for (size_t i = 0; i < deviceFunctionParameters.size(); i++) {
+    std::vector<std::pair<std::string, Expr>> newParams;
+    for (auto& param : deviceFunctionParameters[i]) {
+      if (!param.second.as<Var>()->is_tensor) {
+        newParams.push_back(param);
+      }
+    }
+    deviceFunctionParameters[i] = newParams;
   }
 
   for (int i = 0; i < (int) deviceFunctionCollector.numThreads.size(); i++) {
