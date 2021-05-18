@@ -75,16 +75,16 @@ public:
       std::vector<Legion::Processor> targets;
       switch (this->default_find_preferred_variant(task, ctx, false /* needs tight bound */).proc_kind) {
         case Legion::Processor::OMP_PROC: {
-	  targets = this->remote_omps;
-	  break;
-	}
-	case Legion::Processor::LOC_PROC: {
-	  targets = this->remote_cpus;
-	  break;
-	}
-	default: {
-	  assert(false);
-	}
+          targets = this->remote_omps;
+          break;
+        }
+        case Legion::Processor::LOC_PROC: {
+          targets = this->remote_cpus;
+          break;
+        }
+        default: {
+          assert(false);
+        }
       }
       switch (dim) {
 #define BLOCK(DIM) \
