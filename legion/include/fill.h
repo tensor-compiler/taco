@@ -86,7 +86,7 @@ void tacoFill(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegi
   } else {
     assert(false);
   }
-  auto ispace = runtime->create_index_space(ctx, pieces);
+  auto ispace = runtime->create_index_space(ctx, Legion::Rect<1>(0, pieces - 1));
   auto ipart = runtime->create_equal_partition(ctx, r.get_index_space(), ispace);
   auto lpart = runtime->get_logical_partition(ctx, r, ipart);
   Legion::IndexLauncher l(TACO_FILL_TASK, runtime->get_index_space_domain(ispace), Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
