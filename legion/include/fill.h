@@ -3,11 +3,8 @@
 
 #include "legion.h"
 #include "pitches.h"
+#include "taco_legion_header.h"
 #include "taco/version.h"
-
-#ifdef TACO_USE_CUDA
-#include "fill.cuh"
-#endif
 
 const int TACO_FILL_TASK = 1;
 
@@ -75,11 +72,14 @@ void tacoFillOMPTask(const Legion::Task* task, const std::vector<Legion::Physica
 template<typename T>
 void tacoFill(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegion r, T val) {
   size_t pieces = 0;
-  // Favor OMP proc > CPU proc. The default mapper performs this same heuristic
+  // Favor TOC proc > OMP proc > CPU proc. The default mapper performs this same heuristic
   // as well, so there's nothing more we need to do.
+  auto numGPU = runtime->select_tunable_value(ctx, Legion::Mapping::DefaultMapper::DEFAULT_TUNABLE_GLOBAL_GPUS).get<size_t>();
   auto numOMP = runtime->select_tunable_value(ctx, Legion::Mapping::DefaultMapper::DEFAULT_TUNABLE_GLOBAL_OMPS).get<size_t>();
   auto numCPU = runtime->select_tunable_value(ctx, Legion::Mapping::DefaultMapper::DEFAULT_TUNABLE_GLOBAL_CPUS).get<size_t>();
-  if (numOMP != 0) {
+  if (numGPU != 0) {
+    pieces = numGPU;
+  } else if (numOMP != 0) {
     pieces = numOMP;
   } else if (numCPU != 0) {
     pieces = numCPU;
@@ -93,6 +93,12 @@ void tacoFill(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegi
   l.add_region_requirement(Legion::RegionRequirement(lpart, 0, WRITE_ONLY, EXCLUSIVE, r).add_field(FID_VAL));
   runtime->execute_index_space(ctx, l);
 }
+
+// If we're building with CUDA, then declare the fill kernel.
+#ifdef TACO_USE_CUDA
+template<typename T>
+void registerGPUFillTask();
+#endif
 
 template <typename T>
 void registerTACOFillTasks() {
@@ -110,11 +116,7 @@ void registerTACOFillTasks() {
   }
   // Register a CUDA variant if we have a CUDA build.
 #ifdef TACO_USE_CUDA
-  {
-    Legion::TaskVariantRegistrar registrar(TACO_FILL_TASK, "taco_fill");
-    registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::TOC_PROC));
-    Legion::Runtime::preregister_task_variant<tacoFillGPUTask<T>>(registrar, "taco_fill");
-  }
+  registerGPUFillTask<T>();
 #endif
 }
 

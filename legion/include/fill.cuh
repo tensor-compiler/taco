@@ -3,6 +3,9 @@
 
 #include "legion.h"
 #include "pitches.h"
+#include "taco_legion_header.h"
+
+#include "fill.h"
 
 const int THREADS_PER_BLOCK = 256;
 
@@ -10,7 +13,7 @@ template<int DIM, typename T>
 __global__
 void tacoFillGPUKernel(
     Legion::FieldAccessor <WRITE_ONLY, T, DIM, Legion::coord_t, Realm::AffineAccessor<T, DIM, Legion::coord_t>> a,
-    T value, Pitches<DIM - 1> pitches, Point <DIM> lo, size_t volume) {
+    T value, Pitches<DIM - 1> pitches, Legion::Point<DIM> lo, size_t volume) {
   const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= volume) return;
   a[pitches.unflatten(idx, lo)] = value;
@@ -45,4 +48,13 @@ void tacoFillGPUTask(const Legion::Task* task, const std::vector<Legion::Physica
   }
 }
 
-#endif // TTACO_LG_FILL_CUH
+template <typename T>
+void registerGPUFillTask() {
+  {
+    Legion::TaskVariantRegistrar registrar(TACO_FILL_TASK, "taco_fill");
+    registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::TOC_PROC));
+    Legion::Runtime::preregister_task_variant<tacoFillGPUTask<T>>(registrar, "taco_fill");
+  }
+}
+
+#endif // TACO_LG_FILL_CUH
