@@ -14,7 +14,7 @@ function(add_app_folder folder)
     target_link_libraries("${folder}" Legion::Legion openblas)
 
     if (Legion_USE_CUDA)
-        if (EXISTS "${folder}/taco-generated.cu")
+        if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${folder}/taco-generated.cu")
             cuda_add_executable("${folder}-cuda" "${folder}/main.cpp" "${folder}/taco-generated.cu" ${LG_SOURCES})
             target_link_libraries("${folder}-cuda" Legion::Legion)
         endif()
