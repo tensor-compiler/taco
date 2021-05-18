@@ -5,6 +5,10 @@
 #include "pitches.h"
 #include "taco/version.h"
 
+#ifdef TACO_USE_CUDA
+#include "fill.cuh"
+#endif
+
 const int TACO_FILL_TASK = 1;
 
 template<int DIM, typename T>
@@ -104,6 +108,14 @@ void registerTACOFillTasks() {
     registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::OMP_PROC));
     Legion::Runtime::preregister_task_variant<tacoFillOMPTask<T>>(registrar, "taco_fill");
   }
+  // Register a CUDA variant if we have a CUDA build.
+#ifdef TACO_USE_CUDA
+  {
+    Legion::TaskVariantRegistrar registrar(TACO_FILL_TASK, "taco_fill");
+    registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::TOC_PROC));
+    Legion::Runtime::preregister_task_variant<tacoFillGPUTask<T>>(registrar, "taco_fill");
+  }
+#endif
 }
 
 #endif // TACO_LG_FILL_H

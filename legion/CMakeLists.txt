@@ -8,6 +8,10 @@ file(GLOB LG_SOURCES src/*)
 # Optimize these codes.
 SET(CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
 
+if (Legion_USE_CUDA)
+    add_definitions(-DTACO_USE_CUDA)
+endif()
+
 function(add_app_folder folder)
     file(GLOB SOURCES "${folder}/main.cpp" "${folder}/taco-generated.cpp" ${LG_SOURCES})
     add_executable("${folder}" ${SOURCES})
