@@ -168,14 +168,20 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   AccessorRWdouble2 a_vals(a, FID_VAL);
 
   int32_t ko = (jn + (in + kos)) % 2;
-  auto aPartitionBounds = runtime->get_index_space_domain(ctx, a_index_space);
+  Domain aPartitionBounds = runtime->get_index_space_domain(ctx, a_index_space);
   for (int32_t il = aPartitionBounds.lo()[0]; il < (aPartitionBounds.hi()[0] + 1); il++) {
     if (il >= b1_dimension)
+      continue;
+
+    if (il >= (in + 1) * ((aPartitionBounds.hi()[0] + 1) - aPartitionBounds.lo()[0]))
       continue;
 
     for (int32_t jl = aPartitionBounds.lo()[1]; jl < (aPartitionBounds.hi()[1] + 1); jl++) {
       Point<2> a_access_point = Point<2>(il, jl);
       if (jl >= c2_dimension)
+        continue;
+
+      if (jl >= (jn + 1) * ((aPartitionBounds.hi()[1] + 1) - aPartitionBounds.lo()[1]))
         continue;
 
       for (int32_t ki = 0; ki < ((c1_dimension + 1) / 2); ki++) {
@@ -206,13 +212,13 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t c1_dimension = args->c1_dimension;
   int32_t c2_dimension = args->c2_dimension;
 
-  auto c_index_space = get_index_space(c);
   auto b_index_space = get_index_space(b);
+  auto c_index_space = get_index_space(c);
   auto a_index_space = get_index_space(a);
 
   int32_t in = getIndexPoint(task, 0);
   int32_t jn = getIndexPoint(task, 1);
-  auto aPartitionBounds = runtime->get_index_space_domain(ctx, a_index_space);
+  Domain aPartitionBounds = runtime->get_index_space_domain(ctx, a_index_space);
   Point<1> lowerBound = Point<1>(0);
   Point<1> upperBound = Point<1>(1);
   auto kosIndexSpace = runtime->create_index_space(ctx, Rect<1>(lowerBound, upperBound));
@@ -268,7 +274,7 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
   DomainT<2> domain = runtime->get_index_partition_color_space(ctx, get_index_partition(aPartition));
   for (PointInDomainIterator<2> itr = PointInDomainIterator<2>(domain); itr.valid(); itr++) {
     DomainPoint domPoint = (*itr);
-    auto aPartitionBounds = runtime->get_index_space_domain(runtime->get_logical_subregion_by_color(ctx, aPartition, domPoint).get_index_space());
+    Domain aPartitionBounds = runtime->get_index_space_domain(runtime->get_logical_subregion_by_color(ctx, aPartition, domPoint).get_index_space());
   }
   RegionRequirement aReq = RegionRequirement(aPartition, 0, READ_WRITE, EXCLUSIVE, get_logical_region(a));
   aReq.add_field(FID_VAL);

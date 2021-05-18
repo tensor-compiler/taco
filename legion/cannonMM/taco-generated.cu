@@ -2,8 +2,8 @@
 #include "taco_mapper.h"
 #define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))
 using namespace Legion;
-typedef FieldAccessor<READ_ONLY,int32_t,2,coord_t,Realm::AffineAccessor<int32_t,2,coord_t>> AccessorROint32_t2;
-typedef FieldAccessor<READ_WRITE,int32_t,2,coord_t,Realm::AffineAccessor<int32_t,2,coord_t>> AccessorRWint32_t2;
+typedef FieldAccessor<READ_ONLY,double,2,coord_t,Realm::AffineAccessor<double,2,coord_t>> AccessorROdouble2;
+typedef FieldAccessor<READ_WRITE,double,2,coord_t,Realm::AffineAccessor<double,2,coord_t>> AccessorRWdouble2;
 
 struct task_1Args {
 };
@@ -17,7 +17,7 @@ struct task_4Args {
   int32_t c2_dimension;
   int32_t in;
   int32_t jn;
-  int32_t ko;
+  int32_t kos;
 };
 struct task_5Args {
   int32_t b1_dimension;
@@ -149,6 +149,50 @@ LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c) {
 
 }
 
+__global__
+void task_4DeviceKernel0(Domain aPartitionBounds, int32_t in, int32_t jn, int32_t ko, AccessorRWdouble2 a_vals, AccessorROdouble2 b_vals, AccessorROdouble2 c_vals, int32_t b1_dimension, int32_t c1_dimension, int32_t c2_dimension, int32_t kos) {
+
+  int32_t bvar = blockIdx.x + (aPartitionBounds.lo()[0] / 2048);
+  int32_t tvar = (threadIdx.x % (32));
+  int32_t wvar = (threadIdx.x / 32);
+  if (threadIdx.x >= 256) {
+    return;
+  }
+
+  for (int32_t f3 = 0; f3 < 8; f3++) {
+    int32_t f2 = tvar * 8 + f3;
+    int32_t f1 = wvar * 256 + f2;
+    int32_t il = (bvar * 2048 + f1) + aPartitionBounds.lo()[0];
+    if (il >= b1_dimension)
+      break;
+
+    if (il >= (in + 1) * ((aPartitionBounds.hi()[0] + 1) - aPartitionBounds.lo()[0]))
+      break;
+
+    for (int32_t jl = aPartitionBounds.lo()[1]; jl < (aPartitionBounds.hi()[1] + 1); jl++) {
+      Point<2> a_access_point = Point<2>(il, jl);
+      if (jl >= c2_dimension)
+        break;
+
+      if (jl >= (jn + 1) * ((aPartitionBounds.hi()[1] + 1) - aPartitionBounds.lo()[1]))
+        break;
+
+      for (int32_t ki = 0; ki < ((c1_dimension + 1) / 2); ki++) {
+        int32_t k = ko * ((c1_dimension + 1) / 2) + ki;
+        Point<2> b_access_point = Point<2>(il, k);
+        Point<2> c_access_point = Point<2>(k, jl);
+        if (k >= c1_dimension)
+          break;
+
+        if (k >= (ko + 1) * ((c1_dimension + 1) / 2))
+          break;
+
+        a_vals[a_access_point] = a_vals[a_access_point] + b_vals[b_access_point] * c_vals[c_access_point];
+      }
+    }
+  }
+}
+
 void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   PhysicalRegion a = regions[0];
   PhysicalRegion b = regions[1];
@@ -160,40 +204,16 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t c2_dimension = args->c2_dimension;
   int32_t in = args->in;
   int32_t jn = args->jn;
-  int32_t ko = args->ko;
+  int32_t kos = args->kos;
 
   auto a_index_space = get_index_space(a);
-  AccessorROint32_t2 b_vals(b, FID_VAL);
-  AccessorROint32_t2 c_vals(c, FID_VAL);
-  AccessorRWint32_t2 a_vals(a, FID_VAL);
+  AccessorROdouble2 c_vals(c, FID_VAL);
+  AccessorROdouble2 b_vals(b, FID_VAL);
+  AccessorRWdouble2 a_vals(a, FID_VAL);
 
+  int32_t ko = (jn + (in + kos)) % 2;
   Domain aPartitionBounds = runtime->get_index_space_domain(ctx, a_index_space);
-  for (int32_t il = aPartitionBounds.lo()[0]; il < (aPartitionBounds.hi()[0] + 1); il++) {
-    if (il >= b1_dimension)
-      continue;
-
-    if (il >= (in + 1) * ((aPartitionBounds.hi()[0] + 1) - aPartitionBounds.lo()[0]))
-      continue;
-
-    for (int32_t jl = aPartitionBounds.lo()[1]; jl < (aPartitionBounds.hi()[1] + 1); jl++) {
-      Point<2> a_access_point = Point<2>(il, jl);
-      if (jl >= c2_dimension)
-        continue;
-
-      if (jl >= (jn + 1) * ((aPartitionBounds.hi()[1] + 1) - aPartitionBounds.lo()[1]))
-        continue;
-
-      for (int32_t ki = 0; ki < 256; ki++) {
-        int32_t k = ko * 256 + ki;
-        Point<2> b_access_point = Point<2>(il, k);
-        Point<2> c_access_point = Point<2>(k, jl);
-        if (k >= c1_dimension)
-          continue;
-
-        a_vals[a_access_point] = a_vals[a_access_point] + b_vals[b_access_point] * c_vals[c_access_point];
-      }
-    }
-  }
+  task_4DeviceKernel0<<<((aPartitionBounds.hi()[0] + 2048) / 2048 - aPartitionBounds.lo()[0] / 2048), (32 * 8)>>>(aPartitionBounds, in, jn, ko, a_vals, b_vals, c_vals, b1_dimension, c1_dimension, c2_dimension, kos);
 }
 
 void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
@@ -208,40 +228,40 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t c1_dimension = args->c1_dimension;
   int32_t c2_dimension = args->c2_dimension;
 
-  auto b_index_space = get_index_space(b);
   auto c_index_space = get_index_space(c);
+  auto b_index_space = get_index_space(b);
   auto a_index_space = get_index_space(a);
 
   int32_t in = getIndexPoint(task, 0);
   int32_t jn = getIndexPoint(task, 1);
   Domain aPartitionBounds = runtime->get_index_space_domain(ctx, a_index_space);
   Point<1> lowerBound = Point<1>(0);
-  Point<1> upperBound = Point<1>(((c1_dimension + 255) / 256 - 1));
-  auto koIndexSpace = runtime->create_index_space(ctx, Rect<1>(lowerBound, upperBound));
-  DomainT<1> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<1>(koIndexSpace));
+  Point<1> upperBound = Point<1>(1);
+  auto kosIndexSpace = runtime->create_index_space(ctx, Rect<1>(lowerBound, upperBound));
+  DomainT<1> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<1>(kosIndexSpace));
   DomainPointColoring bColoring = DomainPointColoring();
   DomainPointColoring cColoring = DomainPointColoring();
   for (PointInDomainIterator<1> itr = PointInDomainIterator<1>(domain); itr.valid(); itr++) {
-    int32_t ko = (*itr)[0];
-    Point<2> bStart = Point<2>(aPartitionBounds.lo()[0], (ko * 256));
-    Point<2> bEnd = Point<2>(TACO_MIN(((aPartitionBounds.hi()[0] + 1) - 1),(b1_dimension - 1)), TACO_MIN((ko * 256 + 255),(b2_dimension - 1)));
+    int32_t kos = (*itr)[0];
+    Point<2> bStart = Point<2>(aPartitionBounds.lo()[0], (((jn + (in + kos)) % 2) * ((c1_dimension + 1) / 2)));
+    Point<2> bEnd = Point<2>(TACO_MIN(((aPartitionBounds.hi()[0] + 1) - 1),(b1_dimension - 1)), TACO_MIN((((jn + (in + kos)) % 2) * ((c1_dimension + 1) / 2) + ((c1_dimension + 1) / 2 - 1)),(b2_dimension - 1)));
     Rect<2> bRect = Rect<2>(bStart, bEnd);
     bColoring[(*itr)] = bRect;
-    Point<2> cStart = Point<2>((ko * 256), aPartitionBounds.lo()[1]);
-    Point<2> cEnd = Point<2>(TACO_MIN((ko * 256 + 255),(c1_dimension - 1)), TACO_MIN(((aPartitionBounds.hi()[1] + 1) - 1),(c2_dimension - 1)));
+    Point<2> cStart = Point<2>((((jn + (in + kos)) % 2) * ((c1_dimension + 1) / 2)), aPartitionBounds.lo()[1]);
+    Point<2> cEnd = Point<2>(TACO_MIN((((jn + (in + kos)) % 2) * ((c1_dimension + 1) / 2) + ((c1_dimension + 1) / 2 - 1)),(c1_dimension - 1)), TACO_MIN(((aPartitionBounds.hi()[1] + 1) - 1),(c2_dimension - 1)));
     Rect<2> cRect = Rect<2>(cStart, cEnd);
     cColoring[(*itr)] = cRect;
   }
   auto bPartition = runtime->create_index_partition(ctx, b_index_space, domain, bColoring, LEGION_DISJOINT_KIND);
   auto cPartition = runtime->create_index_partition(ctx, c_index_space, domain, cColoring, LEGION_DISJOINT_KIND);
   for (PointInDomainIterator<1> itr = PointInDomainIterator<1>(domain); itr.valid(); itr++) {
-    int32_t ko = (*itr);
+    int32_t kos = (*itr);
     RegionRequirement aReq = RegionRequirement(get_logical_region(a), READ_WRITE, EXCLUSIVE, get_logical_region(a));
     aReq.add_field(FID_VAL);
-    auto bsubReg = runtime->get_logical_subregion_by_color(ctx, runtime->get_logical_partition(ctx, get_logical_region(b), bPartition), ko);
+    auto bsubReg = runtime->get_logical_subregion_by_color(ctx, runtime->get_logical_partition(ctx, get_logical_region(b), bPartition), kos);
     RegionRequirement bReq = RegionRequirement(bsubReg, READ_ONLY, EXCLUSIVE, get_logical_region(b));
     bReq.add_field(FID_VAL);
-    auto csubReg = runtime->get_logical_subregion_by_color(ctx, runtime->get_logical_partition(ctx, get_logical_region(c), cPartition), ko);
+    auto csubReg = runtime->get_logical_subregion_by_color(ctx, runtime->get_logical_partition(ctx, get_logical_region(c), cPartition), kos);
     RegionRequirement cReq = RegionRequirement(csubReg, READ_ONLY, EXCLUSIVE, get_logical_region(c));
     cReq.add_field(FID_VAL);
     task_4Args taskArgsRaw;
@@ -250,7 +270,7 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
     taskArgsRaw.c2_dimension = c2_dimension;
     taskArgsRaw.in = in;
     taskArgsRaw.jn = jn;
-    taskArgsRaw.ko = ko;
+    taskArgsRaw.kos = kos;
     TaskArgument taskArgs = TaskArgument(&taskArgsRaw, sizeof(task_4Args));
     TaskLauncher launcher = TaskLauncher(taskID(4), taskArgs);
     launcher.add_region_requirement(aReq);
@@ -316,7 +336,7 @@ void registerTacoTasks() {
   }
   {
     TaskVariantRegistrar registrar(taskID(4), "task_4");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_4>(registrar, "task_4");
   }

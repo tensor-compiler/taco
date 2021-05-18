@@ -11,7 +11,7 @@ namespace taco {
 namespace ir {
 
 
-class CodeGen_C : public CodeGen {
+class CodeGen_C : virtual public CodeGen {
 public:
   /// Initialize a code generator that generates code to an
   /// output stream.

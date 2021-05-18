@@ -246,7 +246,12 @@ ir::Expr SplitRelNode::recoverVariable(taco::IndexVar indexVar,
   taco_iassert(indexVar == getParentVar());
   taco_iassert(variableNames.count(getParentVar()) && variableNames.count(getOuterVar()) && variableNames.count(getInnerVar()));
   Datatype splitFactorType = variableNames[getParentVar()].type();
-  return ir::Add::make(ir::Mul::make(variableNames[getOuterVar()], ir::Literal::make(getSplitFactor(), splitFactorType)), variableNames[getInnerVar()]);
+  // Include the lower bound of the variable being recovered. Normally, this is 0, but
+  // for cases like DIVIDE_ONTO_PARTITION, it is not.
+  return ir::Add::make(
+      ir::Add::make(ir::Mul::make(variableNames[getOuterVar()], ir::Literal::make(getSplitFactor(), splitFactorType)), variableNames[getInnerVar()]),
+      parentIterBounds[indexVar][0]
+  );
 }
 
 ir::Stmt SplitRelNode::recoverChild(taco::IndexVar indexVar,
@@ -1214,7 +1219,7 @@ ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
     if (rel.getRelType() == DIVIDE_ONTO_PARTITION && !this->partitionColorSpace.defined()) {
       auto node = rel.getNode<DivideOntoPartition>();
       this->partitionColorSpace = ir::Var::make(node->getTensorVar().getName() + "PartitionColorSpace", Auto);
-      this->partitionBounds = ir::Var::make(node->getTensorVar().getName() + "PartitionBounds", Auto);
+      this->partitionBounds = ir::Var::make(node->getTensorVar().getName() + "PartitionBounds", Domain());
     }
   }
 }
@@ -1661,7 +1666,7 @@ bool ProvenanceGraph::isDivided(IndexVar indexVar) const {
   auto children = this->getChildren(indexVar);
   if (children.size() > 0) {
     auto rel = this->childRelMap.at(indexVar);
-    if (rel.getRelType() == DIVIDE) {
+    if (rel.getRelType() == DIVIDE || rel.getRelType() == DIVIDE_ONTO_PARTITION) {
       return true;
     }
   }

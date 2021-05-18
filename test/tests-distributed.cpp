@@ -5,6 +5,8 @@
 #include "taco/lower/lower.h"
 #include "codegen/codegen.h"
 #include "codegen/codegen_legion_c.h"
+#include "codegen/codegen_legion_cuda.h"
+#include "codegen/codegen_cuda.h"
 
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/provenance_graph.h"
@@ -12,6 +14,12 @@
 #include <fstream>
 
 using namespace taco;
+
+const int NNZ_PER_THREAD=8;
+const int WARP_SIZE = 32;
+const int BLOCK_SIZE=256;
+const int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
+const int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
 
 TEST(distributed, test) {
   int dim = 10;
@@ -23,8 +31,6 @@ TEST(distributed, test) {
   a(i) = b(i) + c(i);
   auto stmt = a.getAssignment().concretize();
   stmt = stmt.distribute({i}, {in}, {il}, Grid(4));
-  stmt = stmt.split(il, il1, il2, 256);
-
 
   // Communication modification must go at the end.
   // TODO (rohany): name -- placement
@@ -35,9 +41,41 @@ TEST(distributed, test) {
 
   auto lowered = lower(stmt, "computeLegion", false, true);
 //  std::cout << lowered << std::endl;
-
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(lowered);
+}
+
+TEST(distributed, cuda_test) {
+  int dim = 10;
+  Tensor<int> a("a", {dim}, Format{Dense});
+  Tensor<int> b("b", {dim}, Format{Dense});
+  IndexVar i("i"), in("in"), il("il"), il1 ("il1"), il2("il2");
+  a(i) = b(i);
+  auto stmt = a.getAssignment().concretize();
+  stmt = stmt.distribute({i}, {in}, {il}, Grid(4));
+  int NNZ_PER_THREAD=8;
+  int WARP_SIZE = 32;
+  int BLOCK_SIZE=256;
+  int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
+  int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
+  IndexVar f1("f1"), f2("f2"), f3("f3"), f4("f4"), block("bvar"), warp("wvar"), thread("tvar");
+  stmt = stmt.split(il, block, f1, NNZ_PER_TB)
+      .split(f1, warp, f2, NNZ_PER_WARP)
+      .split(f2, thread, f3, NNZ_PER_THREAD)
+      .parallelize(block, ParallelUnit::GPUBlock, taco::OutputRaceStrategy::IgnoreRaces)
+      .parallelize(warp, ParallelUnit::GPUWarp, taco::OutputRaceStrategy::IgnoreRaces)
+      .parallelize(thread, ParallelUnit::GPUThread, taco::OutputRaceStrategy::IgnoreRaces)
+      ;
+  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(lowered);
+  {
+    ofstream f("../legion/cuda-test/taco-generated.cu");
+    auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(lowered);
+    f.close();
+  }
 }
 
 TEST(distributed, multiDim) {
@@ -165,6 +203,27 @@ TEST(distributed, cannonMM) {
     auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
     codegen->compile(all);
     f.close();
+  }
+
+  // Schedule a GPU version of the kernel as well.
+  {
+    IndexVar f1("f1"), f2("f2"), f3("f3"), f4("f4"), block("bvar"), warp("wvar"), thread("tvar");
+    stmt = stmt.split(il, block, f1, NNZ_PER_TB)
+        .split(f1, warp, f2, NNZ_PER_WARP)
+        .split(f2, thread, f3, NNZ_PER_THREAD)
+        .parallelize(block, ParallelUnit::GPUBlock, taco::OutputRaceStrategy::IgnoreRaces)
+        .parallelize(warp, ParallelUnit::GPUWarp, taco::OutputRaceStrategy::IgnoreRaces)
+        .parallelize(thread, ParallelUnit::GPUThread, taco::OutputRaceStrategy::IgnoreRaces)
+        ;
+    auto lowered = lower(stmt, "computeLegion", false, true);
+    // Code-generate all of the placement and compute code.
+    auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
+    {
+      ofstream f("../legion/cannonMM/taco-generated.cu");
+      auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
+      codegen->compile(all);
+      f.close();
+    }
   }
 }
 

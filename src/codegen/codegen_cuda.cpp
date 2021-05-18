@@ -454,9 +454,10 @@ string CodeGen_CUDA::printDeviceFuncName(const vector<pair<string, Expr>> curren
     else {
       auto tp = printCUDAType(var->type, var->is_ptr);
       ret << delimiter << tp << " ";
-      if (!var->is_ptr) {
-        ret << "&";
-      }
+      // TODO (rohany): Why does it do this?
+//      if (!var->is_ptr) {
+//        ret << "&";
+//      }
       ret << var->name;
     }
     // No non-tensor parameters
@@ -604,8 +605,8 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
     doIndent();
     stream << "cudaEventElapsedTime(&tot_ms, event1, event2);\n";
   }
-  doIndent();
-  stream << "cudaDeviceSynchronize();\n";
+//  doIndent();
+//  stream << "cudaDeviceSynchronize();\n";
 
 }
 
@@ -638,7 +639,7 @@ void CodeGen_CUDA::compile(Stmt stmt, bool isFirst) {
   }
   out << endl;
   // simplify all function bodies before so can find device functions
-  stmt = simplifyFunctionBodies(stmt);
+//  stmt = simplifyFunctionBodies(stmt);
   stmt.accept(this);
 }
 
@@ -928,10 +929,15 @@ void CodeGen_CUDA::visit(const For* op) {
   stream << " = ";
   op->start.accept(this);
   stream << keywordString("; ");
-  op->var.accept(this);
-  stream << " < ";
-  parentPrecedence = BOTTOM;
-  op->end.accept(this);
+  if (isa<MethodCall>(op->end)) {
+    // Temporarily assume that method calls mean that this is a C++ style for loop.
+    op->end.accept(this);
+  } else {
+    op->var.accept(this);
+    stream << " < ";
+    parentPrecedence = BOTTOM;
+    op->end.accept(this);
+  }
   stream << keywordString("; ");
   op->var.accept(this);
 
@@ -1178,7 +1184,7 @@ void CodeGen_CUDA::visit(const VarDecl* op) {
     stream << endl;
   }
   // f var can be passed to device function then allocated in uvm
-  else if (scalarVarsPassedToDeviceFunction.count(op->var) && isHostFunction) {
+  else if (scalarVarsPassedToDeviceFunction.count(op->var) && isHostFunction && false) {
     // type *x_ptr;
     // gpuErrchk(cudaMallocManaged((void**)&x_ptr, sizeof(type));
     // type &x = *x_ptr;
@@ -1313,18 +1319,19 @@ void CodeGen_CUDA::visit(const Call* op) {
     // argument. This pointer information isn't carried anywhere in
     // the argument expressions, so we need to special case and not
     // emit an invalid cast for that argument.
-    auto opIsBinarySearch = op->func == "taco_binarySearchAfter" || op->func == "taco_binarySearchBefore";
-    if (!opIsBinarySearch && (op->type != op->args[0].type() || isa<Literal>(op->args[0]))) {
-      stream << "(" << printCUDAType(op->type, false) << ") ";
-    }
+    // TODO (rohany): I still don't understand why these casts are necessary.
+    // auto opIsBinarySearch = op->func == "taco_binarySearchAfter" || op->func == "taco_binarySearchBefore" || op->func == "taskID";
+    // if (!opIsBinarySearch && (op->type != op->args[0].type() || isa<Literal>(op->args[0]))) {
+    //   stream << "(" << printCUDAType(op->type, false) << ") ";
+    // }
     op->args[0].accept(this);
   }
 
   for (size_t i=1; i < op->args.size(); ++i) {
     stream << ", ";
-    if (op->type != op->args[i].type() || isa<Literal>(op->args[i])) {
-      stream << "(" << printCUDAType(op->type, false) << ") ";
-    }
+    // if (op->type != op->args[i].type() || isa<Literal>(op->args[i])) {
+    //   stream << "(" << printCUDAType(op->type, false) << ") ";
+    // }
     op->args[i].accept(this);
   }
 

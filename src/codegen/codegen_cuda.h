@@ -12,7 +12,7 @@ namespace taco {
 namespace ir {
 
 
-class CodeGen_CUDA : public CodeGen {
+class CodeGen_CUDA : virtual public CodeGen {
 public:
   /// Initialize a code generator that generates code to an
   /// output stream.
@@ -54,7 +54,7 @@ protected:
   void printBlockIDVariable(std::pair<std::string, Expr> blockIDVar, Expr start, Expr increment);
   void printWarpIDVariable(std::pair<std::string, Expr> warpIDVar, Expr start, Expr increment, Expr warpSize);
   void printThreadBoundCheck(Expr end);
-  void printDeviceFunctions(const Function* func);
+  virtual void printDeviceFunctions(const Function* func);
   void printBinCastedOp(Expr a, Expr b, std::string op, Precedence precedence);
   Stmt simplifyFunctionBodies(Stmt stmt);
 
