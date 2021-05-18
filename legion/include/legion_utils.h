@@ -23,12 +23,10 @@ Legion::PhysicalRegion getRegionToWrite(Legion::Context ctx, Legion::Runtime* ru
 
 void benchmark(std::function<void(void)> f);
 
+// We forward declare these functions. If we are building with CUDA, then
+// the CUDA files define them. Otherwise, the CPP files define them.
 void initCuBLAS(Legion::Context ctx, Legion::Runtime* runtime);
-
-#ifndef TACO_USE_CUDA
-// Create a dummy declaration of initCuda if we aren't supposed to build with CUDA.
-void initCUDA() {};
-#endif
+void initCUDA();
 
 #define TACO_MAIN(FillType) \
   int main(int argc, char **argv) { \

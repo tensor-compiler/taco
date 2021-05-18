@@ -22,6 +22,7 @@ void benchmark(std::function<void(void)> f) {
 }
 
 #ifndef TACO_USE_CUDA
-// Dummy implementation of initCuBLAS if we aren't supposed to use CUDA.
+// Dummy implementations of initCuBLAS and initCUDA if we aren't supposed to use CUDA.
 void initCuBLAS(Context ctx, Runtime* runtime) {}
+void initCUDA() {}
 #endif
