@@ -12,17 +12,17 @@ struct task_1Args {
 __global__
 void task_1DeviceKernel0(AccessorRWint32_t1 a_vals, AccessorROint32_t1 b_vals, int32_t b1_dimension, int32_t in) {
 
-  int32_t i1344 = blockIdx.x;
-  int32_t i1346 = (threadIdx.x % (32));
-  int32_t i1345 = (threadIdx.x / 32);
+  int32_t bvar = blockIdx.x;
+  int32_t tvar = (threadIdx.x % (32));
+  int32_t wvar = (threadIdx.x / 32);
   if (threadIdx.x >= 256) {
     return;
   }
 
-  for (int32_t i1342 = 0; i1342 < 8; i1342++) {
-    int32_t i1341 = i1346 * 8 + i1342;
-    int32_t i1340 = i1345 * 256 + i1341;
-    int32_t il = i1344 * 2048 + i1340;
+  for (int32_t f3 = 0; f3 < 8; f3++) {
+    int32_t f2 = tvar * 8 + f3;
+    int32_t f1 = wvar * 256 + f2;
+    int32_t il = bvar * 2048 + f1;
     int32_t i = in * ((b1_dimension + 3) / 4) + il;
     Point<1> a_access_point = Point<1>(i);
     Point<1> b_access_point = Point<1>(i);

@@ -253,27 +253,9 @@ string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
   // for a Fixed level, ptr is an int
   // all others are int*
   if (op->property == TensorProperty::Dimension) {
-//    tp = "int";
-//    ret << tp << " " << varname << " = runtime->get_index_space_domain(get_index_space(" << tensor->name <<
-//        ")).hi()[" << op->mode << "] + 1;\n";
     tp = "int";
     ret << tp << " " << varname << " = (int)(" << tensor->name
         << "->dimensions[" << op->mode << "]);\n";
-  } else if (op->property == TensorProperty::IndexSpace) {
-    tp = "auto";
-    ret << tp << " " << varname << " = get_index_space(" << tensor->name << ");\n";
-  } else if (op->property == TensorProperty::ValuesReadAccessor) {
-    ret << "AccessorRO" << printType(op->type, false) << op->mode << " " << varname << "(" << tensor->name << ", FID_VAL);\n";
-  } else if (op->property == TensorProperty::ValuesWriteAccessor) {
-    ret << "AccessorRW" << printType(op->type, false) << op->mode << " " << varname << "(" << tensor->name
-        << ", FID_VAL);\n";
-  } else if (op->property == TensorProperty::ValuesReductionAccessor) {
-    ret << "AccessorReduce" << printType(op->type, false) << op->mode << " " << varname << "(" << tensor->name
-        << ", FID_VAL, " << LegionRedopString(op->type) << ");\n";
-//  if (op->property == TensorProperty::Dimension) {
-//    tp = "int";
-//    ret << tp << " " << varname << " = (int)(" << tensor->name
-//        << "->dimensions[" << op->mode << "]);\n";
   } else {
       taco_iassert(op->property == TensorProperty::Indices);
       tp = "int*";

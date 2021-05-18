@@ -322,10 +322,6 @@ protected:
   using IRVisitor::visit;
 
   virtual void visit(const For *op) {
-    // Don't follow into task calls.
-    if (op->isTask) {
-      return;
-    }
     // Don't need to find/initialize loop bounds
     if (op->parallel_unit == ParallelUnit::GPUBlock) {
       op->var.accept(this);
@@ -382,7 +378,6 @@ protected:
   }
 
   virtual void visit(const Var *op) {
-    std::cout << "Visiting var: " << Expr(op) << std::endl;
     if (scopeMap.count(op) == 0) {
       string name = codeGen->genUniqueName(op->name);
       if (!inDeviceFunction) {
@@ -408,7 +403,6 @@ protected:
   }
 
   virtual void visit(const GetProperty *op) {
-    std::cout << "Visiting gp: " << Expr(op) << std::endl;
     if (scopeMap.count(op->tensor) == 0 && !inDeviceFunction) {
       auto key =
               tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
@@ -440,7 +434,6 @@ Stmt CodeGen_CUDA::simplifyFunctionBodies(Stmt stmt) {
     }
   };
   return FunctionBodySimplifier().rewrite(stmt);
-//  return stmt;
 }
 
 string CodeGen_CUDA::printDeviceFuncName(const vector<pair<string, Expr>> currentParameters, int index) {

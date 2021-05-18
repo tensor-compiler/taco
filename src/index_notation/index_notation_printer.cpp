@@ -264,11 +264,13 @@ void IndexNotationPrinter::visit(const SuchThatNode* op) {
       os << " and ";
     }
   }
-  os << "; ";
-  for (auto it : op->calls) {
-    os << it.first << " -> ";
-    it.second->print(os);
-    os << " ";
+  if (!op->calls.empty()) {
+    os << "; ";
+    for (auto it : op->calls) {
+      os << it.first << " -> ";
+      it.second->print(os);
+      os << " ";
+    }
   }
   os << ")";
 }

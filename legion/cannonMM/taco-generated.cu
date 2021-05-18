@@ -152,17 +152,17 @@ LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c) {
 __global__
 void task_4DeviceKernel0(Domain aPartitionBounds, int32_t in, int32_t jn, int32_t ko, AccessorRWdouble2 a_vals, AccessorROdouble2 b_vals, AccessorROdouble2 c_vals, int32_t b1_dimension, int32_t c1_dimension, int32_t c2_dimension, int32_t kos) {
 
-  int32_t i1654 = blockIdx.x + (aPartitionBounds.lo()[0] / 2048);
-  int32_t i1656 = (threadIdx.x % (32));
-  int32_t i1655 = (threadIdx.x / 32);
+  int32_t bvar = blockIdx.x + (aPartitionBounds.lo()[0] / 2048);
+  int32_t tvar = (threadIdx.x % (32));
+  int32_t wvar = (threadIdx.x / 32);
   if (threadIdx.x >= 256) {
     return;
   }
 
-  for (int32_t i1652 = 0; i1652 < 8; i1652++) {
-    int32_t i1651 = i1656 * 8 + i1652;
-    int32_t i1650 = i1655 * 256 + i1651;
-    int32_t il = (i1654 * 2048 + i1650) + aPartitionBounds.lo()[0];
+  for (int32_t f3 = 0; f3 < 8; f3++) {
+    int32_t f2 = tvar * 8 + f3;
+    int32_t f1 = wvar * 256 + f2;
+    int32_t il = (bvar * 2048 + f1) + aPartitionBounds.lo()[0];
     if (il >= b1_dimension)
       break;
 
@@ -207,8 +207,8 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t kos = args->kos;
 
   auto a_index_space = get_index_space(a);
-  AccessorROdouble2 b_vals(b, FID_VAL);
   AccessorROdouble2 c_vals(c, FID_VAL);
+  AccessorROdouble2 b_vals(b, FID_VAL);
   AccessorRWdouble2 a_vals(a, FID_VAL);
 
   int32_t ko = (jn + (in + kos)) % 2;
@@ -228,9 +228,9 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t c1_dimension = args->c1_dimension;
   int32_t c2_dimension = args->c2_dimension;
 
+  auto c_index_space = get_index_space(c);
   auto b_index_space = get_index_space(b);
   auto a_index_space = get_index_space(a);
-  auto c_index_space = get_index_space(c);
 
   int32_t in = getIndexPoint(task, 0);
   int32_t jn = getIndexPoint(task, 1);

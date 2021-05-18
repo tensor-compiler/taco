@@ -58,7 +58,7 @@ TEST(distributed, cuda_test) {
   int BLOCK_SIZE=256;
   int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
   int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
-  IndexVar f1, f2, f3, f4, block, warp, thread;
+  IndexVar f1("f1"), f2("f2"), f3("f3"), f4("f4"), block("bvar"), warp("wvar"), thread("tvar");
   stmt = stmt.split(il, block, f1, NNZ_PER_TB)
       .split(f1, warp, f2, NNZ_PER_WARP)
       .split(f2, thread, f3, NNZ_PER_THREAD)
@@ -207,7 +207,7 @@ TEST(distributed, cannonMM) {
 
   // Schedule a GPU version of the kernel as well.
   {
-    IndexVar f1, f2, f3, f4, block, warp, thread;
+    IndexVar f1("f1"), f2("f2"), f3("f3"), f4("f4"), block("bvar"), warp("wvar"), thread("tvar");
     stmt = stmt.split(il, block, f1, NNZ_PER_TB)
         .split(f1, warp, f2, NNZ_PER_WARP)
         .split(f2, thread, f3, NNZ_PER_THREAD)

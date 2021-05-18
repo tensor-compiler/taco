@@ -190,8 +190,8 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t k1s = args->k1s;
   int32_t kn = args->kn;
 
-  AccessorROint32_t2 c_vals(c, FID_VAL);
   AccessorROint32_t2 b_vals(b, FID_VAL);
+  AccessorROint32_t2 c_vals(c, FID_VAL);
   AccessorReduceint32_t2 a_vals(a, FID_VAL, LEGION_REDOP_SUM_INT32);
 
   int32_t k1 = (jn + (in + k1s)) % 2;
@@ -246,9 +246,9 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t c1_dimension = args->c1_dimension;
   int32_t c2_dimension = args->c2_dimension;
 
-  auto c_index_space = get_index_space(c);
   auto a_index_space = get_index_space(a);
   auto b_index_space = get_index_space(b);
+  auto c_index_space = get_index_space(c);
 
   int32_t in = getIndexPoint(task, 0);
   int32_t jn = getIndexPoint(task, 1);
