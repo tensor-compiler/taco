@@ -72,12 +72,26 @@ public:
       for (int i = 0; i < dim; i++) {
         gridDims[i] = args[i];
       }
+      std::vector<Legion::Processor> targets;
+      switch (this->default_find_preferred_variant(task, ctx, false /* needs tight bound */).proc_kind) {
+        case Legion::Processor::OMP_PROC: {
+	  targets = this->remote_omps;
+	  break;
+	}
+	case Legion::Processor::LOC_PROC: {
+	  targets = this->remote_cpus;
+	  break;
+	}
+	default: {
+	  assert(false);
+	}
+      }
       switch (dim) {
 #define BLOCK(DIM) \
         case DIM:  \
           {        \
             Legion::DomainT<DIM, Legion::coord_t> pointSpace = input.domain; \
-            this->decompose_points(pointSpace, gridDims, output.slices);        \
+            this->decompose_points(pointSpace, gridDims, targets, output.slices);        \
             break;   \
           }
         LEGION_FOREACH_N(BLOCK)
@@ -93,12 +107,12 @@ public:
   template<int DIM>
   void decompose_points(const Legion::DomainT<DIM, Legion::coord_t> &point_space,
                         std::vector<int>& gridDims,
+			std::vector<Legion::Processor> targets,
                         std::vector<TaskSlice> &slices) {
     slices.reserve(point_space.volume());
 
     // We'll allocate each node a point in the index space.
     auto node = 0;
-    auto targets = this->remote_cpus;
 
     // We'll iterate over the full placement grid.
     Legion::Rect<DIM, Legion::coord_t> procRect;
