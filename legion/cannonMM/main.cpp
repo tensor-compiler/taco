@@ -42,6 +42,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   placeLegionB(ctx, runtime, B);
   placeLegionC(ctx, runtime, C);
 
+  initCuBLAS(ctx, runtime);
+
   // Compute on the tensors.
   benchmark([&]() { computeLegion(ctx, runtime, A, B, C, part); });
 

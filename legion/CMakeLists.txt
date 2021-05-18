@@ -1,10 +1,17 @@
 find_package(Legion REQUIRED)
 
+
 # Include the headers and supporting source files.
 include_directories(include/ OpenBLAS/install/include "${CMAKE_BINARY_DIR}/include")
 link_directories(OpenBLAS/install/lib)
 file(GLOB LG_SOURCES src/*.cpp)
 file(GLOB LG_CU_SOURCES src/*.cu)
+if (Legion_USE_CUDA)
+  if (NOT DEFINED TACO_CUDA_LIBS)
+    message(ERROR "Please set TACO_CUDA_LIBS to the path to CUDA libraries")
+  endif()
+  link_directories(${TACO_CUDA_LIBS})
+endif()
 
 # Optimize these codes.
 SET(CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
@@ -21,7 +28,7 @@ function(add_app_folder folder)
     if (Legion_USE_CUDA)
         if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${folder}/taco-generated.cu")
             cuda_add_executable("${folder}-cuda" "${folder}/main.cpp" "${folder}/taco-generated.cu" ${LG_SOURCES} ${LG_CU_SOURCES})
-            target_link_libraries("${folder}-cuda" Legion::Legion)
+            target_link_libraries("${folder}-cuda" Legion::Legion cublas)
         endif()
     endif()
 endfunction()

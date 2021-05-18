@@ -20,3 +20,8 @@ void benchmark(std::function<void(void)> f) {
   auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
   std::cout << "Execution time: " << ms << " ms." << std::endl;
 }
+
+#ifndef TACO_USE_CUDA
+// Dummy implementation of initCuBLAS if we aren't supposed to use CUDA.
+void initCuBLAS(Context ctx, Runtime* runtime) {}
+#endif

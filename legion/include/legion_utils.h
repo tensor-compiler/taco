@@ -8,6 +8,10 @@
 #include "taco/version.h"
 #include "fill.h"
 
+#ifdef TACO_USE_CUDA
+#include "cudalibs.h"
+#endif
+
 template<typename T>
 void allocate_tensor_fields(Legion::Context ctx, Legion::Runtime* runtime, Legion::FieldSpace valSpace) {
   Legion::FieldAllocator allocator = runtime->create_field_allocator(ctx, valSpace);
@@ -18,6 +22,13 @@ void allocate_tensor_fields(Legion::Context ctx, Legion::Runtime* runtime, Legio
 Legion::PhysicalRegion getRegionToWrite(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegion r, Legion::LogicalRegion parent);
 
 void benchmark(std::function<void(void)> f);
+
+void initCuBLAS(Legion::Context ctx, Legion::Runtime* runtime);
+
+#ifndef TACO_USE_CUDA
+// Create a dummy declaration of initCuda if we aren't supposed to build with CUDA.
+void initCUDA() {};
+#endif
 
 #define TACO_MAIN(FillType) \
   int main(int argc, char **argv) { \
@@ -34,7 +45,9 @@ void benchmark(std::function<void(void)> f);
     }                       \
     registerTACOFillTasks<FillType>();             \
     Runtime::add_registration_callback(register_taco_mapper);     \
+    initCUDA(); \
     registerTacoTasks();            \
     return Runtime::start(argc, argv);             \
   }
 #endif //TACO_LEGION_UTILS_H
+
