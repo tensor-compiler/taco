@@ -340,6 +340,14 @@ string CodeGen::printDecls(map<Expr, string, ExprCompare> varMap,
            b_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
                                                   b->tensor));
 
+         // There's a weird case here where when both properties are IndexSpace,
+         // the input var is not present in the inputs or outputs! As a temporary
+         // fix, handle this case separately.
+         if (a->property == TensorProperty::IndexSpace && b->property == TensorProperty::IndexSpace &&
+             a_pos == b_pos && a->name != b->name) {
+           return a->name < b->name;
+         }
+
          // if total order is same, have to do more, otherwise we know
          // our answer
          if (a_pos != b_pos)
