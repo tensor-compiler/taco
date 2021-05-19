@@ -696,6 +696,35 @@ TEST(spatial, tile_GEMV) {
   set_Spatial_codegen_enabled(false);
 }
 
+TEST(spatial, sparse_csr_spMV_fused) {
+  set_Spatial_codegen_enabled(false);
+
+  Tensor<double> A("A", {16}, {Sparse}, taco::MemoryLocation::SpatialDRAM);
+  Tensor<double> B("B", {16, 16}, CSR, taco::MemoryLocation::SpatialDRAM);
+  Tensor<double> C("C", {16}, {Dense}, taco::MemoryLocation::SpatialDRAM);
+
+  for (int i = 0; i < 16; i++) {
+    if (i % 4 == 0) 
+      C.insert({i}, (double) i);
+    B.insert({i, i}, (double) i);
+  }
+
+  IndexVar i("i"), j("j"), f("f"), fp("fp");
+  A(i) = B(i, j) * C(j);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  stmt = stmt.fuse(i, j, f).pos(f, fp, B(i,j));
+  stmt = stmt.parallelize(j, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+
+  set_Spatial_codegen_enabled(true);
+
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  codegen->compile(compute, false);
+  set_Spatial_codegen_enabled(false);
+}
+
 TEST(spatial, sparse_csr_spMV) {
   set_Spatial_codegen_enabled(false);
 
@@ -709,23 +738,15 @@ TEST(spatial, sparse_csr_spMV) {
     B.insert({i, i}, (double) i);
   }
 
-  IndexVar i("i"), j("j");
+  IndexVar i("i"), j("j"), f("f"), fp("fp");
   A(i) = B(i, j) * C(j);
 
   IndexStmt stmt = A.getAssignment().concretize();
   stmt = stmt.parallelize(j, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
+
+  cout << "----------------Post-Schedule Stmt-----------------" << endl;
+  cout << stmt << endl;
   ir::IRPrinter irp = ir::IRPrinter(cout);
-
-  A.compile(stmt);
-  A.assemble();
-  A.compute();
-
-  Tensor<double> expected("expected", {16}, {Dense});
-  expected(i) = B(i, j) * C(j);
-  expected.compile();
-  expected.assemble();
-  expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
 
   set_Spatial_codegen_enabled(true);
 
