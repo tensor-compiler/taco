@@ -90,9 +90,22 @@ public:
   ) const;
   void print(std::ostream& os) const;
 
-private:
+protected:
   struct Content;
   std::shared_ptr<Content> content;
+};
+
+class CuGEMM : public GEMM {
+  ir::Stmt replaceValidStmt(IndexStmt stmt,
+                            ProvenanceGraph pg,
+                            std::map<TensorVar, ir::Expr> tensorVars,
+                            bool inReduction,
+                            std::vector<IndexVar> definedVarOrder,
+                            std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
+                            std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                            Iterators iterators
+  ) const;
+  void print(std::ostream& os) const;
 };
 
 /// The reorder optimization rewrites an index statement to swap the order of

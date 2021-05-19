@@ -21,7 +21,7 @@ private:
   void visit(const PackTaskArgs* node) override;
   void printDeviceFunctions(const Function* func) override;
   std::string procForTask(Stmt func) override;
-//  void emitHeaders(std::ostream& o) override;
+  void emitHeaders(std::ostream& o) override;
   // TODO (rohany): It also doesn't seem like I can avoid duplicating this class.
   //  It seems like an artifact of how the code is organized.
   class FindVars;

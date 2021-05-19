@@ -208,13 +208,19 @@ TEST(distributed, cannonMM) {
   // Schedule a GPU version of the kernel as well.
   {
     IndexVar f1("f1"), f2("f2"), f3("f3"), f4("f4"), block("bvar"), warp("wvar"), thread("tvar");
-    stmt = stmt.split(il, block, f1, NNZ_PER_TB)
-        .split(f1, warp, f2, NNZ_PER_WARP)
-        .split(f2, thread, f3, NNZ_PER_THREAD)
-        .parallelize(block, ParallelUnit::GPUBlock, taco::OutputRaceStrategy::IgnoreRaces)
-        .parallelize(warp, ParallelUnit::GPUWarp, taco::OutputRaceStrategy::IgnoreRaces)
-        .parallelize(thread, ParallelUnit::GPUThread, taco::OutputRaceStrategy::IgnoreRaces)
-        ;
+    std::shared_ptr<LeafCallInterface> cugemm = std::make_shared<CuGEMM>();
+    bool useGEMM = false;
+    if (useGEMM) {
+      stmt = stmt.swapLeafKernel(il, cugemm);
+    } else {
+      stmt = stmt.split(il, block, f1, NNZ_PER_TB)
+          .split(f1, warp, f2, NNZ_PER_WARP)
+          .split(f2, thread, f3, NNZ_PER_THREAD)
+          .parallelize(block, ParallelUnit::GPUBlock, taco::OutputRaceStrategy::IgnoreRaces)
+          .parallelize(warp, ParallelUnit::GPUWarp, taco::OutputRaceStrategy::IgnoreRaces)
+          .parallelize(thread, ParallelUnit::GPUThread, taco::OutputRaceStrategy::IgnoreRaces)
+          ;
+    }
     auto lowered = lower(stmt, "computeLegion", false, true);
     // Code-generate all of the placement and compute code.
     auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});

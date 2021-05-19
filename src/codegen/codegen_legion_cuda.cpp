@@ -694,5 +694,12 @@ std::string CodegenLegionCuda::procForTask(Stmt func) {
   return CodegenLegion::procForTask(func);
 }
 
+void CodegenLegionCuda::emitHeaders(std::ostream &o) {
+  // For simplicity, let's always just include the cublas headers.
+  o << "#include \"cublas_v2.h\"\n";
+  o << "#include \"cudalibs.h\"\n";
+  CodegenLegion::emitHeaders(o);
+}
+
 }
 }

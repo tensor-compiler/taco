@@ -1313,26 +1313,45 @@ void CodeGen_CUDA::visit(const Call* op) {
   stream << op->func << "(";
   parentPrecedence = Precedence::CALL;
 
-  // Need to print cast to type so that arguments match.
-  if (op->args.size() > 0) {
-    // However, the binary search arguments take int* as their first
-    // argument. This pointer information isn't carried anywhere in
-    // the argument expressions, so we need to special case and not
-    // emit an invalid cast for that argument.
-    // TODO (rohany): I still don't understand why these casts are necessary.
-    // auto opIsBinarySearch = op->func == "taco_binarySearchAfter" || op->func == "taco_binarySearchBefore" || op->func == "taskID";
-    // if (!opIsBinarySearch && (op->type != op->args[0].type() || isa<Literal>(op->args[0]))) {
-    //   stream << "(" << printCUDAType(op->type, false) << ") ";
-    // }
-    op->args[0].accept(this);
-  }
+  if (op->args.size() > 5) {
+    // For functions with alot of arguments, it's easier to read if we
+    // print the arguments out on separate lines.
+    indent++;
+    stream << "\n";
+    auto first = true;
+    for (auto arg : op->args) {
+      if (!first) {
+        stream << ",\n";
+      }
+      doIndent();
+      arg.accept(this);
+      first = false;
+    }
+    stream << "\n";
+    indent--;
+    doIndent();
+  } else {
+    // Need to print cast to type so that arguments match.
+    if (op->args.size() > 0) {
+      // However, the binary search arguments take int* as their first
+      // argument. This pointer information isn't carried anywhere in
+      // the argument expressions, so we need to special case and not
+      // emit an invalid cast for that argument.
+      // TODO (rohany): I still don't understand why these casts are necessary.
+      // auto opIsBinarySearch = op->func == "taco_binarySearchAfter" || op->func == "taco_binarySearchBefore" || op->func == "taskID";
+      // if (!opIsBinarySearch && (op->type != op->args[0].type() || isa<Literal>(op->args[0]))) {
+      //   stream << "(" << printCUDAType(op->type, false) << ") ";
+      // }
+      op->args[0].accept(this);
+    }
 
-  for (size_t i=1; i < op->args.size(); ++i) {
-    stream << ", ";
-    // if (op->type != op->args[i].type() || isa<Literal>(op->args[i])) {
-    //   stream << "(" << printCUDAType(op->type, false) << ") ";
-    // }
-    op->args[i].accept(this);
+    for (size_t i = 1; i < op->args.size(); ++i) {
+      stream << ", ";
+      // if (op->type != op->args[i].type() || isa<Literal>(op->args[i])) {
+      //   stream << "(" << printCUDAType(op->type, false) << ") ";
+      // }
+      op->args[i].accept(this);
+    }
   }
 
   stream << ")";
