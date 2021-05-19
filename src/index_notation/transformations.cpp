@@ -1462,7 +1462,7 @@ ir::Stmt CuGEMM::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<T
   // have to happen for BLAS.
   auto alpha = ir::Var::make("alpha", Float64);
   stmts.push_back(ir::VarDecl::make(alpha, ir::Literal::make((double)1, Float64)));
-  auto handleTy = Datatype("cudaHandle_t");
+  auto handleTy = Datatype("cublasHandle_t");
   auto streamTy = Datatype("cudaStream_t");
   // Get the CuBLAS handle.
   auto handle = ir::Var::make("handle", handleTy);

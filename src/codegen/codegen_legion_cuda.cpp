@@ -455,7 +455,9 @@ void CodegenLegionCuda::visit(const Function* func) {
         case TensorProperty::ValuesReadAccessor:
         case TensorProperty::ValuesWriteAccessor:
         case TensorProperty::ValuesReductionAccessor:
-          varFinder.varDecls[it.first] = it.second;
+          if (varFinder.varDecls.count(it.first) == 0) {
+            varFinder.varDecls[it.first] = it.second;
+          }
           break;
         default:
           break;
@@ -684,6 +686,14 @@ std::string CodegenLegionCuda::procForTask(Stmt func) {
         this->isGPU = true;
       }
       op->contents.accept(this);
+    }
+    void visit(const Call* op) {
+      if (op->func == "cublasDgemm") {
+        this->isGPU = true;
+      }
+      for (auto e : op->args) {
+        e.accept(this);
+      }
     }
     bool isGPU = false;
   } finder;
