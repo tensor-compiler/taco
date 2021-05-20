@@ -677,31 +677,34 @@ void CodegenLegionCuda::printDeviceFunctions(const Function* func) {
 }
 
 std::string CodegenLegionCuda::procForTask(Stmt func) {
-  struct CudaFinder : public IRVisitor {
-    void visit(const For* op) {
-      if (op->isTask) {
-        return;
-      }
-      if (op->parallel_unit == ParallelUnit::GPUBlock) {
-        this->isGPU = true;
-      }
-      op->contents.accept(this);
-    }
-    void visit(const Call* op) {
-      if (op->func == "cublasDgemm") {
-        this->isGPU = true;
-      }
-      for (auto e : op->args) {
-        e.accept(this);
-      }
-    }
-    bool isGPU = false;
-  } finder;
-  func.accept(&finder);
-  if (finder.isGPU) {
-    return "Processor::TOC_PROC";
-  }
-  return CodegenLegion::procForTask(func);
+  // Until we support nested distributions, it's best if we just place
+  // all involved tasks onto the GPU.
+  return "Processor::TOC_PROC";
+  // struct CudaFinder : public IRVisitor {
+  //   void visit(const For* op) {
+  //     if (op->isTask) {
+  //       return;
+  //     }
+  //     if (op->parallel_unit == ParallelUnit::GPUBlock) {
+  //       this->isGPU = true;
+  //     }
+  //     op->contents.accept(this);
+  //   }
+  //   void visit(const Call* op) {
+  //     if (op->func == "cublasDgemm") {
+  //       this->isGPU = true;
+  //     }
+  //     for (auto e : op->args) {
+  //       e.accept(this);
+  //     }
+  //   }
+  //   bool isGPU = false;
+  // } finder;
+  // func.accept(&finder);
+  // if (finder.isGPU) {
+  //   return "Processor::TOC_PROC";
+  // }
+  // return CodegenLegion::procForTask(func);
 }
 
 void CodegenLegionCuda::emitHeaders(std::ostream &o) {
