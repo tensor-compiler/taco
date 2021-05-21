@@ -1621,8 +1621,8 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
     }
     Access a;
   };
-  TransferRemover remover(a);
-  stmt = remover.rewrite(stmt);
+  // TransferRemover remover(a);
+  // stmt = remover.rewrite(stmt);
 
   // Now add the transfer to the desired forall.
   struct TransferAdder : public IndexNotationRewriter {

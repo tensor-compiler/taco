@@ -1,6 +1,7 @@
 #include "codegen_legion.h"
 #include "taco/ir/ir_rewriter.h"
 #include "taco/version.h"
+#include "taco/util/strings.h"
 
 namespace taco {
 namespace ir {
@@ -358,7 +359,6 @@ void CodegenLegion::analyzeAndCreateTasks(std::ostream& out) {
       // declare and are used by tasks above it.
       std::vector<Expr> uses;
       std::set_difference(v.usedVars[i].begin(), v.usedVars[i].end(), v.varsDeclared[i].begin(), v.varsDeclared[i].end(), std::back_inserter(uses));
-      v.usedVars[i-1].insert(uses.begin(), uses.end());
 
       // TODO (rohany): For a distributed for loop, remove the iterator variable?
       auto forL = this->funcToFor.at(func).as<For>();
@@ -374,6 +374,8 @@ void CodegenLegion::analyzeAndCreateTasks(std::ostream& out) {
           uses.erase(uses.begin() + matchedIdx);
         }
       }
+
+      v.usedVars[i-1].insert(uses.begin(), uses.end());
 
       // Deduplicate any GetProperty uses so that they aren't emitted twice.
       std::vector<const GetProperty*> collected;
@@ -406,6 +408,8 @@ void CodegenLegion::analyzeAndCreateTasks(std::ostream& out) {
         }
       } exprSorter;
       std::sort(uses.begin(), uses.end(), exprSorter);
+
+      std::cout << "Function: " << func->name << " uses vars: " << util::join(uses) << std::endl;
 
       // Find any included arguments from PackTaskArgs for this function.
       struct PackFinder : public IRVisitor {

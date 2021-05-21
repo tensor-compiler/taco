@@ -178,16 +178,25 @@ TEST(distributed, cannonMM) {
   auto placeCLowered = lower(placeC, "placeLegionC", false, true);
 
   IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko"), kos("kos");
+  IndexVar iln("iln"), ill("ill"), jln("jln"), jll("jll"), kii("kii"), kio("kio");
   std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
   a(i, j) = b(i, k) * c(k, j);
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
-      .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j))
+//      .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j))
+      .distribute({i, j}, {in, jn}, {il, jl}, Grid(2, 2))
       .divide(k, ko, ki, 2)
       .reorder({ko, il, jl})
       .stagger(ko, {in, jn}, kos)
       .pushCommUnder(b(i, k), kos)
       .pushCommUnder(c(k, j), kos)
+      .pushCommUnder(a(i, j), jn)
+      .distribute({il, jl}, {iln, jln}, {ill, jll}, Grid(2, 2))
+      .divide(ki, kii, kio, 2)
+      .reorder({kii, ill, jll})
+      .pushCommUnder(b(i, k), kii)
+      .pushCommUnder(c(k, j), kii)
+      .pushCommUnder(a(i, j), jln)
       // This can be enabled on Sapling where we have an OpenMP + OpenBLAS build.
       // .swapLeafKernel(il, gemm)
       ;
@@ -205,6 +214,8 @@ TEST(distributed, cannonMM) {
     f.close();
   }
 
+  return;
+
   // Schedule a GPU version of the kernel as well.
   {
     IndexVar f1("f1"), f2("f2"), f3("f3"), f4("f4"), block("bvar"), warp("wvar"), thread("tvar");
@@ -213,6 +224,7 @@ TEST(distributed, cannonMM) {
     if (useGEMM) {
       stmt = stmt.swapLeafKernel(il, cugemm);
     } else {
+      assert(false);
       stmt = stmt.split(il, block, f1, NNZ_PER_TB)
           .split(f1, warp, f2, NNZ_PER_WARP)
           .split(f2, thread, f3, NNZ_PER_THREAD)

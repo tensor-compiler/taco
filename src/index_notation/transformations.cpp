@@ -781,7 +781,16 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
   order.insert(order.end(), this->content->innerVars.begin(), this->content->innerVars.end());
   stmt = stmt.reorder(order);
 
-  IndexVar distFused("distFused");
+  static int counter = 0;
+
+  std::stringstream varname;
+  varname << "distFused";
+  if (counter != 0) {
+    varname << counter;
+  }
+  counter++;
+
+  IndexVar distFused(varname.str());
   if (this->content->distVars.size() > 1) {
     IndexVarRel rel = IndexVarRel(new MultiFuseRelNode(distFused, this->content->distVars));
     stmt = Transformation(AddSuchThatPredicates({rel})).apply(stmt, reason);
