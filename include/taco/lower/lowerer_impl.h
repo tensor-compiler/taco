@@ -523,10 +523,9 @@ private:
   friend class Visitor;
   std::shared_ptr<Visitor> visitor;
 
-  // std::map<TensorVar, std::vector<std::vector<ir::Expr>>> derivedBounds;
-
   std::map<IndexVar, std::map<TensorVar, std::vector<std::vector<ir::Expr>>>> derivedBounds;
   IndexVar curDistVar;
+  int distLoopDepth = 0;
 
   ir::Expr computingOnPartition;
   TensorVar computingOnTensorVar;

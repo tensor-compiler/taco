@@ -633,8 +633,8 @@ public:
   IndexStmt parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy) const;
 
   // TODO (rohany): Comment this up later.
-  IndexStmt distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Grid g);
-  IndexStmt distributeOnto(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Access onto);
+  IndexStmt distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Grid g, ParallelUnit parUnit = ParallelUnit::DistributedNode);
+  IndexStmt distributeOnto(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Access onto, ParallelUnit parUnit = ParallelUnit::DistributedNode);
 
   IndexStmt pushCommUnder(Access a, IndexVar i);
 

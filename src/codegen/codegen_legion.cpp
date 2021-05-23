@@ -362,7 +362,7 @@ void CodegenLegion::analyzeAndCreateTasks(std::ostream& out) {
 
       // TODO (rohany): For a distributed for loop, remove the iterator variable?
       auto forL = this->funcToFor.at(func).as<For>();
-      if (forL->parallel_unit == ParallelUnit::DistributedNode) {
+      if (distributedParallelUnit(forL->parallel_unit)) {
         auto matchedIdx = -1;
         for (size_t pos = 0; pos < uses.size(); pos++) {
           if (uses[pos] == forL->var) {
@@ -409,8 +409,6 @@ void CodegenLegion::analyzeAndCreateTasks(std::ostream& out) {
       } exprSorter;
       std::sort(uses.begin(), uses.end(), exprSorter);
 
-      std::cout << "Function: " << func->name << " uses vars: " << util::join(uses) << std::endl;
-
       // Find any included arguments from PackTaskArgs for this function.
       struct PackFinder : public IRVisitor {
         void visit(const PackTaskArgs* pack) {
@@ -445,7 +443,7 @@ void CodegenLegion::analyzeAndCreateTasks(std::ostream& out) {
   }
 }
 
-std::string CodegenLegion::procForTask(Stmt func) {
+std::string CodegenLegion::procForTask(Stmt, Stmt) {
   if (TACO_FEATURE_OPENMP) {
     return "Processor::OMP_PROC";
   }
@@ -484,7 +482,7 @@ void CodegenLegion::emitRegisterTasks(std::ostream &out) {
 
       // TODO (rohany): Make this delegation a virtual function that needs to be overridden.
       doIndent();
-      std::string proc = this->procForTask(func);
+      std::string proc = this->procForTask(ffunc, func);
       out << "registrar.add_constraint(ProcessorConstraint(" << proc << "));\n";
 
       if (finder.isLeaf) {

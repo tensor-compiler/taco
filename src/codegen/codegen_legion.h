@@ -52,7 +52,7 @@ public:
   // task.
   void analyzeAndCreateTasks(std::ostream& out);
   void emitRegisterTasks(std::ostream& out);
-  virtual std::string procForTask(Stmt func);
+  virtual std::string procForTask(Stmt target, Stmt func);
 
   static std::string getVarName(Expr e) {
     if (isa<Var>(e)) {

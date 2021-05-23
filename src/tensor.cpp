@@ -1373,7 +1373,7 @@ TensorBase& TensorBase::partition(Grid g) {
   return *this;
 }
 
-IndexStmt TensorBase::place(Grid g, GridPlacement gp) {
+IndexStmt TensorBase::place(Grid g, GridPlacement gp, ParallelUnit parUnit) {
   // The dimension of the partition must be less than or equal to the dimension of
   // the grid that we are distributing onto. Otherwise, we'd have to decide somehow
   // which dimensions of the partitioning to collapse.
@@ -1458,7 +1458,7 @@ IndexStmt TensorBase::place(Grid g, GridPlacement gp) {
   }
 
   // Finally distribute and push communication underneath all of the distribution variables.
-  stmt = stmt.distribute(placementVars, distVars, localVars, g);
+  stmt = stmt.distribute(placementVars, distVars, localVars, g, parUnit);
   stmt = stmt.pushCommUnder(access, distVars.back());
 
   return stmt;
