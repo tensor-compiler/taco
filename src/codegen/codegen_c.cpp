@@ -500,7 +500,7 @@ void CodeGen_C::visit(const Min* op) {
   for (size_t i=0; i<op->operands.size()-1; i++) {
     stream << "TACO_MIN(";
     op->operands[i].accept(this);
-    stream << ",";
+    stream << ", ";
   }
   op->operands.back().accept(this);
   for (size_t i=0; i<op->operands.size()-1; i++) {

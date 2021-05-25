@@ -1,6 +1,7 @@
 #include "codegen_legion.h"
 #include "taco/ir/ir_rewriter.h"
 #include "taco/version.h"
+#include "taco/util/strings.h"
 
 namespace taco {
 namespace ir {
@@ -358,11 +359,10 @@ void CodegenLegion::analyzeAndCreateTasks(std::ostream& out) {
       // declare and are used by tasks above it.
       std::vector<Expr> uses;
       std::set_difference(v.usedVars[i].begin(), v.usedVars[i].end(), v.varsDeclared[i].begin(), v.varsDeclared[i].end(), std::back_inserter(uses));
-      v.usedVars[i-1].insert(uses.begin(), uses.end());
 
       // TODO (rohany): For a distributed for loop, remove the iterator variable?
       auto forL = this->funcToFor.at(func).as<For>();
-      if (forL->parallel_unit == ParallelUnit::DistributedNode) {
+      if (distributedParallelUnit(forL->parallel_unit)) {
         auto matchedIdx = -1;
         for (size_t pos = 0; pos < uses.size(); pos++) {
           if (uses[pos] == forL->var) {
@@ -374,6 +374,8 @@ void CodegenLegion::analyzeAndCreateTasks(std::ostream& out) {
           uses.erase(uses.begin() + matchedIdx);
         }
       }
+
+      v.usedVars[i-1].insert(uses.begin(), uses.end());
 
       // Deduplicate any GetProperty uses so that they aren't emitted twice.
       std::vector<const GetProperty*> collected;
@@ -441,7 +443,7 @@ void CodegenLegion::analyzeAndCreateTasks(std::ostream& out) {
   }
 }
 
-std::string CodegenLegion::procForTask(Stmt func) {
+std::string CodegenLegion::procForTask(Stmt, Stmt) {
   if (TACO_FEATURE_OPENMP) {
     return "Processor::OMP_PROC";
   }
@@ -480,7 +482,7 @@ void CodegenLegion::emitRegisterTasks(std::ostream &out) {
 
       // TODO (rohany): Make this delegation a virtual function that needs to be overridden.
       doIndent();
-      std::string proc = this->procForTask(func);
+      std::string proc = this->procForTask(ffunc, func);
       out << "registrar.add_constraint(ProcessorConstraint(" << proc << "));\n";
 
       if (finder.isLeaf) {

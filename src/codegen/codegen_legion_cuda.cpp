@@ -1,6 +1,7 @@
 #include "codegen_legion_cuda.h"
 #include "taco/ir/simplify.h"
 #include "taco/util/strings.h"
+#include "taco/version.h"
 
 namespace taco {
 namespace ir {
@@ -408,7 +409,7 @@ void CodegenLegionCuda::visit(const Function* func) {
   if (func->name.find("task") != std::string::npos) {
     auto forL = this->funcToFor.at(func).as<For>();
     taco_iassert(forL) << "must be a for";
-    if (forL->parallel_unit == ParallelUnit::DistributedNode) {
+    if (distributedParallelUnit(forL->parallel_unit)) {
       doIndent();
       out << printType(forL->var.type(), false) << " " << forL->var << " = task->index_point[0];\n";
     }
@@ -550,7 +551,7 @@ void CodegenLegionCuda::printDeviceFunctions(const Function* func) {
     if (func->name.find("task") != std::string::npos) {
       auto forL = this->funcToFor.at(func).as<For>();
       taco_iassert(forL) << "must be a for";
-      if (forL->parallel_unit == ParallelUnit::DistributedNode) {
+      if (distributedParallelUnit(forL->parallel_unit)) {
         addParam(std::make_pair(getVarName(forL->var), forL->var));
       }
     }
@@ -676,35 +677,33 @@ void CodegenLegionCuda::printDeviceFunctions(const Function* func) {
   }
 }
 
-std::string CodegenLegionCuda::procForTask(Stmt func) {
-  // Until we support nested distributions, it's best if we just place
-  // all involved tasks onto the GPU.
-  return "Processor::TOC_PROC";
-  // struct CudaFinder : public IRVisitor {
-  //   void visit(const For* op) {
-  //     if (op->isTask) {
-  //       return;
-  //     }
-  //     if (op->parallel_unit == ParallelUnit::GPUBlock) {
-  //       this->isGPU = true;
-  //     }
-  //     op->contents.accept(this);
-  //   }
-  //   void visit(const Call* op) {
-  //     if (op->func == "cublasDgemm") {
-  //       this->isGPU = true;
-  //     }
-  //     for (auto e : op->args) {
-  //       e.accept(this);
-  //     }
-  //   }
-  //   bool isGPU = false;
-  // } finder;
-  // func.accept(&finder);
-  // if (finder.isGPU) {
-  //   return "Processor::TOC_PROC";
-  // }
-  // return CodegenLegion::procForTask(func);
+std::string CodegenLegionCuda::procForTask(Stmt target, Stmt task) {
+  // Walk the statement to figure out what kind of distribution
+  // unit this task is within.
+  auto forL = this->funcToFor.at(task).as<For>();
+  taco_iassert(forL) << "should have found a for";
+  struct Walker : IRVisitor {
+    void visit(const For* node) {
+      if (node->parallel_unit == ParallelUnit::DistributedNode) {
+        if (TACO_FEATURE_OPENMP) {
+          procKind = "Processor::OMP_PROC";
+        } else {
+          procKind = "Processor::LOC_PROC";
+        }
+      } else if (node->parallel_unit == ParallelUnit::DistributedGPU) {
+        procKind = "Processor::TOC_PROC";
+      }
+      if (node->taskID == func->taskID) {
+        return;
+      }
+      node->contents.accept(this);
+    }
+    std::string procKind;
+    const For* func;
+  } walker; walker.func = forL;
+  target.accept(&walker);
+  taco_iassert(walker.procKind.size() > 0);
+  return walker.procKind;
 }
 
 void CodegenLegionCuda::emitHeaders(std::ostream &o) {

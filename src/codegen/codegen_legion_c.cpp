@@ -256,7 +256,7 @@ void CodegenLegionC::visit(const Function* func) {
   if (func->name.find("task") != std::string::npos) {
     auto forL = this->funcToFor.at(func).as<For>();
     taco_iassert(forL) << "must be a for";
-    if (forL->parallel_unit == ParallelUnit::DistributedNode) {
+    if (distributedParallelUnit(forL->parallel_unit)) {
       doIndent();
       out << printType(forL->var.type(), false) << " " << forL->var << " = task->index_point[0];\n";
     }

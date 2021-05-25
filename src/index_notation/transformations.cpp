@@ -696,6 +696,8 @@ struct Distribute::Content {
   std::vector<IndexVar> original;
   std::vector<IndexVar> distVars;
   std::vector<IndexVar> innerVars;
+  // The parallel unit to distribute over.
+  ParallelUnit parUnit;
   // Only one of onto and grid is set.
   Grid grid;
   Access onto;
@@ -704,22 +706,24 @@ struct Distribute::Content {
 Distribute::Distribute() : content(nullptr) {}
 
 Distribute::Distribute(std::vector<IndexVar> original, std::vector<IndexVar> distVars, std::vector<IndexVar> innerVars,
-                       Grid &g) : content(new Content) {
+                       Grid &g, ParallelUnit parUnit) : content(new Content) {
   // TODO (rohany): Should assert many things here: g.dims == original.size(),
   //  all index var vectors have the same size etc.
   this->content->original = original;
   this->content->distVars = distVars;
   this->content->innerVars = innerVars;
   this->content->grid = g;
+  this->content->parUnit = parUnit;
 }
 
 Distribute::Distribute(std::vector<IndexVar> original, std::vector<IndexVar> distVars, std::vector<IndexVar> innerVars,
-                       Access onto) : content(new Content(onto)) {
+                       Access onto, ParallelUnit parUnit) : content(new Content(onto)) {
   // TODO (rohany): Should assert many things here: g.dims == original.size(),
   //  all index var vectors have the same size etc.
   this->content->original = original;
   this->content->distVars = distVars;
   this->content->innerVars = innerVars;
+  this->content->parUnit = parUnit;
 }
 
 IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
@@ -781,7 +785,16 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
   order.insert(order.end(), this->content->innerVars.begin(), this->content->innerVars.end());
   stmt = stmt.reorder(order);
 
-  IndexVar distFused("distFused");
+  static int counter = 0;
+
+  std::stringstream varname;
+  varname << "distFused";
+  if (counter != 0) {
+    varname << counter;
+  }
+  counter++;
+
+  IndexVar distFused(varname.str());
   if (this->content->distVars.size() > 1) {
     IndexVarRel rel = IndexVarRel(new MultiFuseRelNode(distFused, this->content->distVars));
     stmt = Transformation(AddSuchThatPredicates({rel})).apply(stmt, reason);
@@ -799,7 +812,7 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
     void visit(const ForallNode* node) {
       // TODO (rohany): Also need to mark the fused var.
       if (util::contains(this->distVars, node->indexVar) || node->indexVar == this->distFused) {
-        stmt = forall(node->indexVar, rewrite(node->stmt), ParallelUnit::DistributedNode, this->raceStrategy, node->transfers, this->computingOn, node->unrollFactor);
+        stmt = forall(node->indexVar, rewrite(node->stmt), this->parUnit, this->raceStrategy, node->transfers, this->computingOn, node->unrollFactor);
       } else {
         IndexNotationRewriter::visit(node);
       }
@@ -808,8 +821,9 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
     IndexVar distFused;
     TensorVar computingOn;
     OutputRaceStrategy raceStrategy;
+    ParallelUnit parUnit;
   };
-  DistributedForallMarker m; m.distFused = distFused; m.raceStrategy = raceStrategy;
+  DistributedForallMarker m; m.distFused = distFused; m.raceStrategy = raceStrategy; m.parUnit = this->content->parUnit;
   if (this->content->onto.defined()) {
     m.computingOn = this->content->onto.getTensorVar();
   }

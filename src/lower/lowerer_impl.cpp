@@ -390,7 +390,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
   Stmt topLevelTransfers;
   bool foundDistributed = false;
   match(stmt, function<void(const ForallNode*)>([&](const ForallNode* node) {
-    foundDistributed |= node->parallel_unit == ParallelUnit::DistributedNode;
+    foundDistributed |= distributedParallelUnit(node->parallel_unit);
   }));
   if (foundDistributed) {
     // Collect all transfers in the index stmt.
@@ -575,6 +575,10 @@ LowererImpl::lower(IndexStmt stmt, string name,
     }
 
     void visit(const ForallNode* node) {
+      if (node == this->trackingForall) {
+        this->tracking = true;
+      }
+
       // Add the forall variable to the scope for each tensorVar that hasn't
       // been requested yet.
       for (auto& it : this->inScopeVars) {
@@ -585,8 +589,10 @@ LowererImpl::lower(IndexStmt stmt, string name,
         }
       }
 
-      for (auto& t : node->transfers) {
-        this->requestedTensorVars.insert(t.getAccess().getTensorVar());
+      if (this->tracking || (this->trackingForall == nullptr)) {
+        for (auto& t : node->transfers) {
+          this->requestedTensorVars.insert(t.getAccess().getTensorVar());
+        }
       }
 
       // Recurse down the index statement.
@@ -656,6 +662,9 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
     std::map<TensorVar, std::vector<std::vector<ir::Expr>>> derivedBounds;
 
+    const ForallNode* trackingForall = nullptr;
+    bool tracking = false;
+
     int forallDepth = 0;
   };
 
@@ -669,25 +678,31 @@ LowererImpl::lower(IndexStmt stmt, string name,
     }
   }));
 
-  BoundsInferenceVisitor bi(this->tensorVars, this->provGraph, this->iterators, this->underivedBounds, this->indexVarToExprMap, presentIvars);
-  bi.inferBounds(stmt);
-  this->derivedBounds = bi.derivedBounds;
-
   for (auto& it : this->tensorVars) {
     auto pointT = Point(it.first.getType().getOrder());
     auto accessor = ir::Var::make(it.first.getName() + "_access_point", pointT);
     this->pointAccessVars[it.first] = accessor;
   }
 
-  // for (auto it : bi.inScopeVars) {
-  //   std::cout << "Vars in scope for " << it.first << ": " << util::join(it.second) << std::endl;
-  // }
-  // for (auto it : bi.derivedBounds) {
-  //   cout << "Bounds for: " << it.first.getName() << endl;
-  //   for (auto& bounds : it.second) {
-  //     cout << util::join(bounds) << endl;
-  //   }
-  // }
+  match(stmt, function<void(const ForallNode*)>([&](const ForallNode* node) {
+    // Want to derive bounds for each distributed forall. Can worry about how to
+    // connect this all together later.
+    auto f = Forall(node);
+    if (f.isDistributed()) {
+      // Get bounds for this forall.
+      BoundsInferenceVisitor bi(this->tensorVars, this->provGraph, this->iterators, this->underivedBounds, this->indexVarToExprMap, presentIvars);
+      bi.trackingForall = node;
+      bi.inferBounds(stmt);
+      // std::cout << "Bounds for index var: " << f.getIndexVar() << " at forall: " << f << std::endl;
+      // for (auto it : bi.derivedBounds) {
+      //   cout << "Bounds for: " << it.first.getName() << endl;
+      //   for (auto& bounds : it.second) {
+      //     cout << util::join(bounds) << endl;
+      //   }
+      // }
+      this->derivedBounds[f.getIndexVar()] = bi.derivedBounds;
+    }
+  }));
 
   if (this->legion) {
     auto lookupTV = [&](ir::Expr e) {
@@ -1070,7 +1085,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   definedIndexVars.insert(forall.getIndexVar());
   definedIndexVarsOrdered.push_back(forall.getIndexVar());
 
-  if (forall.getParallelUnit() != ParallelUnit::NotParallel) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel && !distributedParallelUnit(forall.getParallelUnit())) {
     taco_iassert(!parallelUnitSizes.count(forall.getParallelUnit()));
     taco_iassert(!parallelUnitIndexVars.count(forall.getParallelUnit()));
     parallelUnitIndexVars[forall.getParallelUnit()] = forall.getIndexVar();
@@ -1187,7 +1202,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   }
   definedIndexVars.erase(forall.getIndexVar());
   definedIndexVarsOrdered.pop_back();
-  if (forall.getParallelUnit() != ParallelUnit::NotParallel) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel && !distributedParallelUnit(forall.getParallelUnit())) {
     inParallelLoopDepth--;
     taco_iassert(parallelUnitSizes.count(forall.getParallelUnit()));
     taco_iassert(parallelUnitIndexVars.count(forall.getParallelUnit()));
@@ -1514,9 +1529,21 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     this->performingLegionReduction = true;
   }
 
+  auto prevDistVar = this->curDistVar;
+
+  if (forall.isDistributed()) {
+    this->curDistVar = forall.getIndexVar();
+    this->distLoopDepth++;
+  }
+
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
+
+  if (forall.isDistributed()) {
+    this->curDistVar = forall.getIndexVar();
+    this->distLoopDepth--;
+  }
 
   // As a simple hack, don't emit code that actually performs the iteration within a placement node.
   // We just care about emitting the actual distributed loop to do the data placement, not waste
@@ -1571,6 +1598,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto ctx = ir::Symbol::make("ctx");
     auto virtualMap = ir::Symbol::make("Mapping::DefaultMapper::VIRTUAL_MAP");
     auto placementMap = ir::Symbol::make("TACOMapper::PLACEMENT");
+    auto sameAddressSpace = ir::Symbol::make("Mapping::DefaultMapper::SAME_ADDRESS_SPACE");
 
     // We need to emit accessing the partition for any child task that uses the partition.
     // TODO (rohany): A hack that doesn't scale to nested distributions.
@@ -1674,7 +1702,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       auto txPoint = Point(tensorDim);
       auto txRect = Rect(tensorDim);
 
-      auto bounds = this->derivedBounds[t.getAccess().getTensorVar()];
+      auto bounds = this->derivedBounds[this->curDistVar][t.getAccess().getTensorVar()];
       std::vector<Expr> los, his;
       for (size_t dimIdx = 0; dimIdx < tensorDim; dimIdx++) {
         los.push_back(bounds[dimIdx][0]);
@@ -1814,11 +1842,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(regReq, "add_field", {fidVal}, false, Auto)));
 
         // If the task being launched doesn't access the target region, then we can
-        // virtually map the region. But, if an explicit transfer is happening at this
-        // level, then we should physically map the region.
+        // virtually map the region.
         AccessFinder finder; finder.targetVar = tvIR;
         body.accept(&finder);
-        if (!finder.readsVar && !util::contains(partitionings, tv)) {
+        if (!finder.readsVar) {
           itlStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
         }
 
@@ -1876,6 +1903,12 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         auto addTag = ir::Assign::make(ir::FieldAccess::make(launcher, "tag", false, Auto), placementMap);
         itlStmts.push_back(addTag);
       }
+      // If this is a nested distribution, keep it on the same node.
+      if (this->distLoopDepth > 0) {
+        auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
+        auto addTag = ir::Assign::make(tag, ir::BitOr::make(tag, sameAddressSpace));
+        itlStmts.push_back(addTag);
+      }
 
       auto fm = ir::Var::make("fm", Auto);
       auto fmCall = ir::Call::make(
@@ -1883,8 +1916,12 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           {ctx, launcher},
           Auto
       );
-      itlStmts.push_back(ir::VarDecl::make(fm, fmCall));
-      itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(fm, "wait_all_results", {}, false, Auto)));
+      if (this->distLoopDepth == 0) {
+        itlStmts.push_back(ir::VarDecl::make(fm, fmCall));
+        itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(fm, "wait_all_results", {}, false, Auto)));
+      } else {
+        itlStmts.push_back(ir::SideEffect::make(fmCall));
+      }
 
       // Placement code should return the LogicalPartition.
       if (this->isPlacementCode) {
@@ -1952,11 +1989,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         taskCallStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(regReq, "add_field", {fidVal}, false, Auto)));
 
         // If the task being launched doesn't access the target region, then we can
-        // virtually map the region. But, if an explicit transfer is happening at this
-        // level, then we should physically map the region.
+        // virtually map the region.
         AccessFinder finder; finder.targetVar = tvIR;
         body.accept(&finder);
-        if (!finder.readsVar && !util::contains(partitionings, tv)) {
+        if (!finder.readsVar) {
           taskCallStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
         }
 
@@ -2022,6 +2058,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   } else if (forall.getParallelUnit() != ParallelUnit::NotParallel
             && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
     kind = LoopKind::Runtime;
+  }
+
+  if (forall.isDistributed()) {
+    this->curDistVar = prevDistVar;
   }
 
   return Block::blanks(ir::Block::make(transfers),

@@ -1573,18 +1573,18 @@ IndexStmt IndexStmt::parallelize(IndexVar i, ParallelUnit parallel_unit, OutputR
   return transformed;
 }
 
-IndexStmt IndexStmt::distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Grid g) {
+IndexStmt IndexStmt::distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Grid g, ParallelUnit parUnit) {
   string reason;
-  auto transformed = Distribute(original, outerVars, innerVars, g).apply(*this, &reason);
+  auto transformed = Distribute(original, outerVars, innerVars, g, parUnit).apply(*this, &reason);
   if (!transformed.defined()) {
     taco_uerror << reason;
   }
   return transformed;
 }
 
-IndexStmt IndexStmt::distributeOnto(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Access onto) {
+IndexStmt IndexStmt::distributeOnto(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Access onto, ParallelUnit parUnit) {
   string reason;
-  auto transformed = Distribute(original, outerVars, innerVars, onto).apply(*this, &reason);
+  auto transformed = Distribute(original, outerVars, innerVars, onto, parUnit).apply(*this, &reason);
   if (!transformed.defined()) {
     taco_uerror << reason;
   }
@@ -1621,8 +1621,10 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
     }
     Access a;
   };
-  TransferRemover remover(a);
-  stmt = remover.rewrite(stmt);
+  // TODO (rohany): As a hack, we won't try to remove transfer objects since it leads to
+  //  problems with nested distributions.
+  // TransferRemover remover(a);
+  // stmt = remover.rewrite(stmt);
 
   // Now add the transfer to the desired forall.
   struct TransferAdder : public IndexNotationRewriter {
@@ -1922,7 +1924,7 @@ size_t Forall::getUnrollFactor() const {
 }
 
 bool Forall::isDistributed() const {
-  return this->getParallelUnit() == ParallelUnit::DistributedNode;
+  return distributedParallelUnit(this->getParallelUnit());
 }
 
 const Transfers& Forall::getTransfers() const {
