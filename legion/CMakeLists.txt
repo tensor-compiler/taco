@@ -1,6 +1,5 @@
 find_package(Legion REQUIRED)
 
-
 # Include the headers and supporting source files.
 include_directories(include/ OpenBLAS/install/include "${CMAKE_BINARY_DIR}/include")
 link_directories(OpenBLAS/install/lib)
@@ -15,6 +14,11 @@ endif()
 
 # Optimize these codes.
 SET(CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
+
+option(TACO_USE_LOGGING_MAPPER OFF)
+if (TACO_USE_LOGGING_MAPPER)
+    add_definitions(-DTACO_USE_LOGGING_MAPPER)
+endif()
 
 if (Legion_USE_CUDA)
     add_definitions(-DTACO_USE_CUDA)
