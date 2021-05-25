@@ -620,8 +620,8 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
         taco_iassert(isa<taco::Add>(forallExpr.getOperator())) << "Spatial reductions can only handle additions";
 
         if (forallExpr.getOperator().defined()) {
-          return Block::make(regDecl, Reduce::make(coordinate, reg, startBound, endBound, 1,
-                                                   Scope::make(reductionBody, reductionExpr), true, forall.getNumChunks()));
+          return Block::make(boundsCompute, boundsDecl, regDecl, Reduce::make(loopVar, reg, startBound, endBound, 1,
+                                                                              Block::make(declareCoordinate, Scope::make(reductionBody, reductionExpr)), true, forall.getNumChunks()));
         }
       }
       if (forallReductions.find(forall) != forallReductions.end() && !provGraph.getParents(forall.getIndexVar()).empty()) {
@@ -646,7 +646,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
         vector<IndexVar> children = provGraph.getChildren(parentVar);
 
         if (forallExpr.getOperator().defined()) {
-          return Block::make(regDecl, Reduce::make(coordinate, reg, startBound, endBound, 1, body, true,
+          return Block::make(boundsCompute, boundsDecl, regDecl, Reduce::make(loopVar, reg, startBound, endBound, 1, Block::make(declareCoordinate, body), true,
                                                    forall.getNumChunks()));
         }
       }
