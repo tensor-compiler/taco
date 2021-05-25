@@ -9,6 +9,8 @@
 #include "taco/lower/mode_format_dense.h"
 #include "taco/lower/mode_format_compressed.h"
 #include "taco/lower/mode_format_singleton.h"
+#include "taco/lower/mode_format_compressed_Spatial.h"
+#include "taco/spatial.h"
 
 #include "taco/error.h"
 #include "taco/util/strings.h"
@@ -366,7 +368,7 @@ ostream& operator<<(ostream& os, const ModeFormatPack& modeFormatPack) {
 
 // Predefined formats
 ModeFormat ModeFormat::Dense(std::make_shared<DenseModeFormat>());
-ModeFormat ModeFormat::Compressed(std::make_shared<CompressedModeFormat>());
+ModeFormat ModeFormat::Compressed(should_use_Spatial_codegen() ? std::make_shared<CompressedModeFormatSpatial>(): std::make_shared<CompressedModeFormat>());
 ModeFormat ModeFormat::Sparse = ModeFormat::Compressed;
 ModeFormat ModeFormat::Singleton(std::make_shared<SingletonModeFormat>());
 

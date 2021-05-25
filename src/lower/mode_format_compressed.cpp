@@ -1,5 +1,5 @@
 #include "taco/lower/mode_format_compressed.h"
-#include "taco/spatial.h"
+
 #include "ir/ir_generators.h"
 #include "taco/ir/simplify.h"
 #include "taco/util/strings.h"
@@ -74,7 +74,7 @@ std::vector<AttrQuery> CompressedModeFormat::attrQueries(
                             childCoords.end());
   }
 
-  return {AttrQuery(groupBy, {{"nnz", AttrQuery::COUNT, aggregatedCoords}})};
+  return {AttrQuery(groupBy, {std::make_tuple("nnz", AttrQuery::COUNT, aggregatedCoords)})};
 }
 
 ModeFunction CompressedModeFormat::posIterBounds(Expr parentPos, 
@@ -100,8 +100,7 @@ ModeFunction CompressedModeFormat::posIterAccess(ir::Expr pos,
 
   Expr idxArray = getCoordArray(mode.getModePack());
   Expr stride = (int)mode.getModePack().getNumModes();
-  // FIXME: add this to compressedModeFormatSpatial and also remove hardcode of FIFO
-  Expr idx = Load::make(idxArray, ir::Mul::make(pos, stride), MemoryLocation::SpatialFIFO);
+  Expr idx = Load::make(idxArray, ir::Mul::make(pos, stride));
   return ModeFunction(Stmt(), {idx, true});
 }
 
@@ -110,22 +109,13 @@ Stmt CompressedModeFormat::getAppendCoord(Expr p, Expr i, Mode mode) const {
 
   Expr idxArray = getCoordArray(mode.getModePack());
   Expr stride = (int)mode.getModePack().getNumModes();
-  // FIXME: [Spatial] make sure memory location isn't hardcoded
-  Stmt storeIdx;
-  if (!should_use_Spatial_codegen())
-    storeIdx = Store::make(idxArray, ir::Mul::make(p, stride), i);
-  else
-    storeIdx = Store::make(idxArray, ir::Mul::make(p, stride), i, MemoryLocation::SpatialFIFO, MemoryLocation::SpatialReg);
+  Stmt storeIdx = Store::make(idxArray, ir::Mul::make(p, stride), i);
 
   if (mode.getModePack().getNumModes() > 1) {
     return storeIdx;
   }
 
-  // FIXME: [Spatial] Should actually use CompressedModeFormatSpatial
-  Stmt maybeResizeIdx;
-  if (!should_use_Spatial_codegen())
-    maybeResizeIdx = doubleSizeIfFull(idxArray, getCoordCapacity(mode), p);
-
+  Stmt maybeResizeIdx = doubleSizeIfFull(idxArray, getCoordCapacity(mode), p);
   return Block::make({maybeResizeIdx, storeIdx});
 }
 
