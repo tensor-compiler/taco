@@ -59,6 +59,36 @@ public:
     }
   }
 
+  std::vector<Legion::Processor> select_targets_for_task(const Legion::Mapping::MapperContext ctx,
+                                                         const Legion::Task& task) {
+    auto kind = this->default_find_preferred_variant(task, ctx, false /* needs tight bounds */).proc_kind;
+    auto sameAddressSpace = (task.tag & DefaultMapper::SAME_ADDRESS_SPACE) != 0;
+    if (sameAddressSpace) {
+      // If we are meant to stay local, then switch to return the appropriate
+      // cached processors.
+      switch (kind) {
+        case Legion::Processor::OMP_PROC: {
+          return this->local_omps;
+        }
+        case Legion::Processor::TOC_PROC: {
+          return this->local_gpus;
+        }
+        case Legion::Processor::LOC_PROC: {
+          return this->local_cpus;
+        }
+        default: {
+          assert(false);
+        }
+      }
+    } else {
+      // If we are meant to distribute over all of the processors, then run a query
+      // to find all processors of the desired kind.
+      Legion::Machine::ProcessorQuery all_procs(machine);
+      all_procs.only_kind(kind);
+      return std::vector<Legion::Processor>(all_procs.begin(), all_procs.end());
+    }
+  }
+
   void slice_task(const Legion::Mapping::MapperContext    ctx,
                   const Legion::Task&                     task,
                   const SliceTaskInput&                   input,
@@ -72,20 +102,7 @@ public:
       for (int i = 0; i < dim; i++) {
         gridDims[i] = args[i];
       }
-      std::vector<Legion::Processor> targets;
-      switch (this->default_find_preferred_variant(task, ctx, false /* needs tight bound */).proc_kind) {
-        case Legion::Processor::OMP_PROC: {
-          targets = this->remote_omps;
-          break;
-        }
-        case Legion::Processor::LOC_PROC: {
-          targets = this->remote_cpus;
-          break;
-        }
-        default: {
-          assert(false);
-        }
-      }
+      auto targets = this->select_targets_for_task(ctx, task);
       switch (dim) {
 #define BLOCK(DIM) \
         case DIM:  \
@@ -100,7 +117,28 @@ public:
           assert(false);
       }
     } else {
-      DefaultMapper::slice_task(ctx, task, input, output);
+      // Otherwise, we have our own implementation of slice task. The reason for this is
+      // because the default mapper gets confused and hits a cache of domain slices. This
+      // messes up the placement that we are going for with the index launches. This
+      // implementation mirrors the standard slicing strategy of the default mapper.
+      auto targets = this->select_targets_for_task(ctx, task);
+      switch (input.domain.get_dim()) {
+#define BLOCK(DIM) \
+        case DIM:  \
+          {        \
+            Legion::DomainT<DIM,Legion::coord_t> point_space = input.domain; \
+            Legion::Point<DIM,Legion::coord_t> num_blocks = \
+              default_select_num_blocks<DIM>(targets.size(), point_space.bounds); \
+            this->default_decompose_points<DIM>(point_space, targets, \
+                  num_blocks, false/*recurse*/, \
+                  stealing_enabled, output.slices); \
+            break;   \
+          }
+        LEGION_FOREACH_N(BLOCK)
+#undef BLOCK
+        default:
+          assert(false);
+      }
     }
   }
 
