@@ -224,7 +224,7 @@ TEST(distributed, cuda_cannonMM) {
   auto placeCLowered = lower(placeC, "placeLegionC", false, true);
 
   IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko"), kos("kos");
-  IndexVar iln("iln"), ill("ill"), jln("jln"), jll("jll"), kii("kii"), kio("kio");
+  IndexVar iln("iln"), ill("ill"), jln("jln"), jll("jll"), kii("kii"), kio("kio"), kios("kios");
   std::shared_ptr<LeafCallInterface> gemm = std::make_shared<CuGEMM>();
   a(i, j) = b(i, k) * c(k, j);
   auto stmt = a.getAssignment().concretize();
@@ -239,10 +239,11 @@ TEST(distributed, cuda_cannonMM) {
       .pushCommUnder(a(i, j), jn)
       // Schedule for each GPU within a node.
       .distribute({il, jl}, {iln, jln}, {ill, jll}, Grid(2, 2), taco::ParallelUnit::DistributedGPU)
-      .divide(ki, kii, kio, 2)
-      .reorder({kii, ill, jll})
-      .pushCommUnder(b(i, k), kii)
-      .pushCommUnder(c(k, j), kii)
+      .divide(ki, kio, kii, 2)
+      .reorder({kio, ill, jll})
+      .stagger(kio, {iln, jln}, kios)
+      .pushCommUnder(b(i, k), kios)
+      .pushCommUnder(c(k, j), kios)
       .pushCommUnder(a(i, j), jln)
       .swapLeafKernel(ill, gemm)
       ;
