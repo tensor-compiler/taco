@@ -467,7 +467,7 @@ protected:
 
   ParallelUnit getAtomicParallelUnit() const;
 
-private:
+protected:
   bool assemble;
   bool compute;
 

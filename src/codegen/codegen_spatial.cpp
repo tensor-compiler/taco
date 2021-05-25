@@ -345,7 +345,7 @@ void CodeGen_Spatial::visit(const Function* func) {
   }
 
   // Reformat output (store back into DRAM)
-  //out << printOutputStore(varFinder.outputProperties, func->outputs);
+  out << printOutputStore(varFinder.outputProperties, func->outputs);
 
   out << "  }\n"; // end Accel
   indent--;
@@ -659,7 +659,8 @@ void CodeGen_Spatial::visit(const Store* op) {
   doIndent();
   op->arr.accept(this);
 
-  if (op->lhs_mem_loc != MemoryLocation::SpatialReg || op->rhs_mem_loc != MemoryLocation::SpatialReg) {
+  if ((op->lhs_mem_loc != MemoryLocation::SpatialReg || op->rhs_mem_loc != MemoryLocation::SpatialReg) &&
+      op->lhs_mem_loc != MemoryLocation::SpatialFIFO) {
     stream << "(";
     parentPrecedence = Precedence::TOP;
     op->loc.accept(this);
@@ -673,13 +674,17 @@ void CodeGen_Spatial::visit(const Store* op) {
     stream << " = ";
   } else if (op->lhs_mem_loc == MemoryLocation::SpatialReg && op->rhs_mem_loc == MemoryLocation::SpatialReg) {
     stream << " := ";
+  } else if (op->lhs_mem_loc == MemoryLocation::SpatialFIFO) {
+    stream << ".enq(";
   } else {
     stream << " = ";
   }
 
   parentPrecedence = Precedence::TOP;
   op->data.accept(this);
-  //stream << ";";
+  if (op->lhs_mem_loc == MemoryLocation::SpatialFIFO) {
+    stream << ")";
+  }
   stream << endl;
 }
 
@@ -708,7 +713,6 @@ void CodeGen_Spatial::visit(const StoreBulk* op) {
 
   parentPrecedence = Precedence::TOP;
   op->data.accept(this);
-  //stream << ";";
   stream << endl;
 }
 
@@ -731,10 +735,14 @@ void CodeGen_Spatial::visit(const MemStore* op) {
 void CodeGen_Spatial::visit(const Load* op) {
   parentPrecedence = Precedence::LOAD;
   op->arr.accept(this);
-  stream << "(";
-  parentPrecedence = Precedence::LOAD;
-  op->loc.accept(this);
-  stream << ")";
+  if (op->mem_loc == MemoryLocation::SpatialFIFO) {
+    stream << ".deq";
+  } else {
+    stream << "(";
+    parentPrecedence = Precedence::LOAD;
+    op->loc.accept(this);
+    stream << ")";
+  }
 }
 
 void CodeGen_Spatial::visit(const LoadBulk* op) {
@@ -816,6 +824,7 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
   ret << indentation;
 
   auto tensor = op->tensor.as<Var>();
+  stringstream dims;
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << "val " << varname << " = FIFO[T](";
@@ -824,23 +833,27 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
     }
     else {
       for (int i = 1; i < op->index + 1; i++) {
-        ret << tensor->name << i << "_dimension";
+        dims << tensor->name << i << "_dimension";
 
         if (i < op->index) {
           if (should_use_Spatial_multi_dim())
-            ret << ", ";
+            dims << ", ";
           else
-            ret << " * ";
+            dims << " * ";
         }
       }
     }
 
-    ret << ")" << endl; 
+    ret << dims.str() << ")" << endl;
 
     // Load from DRAM into FIFO
+    // TODO: case based on FIFO or SRAM
     if (!is_output_prop) {
-      auto load_str = op->is_compressed ? " stream_load_vec " : " load ";
-      ret << indentation << varname << load_str << varname << "_dram" << endl;
+      //if (op->is_compressed) {
+        ret << indentation << varname << "_dram stream_load_vec(0, " << varname << ", " << dims.str() << ")" << endl;
+      //} else {
+      //  ret << indentation << varname << " load " << varname << "_dram" << endl;
+      //}
     }
 
 
@@ -861,9 +874,8 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
   // for a Fixed level, ptr is an int
   // all others are int*
   if (op->property == TensorProperty::Dimension) {
-    ret << "val " << varname << " = " << op->index << endl;
-
-
+    //ret << "val " << varname << " = " << op->index << endl;
+    return "";
   } else {
     taco_iassert(op->property == TensorProperty::Indices);
 
@@ -899,10 +911,10 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
         loc = "ArgIn";
     }
 
-    ret << "val " << varname << "_dram = " << loc << "[T]";
+    ret << "val " << varname << "_dram = " << loc << "[T](";
     if (op->index > 0) {
       for (int i = 1; i < op->index + 1; i++) {
-        ret << "(" << tensor->name << i << "_dimension_dram";
+        ret << tensor->name << i << "_dimension";
 
         if (i < op->index) {
           if (should_use_Spatial_multi_dim())
@@ -926,7 +938,8 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
   // for a Fixed level, ptr is an int
   // all others are int*
   if (op->property == TensorProperty::Dimension) {
-    ret << "val " << varname << "_dram = " << op->index << endl;
+    ret << "val " << varname << " = ArgIn[T]" << endl;
+    //ret << "val " << varname << "_dram = " << op->index << endl;
   } else {
     taco_iassert(op->property == TensorProperty::Indices);
 
@@ -1082,7 +1095,7 @@ string CodeGen_Spatial::outputInitMemArgs(string varname, const GetProperty* op,
   else if (op->property == TensorProperty::Values) {
     ret << varname;
   } else if (op->property == TensorProperty::Dimension) {
-    ret << varname << "_dram";
+    ret << varname;
   }
   else if (op->property == TensorProperty::Indices) {
     ret << varname;
@@ -1154,7 +1167,7 @@ string CodeGen_Spatial::outputCheckOutputArgs(string varname, Expr tnsr,
   } else if (property == TensorProperty::Values) {
       ret << varname;
   } else if (property == TensorProperty::Dimension) {
-    ret << varname << "_dram";
+    ret << varname;
   } 
 
   if (!last) 
@@ -1215,7 +1228,8 @@ string CodeGen_Spatial::outputTensorProperty(string varname, Expr tnsr,
 
   auto tensor = tnsr.as<Var>();
   if (property == TensorProperty::Values) {
-    ret << varname << "_dram store " << varname << endl;
+    //ret << varname << "_dram store " << varname << endl;
+    ret << varname << "_dram stream_store_vec(0, " << varname << ", " << tensor->name << "_dimension_dram)" << endl;
     return ret.str();
   } else if (property == TensorProperty::Dimension) {
     return "";

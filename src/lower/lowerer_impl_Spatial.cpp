@@ -366,6 +366,133 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
     return Block::make(result);
   }
 
+Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
+                                               vector<Iterator> locators,
+                                               vector<Iterator> inserters,
+                                               vector<Iterator> appenders,
+                                               set<Access> reducedAccesses,
+                                               ir::Stmt recoveryStmt)
+{
+  Expr coordinate = getCoordinateVar(forall.getIndexVar());
+
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
+    markAssignsAtomicDepth++;
+    atomicParallelUnit = forall.getParallelUnit();
+  }
+
+  Stmt body = lowerForallBody(coordinate, forall.getStmt(),
+                              locators, inserters, appenders, reducedAccesses);
+
+
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
+    markAssignsAtomicDepth--;
+  }
+
+  body = Block::make({recoveryStmt, body});
+
+  Stmt posAppend = generateAppendPositions(appenders);
+
+  // Emit loop with preamble and postamble
+  std::vector<ir::Expr> bounds = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+
+  LoopKind kind = LoopKind::Serial;
+  if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
+    kind = LoopKind::Vectorized;
+  }
+  else if (forall.getParallelUnit() != ParallelUnit::NotParallel
+           && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
+    kind = LoopKind::Runtime;
+  }
+
+  if (forall.getParallelUnit() == ParallelUnit::Spatial && forall.getOutputRaceStrategy() == OutputRaceStrategy::SpatialReduction) {
+    if (forallReductions.find(forall) != forallReductions.end() && isa<Assignment>(forall.getStmt())) {
+      Assignment forallExpr = to<Assignment>(forall.getStmt());
+
+      Expr reg;
+      Stmt regDecl = Stmt();
+      if (forallReductions.at(forall).first > 0) {
+        reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(),
+                        forallExpr.getLhs().getDataType());
+        regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+      } else {
+        // TODO: If reduction across a non-scalar, need to use a memreduce into a SpatialSRAM
+        reg = lower(forallExpr.getLhs());
+        // Only declare register for upper-most level if it is a scalar
+        if (isScalar(to<Access>(forallExpr.getLhs()).getTensorVar().getType()))
+          regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+      }
+
+      Stmt reductionBody = lowerForallReductionBody(coordinate, forall.getStmt(),
+                                                    locators, inserters, appenders, reducedAccesses);
+      reductionBody = Block::make({recoveryStmt, reductionBody});
+
+      Expr reductionExpr = lower(forallExpr.getRhs());
+
+      // FIXME: reduction can only handle adds for now
+      taco_iassert(isa<taco::Add>(forallExpr.getOperator()));
+
+      if (forallExpr.getOperator().defined()) {
+        return Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, Scope::make(reductionBody, reductionExpr), true, forall.getNumChunks()));
+      }
+    }
+    if (forallReductions.find(forall) != forallReductions.end() && !provGraph.getParents(forall.getIndexVar()).empty()) {
+      Assignment forallExpr = forallReductions.at(forall).second;
+
+      Expr reg;
+      Stmt regDecl = Stmt();
+      if (forallReductions.at(forall).first > 0) {
+        reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(),
+                        forallExpr.getLhs().getDataType());
+        regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+      } else {
+        // TODO: If reduction across a non-scalar, need to use a memreduce into a SpatialSRAM
+        reg = lower(forallExpr.getLhs());
+        // Only declare register for upper-most level if it is a scalar
+        if (isScalar(to<Access>(forallExpr.getLhs()).getTensorVar().getType()))
+          regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+      }
+
+      // FIXME: reduction can only handle adds for now
+      taco_iassert(isa<taco::Add>(forallExpr.getOperator()));
+      auto parentVar = provGraph.getParents(forall.getIndexVar())[0];
+      vector<IndexVar> children = provGraph.getChildren(parentVar);
+
+      if (forallExpr.getOperator().defined()) {
+        return Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, body, true,
+                                                 forall.getNumChunks()));
+      }
+    }
+  }
+
+  if (bulkMemTransfer.find(forall) != bulkMemTransfer.end()) {
+    auto assignment = bulkMemTransfer.at(forall);
+    auto tensorLhs = assignment.getLhs().getTensorVar();
+    Expr valuesLhs = getValuesArray(tensorLhs);
+    auto tensorRhs = to<Access>(assignment.getRhs()).getTensorVar();
+    Expr valuesRhs = getValuesArray(tensorRhs);
+
+    //Stmt vars = lowerForallReductionBody(coordinate, forall.getStmt(),
+    //                                     locators, inserters, appenders, reducedAccesses);
+    auto locs = lowerForallBulk(forall, coordinate, forall.getStmt(),
+                                locators, inserters, appenders, reducedAccesses, recoveryStmt);
+
+    Expr data = LoadBulk::make(valuesRhs, ir::Add::make(get<1>(locs[1]), bounds[0]), ir::Add::make(get<1>(locs[1]), bounds[1]));
+
+    return Block::make(get<0>(locs[0]), StoreBulk::make(valuesLhs,
+                                                        ir::Add::make(get<1>(locs[0]), bounds[0]),
+                                                        ir::Add::make(get<1>(locs[0]), bounds[1]), data,
+                                                        tensorLhs.getMemoryLocation(), tensorRhs.getMemoryLocation()));
+  }
+
+  auto returnExpr = Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
+                                            kind,
+                                            ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(),
+                                            ignoreVectorize ? 0 : forall.getUnrollFactor(), 0, forall.getNumChunks()),
+                                  posAppend);
+
+  return returnExpr;
+}
+
   Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
                                         vector<Iterator> locators,
                                         vector<Iterator> inserters,
@@ -402,29 +529,60 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
     Expr startBound = 0;
     Expr endBound = iterator.getParent().getEndVar();
     Expr parentPos = iterator.getParent().getPosVar();
-//    if (!getProvGraph().isUnderived(iterator.getIndexVar())) {
-//      vector<Expr> bounds = getProvGraph().deriveIterBounds(iterator.getIndexVar(), getDefinedIndexVarsOrdered(), getUnderivedBounds(), getIndexVarToExprMap(), getIterators());
-//      startBound = bounds[0];
-//      endBound = bounds[1];
-//    }
-//    else if (iterator.getParent().isRoot() || iterator.getParent().isUnique()) {
-//      // E.g. a compressed mode without duplicates
-//      ModeFunction bounds = iterator.posBounds(parentPos);
-//      boundsCompute = bounds.compute();
-//      startBound = bounds[0];
-//      endBound = bounds[1];
-//    } else {
-//      taco_iassert(iterator.isOrdered() && iterator.getParent().isOrdered());
-//      taco_iassert(iterator.isCompact() && iterator.getParent().isCompact());
-//
-//      // E.g. a compressed mode with duplicates. Apply iterator chaining
-//      Expr parentSegend = iterator.getParent().getSegendVar();
-//      ModeFunction startBounds = iterator.posBounds(parentPos);
-//      ModeFunction endBounds = iterator.posBounds(ir::Sub::make(parentSegend, 1));
-//      boundsCompute = Block::make(startBounds.compute(), endBounds.compute());
-//      startBound = startBounds[0];
-//      endBound = endBounds[1];
-//    }
+    if (!getProvGraph().isUnderived(iterator.getIndexVar())) {
+      vector<Expr> bounds = getProvGraph().deriveIterBounds(iterator.getIndexVar(), getDefinedIndexVarsOrdered(), getUnderivedBounds(), getIndexVarToExprMap(), getIterators());
+      startBound = bounds[0];
+      endBound = bounds[1];
+    }
+    else if (iterator.getParent().isRoot() || iterator.getParent().isUnique()) {
+      // E.g. a compressed mode without duplicates
+      ModeFunction bounds = iterator.posBounds(parentPos);
+      boundsCompute = bounds.compute();
+      startBound = bounds[0];
+      endBound = bounds[1];
+    } else {
+      taco_iassert(iterator.isOrdered() && iterator.getParent().isOrdered());
+      taco_iassert(iterator.isCompact() && iterator.getParent().isCompact());
+
+      // E.g. a compressed mode with duplicates. Apply iterator chaining
+      Expr parentSegend = iterator.getParent().getSegendVar();
+      ModeFunction startBounds = iterator.posBounds(parentPos);
+      ModeFunction endBounds = iterator.posBounds(ir::Sub::make(parentSegend, 1));
+      boundsCompute = Block::make(startBounds.compute(), endBounds.compute());
+      startBound = startBounds[0];
+      endBound = endBounds[1];
+    }
+
+    auto loopVar = to<Var>(iterator.getPosVar());
+    // Spatial needs memory accesses to be described before loop
+    Stmt boundsDecl;
+    if (!isa<Var>(endBound) && !isa<Var>(startBound)) {
+      auto startVar = Var::make(loopVar->name + "_start", startBound.type());
+      auto startBoundDecl = VarDecl::make(startVar, startBound);
+
+      auto endVar = Var::make(loopVar->name + "_end", endBound.type());
+      auto endBoundDecl = VarDecl::make(endVar, endBound);
+
+      auto lenVar = Var::make(loopVar->name + "_len", endBound.type());
+      auto lenVarDecl = VarDecl::make(lenVar, ir::Sub::make(endVar, startVar));
+
+      boundsDecl = Block::make(startBoundDecl, endBoundDecl, lenVarDecl);
+      startBound = ir::Literal::zero(startBound.type());
+      endBound = lenVar;
+
+    } else if (!isa<Var>(startBound)) {
+      //TODO: Remove duplicate code here
+      auto startVar = Var::make(loopVar->name + "_start", startBound.type());
+      auto startBoundDecl = VarDecl::make(startVar, startBound);
+      boundsDecl = startBoundDecl;
+      startBound = startVar;
+    } else if (!isa<Var>(endBound)) {
+      //TODO: Remove duplicate code here
+      auto endVar = Var::make(loopVar->name + "_end", endBound.type());
+      auto endBoundDecl = VarDecl::make(endVar, endBound);
+      boundsDecl = Block::make(boundsDecl, endBoundDecl);
+      endBound = endVar;
+    }
 
     LoopKind kind = LoopKind::Serial;
     if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
@@ -434,13 +592,74 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
              && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
       kind = LoopKind::Runtime;
     }
+
+    if (forall.getParallelUnit() == ParallelUnit::Spatial && forall.getOutputRaceStrategy() == OutputRaceStrategy::SpatialReduction) {
+      if (forallReductions.find(forall) != forallReductions.end() && isa<Assignment>(forall.getStmt())) {
+        Assignment forallExpr = to<Assignment>(forall.getStmt());
+
+        Expr reg;
+        Stmt regDecl = Stmt();
+        if (forallReductions.at(forall).first > 0) {
+          reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(),
+                          forallExpr.getLhs().getDataType());
+          regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+        } else {
+          // TODO: If reduction across a non-scalar, need to use a memreduce into a SpatialSRAM
+          reg = lower(forallExpr.getLhs());
+          // Only declare register for upper-most level if it is a scalar
+          if (isScalar(to<Access>(forallExpr.getLhs()).getTensorVar().getType()))
+            regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+        }
+
+        Stmt reductionBody = lowerForallReductionBody(coordinate, forall.getStmt(),
+                                                      locators, inserters, appenders, reducedAccesses);
+        reductionBody = Block::make({recoveryStmt, reductionBody});
+
+        Expr reductionExpr = lower(forallExpr.getRhs());
+
+        taco_iassert(isa<taco::Add>(forallExpr.getOperator())) << "Spatial reductions can only handle additions";
+
+        if (forallExpr.getOperator().defined()) {
+          return Block::make(regDecl, Reduce::make(coordinate, reg, startBound, endBound, 1,
+                                                   Scope::make(reductionBody, reductionExpr), true, forall.getNumChunks()));
+        }
+      }
+      if (forallReductions.find(forall) != forallReductions.end() && !provGraph.getParents(forall.getIndexVar()).empty()) {
+        Assignment forallExpr = forallReductions.at(forall).second;
+
+        Expr reg;
+        Stmt regDecl = Stmt();
+        if (forallReductions.at(forall).first > 0) {
+          reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(),
+                          forallExpr.getLhs().getDataType());
+          regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+        } else {
+          // TODO: If reduction across a non-scalar, need to use a memreduce into a SpatialSRAM
+          reg = lower(forallExpr.getLhs());
+          // Only declare register for upper-most level if it is a scalar
+          if (isScalar(to<Access>(forallExpr.getLhs()).getTensorVar().getType()))
+            regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+        }
+
+        taco_iassert(isa<taco::Add>(forallExpr.getOperator())) << "Spatial reductions can only handle additions";
+        auto parentVar = provGraph.getParents(forall.getIndexVar())[0];
+        vector<IndexVar> children = provGraph.getChildren(parentVar);
+
+        if (forallExpr.getOperator().defined()) {
+          return Block::make(regDecl, Reduce::make(coordinate, reg, startBound, endBound, 1, body, true,
+                                                   forall.getNumChunks()));
+        }
+      }
+    }
+
     // Loop with preamble and postamble
-    return Block::blanks(boundsCompute,
-                         For::make(iterator.getPosVar(), startBound, endBound, 1,
+    return Block::blanks(boundsCompute, boundsDecl,
+                         For::make(loopVar, startBound, endBound, 1,
                                    Block::make(declareCoordinate, body),
                                    kind,
                                    ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
                          posAppend);
 
   }
+
 } // namespace taco

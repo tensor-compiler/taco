@@ -502,13 +502,14 @@ Expr Load::make(Expr arr) {
   return Load::make(arr, Literal::make((int64_t)0));
 }
 
-Expr Load::make(Expr arr, Expr loc) {
+Expr Load::make(Expr arr, Expr loc, MemoryLocation mem_loc) {
   taco_iassert(loc.type().isInt() || loc.type().isUInt()) 
       << "Can't load from a non-integer offset";
   Load *load = new Load;
   load->type = arr.type();
   load->arr = arr;
   load->loc = loc;
+  load->mem_loc = mem_loc;
   return load;
 }
 

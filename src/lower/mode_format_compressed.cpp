@@ -1,5 +1,5 @@
 #include "taco/lower/mode_format_compressed.h"
-
+#include "taco/spatial.h"
 #include "ir/ir_generators.h"
 #include "taco/ir/simplify.h"
 #include "taco/util/strings.h"
@@ -100,7 +100,8 @@ ModeFunction CompressedModeFormat::posIterAccess(ir::Expr pos,
 
   Expr idxArray = getCoordArray(mode.getModePack());
   Expr stride = (int)mode.getModePack().getNumModes();
-  Expr idx = Load::make(idxArray, ir::Mul::make(pos, stride));
+  // FIXME: add this to compressedModeFormatSpatial and also remove hardcode of FIFO
+  Expr idx = Load::make(idxArray, ir::Mul::make(pos, stride), MemoryLocation::SpatialFIFO);
   return ModeFunction(Stmt(), {idx, true});
 }
 
@@ -109,13 +110,22 @@ Stmt CompressedModeFormat::getAppendCoord(Expr p, Expr i, Mode mode) const {
 
   Expr idxArray = getCoordArray(mode.getModePack());
   Expr stride = (int)mode.getModePack().getNumModes();
-  Stmt storeIdx = Store::make(idxArray, ir::Mul::make(p, stride), i);
+  // FIXME: [Spatial] make sure memory location isn't hardcoded
+  Stmt storeIdx;
+  if (!should_use_Spatial_codegen())
+    storeIdx = Store::make(idxArray, ir::Mul::make(p, stride), i);
+  else
+    storeIdx = Store::make(idxArray, ir::Mul::make(p, stride), i, MemoryLocation::SpatialFIFO, MemoryLocation::SpatialReg);
 
   if (mode.getModePack().getNumModes() > 1) {
     return storeIdx;
   }
 
-  Stmt maybeResizeIdx = doubleSizeIfFull(idxArray, getCoordCapacity(mode), p);
+  // FIXME: [Spatial] Should actually use CompressedModeFormatSpatial
+  Stmt maybeResizeIdx;
+  if (!should_use_Spatial_codegen())
+    maybeResizeIdx = doubleSizeIfFull(idxArray, getCoordCapacity(mode), p);
+
   return Block::make({maybeResizeIdx, storeIdx});
 }
 

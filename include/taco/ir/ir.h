@@ -492,9 +492,10 @@ struct Call : public ExprNode<Call> {
 struct Load : public ExprNode<Load> {
   Expr arr;
   Expr loc;
+  MemoryLocation mem_loc;
 
   static Expr make(Expr arr);
-  static Expr make(Expr arr, Expr loc);
+  static Expr make(Expr arr, Expr loc, MemoryLocation mem_loc = MemoryLocation::Default);
 
   static const IRNodeType _type_info = IRNodeType::Load;
 };

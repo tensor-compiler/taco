@@ -218,7 +218,10 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   temporaryInitialization = getTemporaryLocations(stmt);
   tempNoZeroInit = getTemporariesWithoutReduction(stmt);
   forallReductions = getForallReductions(stmt);
-
+  cout << "forallReductions" << endl;
+  for (auto& r: forallReductions) {
+    cout << r.first << "| " << get<0>(r.second) << ", " << get<1>(r.second) << endl;
+  }
   // Create datastructure needed for bulk memory load/store optimization from forall
   bulkMemTransfer = getBulkMemTransfers(stmt);
 
@@ -331,6 +334,8 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
               ModeAccess ma = {Access(n->lhs), loc+1};
               auto iter = iterators.levelIterator(ma);
               auto prevDimGP = iter.getMode().getModePack().getArray(0).as<GetProperty>();
+              cout << "Previous Dimesnion GP1:" << endl;
+              cout << prevDimGP << endl;
               iter.getMode().getModePack().setArray(0, GetProperty::make(prevDimGP->tensor, prevDimGP->property,
                                                                          prevDimGP->mode, provGraph.getVarBound(indexVar)));
 
@@ -373,8 +378,14 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
               ModeAccess ma = {Access(n), loc+1};
               auto iter = iterators.levelIterator(ma);
               auto prevDimGP = iter.getMode().getModePack().getArray(0).as<GetProperty>();
-              iter.getMode().getModePack().setArray(0, GetProperty::make(prevDimGP->tensor, prevDimGP->property,
-                                                                         prevDimGP->mode, provGraph.getVarBound(indexVar)));
+              if (prevDimGP->property == TensorProperty::Dimension) {
+                cout << "Previous Dimesnion GP2:" << endl;
+                cout << (int) (prevDimGP->property == TensorProperty::Indices) << endl;
+                cout << prevDimGP->tensor << endl;
+                iter.getMode().getModePack().setArray(0, GetProperty::make(prevDimGP->tensor, prevDimGP->property,
+                                                                           prevDimGP->mode,
+                                                                           provGraph.getVarBound(indexVar)));
+              }
             } else {
               dimension = getDimension(n->tensorVar, Access(n), loc);
             }
@@ -820,19 +831,23 @@ Stmt LowererImplDataflow::lowerForall(Forall forall)
     }
 
     if (!isWhereProducer && hasPosDescendant && underivedAncestors.size() > 1 && provGraph.isPosVariable(iterator.getIndexVar()) && posDescendant == forall.getIndexVar()) {
+      cout << "LowerForallFusedPosition: " << forall << endl;
       loops = lowerForallFusedPosition(forall, iterator, locators,
                                          inserters, appenders, reducedAccesses, recoveryStmt);
     }
-    else if (canAccelWithSparseIteration) {
-      loops = lowerForallDenseAcceleration(forall, locators, inserters, appenders, reducedAccesses, recoveryStmt);
-    }
+//    else if (canAccelWithSparseIteration) {
+//      cout << "LowerForallDenseAcceleration: " << forall << endl;
+//      loops = lowerForallDenseAcceleration(forall, locators, inserters, appenders, reducedAccesses, recoveryStmt);
+//    }
     // Emit dimension coordinate iteration loop
     else if (iterator.isDimensionIterator()) {
+      cout << "LowerForallDimension: " << forall << endl;
       loops = lowerForallDimension(forall, point.locators(),
                                    inserters, appenders, reducedAccesses, recoveryStmt);
     }
     // Emit position iteration loop
     else if (iterator.hasPosIter()) {
+      cout << "LowerForallPosition: " << forall << endl;
       loops = lowerForallPosition(forall, iterator, locators,
                                     inserters, appenders, reducedAccesses, recoveryStmt);
     }
@@ -1203,67 +1218,7 @@ Stmt LowererImplDataflow::lowerForallDimension(Forall forall,
     kind = LoopKind::Runtime;
   }
 
-  if (forall.getParallelUnit() == ParallelUnit::Spatial && forall.getOutputRaceStrategy() == OutputRaceStrategy::SpatialReduction) {
-    if (forallReductions.find(forall) != forallReductions.end() && isa<Assignment>(forall.getStmt())) {
-      Assignment forallExpr = to<Assignment>(forall.getStmt());
-
-      Expr reg;
-      Stmt regDecl = Stmt();
-      if (forallReductions.at(forall).first > 0) {
-        reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(),
-                        forallExpr.getLhs().getDataType());
-        regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
-      } else {
-        // TODO: If reduction across a non-scalar, need to use a memreduce into a SpatialSRAM
-        reg = lower(forallExpr.getLhs());
-        // Only declare register for upper-most level if it is a scalar
-        if (isScalar(to<Access>(forallExpr.getLhs()).getTensorVar().getType()))
-          regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
-      }
-
-      Stmt reductionBody = lowerForallReductionBody(coordinate, forall.getStmt(),
-                                                    locators, inserters, appenders, reducedAccesses);
-      reductionBody = Block::make({recoveryStmt, reductionBody});
-
-      Expr reductionExpr = lower(forallExpr.getRhs());
-
-      // FIXME: reduction can only handle adds for now
-      taco_iassert(isa<taco::Add>(forallExpr.getOperator()));
-
-      if (should_use_Spatial_codegen() && forallExpr.getOperator().defined()) {
-        return Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, Scope::make(reductionBody, reductionExpr), true, forall.getNumChunks()));
-      }
-    }
-     if (forallReductions.find(forall) != forallReductions.end() && !provGraph.getParents(forall.getIndexVar()).empty()) {
-       Assignment forallExpr = forallReductions.at(forall).second;
-
-       Expr reg;
-       Stmt regDecl = Stmt();
-       if (forallReductions.at(forall).first > 0) {
-         reg = Var::make("r_" + forall.getIndexVar().getName() + "_" + forallExpr.getLhs().getTensorVar().getName(),
-                         forallExpr.getLhs().getDataType());
-         regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
-       } else {
-         // TODO: If reduction across a non-scalar, need to use a memreduce into a SpatialSRAM
-         reg = lower(forallExpr.getLhs());
-         // Only declare register for upper-most level if it is a scalar
-         if (isScalar(to<Access>(forallExpr.getLhs()).getTensorVar().getType()))
-           regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
-       }
-
-        // FIXME: reduction can only handle adds for now
-        taco_iassert(isa<taco::Add>(forallExpr.getOperator()));
-        auto parentVar = provGraph.getParents(forall.getIndexVar())[0];
-        vector<IndexVar> children = provGraph.getChildren(parentVar);
-
-        if (should_use_Spatial_codegen() && forallExpr.getOperator().defined()) {
-          return Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, body, true,
-                                                   forall.getNumChunks()));
-        }
-      }
-  }
-
-  if (bulkMemTransfer.find(forall) != bulkMemTransfer.end() && should_use_Spatial_codegen()) {
+  if (bulkMemTransfer.find(forall) != bulkMemTransfer.end()) {
     auto assignment = bulkMemTransfer.at(forall);
     auto tensorLhs = assignment.getLhs().getTensorVar();
     Expr valuesLhs = getValuesArray(tensorLhs);
@@ -1886,10 +1841,12 @@ Stmt LowererImplDataflow::lowerForallBody(Expr coordinate, IndexStmt stmt,
                                   const set<Access>& reducedAccesses) {
 
   Stmt initVals = resizeAndInitValues(appenders, reducedAccesses);
-
+  cout << "init Vals" << endl;
+  cout << initVals << endl;
   // Inserter positions
   Stmt declInserterPosVars = declLocatePosVars(inserters);
-
+  cout << "Inserter Pos Vars:" << endl;
+  cout << declInserterPosVars << endl;
   // Locate positions
   Stmt declLocatorPosVars = declLocatePosVars(locators);
 
@@ -3049,6 +3006,7 @@ Stmt LowererImplDataflow::declLocatePosVars(vector<Iterator> locators) {
         taco_iassert(isValue(locate.getResults()[1], true));
         Stmt declarePosVar = VarDecl::make(locateIterator.getPosVar(),
                                            locate.getResults()[0]);
+        cout << declarePosVar << ", ";
         result.push_back(declarePosVar);
 
         if (locateIterator.isLeaf()) {
@@ -3395,7 +3353,7 @@ Stmt LowererImplDataflow::appendCoordinate(vector<Iterator> appenders, Expr coor
 
     vector<Stmt> appendStmts;
 
-    if (generateAssembleCode()) {
+    //if (generateAssembleCode()) {
       appendStmts.push_back(appender.getAppendCoord(pos, coord));
       while (!appender.isRoot() && appender.isBranchless()) {
         // Need to append result coordinate to parent level as well if child
@@ -3411,7 +3369,7 @@ Stmt LowererImplDataflow::appendCoordinate(vector<Iterator> appenders, Expr coor
           appendStmts.push_back(appender.getAppendCoord(pos, coord));
         }
       }
-    }
+    //}
 
     if (generateAssembleCode() || isLastAppender(appender)) {
       appendStmts.push_back(compoundAssign(pos, 1));

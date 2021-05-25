@@ -21,35 +21,42 @@ public:
 
 protected:
   /// Lower an assignment statement.
-  virtual ir::Stmt lowerAssignment(Assignment assignment);
+  ir::Stmt lowerAssignment(Assignment assignment) override;
 
   /// Lower an access expression.
-  virtual ir::Expr lowerAccess(Access access);
+  ir::Expr lowerAccess(Access access) override;
 
   /// Retrieve the values array of the tensor var.
-  ir::Expr getValuesArray(TensorVar) const;
+  ir::Expr getValuesArray(TensorVar) const override;
 
   /// Initialize temporary variables
-  std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
+  std::vector<ir::Stmt> codeToInitializeTemporary(Where where) override;
 
   ir::Stmt lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar,
                                       IndexStmt statement,
-                                      const std::set<Access>& reducedAccesses);
+                                      const std::set<Access>& reducedAccesses) override;
 
   ir::Stmt lowerMergePoint(MergeLattice pointLattice,
                                            ir::Expr coordinate, IndexVar coordinateVar, IndexStmt statement,
-                                           const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared);
+                                           const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared) override;
 
   ir::Stmt lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
                                            MergeLattice lattice,
-                                           const std::set<Access>& reducedAccesses);
+                                           const std::set<Access>& reducedAccesses) override;
+
+  ir::Stmt lowerForallDimension(Forall forall,
+                                        std::vector<Iterator> locaters,
+                                        std::vector<Iterator> inserters,
+                                        std::vector<Iterator> appenders,
+                                        std::set<Access> reducedAccesses,
+                                        ir::Stmt recoveryStmt) override;
 
   ir::Stmt lowerForallPosition(Forall forall, Iterator iterator,
                                std::vector<Iterator> locators,
                                std::vector<Iterator> inserters,
                                std::vector<Iterator> appenders,
                                std::set<Access> reducedAccesses,
-                               ir::Stmt recoveryStmt);
+                               ir::Stmt recoveryStmt) override;
 
 private:
   class Visitor;
