@@ -85,16 +85,10 @@ std::string CodegenLegion::printFuncName(const Function *func,
     }
   }
 
-  bool unfoldInput = false;
   for (size_t i=0; i<func->inputs.size(); i++) {
     auto var = func->inputs[i].as<Var>();
     taco_iassert(var) << "Unable to convert output " << func->inputs[i]
                       << " to Var";
-    if (var->is_parameter) {
-      unfoldInput = true;
-      break;
-    }
-
     if (var->is_tensor) {
       ret << delimiter << "LogicalRegion " << var->name;
     } else {
@@ -102,13 +96,6 @@ std::string CodegenLegion::printFuncName(const Function *func,
       ret << delimiter << tp << " " << var->name;
     }
     delimiter = ", ";
-  }
-
-  if (unfoldInput) {
-    for (auto prop : sortProps(inputMap)) {
-      ret << delimiter << printTensorProperty(inputMap[prop], prop, false);
-      delimiter = ", ";
-    }
   }
 
   ret << ")";
@@ -327,14 +314,13 @@ void CodegenLegion::analyzeAndCreateTasks(std::ostream& out) {
           this->usedVars.push_back({});
           this->varsDeclared.push_back({});
         }
-        // TODO (rohany): This comment doesn't make sense.
-        // If f is a task, then it needs it's iteration variable passed down. If f is
-        // a task, then we can treat it as _using_ the iteration variable.
-        if (!f->isTask) {
-          taco_iassert(this->varsDeclared.size() > 0);
+        // If f is a task, then it needs it's iteration variable passed down. So f is
+        // a task, then we can treat it as _using_ the iteration variable. Otherwise,
+        // the for loop declares its iterator variable. However, we only want to do
+        // this if we are already in a task.
+        if (!f->isTask && this->varsDeclared.size() > 0) {
           this->varsDeclared.back().insert(f->var);
-        } else {
-          taco_iassert(this->usedVars.size() > 0);
+        } else if (f->isTask && this->usedVars.size() > 0) {
           this->usedVars.back().insert(f->var);
         }
 

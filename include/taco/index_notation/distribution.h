@@ -4,6 +4,7 @@
 #include <vector>
 #include "taco/index_notation/index_notation.h"
 #include "taco/util/strings.h"
+#include "taco/ir/ir.h"
 
 namespace taco {
 
@@ -14,13 +15,13 @@ public:
 
   // Variadic template style constructor for grids.
   template <typename... Args>
-  Grid(Args... args) : Grid(std::vector<int>{args...}) {}
+  Grid(Args... args) : Grid(std::vector<ir::Expr>{args...}) {}
 
-  Grid(std::vector<int>& dims) {
+  Grid(std::vector<ir::Expr>& dims) {
     this->dimensions = dims;
   }
 
-  Grid(std::vector<int>&& dims) {
+  Grid(std::vector<ir::Expr>&& dims) {
     this->dimensions = dims;
   }
 
@@ -28,7 +29,7 @@ public:
     return this->dimensions.size();
   }
 
-  int getDimSize(int dim) {
+  ir::Expr getDimSize(int dim) {
     return this->dimensions[dim];
   }
 
@@ -40,7 +41,7 @@ public:
   }
 
 private:
-  std::vector<int> dimensions;
+  std::vector<ir::Expr> dimensions;
 };
 
 class GridPlacement {
