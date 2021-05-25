@@ -1621,6 +1621,8 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
     }
     Access a;
   };
+  // TODO (rohany): As a hack, we won't try to remove transfer objects since it leads to
+  //  problems with nested distributions.
   // TransferRemover remover(a);
   // stmt = remover.rewrite(stmt);
 

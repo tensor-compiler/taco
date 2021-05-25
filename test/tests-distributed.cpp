@@ -188,7 +188,6 @@ TEST(distributed, cannonMM) {
       .stagger(ko, {in, jn}, kos)
       .pushCommUnder(b(i, k), kos)
       .pushCommUnder(c(k, j), kos)
-      .pushCommUnder(a(i, j), jn)
       // This can be enabled on Sapling where we have an OpenMP + OpenBLAS build.
       // .swapLeafKernel(il, gemm)
       ;

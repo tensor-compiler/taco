@@ -678,10 +678,6 @@ LowererImpl::lower(IndexStmt stmt, string name,
     }
   }));
 
-  // BoundsInferenceVisitor bi(this->tensorVars, this->provGraph, this->iterators, this->underivedBounds, this->indexVarToExprMap, presentIvars);
-  // bi.inferBounds(stmt);
-  // this->derivedBounds = bi.derivedBounds;
-
   for (auto& it : this->tensorVars) {
     auto pointT = Point(it.first.getType().getOrder());
     auto accessor = ir::Var::make(it.first.getName() + "_access_point", pointT);
