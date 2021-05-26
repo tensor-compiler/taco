@@ -14,8 +14,11 @@
 #include "taco/util/env.h"
 #include "codegen/codegen_c.h"
 #include "codegen/codegen_cuda.h"
-#include "codegen/codegen_llvm.h"
 #include "taco/cuda.h"
+
+#ifdef HAVE_LLVM
+#include "codegen/codegen_llvm.h"
+#endif
 
 using namespace std;
 

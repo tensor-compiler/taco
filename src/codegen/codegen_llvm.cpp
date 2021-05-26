@@ -1,3 +1,4 @@
+#ifdef HAVE_LLVM
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 
@@ -674,3 +675,4 @@ void CodeGen_LLVM::visit(const GetProperty *op) {
 
 } // namespace ir
 } // namespace taco
+#endif // HAVE_LLVM

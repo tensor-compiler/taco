@@ -3,7 +3,8 @@ project(taco)
 option(CUDA "Build for NVIDIA GPU (CUDA must be preinstalled)" OFF)
 option(PYTHON "Build TACO for python environment" OFF)
 option(OPENMP "Build with OpenMP execution support" OFF)
-option(LLVM "Build with LLVM backend support")
+option(LLVM "Build with LLVM backend support" OFF)
+option(ENABLE_TESTS "Enable tests" ON)
 
 
 if(CUDA)
@@ -30,6 +31,7 @@ if (LLVM)
   llvm_map_components_to_libnames(llvm_libs support core irreader)
   add_definitions(-DUSE_LLVM)
   add_definitions(-DENABLE_TOSTRING_LLVM)
+  add_definitions(-DHAVE_LLVM)
 endif(LLVM)
 
 SET(CMAKE_CONFIGURATION_TYPES "Release;Debug;MinSizeRel;RelWithDebInfo")
@@ -101,7 +103,6 @@ set(TACO_TEST_DIR    ${TACO_PROJECT_DIR}/test)
 set(TACO_TOOLS_DIR   ${TACO_PROJECT_DIR}/tools)
 set(TACO_INCLUDE_DIR "${TACO_INCLUDE_DIR};${TACO_PROJECT_DIR}/include")
 
-enable_testing()
 include_directories(${TACO_INCLUDE_DIR})
 
 set(TACO_LIBRARY_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
@@ -109,7 +110,12 @@ set(TACO_LIBRARY_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 install(DIRECTORY ${TACO_INCLUDE_DIR}/ DESTINATION include)
 
 add_subdirectory(src)
-add_subdirectory(test)
+
+if (${ENABLE_TESTS})
+  enable_testing()
+  add_subdirectory(test)
+endif()
+
 add_subdirectory(tools)
 add_subdirectory(apps)
 string(REPLACE " -Wmissing-declarations" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")

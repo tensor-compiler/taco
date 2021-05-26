@@ -1,3 +1,4 @@
+#ifdef HAVE_LLVM
 #ifndef TACO_BACKEND_LLVM_H
 #define TACO_BACKEND_LLVM_H
 
@@ -137,4 +138,5 @@ namespace taco
   } // namespace ir
 } // namespace taco
 
-#endif
+#endif  // TACO_BACKEND_LLVM_H
+#endif  // HAVE_LLVM

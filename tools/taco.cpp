@@ -19,7 +19,6 @@
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
 #include "codegen/codegen_cuda.h"
-#include "codegen/codegen_llvm.h"
 #include "codegen/codegen.h"
 #include "taco/util/strings.h"
 #include "taco/util/files.h"
@@ -29,10 +28,13 @@
 #include "taco/util/collections.h"
 #include "taco/cuda.h"
 #include "taco/llvm.h"
-#include "taco/llvm.h"
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/index_notation/index_notation_nodes.h"
+
+#ifdef HAVE_LLVM
+#include "codegen/codegen_llvm.h"
+#endif
 
 using namespace std;
 using namespace taco;
@@ -966,8 +968,7 @@ int main(int argc, char* argv[]) {
     }
     set_LLVM_codegen_enabled(true);
   }
-  else
-  {
+  else {
     set_LLVM_codegen_enabled(false);
   }
 

@@ -3,7 +3,11 @@
 #include "taco/llvm.h"
 #include "codegen_cuda.h"
 #include "codegen_c.h"
+
+#ifdef HAVE_LLVM
 #include "codegen_llvm.h"
+#endif
+
 #include <algorithm>
 #include <unordered_set>
 
@@ -28,9 +32,11 @@ shared_ptr<CodeGen> CodeGen::init_default(std::ostream &dest, OutputKind outputK
   if (should_use_CUDA_codegen()) {
     return make_shared<CodeGen_CUDA>(dest, outputKind);
   }
-  if (should_use_LLVM_codegen()){
+  #ifdef HAVE_LLVM
+  else if (should_use_LLVM_codegen()){
     return make_shared<CodeGen_LLVM>(dest, outputKind);
   }
+  #endif
   else {
     return make_shared<CodeGen_C>(dest, outputKind);
   }
