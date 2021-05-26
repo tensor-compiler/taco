@@ -290,10 +290,10 @@ struct DivideRelNode::Content {
   IndexVar parentVar;
   IndexVar outerVar;
   IndexVar innerVar;
-  size_t divFactor;
+  ir::Expr divFactor;
 };
 
-DivideRelNode::DivideRelNode(IndexVar parentVar, IndexVar outerVar, IndexVar innerVar, size_t divFactor)
+DivideRelNode::DivideRelNode(IndexVar parentVar, IndexVar outerVar, IndexVar innerVar, ir::Expr divFactor)
   : IndexVarRelNode(DIVIDE), content(new Content) {
   content->parentVar = parentVar;
   content->outerVar = outerVar;
@@ -310,7 +310,7 @@ const IndexVar& DivideRelNode::getOuterVar() const {
 const IndexVar& DivideRelNode::getInnerVar() const {
   return content->innerVar;
 }
-const size_t& DivideRelNode::getDivFactor() const {
+const ir::Expr DivideRelNode::getDivFactor() const {
   return content->divFactor;
 }
 
@@ -346,8 +346,8 @@ std::vector<ir::Expr> DivideRelNode::computeRelativeBound(std::set<IndexVar> def
   }
 
   auto divFactorType = variableExprs[getParentVar()].type();
-  auto divFactor = ir::Literal::make(getDivFactor(), divFactorType);
-  auto divFactorMinusOne = ir::Literal::make(getDivFactor() - 1, divFactorType);
+  auto divFactor = getDivFactor();
+  auto divFactorMinusOne = ir::Sub::make(getDivFactor(), 1);
   auto dimLen = ir::Div::make(ir::Add::make(parentBound[1], divFactorMinusOne), divFactor);
 
   if(!innerVarDefined) {
@@ -376,8 +376,8 @@ std::vector<ir::Expr> DivideRelNode::deriveIterBounds(taco::IndexVar indexVar,
   taco_iassert(parentIterBounds.count(getParentVar()) == 1);
 
   std::vector<ir::Expr> parentBound = parentIterBounds.at(getParentVar());
-  Datatype divFactorType = parentBound[0].type();
-  auto divFactor = ir::Literal::make(getDivFactor(), divFactorType);
+  auto divFactor = getDivFactor();
+  auto divFactorMinusOne = ir::Sub::make(getDivFactor(), 1);
   if (indexVar == getOuterVar()) {
     // The loop has been divided into divFactor pieces, so the outer variable
     // ranges from 0 to divFactor.
@@ -388,7 +388,7 @@ std::vector<ir::Expr> DivideRelNode::deriveIterBounds(taco::IndexVar indexVar,
   else if (indexVar == getInnerVar()) {
     // The inner loop ranges over a chunk of size parentBound / divFactor.
     ir::Expr minBound = ir::Div::make(parentBound[0], divFactor);
-    ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(getDivFactor()-1, divFactorType)), divFactor);
+    ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], divFactorMinusOne), divFactor);
     return {minBound, maxBound};
   }
   taco_ierror;
@@ -402,8 +402,8 @@ ir::Expr DivideRelNode::recoverVariable(taco::IndexVar indexVar,
   taco_iassert(variableNames.count(getParentVar()) && variableNames.count(getOuterVar()) && variableNames.count(getInnerVar()));
   // Extract divFactor and divFactor - 1.
   Datatype divFactorType = variableNames[getParentVar()].type();
-  auto divFactor = ir::Literal::make(getDivFactor(), divFactorType);
-  auto divFactorMinusOne = ir::Literal::make(getDivFactor() - 1, divFactorType);
+  auto divFactor = getDivFactor();
+  auto divFactorMinusOne = ir::Sub::make(divFactor, 1);
   // Get the size of the dimension being iterated over.
   auto parentBounds = parentIterBounds.at(getParentVar());
   auto dimSize = ir::Sub::make(parentBounds[1], parentBounds[0]);

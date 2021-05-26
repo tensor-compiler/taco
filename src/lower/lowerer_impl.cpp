@@ -765,6 +765,20 @@ LowererImpl::lower(IndexStmt stmt, string name,
   // Post-process result modes and allocate memory for values if necessary
   Stmt finalizeResults = finalizeResultArrays(resultAccesses);
 
+  // Collect an add any parameter variables to the function's inputs.
+  struct ParameterFinder : public IRVisitor {
+    void visit(const Var* node) {
+      if (node->is_parameter) {
+        if (!util::contains(this->collectedVars, node)) {
+          vars.push_back(node);
+          collectedVars.insert(node);
+        }
+      }
+    }
+    std::vector<ir::Expr> vars;
+    std::set<ir::Expr> collectedVars;
+  } pfinder; body.accept(&pfinder);
+
   // Store scalar stack variables back to results
   if (generateComputeCode()) {
     for (auto& result : results) {
@@ -780,7 +794,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
   }
 
   // Create function
-  return Function::make(name, resultsIR, argumentsIR,
+  return Function::make(name, resultsIR, util::combine(argumentsIR, pfinder.vars),
                         Block::blanks(Block::make(header),
                                       initializeResults,
                                       topLevelTransfers,

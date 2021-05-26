@@ -117,7 +117,7 @@ bool operator==(const SplitRelNode&, const SplitRelNode&);
 // equal pieces. outerVar iterates over the number of pieces, and innerVar iterates
 // over each piece.
 struct DivideRelNode : public IndexVarRelNode {
-  DivideRelNode(IndexVar parentVar, IndexVar outerVar, IndexVar innerVar, size_t divFactor);
+  DivideRelNode(IndexVar parentVar, IndexVar outerVar, IndexVar innerVar, ir::Expr divFactor);
 
   const IndexVar &getParentVar() const;
 
@@ -125,7 +125,7 @@ struct DivideRelNode : public IndexVarRelNode {
 
   const IndexVar &getInnerVar() const;
 
-  const size_t &getDivFactor() const;
+  const ir::Expr getDivFactor() const;
 
   void print(std::ostream &stream) const;
 

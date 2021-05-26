@@ -1509,7 +1509,7 @@ IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFac
   return transformed;
 }
 
-IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const {
+IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, ir::Expr splitFactor) const {
   IndexVarRel rel = IndexVarRel(new DivideRelNode(i, i1, i2, splitFactor));
   string reason;
 

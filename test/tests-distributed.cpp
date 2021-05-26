@@ -168,7 +168,9 @@ TEST(distributed, cannonMM) {
   Tensor<double> c("c", {dim, dim}, Format{Dense, Dense});
 
   // Place each tensor onto a processor grid.
-  auto grid = Grid(2, 2);
+  auto gx = ir::Var::make("gridX", Int32, false, false, true);
+  auto gy = ir::Var::make("gridY", Int32, false, false, true);
+  auto grid = Grid(gx, gy);
   auto placement = GridPlacement({0, 1});
   auto placeA = a.partition(grid).place(grid, placement);
   auto placeB = b.partition(grid).place(grid, placement);
@@ -182,12 +184,17 @@ TEST(distributed, cannonMM) {
   a(i, j) = b(i, k) * c(k, j);
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
-      .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j))
+      // TODO (rohany): Temporarily removing the distributeOnto here until heirarchical
+      //  distributions with distributeOnto work. This test doesn't need it, but the cuda
+      //  version of the code does.
+      // .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j))
+      .distribute({i, j}, {in, jn}, {il, jl}, grid)
       .divide(k, ko, ki, 2)
       .reorder({ko, il, jl})
       .stagger(ko, {in, jn}, kos)
       .pushCommUnder(b(i, k), kos)
       .pushCommUnder(c(k, j), kos)
+      .pushCommUnder(a(i, j), in)
       // This can be enabled on Sapling where we have an OpenMP + OpenBLAS build.
       // .swapLeafKernel(il, gemm)
       ;
@@ -213,7 +220,9 @@ TEST(distributed, cuda_cannonMM) {
   Tensor<double> c("c", {dim, dim}, Format{Dense, Dense});
 
   // Place each tensor onto a processor grid.
-  auto grid = Grid(2, 2);
+  auto gx = ir::Var::make("gridX", Int32, false, false, true);
+  auto gy = ir::Var::make("gridY", Int32, false, false, true);
+  auto grid = Grid(gx, gy);
   auto placement = GridPlacement({0, 1});
   auto placeA = a.partition(grid).place(grid, placement, taco::ParallelUnit::DistributedGPU);
   auto placeB = b.partition(grid).place(grid, placement, taco::ParallelUnit::DistributedGPU);
@@ -229,7 +238,7 @@ TEST(distributed, cuda_cannonMM) {
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
       // Schedule for each node.
-      .distribute({i, j}, {in, jn}, {il, jl}, Grid(2, 2), taco::ParallelUnit::DistributedNode)
+      .distribute({i, j}, {in, jn}, {il, jl}, grid, taco::ParallelUnit::DistributedNode)
       .divide(k, ko, ki, 2)
       .reorder({ko, il, jl})
       .stagger(ko, {in, jn}, kos)
