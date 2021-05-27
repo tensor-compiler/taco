@@ -6,4 +6,4 @@
 	url = https://gitlab.com/StanfordLegion/legion.git
 [submodule "legion/OpenBLAS"]
 	path = legion/OpenBLAS
-	url = git@github.com:xianyi/OpenBLAS.git
+	url = https://github.com/xianyi/OpenBLAS.git
