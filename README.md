@@ -79,6 +79,13 @@ If you do not have CUDA installed, you can still use the taco cli to generate CU
 
 The generated CUDA code will require compute capability 6.1 or higher to run.
 
+## Building with LLVM Backend
+To build taco for LLVM, add `-DLLVM=ON` to the cmake line above. For example:
+
+    cmake -DCMAKE_BUILD_TYPE=Release -DLLVM=ON ..
+
+Make sure you have LLVM properly installed. 
+
 ## Running tests
 To run all tests:
 
