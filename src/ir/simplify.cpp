@@ -424,7 +424,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
     void visit(const Scope* scope) {
       declarations.scope();
       varsToReplace.scope();
-      stmt = rewrite(scope->scopedStmt);
+      IRRewriter::visit(scope);
       varsToReplace.unscope();
       declarations.unscope();
     }
@@ -543,6 +543,11 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       }
 
       void visit(const Assign* op) {
+        if (isa<Literal>(op->rhs)) {
+          stmt = op;
+          return;
+        }
+
         if (!isa<Add>(op->rhs)) {
           stmt = Stmt();
           return;
@@ -635,13 +640,15 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
     // Replace loops of the form:
     //
     //   for (int i = s; i < e; i += c) {
-    //     x += d;
+    //     x += lit;
+    //     y = lit;
     //   }
     //
     // with the following:
     //
     //   if (s < e)
-    //     x += d * (e - s) / c;
+    //     x += lit * (e - s) / c;
+    //     y = lit;
     void visit(const For* op) {
       Expr loopCount = simplify(Div::make(Sub::make(op->end, op->start), 
                                           op->increment));
@@ -656,14 +663,16 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
     // Replace loops of the form:
     //
     //   while (i < e) {
-    //     x += d;
+    //     x += lit;
+    //     y = lit;
     //     i++;
     //   }
     //
     // with the following:
     //
     //   if (i < e) {
-    //     x += d * (e - i);
+    //     x += lit * (e - i);
+    //     y = lit;
     //     i = e;
     //   }
     void visit(const While* op) {

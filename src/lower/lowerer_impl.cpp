@@ -178,9 +178,18 @@ static std::set<Expr> hasSparseInserts(IndexStmt stmt, Iterators iterators,
       definedIndexVars.insert(op->indexVar);
       const auto lattice = MergeLattice::make(Forall(op), iterators, 
                                               provGraph, definedIndexVars);
-      if (!any(lattice.iterators(), [](Iterator it){ return it.isFull(); })) {
+      if (any(lattice.iterators(), 
+              [](Iterator it){ return !it.isFull() && 
+                                      !it.isDimensionIterator(); }) ||
+          any(lattice.points()[0].locators(), 
+              [](Iterator it) { return !it.isFull(); })) {
         for (const auto& result : lattice.results()) {
-          ret.insert(result.getTensor());
+          // FIXME: Also zero init if result is assembled by ungrouped insertion
+          // and is not compact or not unpadded (i.e., if result allocates
+          // additional space for components that aren't explicitly inserted)
+          if (result.hasInsert()) {
+            ret.insert(result.getTensor());
+          }
         }
       }
       ctx->match(op->stmt);
@@ -641,19 +650,25 @@ Stmt LowererImpl::lowerForall(Forall forall)
       vector<IndexVar> children = provGraph.getChildren(varToRecover);
       bool hasDirectDivBound = false;
       std::vector<ir::Expr> iterBoundsInner = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
-
-        for (auto& c: children) {
-          if (provGraph.hasExactBound(c) && provGraph.derivationPath(varToRecover, c).size() == 2) {
-              std::vector<ir::Expr> iterBoundsUnderivedChild = provGraph.deriveIterBounds(c, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
-              if (iterBoundsUnderivedChild[1].as<ir::Literal>()->getValue<int>() % iterBoundsInner[1].as<ir::Literal>()->getValue<int>() == 0)
+      for (auto& c: children) {
+        if (provGraph.hasExactBound(c) && 
+            provGraph.derivationPath(varToRecover, c).size() == 2) {
+            const auto iterBoundsUnderivedChild = 
+                provGraph.deriveIterBounds(c, definedIndexVarsOrdered, 
+                                           underivedBounds, indexVarToExprMap, 
+                                           iterators);
+            if (iterBoundsUnderivedChild[1].as<ir::Literal>()->getValue<int>() % 
+                iterBoundsInner[1].as<ir::Literal>()->getValue<int>() == 0) {
               hasDirectDivBound = true;
               break;
-          }
+            }
+        }
       }
       if (!hasDirectDivBound) {
-          Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]),
-                                        Continue::make());
-          recoverySteps.push_back(guard);
+        Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], 
+                                      underivedBounds[varToRecover][1]),
+                                      Continue::make());
+        recoverySteps.push_back(guard);
       }
     }
 
@@ -706,11 +721,18 @@ Stmt LowererImpl::lowerForall(Forall forall)
   Stmt preInitValues = initResultArrays(forall.getIndexVar(), resultAccesses,
                                         reducedAccesses);
 
-  // Emit temporary initialization if forall is sequential and leads to a where statement
+  // Emit temporary initialization if forall is sequential or parallelized by
+  // cpu threads and leads to a where statement
+  // This is for workspace hoisting by 1-level
   vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
   auto temp = temporaryInitialization.find(forall);
-  if (temp != temporaryInitialization.end() && forall.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temp->second.getTemporary().getType()))
+  if (temp != temporaryInitialization.end() && forall.getParallelUnit() ==
+      ParallelUnit::NotParallel && !isScalar(temp->second.getTemporary().getType()))
     temporaryValuesInitFree = codeToInitializeTemporary(temp->second);
+  else if (temp != temporaryInitialization.end() && forall.getParallelUnit() ==
+           ParallelUnit::CPUThread && !isScalar(temp->second.getTemporary().getType())) {
+    temporaryValuesInitFree = codeToInitializeTemporaryParallel(temp->second, forall.getParallelUnit());
+  }
 
   Stmt loops;
   // Emit a loop that iterates over over a single iterator (optimization)
@@ -1802,13 +1824,27 @@ Expr LowererImpl::getTemporarySize(Where where) {
   return Expr();
 }
 
-vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
+
+vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where, bool parallel) {
+  // if parallel == true, need to initialize dense accelerator arrays as size*numThreads
+  // and rename all dense accelerator arrays to name + '_all'
+
   TensorVar temporary = where.getTemporary();
 
   // TODO: emit as uint64 and manually emit bit pack code
   const Datatype bitGuardType = taco::Bool;
-  const std::string bitGuardName = temporary.getName() + "_already_set";
-  const Expr bitGuardSize = getTemporarySize(where);
+  std::string bitGuardSuffix;
+  if (parallel)
+    bitGuardSuffix = "_already_set_all";
+  else
+    bitGuardSuffix = "_already_set";
+  const std::string bitGuardName = temporary.getName() + bitGuardSuffix;
+
+  Expr bitGuardSize = getTemporarySize(where);
+  Expr maxThreads = ir::Call::make("omp_get_max_threads", {}, bitGuardSize.type());
+  if (parallel)
+    bitGuardSize = ir::Mul::make(bitGuardSize, maxThreads);
+
   const Expr alreadySetArr = ir::Var::make(bitGuardName,
                                            bitGuardType,
                                            true, false);
@@ -1816,7 +1852,13 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
   // TODO: TACO should probably keep state on if it can use int32 or if it should switch to
   //       using int64 for indices. This assumption is made in other places of taco.
   const Datatype indexListType = taco::Int32;
-  const std::string indexListName = temporary.getName() + "_index_list";
+  std::string indexListSuffix;
+  if (parallel)
+    indexListSuffix = "_index_list_all";
+  else
+    indexListSuffix = "_index_list";
+
+  const std::string indexListName = temporary.getName() + indexListSuffix;
   const Expr indexListArr = ir::Var::make(indexListName,
                                           indexListType,
                                           true, false);
@@ -1824,16 +1866,21 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
   // no decl for shared memory
   Stmt alreadySetDecl = Stmt();
   Stmt indexListDecl = Stmt();
-  const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
   Stmt freeTemps = Block::make(Free::make(indexListArr), Free::make(alreadySetArr));
   if ((isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) || !should_use_CUDA_codegen()) {
     alreadySetDecl = VarDecl::make(alreadySetArr, ir::Literal::make(0));
     indexListDecl = VarDecl::make(indexListArr, ir::Literal::make(0));
   }
 
-  tempToIndexList[temporary] = indexListArr;
-  tempToIndexListSize[temporary] = indexListSizeExpr;
-  tempToBitGuard[temporary] = alreadySetArr;
+  if (parallel) {
+    whereToIndexListAll[where] = indexListArr;
+    whereToBitGuardAll[where] = alreadySetArr;
+  } else {
+    const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
+    tempToIndexList[temporary] = indexListArr;
+    tempToIndexListSize[temporary] = indexListSizeExpr;
+    tempToBitGuard[temporary] = alreadySetArr;
+  }
 
   Stmt allocateIndexList = Allocate::make(indexListArr, bitGuardSize);
   if(should_use_CUDA_codegen()) {
@@ -1857,15 +1904,15 @@ vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where) {
 // Returns true if the following conditions are met:
 // 1) The temporary is a dense vector
 // 2) There is only one value on the right hand side of the consumer
-//    -- We would need to handle sparse acceleration in the merge lattices for 
+//    -- We would need to handle sparse acceleration in the merge lattices for
 //       multiple operands on the RHS
-// 3) The left hand side of the where consumer is sparse, if the consumer is an 
+// 3) The left hand side of the where consumer is sparse, if the consumer is an
 //    assignment
 // 4) CPU Code is being generated (TEMPORARY - This should be removed)
-//    -- The sorting calls and calloc call in lower where are CPU specific. We 
-//       could map calloc to a cudaMalloc and use a library like CUB to emit 
-//       the sort. CUB support is built into CUDA 11 but not prior versions of 
-//       CUDA so in that case, we'd probably need to include the CUB headers in 
+//    -- The sorting calls and calloc call in lower where are CPU specific. We
+//       could map calloc to a cudaMalloc and use a library like CUB to emit
+//       the sort. CUB support is built into CUDA 11 but not prior versions of
+//       CUDA so in that case, we'd probably need to include the CUB headers in
 //       the generated code.
 std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
   // TODO: TEMPORARY -- Needs to be removed
@@ -1891,7 +1938,7 @@ std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
     return std::make_pair(false, false);
   }
 
-  // No check for size of tempVar since we enforced the temporary is a vector 
+  // No check for size of tempVar since we enforced the temporary is a vector
   // and if there is only one RHS value, it must (should?) be the temporary
   std::vector<IndexVar> tempVar = inputAccesses[0].getIndexVars();
 
@@ -1918,6 +1965,126 @@ std::pair<bool,bool> LowererImpl::canAccelerateDenseTemp(Where where) {
 
   // Only need to sort the workspace if the result needs to be ordered
   return std::make_pair(true, varFmt.isOrdered());
+}
+
+// Code to initialize the local temporary workspace from the shared workspace
+// in codeToInitializeTemporaryParallel for a SINGLE parallel unit
+// (e.g.) the local workspace that each thread uses
+vector<Stmt> LowererImpl::codeToInitializeLocalTemporaryParallel(Where where, ParallelUnit parallelUnit) {
+  TensorVar temporary = where.getTemporary();
+  vector<Stmt> decls;
+
+  Expr tempSize = getTemporarySize(where);
+  Expr threadNum = ir::Call::make("omp_get_thread_num", {}, tempSize.type());
+  tempSize = ir::Mul::make(tempSize, threadNum);
+
+  bool accelerateDense = canAccelerateDenseTemp(where).first;
+
+  Expr values;
+  if (util::contains(needCompute, temporary) &&
+      needComputeValues(where, temporary)) {
+    // Declare local temporary workspace array
+    values = ir::Var::make(temporary.getName(),
+                           temporary.getType().getDataType(),
+                           true, false);
+    Expr values_all = this->temporaryArrays[this->whereToTemporaryVar[where]].values;
+    Expr tempRhs = ir::Add::make(values_all, tempSize);
+    Stmt tempDecl = ir::VarDecl::make(values, tempRhs);
+    decls.push_back(tempDecl);
+  }
+  /// Make a struct object that lowerAssignment and lowerAccess can read
+  /// temporary value arrays from.
+  TemporaryArrays arrays;
+  arrays.values = values;
+  this->temporaryArrays.insert({temporary, arrays});
+
+  if (accelerateDense) {
+    // Declare local index list array
+    // TODO: TACO should probably keep state on if it can use int32 or if it should switch to
+    //       using int64 for indices. This assumption is made in other places of taco.
+    const Datatype indexListType = taco::Int32;
+    const std::string indexListName = temporary.getName() + "_index_list";
+    const Expr indexListArr = ir::Var::make(indexListName,
+                                            indexListType,
+                                            true, false);
+
+    Expr indexList_all = this->whereToIndexListAll[where];
+    Expr indexListRhs = ir::Add::make(indexList_all, tempSize);
+    Stmt indexListDecl = ir::VarDecl::make(indexListArr, indexListRhs);
+    decls.push_back(indexListDecl);
+
+    // Declare local indexList size variable
+    const Expr indexListSizeExpr = ir::Var::make(indexListName + "_size", taco::Int32, false, false);
+
+    // Declare local already set array (bit guard)
+    // TODO: emit as uint64 and manually emit bit pack code
+    const Datatype bitGuardType = taco::Bool;
+    const std::string bitGuardName = temporary.getName() + "_already_set";
+    const Expr alreadySetArr = ir::Var::make(bitGuardName,
+                                             bitGuardType,
+                                             true, false);
+    Expr bitGuard_all = this->whereToBitGuardAll[where];
+    Expr bitGuardRhs = ir::Add::make(bitGuard_all, tempSize);
+    Stmt bitGuardDecl = ir::VarDecl::make(alreadySetArr, bitGuardRhs);
+    decls.push_back(bitGuardDecl);
+
+    tempToIndexList[temporary] = indexListArr;
+    tempToIndexListSize[temporary] = indexListSizeExpr;
+    tempToBitGuard[temporary] = alreadySetArr;
+  }
+  return decls;
+}
+
+// Code to initialize a temporary workspace that is SHARED across ALL parallel units.
+// New temporaries are denoted by temporary.getName() + '_all'
+// Currently only supports CPUThreads
+vector<Stmt> LowererImpl::codeToInitializeTemporaryParallel(Where where, ParallelUnit parallelUnit) {
+  TensorVar temporary = where.getTemporary();
+  // For the parallel case, need to hoist up a workspace shared by all threads
+  TensorVar temporaryAll = TensorVar(temporary.getName() + "_all", temporary.getType(), temporary.getFormat());
+  this->whereToTemporaryVar[where] = temporaryAll;
+
+  bool accelerateDense = canAccelerateDenseTemp(where).first;
+
+  Stmt freeTemporary = Stmt();
+  Stmt initializeTemporary = Stmt();
+
+  // When emitting code to accelerate dense workspaces with sparse iteration, we need the following arrays
+  // to construct the result indices
+  if(accelerateDense) {
+    vector<Stmt> initAndFree = codeToInitializeDenseAcceleratorArrays(where, true);
+    initializeTemporary = initAndFree[0];
+    freeTemporary = initAndFree[1];
+  }
+
+  Expr values;
+  if (util::contains(needCompute, temporary) &&
+      needComputeValues(where, temporary)) {
+    values = ir::Var::make(temporaryAll.getName(),
+                           temporaryAll.getType().getDataType(),
+                                true, false);
+    taco_iassert(temporaryAll.getType().getOrder() == 1) << " Temporary order was "
+                                                      << temporaryAll.getType().getOrder();  // TODO
+    Expr size = getTemporarySize(where);
+    Expr sizeAll = ir::Mul::make(size, ir::Call::make("omp_get_max_threads", {}, size.type()));
+
+    // no decl needed for shared memory
+    Stmt decl = Stmt();
+    if ((isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) || !should_use_CUDA_codegen()) {
+      decl = VarDecl::make(values, ir::Literal::make(0));
+    }
+    Stmt allocate = Allocate::make(values, sizeAll);
+
+    freeTemporary = Block::make(freeTemporary, Free::make(values));
+    initializeTemporary = Block::make(decl, initializeTemporary, allocate);
+  }
+  /// Make a struct object that lowerAssignment and lowerAccess can read
+  /// temporary value arrays from.
+  TemporaryArrays arrays;
+  arrays.values = values;
+  this->temporaryArrays.insert({temporaryAll, arrays});
+
+  return {initializeTemporary, freeTemporary};
 }
 
 vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
@@ -1985,8 +2152,15 @@ Stmt LowererImpl::lowerWhere(Where where) {
   vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
   bool temporaryHoisted = false;
   for (auto it = temporaryInitialization.begin(); it != temporaryInitialization.end(); ++it) {
-    if (it->second == where && it->first.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(temporary.getType())) {
+    if (it->second == where && it->first.getParallelUnit() ==
+        ParallelUnit::NotParallel && !isScalar(temporary.getType())) {
       temporaryHoisted = true;
+    } else if (it->second == where && it->first.getParallelUnit() ==
+               ParallelUnit::CPUThread && !isScalar(temporary.getType())) {
+      temporaryHoisted = true;
+      auto decls = codeToInitializeLocalTemporaryParallel(where, it->first.getParallelUnit());
+
+      temporaryValuesInitFree[0] = ir::Block::make(decls);
     }
   }
 
@@ -2184,7 +2358,6 @@ Stmt LowererImpl::lowerAssemble(Assemble assemble) {
     const bool zeroInit = isNonFullyInitialized(resultTensorVar) ||
                           util::contains(reducedAccesses, resultAccess);
     if (generateAssembleCode()) {
-      // TODO: call calloc if not compact or not unpadded
       if (zeroInit && generateComputeCode()) {
         const auto type = resultTensor.getType().getDataType();
         Expr sizeOfElt = Sizeof::make(type);
@@ -2264,7 +2437,7 @@ Expr LowererImpl::lowerAccess(Access access) {
   if (var.getType().getDataType() == Bool &&
       getIterators(access).back().isZeroless())  {
     return true;
-  } 
+  }
 
   const auto vals = getValuesArray(var);
   if (!vals.defined()) {

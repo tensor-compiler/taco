@@ -537,6 +537,11 @@ def from_sp_csr(matrix, copy=True):
     copy: boolean, optional
         If true, taco copies the data from scipy and stores it. Otherwise, taco points to the same data as scipy.
 
+    Notes
+    --------
+    The copy flag is ignored if the GPU backend is enabled.
+    (This restriction will be lifted in future versions of taco.)
+
     Returns
     --------
     t: tensor
@@ -559,6 +564,11 @@ def from_sp_csc(matrix, copy=True):
 
     copy: boolean, optional
         If true, taco copies the data from scipy and stores it. Otherwise, taco points to the same data as scipy.
+
+    Notes
+    --------
+    The copy flag is ignored if the GPU backend is enabled.
+    (This restriction will be lifted in future versions of taco.)
 
     Returns
     --------
@@ -594,7 +604,8 @@ def from_array(array, copy=True):
     --------
     The copy flag is ignored if the input array is not C contiguous or F contiguous (so for most transposed views).
     If taco detects an array that is not contiguous, it will always copy the numpy array into a C contiguous format.
-    This restriction will be lifted in future versions of taco.
+    Additionally, if the GPU backend is enabled, taco will always copy the numpy array to CUDA unified memory.
+    These restriction will be lifted in future versions of taco.
 
     Taco is mainly intended to operate on sparse tensors. As a result, it buffers inserts since inserting into sparse
     structures is very costly. This means that when the full tensor structure is needed, taco will copy the tensor to

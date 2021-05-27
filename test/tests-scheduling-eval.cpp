@@ -116,6 +116,15 @@ IndexStmt scheduleTTVCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16) {
           .parallelize(chunk, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }
 
+IndexStmt scheduleTTVCPUCSR(IndexStmt stmt) {
+  TensorVar result = stmt.as<Forall>().getStmt().as<Forall>().getStmt()
+                         .as<Forall>().getStmt().as<Assignment>().getLhs()
+                         .getTensorVar();
+  return stmt.assemble(result, AssembleStrategy::Insert)
+             .parallelize(i, ParallelUnit::CPUThread, 
+                          OutputRaceStrategy::NoRaces);
+}
+
 IndexStmt scheduleTTMCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
   IndexVar f("f"), fpos("fpos"), chunk("chunk"), fpos2("fpos2"), kpos("kpos"), kpos1("kpos1"), kpos2("kpos2");
   return stmt.fuse(i, j, f)
@@ -896,6 +905,56 @@ TEST(scheduling_eval, ttvCPU) {
   stmt = scheduleTTVCPU(stmt, B);
 
   //printToFile("ttv_cpu", stmt);
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {NUM_I, NUM_J}, {Dense, Dense});
+  expected(i,j) = B(i,j,k) * c(k);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
+}
+
+TEST(scheduling_eval, ttvCPU_CSR) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  int NUM_K = 1057/10;
+  float SPARSITY = .3;
+  Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Sparse});
+  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
+  Tensor<double> c("c", {NUM_K}, Format({Dense}));
+
+  srand(9536);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      for (int k = 0; k < NUM_K; k++) {
+        float rand_float = (float) rand() / (float) (RAND_MAX);
+        if (rand_float < SPARSITY) {
+          B.insert({i, j, k}, (double) ((int) (rand_float * 3 / SPARSITY)));
+        }
+      }
+    }
+  }
+
+  for (int k = 0; k < NUM_K; k++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    c.insert({k}, (double) ((int) (rand_float*3)));
+  }
+
+  B.pack();
+  c.pack();
+
+  A(i,j) = B(i,j,k) * c(k);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  stmt = scheduleTTVCPUCSR(stmt);
 
   A.compile(stmt);
   A.assemble();

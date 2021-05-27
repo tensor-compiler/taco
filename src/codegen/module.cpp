@@ -158,7 +158,7 @@ string Module::compile() {
     dlclose(lib_handle);
   }
   lib_handle = dlopen(fullpath.data(), RTLD_NOW | RTLD_LOCAL);
-  taco_uassert(lib_handle) << "Failed to load generated code";
+  taco_uassert(lib_handle) << "Failed to load generated code, error is: " << dlerror();
 
   return fullpath;
 }

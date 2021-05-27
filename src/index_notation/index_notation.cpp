@@ -1513,13 +1513,6 @@ IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFa
 IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
   IndexStmt transformed = *this;
   string reason;
-  if (i != iw) {
-    IndexVarRel rel = IndexVarRel(new PrecomputeRelNode(i, iw));
-    transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed, &reason);
-    if (!transformed.defined()) {
-      taco_uerror << reason;
-    }
-  }
 
   transformed = Transformation(Precompute(expr, i, iw, workspace)).apply(transformed, &reason);
   if (!transformed.defined()) {
@@ -2855,11 +2848,56 @@ vector<IndexVar> getIndexVars(IndexExpr expr) {
 }
 
 std::vector<IndexVar> getReductionVars(IndexStmt stmt) {
-  std::vector<IndexVar> reductionVars;
+  const auto provGraph = ProvenanceGraph(stmt);
+
+  std::vector<IndexVar> reductionVars, scopedVars, producerScopedVars, 
+                        consumerScopedVars;
   match(stmt,
-        function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
-          util::append(reductionVars, Assignment(node).getReductionVars());
+    function<void(const ForallNode*,Matcher*)>([&](const ForallNode* op, 
+                                                   Matcher* ctx) {
+      const auto indexVars = provGraph.getUnderivedAncestors(op->indexVar);
+      for (const auto& iv : indexVars) {
+        scopedVars.push_back(iv);
+      }
+      ctx->match(op->stmt);
+      for (size_t i = 0; i < indexVars.size(); ++i) {
+        scopedVars.pop_back();
+      }
+    }),
+    function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
+                                                  Matcher* ctx) {
+      const auto oldProducerScopedVars = producerScopedVars;
+      producerScopedVars = scopedVars;
+      ctx->match(op->producer);
+      producerScopedVars = oldProducerScopedVars;
+
+      const auto oldConsumerScopedVars = consumerScopedVars;
+      consumerScopedVars = scopedVars;
+      ctx->match(op->consumer);
+      consumerScopedVars = oldConsumerScopedVars;
+    }),
+    function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
+      auto freeVars = op->lhs.getIndexVars();
+      util::append(freeVars, producerScopedVars);
+
+      auto seen = util::toSet(freeVars);
+      match(op->rhs,
+        std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+          for (const auto& var : op->indexVars) {
+            if (!util::contains(seen, var)) {
+              reductionVars.push_back(var);
+              seen.insert(var);
+            }
+          }
         })
+      );
+      for (const auto& var : consumerScopedVars) {
+        if (!util::contains(seen, var)) {
+          reductionVars.push_back(var);
+          seen.insert(var);
+        }
+      }
+    })
   );
   return reductionVars;
 }

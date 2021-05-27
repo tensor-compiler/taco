@@ -74,7 +74,7 @@ std::vector<AttrQuery> CompressedModeFormat::attrQueries(
                             childCoords.end());
   }
 
-  return {AttrQuery(groupBy, {{"nnz", AttrQuery::COUNT, aggregatedCoords}})};
+  return {AttrQuery(groupBy, {std::make_tuple("nnz", AttrQuery::COUNT, aggregatedCoords)})};
 }
 
 ModeFunction CompressedModeFormat::posIterBounds(Expr parentPos, 

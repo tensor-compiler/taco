@@ -8,7 +8,7 @@ namespace py = pybind11;
 
 
 std::string getNpType(const taco::Datatype& dtype) {
-  if (dtype.isBool()) return "bool";
+  if (dtype.isBool()) return "bool_";
   else if (dtype.isInt()) return "int" + std::to_string(dtype.getNumBits());
   else if (dtype.isUInt()) return "uint" + std::to_string(dtype.getNumBits());
   else if (dtype.isFloat()) return "float" + std::to_string(dtype.getNumBits());

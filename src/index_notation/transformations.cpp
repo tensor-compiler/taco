@@ -587,16 +587,30 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
     map<TensorVar,ir::Expr> tensorVars;
     vector<ir::Expr> assembledByUngroupedInsert;
     set<IndexVar> definedIndexVars;
+    set<IndexVar> reductionIndexVars;
     set<ParallelUnit> parentParallelUnits;
     std::string reason = "";
 
     IndexStmt rewriteParallel(IndexStmt stmt) {
       provGraph = ProvenanceGraph(stmt);
+
+      const auto reductionVars = getReductionVars(stmt);
+      reductionIndexVars.clear();
+      for (const auto& iv : stmt.getIndexVars()) {
+        if (util::contains(reductionVars, iv)) {
+          for (const auto& rv : provGraph.getFullyDerivedDescendants(iv)) {
+            reductionIndexVars.insert(rv);
+          }
+        }
+      }
+
       tensorVars = createIRTensorVars(stmt);
+
       assembledByUngroupedInsert.clear();
       for (const auto& result : getAssembledByUngroupedInsertion(stmt)) {
         assembledByUngroupedInsert.push_back(tensorVars[result]);
       }
+
       return rewrite(stmt);
     }
 
@@ -604,30 +618,51 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
       Forall foralli(node);
       IndexVar i = parallelize.geti();
 
-      Iterators iterators(foralli, tensorVars);
       definedIndexVars.insert(foralli.getIndexVar());
-      MergeLattice lattice = MergeLattice::make(foralli, iterators, provGraph, definedIndexVars);
-      // Precondition 1: No parallelization of variables under a reduction
-      // variable (ie MergePoint has at least 1 result iterators)
-      if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::NoRaces &&
-          (lattice.results().empty() || lattice.results()[0].getIndexVar() != foralli.getIndexVar()) &&
-          lattice != MergeLattice({MergePoint({iterators.modeIterator(foralli.getIndexVar())}, {}, {})}) &&
-          util::contains(foralli.getIndexVars(), i)) {
-        reason = "Precondition failed: Free variables cannot be dominated by "
-                 "reduction variables in the iteration graph as this causes "
-                 "scatter behavior, which requires synchronization";
-        return;
-      }
 
       if (foralli.getIndexVar() == i) {
-        // Precondition 2: No coiteration of mode (ie Merge Lattice has only 1 iterator)
-        if (lattice.iterators().size() != 1) {
-          reason = "Precondition failed: The loop must not merge tensor dimensions, that is, it must be a for loop;";
+        // Precondition 1: No parallelization of reduction variables
+        if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::NoRaces &&
+            util::contains(reductionIndexVars, i)) {
+          reason = "Precondition failed: Cannot parallelize reduction loops "
+                   "without synchronization";
           return;
         }
 
+        Iterators iterators(foralli, tensorVars);
+        MergeLattice lattice = MergeLattice::make(foralli, iterators, provGraph, 
+                                                  definedIndexVars);
+
+        // Precondition 2: No coiteration of modes (i.e., merge lattice has 
+        //                 only one iterator)
+        if (lattice.iterators().size() != 1) {
+          reason = "Precondition failed: The loop must not merge tensor "
+                   "dimensions, that is, it must be a for loop;";
+          return;
+        }
+
+        vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(i);
+        IndexVar underivedAncestor = underivedAncestors.back();
+
+        // Get lattice that corresponds to underived ancestor. This is 
+        // bottom-most loop that shares underived ancestor
+        Forall underivedForall = foralli;
+        match(foralli.getStmt(),
+              function<void(const ForallNode*)>([&](const ForallNode* node) {
+                const auto nodeUnderivedAncestors = 
+                    provGraph.getUnderivedAncestors(node->indexVar);
+                definedIndexVars.insert(node->indexVar);
+                if (underivedAncestor == nodeUnderivedAncestors.back()) {
+                  underivedForall = Forall(node);
+                }
+              })
+        );
+        MergeLattice underivedLattice = MergeLattice::make(underivedForall, 
+                                                           iterators, provGraph, 
+                                                           definedIndexVars);
+
         // Precondition 3: Every result iterator must have insert capability
-        for (Iterator iterator : lattice.results()) {
+        for (Iterator iterator : underivedLattice.results()) {
           if (util::contains(assembledByUngroupedInsert, iterator.getTensor())) {
             for (Iterator it = iterator; !it.isRoot(); it = it.getParent()) {
               if (it.hasInsertCoord() || !it.isYieldPosPure()) {
@@ -639,7 +674,8 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           } else {
             while (true) {
               if (!iterator.hasInsert()) {
-                reason = "Precondition failed: The output tensor must allow inserts";
+                reason = "Precondition failed: The output tensor must support " 
+                         "inserts";
                 return;
               }
               if (iterator.isLeaf()) {
@@ -650,23 +686,8 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           }
         }
 
-        vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(i);
-        IndexVar underivedAncestor = underivedAncestors.back();
-
-        // get lattice that corresponds to underived ancestor. This is bottom-most loop that shares underived ancestor
-        Forall underivedForall = foralli;
-        match(foralli.getStmt(),
-              function<void(const ForallNode*)>([&](const ForallNode* node) {
-                vector<IndexVar> nodeUnderivedAncestors = provGraph.getUnderivedAncestors(node->indexVar);
-                if (underivedAncestor == nodeUnderivedAncestors.back()) {
-                  underivedForall = Forall(node);
-                }
-              })
-        );
-        MergeLattice underivedLattice = MergeLattice::make(underivedForall, iterators, provGraph, definedIndexVars);
-
-
-        if(underivedLattice.results().empty() && parallelize.getOutputRaceStrategy() == OutputRaceStrategy::Temporary) {
+        if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::Temporary &&
+            util::contains(reductionIndexVars, underivedForall.getIndexVar())) {
           // Need to precompute reduction
 
           // Find all occurrences of reduction in expression
@@ -1174,12 +1195,20 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
   string reason;
 
   if (should_use_CUDA_codegen()) {
+    for (const auto& temp : getTemporaries(stmt)) {
+      // Don't parallelize computations that use non-scalar temporaries. 
+      if (temp.getOrder() > 0) {
+        return stmt;
+      }
+    }
+
     IndexVar i1, i2;
     IndexStmt parallelized256 = stmt.split(forall.getIndexVar(), i1, i2, 256);
     parallelized256 = Parallelize(i1, ParallelUnit::GPUBlock, OutputRaceStrategy::NoRaces).apply(parallelized256, &reason);
     if (parallelized256 == IndexStmt()) {
       return stmt;
     }
+
     parallelized256 = Parallelize(i2, ParallelUnit::GPUThread, OutputRaceStrategy::NoRaces).apply(parallelized256, &reason);
     if (parallelized256 == IndexStmt()) {
       return stmt;
@@ -1474,7 +1503,14 @@ IndexStmt scalarPromote(IndexStmt stmt, ProvenanceGraph provGraph,
             !util::contains(hoistLevel, resultAccess)) {
           hoistLevel[resultAccess] = node;
           hoistIndices[resultAccess] = indices;
-          if (!isWholeStmt || resultIndices != derivedIndices) {
+
+          auto resultDerivedIndices = resultIndices;
+          for (const auto& iv : resultIndices) {
+            for (const auto& div : provGraph.getFullyDerivedDescendants(iv)) {
+              resultDerivedIndices.insert(div);
+            }
+          }
+          if (!isWholeStmt || resultDerivedIndices != derivedIndices) {
             reduceOp[resultAccess] = IndexExpr();
           }
         }

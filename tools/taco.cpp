@@ -35,10 +35,6 @@
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/version.h"
 
-#ifdef HAVE_LLVM
-#include "codegen/codegen_llvm.h"
-#endif
-
 using namespace std;
 using namespace taco;
 
