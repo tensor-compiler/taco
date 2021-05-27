@@ -10,7 +10,7 @@ namespace ir {
 class CodegenLegion : virtual public CodeGen {
 public:
   virtual ~CodegenLegion() = default;
-  CodegenLegion() {}
+  CodegenLegion(std::ostream& stream, CodeGenType type) : CodeGen(stream, type) {};
 
   std::string unpackTensorProperty(std::string varname, const GetProperty* op, bool is_output_prop) override;
   std::string printFuncName(const Function *func,

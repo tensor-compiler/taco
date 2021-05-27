@@ -119,7 +119,7 @@ protected:
 };
 
 CodegenLegionC::CodegenLegionC(std::ostream &dest, OutputKind outputKind, bool simplify)
-  : CodeGen(dest, false, simplify, C), CodeGen_C(dest, outputKind, simplify) {}
+  : CodeGen(dest, false, simplify, C), CodeGen_C(dest, outputKind, simplify), CodegenLegion(dest, C) {}
 
 void CodegenLegionC::visit(const PackTaskArgs *node) {
   doIndent();

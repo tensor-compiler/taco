@@ -280,7 +280,7 @@ protected:
 };
 
 CodegenLegionCuda::CodegenLegionCuda(std::ostream &dest, OutputKind outputKind, bool simplify)
-  : CodeGen(dest, false, simplify, CUDA), CodeGen_CUDA(dest, outputKind) {}
+  : CodeGen(dest, false, simplify, CUDA), CodeGen_CUDA(dest, outputKind), CodegenLegion(dest, CUDA) {}
 
 void CodegenLegionCuda::compile(Stmt stmt, bool isFirst) {
   stmt = simplifyFunctionBodies(stmt);
