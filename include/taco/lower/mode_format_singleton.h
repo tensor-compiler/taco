@@ -7,9 +7,11 @@ namespace taco {
 
 class SingletonModeFormat : public ModeFormatImpl {
 public:
+  using ModeFormatImpl::getInsertCoord;
+
   SingletonModeFormat();
   SingletonModeFormat(bool isFull, bool isOrdered,
-                      bool isUnique, long long allocSize = DEFAULT_ALLOC_SIZE);
+                      bool isUnique, bool isZeroless, long long allocSize = DEFAULT_ALLOC_SIZE);
 
   ~SingletonModeFormat() override {}
 
@@ -26,6 +28,16 @@ public:
                               Mode mode) const override;
   ir::Stmt getAppendFinalizeLevel(ir::Expr parentSize, ir::Expr size, 
                                   Mode mode) const override;
+
+  ir::Expr getAssembledSize(ir::Expr prevSize, Mode mode) const override;
+  ir::Stmt getInitCoords(ir::Expr prevSize, 
+                         std::vector<AttrQueryResult> queries, 
+                         Mode mode) const override;
+  ModeFunction getYieldPos(ir::Expr parentPos, std::vector<ir::Expr> coords, 
+                           Mode mode) const override;
+  ir::Stmt getInsertCoord(ir::Expr parentPos, ir::Expr pos, 
+                          std::vector<ir::Expr> coords, 
+                          Mode mode) const override;
 
   std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode, 
                                   int level) const override;

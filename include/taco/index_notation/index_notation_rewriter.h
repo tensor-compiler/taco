@@ -56,6 +56,7 @@ protected:
   virtual void visit(const ForallNode* op) = 0;
   virtual void visit(const WhereNode* op) = 0;
   virtual void visit(const SequenceNode* op) = 0;
+  virtual void visit(const AssembleNode* op) = 0;
   virtual void visit(const MultiNode* op) = 0;
   virtual void visit(const SuchThatNode* op) = 0;
 };
@@ -101,6 +102,7 @@ protected:
   virtual void visit(const ForallNode* op);
   virtual void visit(const WhereNode* op);
   virtual void visit(const SequenceNode* op);
+  virtual void visit(const AssembleNode* op);
   virtual void visit(const MultiNode* op);
   virtual void visit(const SuchThatNode* op);
 };
@@ -125,6 +127,10 @@ IndexStmt replace(IndexStmt stmt,
 /// Rewrites the statement to replace tensor variables.
 IndexStmt replace(IndexStmt stmt,
                   const std::map<TensorVar,TensorVar>& substitutions);
+
+/// Rewrites the statement to replace an index variable with a new variable.
+IndexStmt replace(IndexStmt stmt,
+                  const std::map<IndexVar,IndexVar>& substitutions);
 
 }
 #endif

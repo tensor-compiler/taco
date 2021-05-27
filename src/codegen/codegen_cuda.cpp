@@ -240,7 +240,7 @@ protected:
 
   virtual void visit(const Var *op) {
     if (varMap.count(op) == 0 && !inBlock) {
-      varMap[op] = codeGen->genUniqueName(op->name);
+      varMap[op] = op->is_ptr? op->name : codeGen->genUniqueName(op->name);
     }
   }
 
@@ -1096,6 +1096,20 @@ void CodeGen_CUDA::visit(const Allocate* op) {
   op->num_elements.accept(this);
   parentPrecedence = TOP;
   stream << "));" << endl;
+  // If the operation wants the input cleared, then memset it to zero.
+  if (op->clear) {
+    doIndent();
+    stream << "gpuErrchk(cudaMemset(";
+    op->var.accept(this);
+    stream << variable_name;
+    stream << ", 0, ";
+    stream << "sizeof(" << elementType << ")";
+    stream << " * ";
+    parentPrecedence = MUL;
+    op->num_elements.accept(this);
+    parentPrecedence = TOP;
+    stream << "));" << endl;
+  }
 
   if(op->is_realloc) {
     doIndent();
@@ -1142,7 +1156,7 @@ void CodeGen_CUDA::visit(const Sqrt* op) {
   stream << ")";
 }
 
-void CodeGen_CUDA::visit(const Break*) {
+void CodeGen_CUDA::visit(const Continue*) {
   doIndent();
   if(!isHostFunction && deviceFunctionLoopDepth == 0) {
     // can't break out of kernel
@@ -1219,8 +1233,9 @@ void CodeGen_CUDA::visit(const Yield* op) {
 
 // Need to handle some binary ops so that we can add the necessary casts if complex
 // Because c++ does not properly handle double * std::complex<float> or std::complex<float> * std::complex<double>
+// Based on IRPrinter::printBinOp
 void CodeGen_CUDA::printBinCastedOp(Expr a, Expr b, string op, Precedence precedence) {
-  bool parenthesize = precedence > parentPrecedence;
+  bool parenthesize = needsParentheses(precedence);
   if (parenthesize) {
     stream << "(";
   }
@@ -1292,9 +1307,14 @@ void CodeGen_CUDA::visit(const Call* op) {
   stream << op->func << "(";
   parentPrecedence = Precedence::CALL;
 
-  // Need to print cast to type so that arguments match
+  // Need to print cast to type so that arguments match.
   if (op->args.size() > 0) {
-    if (op->type != op->args[0].type() || isa<Literal>(op->args[0])) {
+    // However, the binary search arguments take int* as their first
+    // argument. This pointer information isn't carried anywhere in
+    // the argument expressions, so we need to special case and not
+    // emit an invalid cast for that argument.
+    auto opIsBinarySearch = op->func == "taco_binarySearchAfter" || op->func == "taco_binarySearchBefore";
+    if (!opIsBinarySearch && (op->type != op->args[0].type() || isa<Literal>(op->args[0]))) {
       stream << "(" << printCUDAType(op->type, false) << ") ";
     }
     op->args[0].accept(this);
@@ -1423,8 +1443,7 @@ void CodeGen_CUDA::visit(const Store* op) {
       } else if (isa<Add>(op->data)) {
         auto add = to<Add>(op->data);
         taco_iassert(isa<Load>(add->a));
-        auto load = to<Load>(add->a);
-        taco_iassert(load->arr == op->arr && load->loc == op->loc);
+        taco_iassert(to<Load>(add->a)->arr == op->arr && to<Load>(add->a)->loc == op->loc);
         if (deviceFunctionLoopDepth == 0 || op->atomic_parallel_unit == ParallelUnit::GPUWarp) {
           // use atomicAddWarp
           doIndent();
@@ -1453,8 +1472,7 @@ void CodeGen_CUDA::visit(const Store* op) {
       } else if (isa<BitOr>(op->data)) {
         auto bitOr = to<BitOr>(op->data);
         taco_iassert(isa<Load>(bitOr->a));
-        auto load = to<Load>(bitOr->a);
-        taco_iassert(load->arr == op->arr && load->loc == op->loc);
+        taco_iassert(to<Load>(bitOr->a)->arr == op->arr && to<Load>(bitOr->a)->loc == op->loc);
 
         doIndent();
         stream << "atomicOr(&";

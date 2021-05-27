@@ -185,6 +185,17 @@ void IndexNotationRewriter::visit(const SequenceNode* op) {
   }
 }
 
+void IndexNotationRewriter::visit(const AssembleNode* op) {
+  IndexStmt queries = rewrite(op->queries);
+  IndexStmt compute = rewrite(op->compute);
+  if (queries == op->queries && compute == op->compute) {
+    stmt = op;
+  }
+  else {
+    stmt = new AssembleNode(queries, compute, op->results);
+  }
+}
+
 void IndexNotationRewriter::visit(const MultiNode* op) {
   IndexStmt stmt1 = rewrite(op->stmt1);
   IndexStmt stmt2 = rewrite(op->stmt2);
@@ -298,6 +309,10 @@ struct ReplaceRewriter : public IndexNotationRewriter {
     SUBSTITUTE_STMT;
   }
 
+  void visit(const AssembleNode* op) {
+    SUBSTITUTE_STMT;
+  }
+
   void visit(const MultiNode* op) {
     SUBSTITUTE_STMT;
   }
@@ -327,14 +342,36 @@ struct ReplaceIndexVars : public IndexNotationRewriter {
       }
     }
     if (modified) {
-      expr = Access(op->tensorVar, indexVars);
+      expr = Access(op->tensorVar, indexVars, op->packageModifiers());
     }
     else {
       expr = op;
     }
   }
 
-  // TODO: Replace in assignments
+  void visit(const AssignmentNode* op) {
+    IndexExpr rhs = rewrite(op->rhs);
+    Access lhs = to<Access>(rewrite(op->lhs));
+    if (rhs == op->rhs && lhs == op->lhs) {
+      stmt = op;
+    }
+    else {
+      stmt = new AssignmentNode(lhs, rhs, op->op);
+    }
+  }
+
+  void visit(const ForallNode* op) {
+    IndexStmt s = rewrite(op->stmt);
+    IndexVar iv = util::contains(substitutions, op->indexVar) 
+                ? substitutions.at(op->indexVar) : op->indexVar;
+    if (s == op->stmt && iv == op->indexVar) {
+      stmt = op;
+    }
+    else {
+      stmt = new ForallNode(iv, s, op->parallel_unit, op->output_race_strategy, 
+                            op->unrollFactor);
+    }
+  }
 };
 
 struct ReplaceTensorVars : public IndexNotationRewriter {
@@ -387,6 +424,11 @@ IndexStmt replace(IndexStmt stmt,
 IndexStmt replace(IndexStmt stmt,
                   const std::map<TensorVar,TensorVar>& substitutions) {
   return ReplaceTensorVars(substitutions).rewrite(stmt);
+}
+
+IndexStmt replace(IndexStmt stmt,
+                  const std::map<IndexVar,IndexVar>& substitutions) {
+  return ReplaceIndexVars(substitutions).rewrite(stmt);
 }
 
 }

@@ -12,6 +12,97 @@ using namespace taco::ir;
 
 namespace taco {
 
+// class AttrQuery
+struct AttrQuery::Content {
+  std::vector<IndexVar> groupBy;
+  std::vector<Attr> attrs;
+};
+
+AttrQuery::Attr::Attr(
+    std::tuple<std::string,Aggregation,std::vector<IndexVar>> attr) :
+        label(std::get<0>(attr)), aggr(std::get<1>(attr)), 
+        params(std::get<2>(attr)) {
+}
+
+AttrQuery::AttrQuery(const std::vector<IndexVar>& groupBy, const Attr& attr) : 
+    AttrQuery(groupBy, std::vector<Attr>{attr}) {
+}
+
+AttrQuery::AttrQuery(const std::vector<IndexVar>& groupBy,
+                     const std::vector<Attr>& attrs) 
+    : content(new Content) {
+  taco_iassert(!attrs.empty());
+  content->groupBy = groupBy;
+  content->attrs = attrs;
+}
+
+AttrQuery::AttrQuery() : content(nullptr) {
+}
+
+const std::vector<IndexVar>& AttrQuery::getGroupBy() const {
+  return content->groupBy;
+}
+
+const std::vector<AttrQuery::Attr>& AttrQuery::getAttrs() const {
+  return content->attrs;
+}
+
+std::ostream& operator<<(std::ostream& os, const AttrQuery::Attr& attr) {
+  switch (attr.aggr) {
+    case AttrQuery::IDENTITY:
+      os << "id";
+      break;
+    case AttrQuery::COUNT:
+      os << "count";
+      break;
+    case AttrQuery::MIN:
+      os << "min";
+      break;
+    case AttrQuery::MAX:
+      os << "max";
+      break;
+    default:
+      taco_iassert(false);
+      break;
+  }
+  os << "(";
+  if (attr.aggr != AttrQuery::IDENTITY) {
+    os << util::join(attr.params);
+  }
+  os << ") as " << attr.label;
+  return os;
+}
+
+std::ostream& operator<<(std::ostream&os, const AttrQuery& query) {
+  os << "select [" << util::join(query.getGroupBy()) << "] -> "
+     << util::join(query.getAttrs());
+  return os;
+}
+
+
+// class AttrQueryResult
+AttrQueryResult::AttrQueryResult(Expr resultVar, Expr resultValues) 
+    : resultVar(resultVar), resultValues(resultValues) {}
+
+Expr AttrQueryResult::getResult(const std::vector<Expr>& indices,
+                                const std::string& attr) const {
+  if (indices.empty()) {
+    return resultValues;
+  }
+
+  Expr pos = 0;
+  for (int i = 0; i < (int)indices.size(); ++i) {
+    Expr dim = GetProperty::make(resultVar, TensorProperty::Dimension, i);
+    pos = ir::Add::make(ir::Mul::make(pos, dim), indices[i]);
+  }
+  return Load::make(resultValues, pos);
+}
+
+std::ostream& operator<<(std::ostream& os, const AttrQueryResult& result) {
+  return os << result.resultVar;
+}
+
+
 // class ModeFunction
 struct ModeFunction::Content {
   Stmt body;
@@ -56,17 +147,27 @@ std::ostream& operator<<(std::ostream& os, const ModeFunction& modeFunction) {
 // class ModeTypeImpl
 ModeFormatImpl::ModeFormatImpl(const std::string name, bool isFull, 
                                bool isOrdered, bool isUnique, bool isBranchless, 
-                               bool isCompact, bool hasCoordValIter, 
-                               bool hasCoordPosIter, bool hasLocate, 
-                               bool hasInsert, bool hasAppend) :
+                               bool isCompact, bool isZeroless, 
+                               bool hasCoordValIter, bool hasCoordPosIter, 
+                               bool hasLocate, bool hasInsert, bool hasAppend, 
+                               bool hasSeqInsertEdge, bool hasInsertCoord,
+                               bool isYieldPosPure) :
     name(name), isFull(isFull), isOrdered(isOrdered), isUnique(isUnique),
-    isBranchless(isBranchless), isCompact(isCompact),
+    isBranchless(isBranchless), isCompact(isCompact), isZeroless(isZeroless),
     hasCoordValIter(hasCoordValIter), hasCoordPosIter(hasCoordPosIter),
-    hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend) {
+    hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend),
+    hasSeqInsertEdge(hasSeqInsertEdge), hasInsertCoord(hasInsertCoord),
+    isYieldPosPure(isYieldPosPure) {
 }
 
 ModeFormatImpl::~ModeFormatImpl() {
 }
+
+std::vector<AttrQuery> ModeFormatImpl::attrQueries(
+    vector<IndexVar> parentCoords, vector<IndexVar> childCoords) const {
+  return std::vector<AttrQuery>();
+}
+                                                  
 
 ModeFunction ModeFormatImpl::coordIterBounds(vector<Expr> coords,
                                            Mode mode) const {
@@ -154,12 +255,50 @@ Stmt ModeFormatImpl::getAppendFinalizeLevel(Expr szPrev,
   return Stmt();
 }
 
+Expr ModeFormatImpl::getAssembledSize(Expr prevSize, Mode mode) const {
+  return Expr();
+}
+
+Stmt ModeFormatImpl::getSeqInitEdges(Expr prevSize, 
+    std::vector<AttrQueryResult> queries, Mode mode) const {
+  return Stmt();
+}
+
+Stmt ModeFormatImpl::getSeqInsertEdge(Expr parentPos, std::vector<Expr> coords,
+    std::vector<AttrQueryResult> queries, Mode mode) const {
+  return Stmt();
+}
+
+Stmt ModeFormatImpl::getInitCoords(Expr prevSize, 
+    std::vector<AttrQueryResult> queries, Mode mode) const {
+  return Stmt();
+}
+
+Stmt ModeFormatImpl::getInitYieldPos(Expr prevSize, Mode mode) const {
+  return Stmt();
+}
+
+ModeFunction ModeFormatImpl::getYieldPos(Expr parentPos, 
+    std::vector<Expr> coords, Mode mode) const {
+  return ModeFunction();
+}
+
+Stmt ModeFormatImpl::getInsertCoord(Expr parentPos, Expr pos, 
+    std::vector<Expr> coords, Mode mode) const {
+  return Stmt();
+}
+
+Stmt ModeFormatImpl::getFinalizeYieldPos(Expr prevSize, Mode mode) const {
+  return Stmt();
+}
+
 bool ModeFormatImpl::equals(const ModeFormatImpl& other) const {
   return (isFull == other.isFull &&
           isOrdered == other.isOrdered &&
           isUnique == other.isUnique &&
           isBranchless == other.isBranchless &&
-          isCompact == other.isCompact);
+          isCompact == other.isCompact &&
+          isZeroless == other.isZeroless);
 }
 
 bool operator==(const ModeFormatImpl& a, const ModeFormatImpl& b) {

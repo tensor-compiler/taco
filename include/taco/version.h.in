@@ -1,0 +1,24 @@
+#ifndef TACO_VERSION_H
+#define TACO_VERSION_H
+
+// This file contains version/config info, gathered at cmake config time.
+
+#define TACO_BUILD_TYPE "@CMAKE_BUILD_TYPE@"
+#define TACO_BUILD_DATE "@TACO_BUILD_DATE@"
+
+#define TACO_BUILD_COMPILER_ID      "@CMAKE_CXX_COMPILER_ID@"
+#define TACO_BUILD_COMPILER_VERSION "@CMAKE_CXX_COMPILER_VERSION@"
+
+#define TACO_VERSION_MAJOR "@PROJECT_VERSION_MAJOR@"
+#define TACO_VERSION_MINOR "@PROJECT_VERSION_MINOR@"
+// if taco starts using a patch number, add @PROJECT_VERSION_PATCH@ here
+// if taco starts using a tweak number, add @PROJECT_VERSION_TWEAK@ here
+
+// For non-git builds, this will be an empty string.
+#define TACO_VERSION_GIT_SHORTHASH "@TACO_GIT_SHORTHASH@"
+
+#define TACO_FEATURE_OPENMP @TACO_FEATURE_OPENMP@
+#define TACO_FEATURE_PYTHON @TACO_FEATURE_PYTHON@
+#define TACO_FEATURE_CUDA   @TACO_FEATURE_CUDA@
+
+#endif /* TACO_VERSION_H */

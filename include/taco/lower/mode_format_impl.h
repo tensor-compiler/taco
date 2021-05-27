@@ -6,16 +6,62 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <tuple>
 
 #include "taco/format.h"
 #include "taco/ir/ir.h"
 #include "taco/lower/mode.h"
+#include "taco/index_notation/index_notation.h"
 
 namespace taco {
 
 class ModeFormatImpl;
 class ModeFormatPack;
 class ModePack;
+
+class AttrQuery {
+public:
+  enum Aggregation { IDENTITY, COUNT, MIN, MAX };
+  struct Attr {
+    Attr(std::tuple<std::string,Aggregation,std::vector<IndexVar>> attr); 
+
+    std::string label;
+    Aggregation aggr;
+    std::vector<IndexVar> params;
+  };
+
+  AttrQuery();
+  AttrQuery(const std::vector<IndexVar>& groupBy, const Attr& attr);
+  AttrQuery(const std::vector<IndexVar>& groupBy, 
+            const std::vector<Attr>& attrs);
+
+  const std::vector<IndexVar>& getGroupBy() const;
+  const std::vector<Attr>& getAttrs() const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+std::ostream& operator<<(std::ostream&, const AttrQuery::Attr&);
+std::ostream& operator<<(std::ostream&, const AttrQuery&);
+
+class AttrQueryResult {
+public:
+  AttrQueryResult() = default;
+  AttrQueryResult(ir::Expr resultVar, ir::Expr resultValues);
+
+  ir::Expr getResult(const std::vector<ir::Expr>& indices, 
+                     const std::string& attr) const;
+
+  friend std::ostream& operator<<(std::ostream&, const AttrQueryResult&);
+
+private:
+  ir::Expr resultVar;
+  ir::Expr resultValues;
+};
+
+std::ostream& operator<<(std::ostream&, const AttrQueryResult&);
 
 /// Mode functions implement parts of mode capabilities, such as position
 /// iteration and locate.  The lower machinery requests mode functions from
@@ -59,15 +105,21 @@ std::ostream& operator<<(std::ostream&, const ModeFunction&);
 class ModeFormatImpl {
 public:
   ModeFormatImpl(std::string name, bool isFull, bool isOrdered, bool isUnique, 
-                 bool isBranchless, bool isCompact, bool hasCoordValIter, 
-                 bool hasCoordPosIter, bool hasLocate, bool hasInsert, 
-                 bool hasAppend);
+                 bool isBranchless, bool isCompact, bool isZeroless, 
+                 bool hasCoordValIter, bool hasCoordPosIter, bool hasLocate, 
+                 bool hasInsert, bool hasAppend, bool hasSeqInsertEdge, 
+                 bool hasInsertCoord, bool isYieldPosPure);
 
   virtual ~ModeFormatImpl();
 
   /// Create a copy of the mode type with different properties.
   virtual ModeFormat copy(
       std::vector<ModeFormat::Property> properties) const = 0;
+
+
+  virtual std::vector<AttrQuery> attrQueries(
+      std::vector<IndexVar> parentCoords, 
+      std::vector<IndexVar> childCoords) const;
 
 
   /// The coordinate iteration capability's iterator function computes a range
@@ -109,7 +161,7 @@ public:
                               Mode mode) const;
 
 
-  /// Level functions that implement insert capabilitiy.
+  /// Level functions that implement grouped insert capabilitiy.
   /// @{
   virtual ir::Stmt
   getInsertCoord(ir::Expr p, const std::vector<ir::Expr>& i, Mode mode) const;
@@ -148,6 +200,37 @@ public:
   getAppendFinalizeLevel(ir::Expr szPrev, ir::Expr sz, Mode mode) const;
   /// @}
 
+  /// Level functions that implement ungrouped insert capabilitiy.
+  /// @{
+  virtual ir::Expr getAssembledSize(ir::Expr prevSize, Mode mode) const;
+
+  virtual ir::Stmt
+  getSeqInitEdges(ir::Expr prevSize, std::vector<AttrQueryResult> queries, 
+                  Mode mode) const;
+  
+  virtual ir::Stmt
+  getSeqInsertEdge(ir::Expr parentPos, std::vector<ir::Expr> coords,
+                   std::vector<AttrQueryResult> queries, Mode mode) const;
+
+  virtual ir::Stmt
+  getInitCoords(ir::Expr prevSize, std::vector<AttrQueryResult> queries, 
+                Mode mode) const;
+
+  virtual ir::Stmt
+  getInitYieldPos(ir::Expr prevSize, Mode mode) const;
+  
+  virtual ModeFunction
+  getYieldPos(ir::Expr parentPos, std::vector<ir::Expr> coords, 
+              Mode mode) const;
+
+  virtual ir::Stmt
+  getInsertCoord(ir::Expr parentPos, ir::Expr pos, std::vector<ir::Expr> coords, 
+                 Mode mode) const;
+
+  virtual ir::Stmt
+  getFinalizeYieldPos(ir::Expr prevSize, Mode mode) const;
+  /// @}
+
   /// Returns arrays associated with a tensor mode
   virtual std::vector<ir::Expr>
   getArrays(ir::Expr tensor, int mode, int level) const = 0;
@@ -162,12 +245,16 @@ public:
   const bool isUnique;
   const bool isBranchless;
   const bool isCompact;
-
+  const bool isZeroless;
+  
   const bool hasCoordValIter;
   const bool hasCoordPosIter;
   const bool hasLocate;
   const bool hasInsert;
   const bool hasAppend;
+  const bool hasSeqInsertEdge;
+  const bool hasInsertCoord;
+  const bool isYieldPosPure;
 
 protected:
   /// Check if other mode format is identical. Can assume that this method will 

@@ -122,6 +122,12 @@ private:
       pointIterators.push_back(iterators.modeIterator(i));
     }
 
+    // If the iterator has an index set, then consider that iterator as another
+    // iterator that is part of this point.
+    if (iterator.hasIndexSet()) {
+      pointIterators.push_back(iterator.getIndexSetIterator());
+    }
+
     IndexVar posIteratorDescendant;
     // if this loop is actually iterating over this access then can return iterator (+ coord ranger if applicable)
     // as entire merge point
@@ -324,6 +330,10 @@ private:
   }
 
   void visit(const SequenceNode* node) {
+    taco_not_supported_yet;
+  }
+
+  void visit(const AssembleNode* op) {
     taco_not_supported_yet;
   }
 

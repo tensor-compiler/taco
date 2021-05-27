@@ -749,7 +749,7 @@ Stmt Yield::make(std::vector<Expr> coords, Expr val) {
 }
 
 // Allocate
-Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_elements) {
+Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_elements, bool clear) {
   taco_iassert(var.as<GetProperty>() ||
                (var.as<Var>() && var.as<Var>()->is_ptr)) <<
       "Can only allocate memory for a pointer-typed Var";
@@ -761,6 +761,7 @@ Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_eleme
   alloc->is_realloc = is_realloc;
   taco_iassert(!is_realloc || old_elements.ptr != NULL);
   alloc->old_elements = old_elements;
+  alloc->clear = clear;
   return alloc;
 }
 
@@ -784,6 +785,11 @@ Stmt Comment::make(std::string text) {
 // BlankLine
 Stmt BlankLine::make() {
   return new BlankLine;
+}
+
+// Continue
+Stmt Continue::make() {
+  return new Continue;
 }
 
 // Break
@@ -815,6 +821,13 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode,
     gp->type = Int();
   
   return gp;
+}
+
+// Sort
+Stmt Sort::make(std::vector<Expr> args) {
+  Sort* sort = new Sort;
+  sort->args = args;
+  return sort;
 }
 
 
@@ -947,12 +960,16 @@ template<> void StmtNode<Comment>::accept(IRVisitorStrict *v)
     const { v->visit((const Comment*)this); }
 template<> void StmtNode<BlankLine>::accept(IRVisitorStrict *v)
     const { v->visit((const BlankLine*)this); }
-template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
-  const { v->visit((const Break*)this); }
+template<> void StmtNode<Continue>::accept(IRVisitorStrict *v)
+  const { v->visit((const Continue*)this); }
 template<> void StmtNode<Print>::accept(IRVisitorStrict *v)
     const { v->visit((const Print*)this); }
 template<> void ExprNode<GetProperty>::accept(IRVisitorStrict *v)
     const { v->visit((const GetProperty*)this); }
+template<> void StmtNode<Sort>::accept(IRVisitorStrict *v)
+  const { v->visit((const Sort*)this); }
+template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
+  const { v->visit((const Break*)this); }
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {

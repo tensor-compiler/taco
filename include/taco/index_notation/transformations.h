@@ -21,6 +21,7 @@ class ForAllReplace;
 class AddSuchThatPredicates;
 class Parallelize;
 class TopoReorder;
+class SetAssembleStrategy;
 
 /// A transformation is an optimization that transforms a statement in the
 /// concrete index notation into a new statement that computes the same result
@@ -34,6 +35,7 @@ public:
   Transformation(Parallelize);
   Transformation(TopoReorder);
   Transformation(AddSuchThatPredicates);
+  Transformation(SetAssembleStrategy);
 
   IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 
@@ -108,6 +110,7 @@ private:
 /// Print a precompute command.
 std::ostream &operator<<(std::ostream &, const Precompute &);
 
+
 /// Replaces all occurrences of directly nested forall nodes of pattern with
 /// directly nested loops of replacement
 class ForAllReplace : public TransformationInterface {
@@ -129,6 +132,10 @@ private:
   std::shared_ptr<Content> content;
 };
 
+/// Print a ForAllReplace command.
+std::ostream &operator<<(std::ostream &, const ForAllReplace &);
+
+
 /// Adds a SuchThat node if it does not exist and adds the given IndexVarRels
 class AddSuchThatPredicates : public TransformationInterface {
 public:
@@ -146,6 +153,9 @@ private:
   struct Content;
   std::shared_ptr<Content> content;
 };
+
+std::ostream& operator<<(std::ostream&, const AddSuchThatPredicates&);
+
 
 /// The parallelize optimization tags a Forall as parallelized
 /// after checking for preconditions
@@ -169,13 +179,30 @@ private:
   std::shared_ptr<Content> content;
 };
 
-/// Print a ForAllReplace command.
-std::ostream &operator<<(std::ostream &, const ForAllReplace &);
-
 /// Print a parallelize command.
 std::ostream& operator<<(std::ostream&, const Parallelize&);
 
-std::ostream& operator<<(std::ostream&, const AddSuchThatPredicates&);
+
+class SetAssembleStrategy : public TransformationInterface {
+public:
+  SetAssembleStrategy(TensorVar result, AssembleStrategy strategy, 
+                      bool separatelySchedulable);
+
+  TensorVar getResult() const;
+  AssembleStrategy getAssembleStrategy() const;
+  bool getSeparatelySchedulable() const;
+
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
+
+  void print(std::ostream &os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+/// Print a SetAssembleStrategy command.
+std::ostream &operator<<(std::ostream &, const SetAssembleStrategy&);
 
 // Autoscheduling functions
 
@@ -207,5 +234,6 @@ IndexStmt scalarPromote(IndexStmt stmt);
  * 1. The result is a is scattered into but does not support random insert.
  */
 IndexStmt insertTemporaries(IndexStmt stmt);
+
 }
 #endif

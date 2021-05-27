@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <tuple>
 
 namespace taco {
 class IndexVar;
@@ -12,15 +13,12 @@ class Shape;
 
 namespace error {
 
-/// Check that the dimensions indexed by the same variable are the same
-bool dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
-                         const IndexExpr& expr,
-                         const Shape& shape);
-
-/// Returns error strings for index variables that don't typecheck
-std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
-                                     const IndexExpr& expr,
-                                     const Shape& shape);
+/// Check whether all dimensions indexed by the same variable are the same.
+/// If they are not, then the first element of the returned tuple will be false,
+/// and a human readable error will be returned in the second component.
+std::pair<bool, std::string> dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
+                                            const IndexExpr& expr,
+                                            const Shape& shape);
 
 /// Returns true iff the index expression contains a transposition.
 bool containsTranspose(const Format& resultFormat,

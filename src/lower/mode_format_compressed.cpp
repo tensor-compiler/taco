@@ -10,13 +10,15 @@ using namespace taco::ir;
 namespace taco {
 
 CompressedModeFormat::CompressedModeFormat() : 
-    CompressedModeFormat(false, true, true) {
+    CompressedModeFormat(false, true, true, false) {
 }
 
 CompressedModeFormat::CompressedModeFormat(bool isFull, bool isOrdered,
-                                       bool isUnique, long long allocSize) :
+                                           bool isUnique, bool isZeroless, 
+                                           long long allocSize) :
     ModeFormatImpl("compressed", isFull, isOrdered, isUnique, false, true,
-                   false, true, false, false, true), 
+                   isZeroless, false, true, false, false, true, true, true, 
+                   false), 
     allocSize(allocSize) {
 }
 
@@ -25,6 +27,7 @@ ModeFormat CompressedModeFormat::copy(
   bool isFull = this->isFull;
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
+  bool isZeroless = this->isZeroless;  
   for (const auto property : properties) {
     switch (property) {
       case ModeFormat::FULL:
@@ -45,28 +48,48 @@ ModeFormat CompressedModeFormat::copy(
       case ModeFormat::NOT_UNIQUE:
         isUnique = false;
         break;
+      case ModeFormat::ZEROLESS:
+        isZeroless = true;
+        break;
+      case ModeFormat::NOT_ZEROLESS:
+        isZeroless = false;
+        break;			
       default:
         break;
     }
   }
   const auto compressedVariant = 
-      std::make_shared<CompressedModeFormat>(isFull, isOrdered, isUnique);
+      std::make_shared<CompressedModeFormat>(isFull, isOrdered, isUnique, 
+                                             isZeroless);
   return ModeFormat(compressedVariant);
+}
+
+std::vector<AttrQuery> CompressedModeFormat::attrQueries(
+    vector<IndexVar> parentCoords, vector<IndexVar> childCoords) const {
+  std::vector<IndexVar> groupBy(parentCoords.begin(), parentCoords.end() - 1);
+
+  std::vector<IndexVar> aggregatedCoords = {parentCoords.back()};
+  if (!isUnique) {
+    aggregatedCoords.insert(aggregatedCoords.end(), childCoords.begin(), 
+                            childCoords.end());
+  }
+
+  return {AttrQuery(groupBy, {{"nnz", AttrQuery::COUNT, aggregatedCoords}})};
 }
 
 ModeFunction CompressedModeFormat::posIterBounds(Expr parentPos, 
                                                  Mode mode) const {
   Expr pbegin = Load::make(getPosArray(mode.getModePack()), parentPos);
   Expr pend = Load::make(getPosArray(mode.getModePack()),
-                         Add::make(parentPos, 1));
+                         ir::Add::make(parentPos, 1));
   return ModeFunction(Stmt(), {pbegin, pend});
 }
 
 ModeFunction CompressedModeFormat::coordBounds(Expr parentPos,
                                                  Mode mode) const {
   Expr pend = Load::make(getPosArray(mode.getModePack()),
-                         Add::make(parentPos, 1));
-  Expr coordend = Load::make(getCoordArray(mode.getModePack()), Sub::make(pend, 1));
+                         ir::Add::make(parentPos, 1));
+  Expr coordend = Load::make(getCoordArray(mode.getModePack()), ir::Sub::make(pend, 1));
   return ModeFunction(Stmt(), {0, coordend});
 }
 
@@ -77,7 +100,7 @@ ModeFunction CompressedModeFormat::posIterAccess(ir::Expr pos,
 
   Expr idxArray = getCoordArray(mode.getModePack());
   Expr stride = (int)mode.getModePack().getNumModes();
-  Expr idx = Load::make(idxArray, Mul::make(pos, stride));
+  Expr idx = Load::make(idxArray, ir::Mul::make(pos, stride));
   return ModeFunction(Stmt(), {idx, true});
 }
 
@@ -86,7 +109,7 @@ Stmt CompressedModeFormat::getAppendCoord(Expr p, Expr i, Mode mode) const {
 
   Expr idxArray = getCoordArray(mode.getModePack());
   Expr stride = (int)mode.getModePack().getNumModes();
-  Stmt storeIdx = Store::make(idxArray, Mul::make(p, stride), i);
+  Stmt storeIdx = Store::make(idxArray, ir::Mul::make(p, stride), i);
 
   if (mode.getModePack().getNumModes() > 1) {
     return storeIdx;
@@ -101,8 +124,8 @@ Stmt CompressedModeFormat::getAppendEdges(Expr pPrev, Expr pBegin, Expr pEnd,
   Expr posArray = getPosArray(mode.getModePack());
   ModeFormat parentModeType = mode.getParentModeType();
   Expr edges = (!parentModeType.defined() || parentModeType.hasAppend())
-               ? pEnd : Sub::make(pEnd, pBegin);
-  return Store::make(posArray, Add::make(pPrev, 1), edges);
+               ? pEnd : ir::Sub::make(pEnd, pBegin);
+  return Store::make(posArray, ir::Add::make(pPrev, 1), edges);
 }
 
 Expr CompressedModeFormat::getSize(ir::Expr szPrev, Mode mode) const {
@@ -111,8 +134,8 @@ Expr CompressedModeFormat::getSize(ir::Expr szPrev, Mode mode) const {
 
 Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin, 
     Expr pPrevEnd, Mode mode) const {
-  if (isa<Literal>(pPrevBegin)) {
-    taco_iassert(to<Literal>(pPrevBegin)->equalsScalar(0));
+  if (isa<ir::Literal>(pPrevBegin)) {
+    taco_iassert(to<ir::Literal>(pPrevBegin)->equalsScalar(0));
     return Stmt();
   }
 
@@ -124,8 +147,8 @@ Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin,
   }
 
   Expr pVar = Var::make("p" + mode.getName(), Int());
-  Expr lb = Add::make(pPrevBegin, 1);
-  Expr ub = Add::make(pPrevEnd, 1);
+  Expr lb = ir::Add::make(pPrevBegin, 1);
+  Expr ub = ir::Add::make(pPrevEnd, 1);
   Stmt initPos = For::make(pVar, lb, ub, 1, Store::make(posArray, pVar, 0));
   Stmt maybeResizePos = atLeastDoubleSizeIfFull(posArray, posCapacity, pPrevEnd);
   return Block::make({maybeResizePos, initPos});
@@ -133,12 +156,12 @@ Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin,
 
 Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, Expr sz,
                                               Mode mode) const {
-  const bool szPrevIsZero = isa<Literal>(szPrev) && 
-                            to<Literal>(szPrev)->equalsScalar(0);
+  const bool szPrevIsZero = isa<ir::Literal>(szPrev) && 
+                            to<ir::Literal>(szPrev)->equalsScalar(0);
 
-  Expr defaultCapacity = Literal::make(allocSize, Datatype::Int32); 
+  Expr defaultCapacity = ir::Literal::make(allocSize, Datatype::Int32); 
   Expr posArray = getPosArray(mode.getModePack());
-  Expr initCapacity = szPrevIsZero ? defaultCapacity : Add::make(szPrev, 1);
+  Expr initCapacity = szPrevIsZero ? defaultCapacity : ir::Add::make(szPrev, 1);
   Expr posCapacity = initCapacity;
   
   std::vector<Stmt> initStmts;
@@ -169,7 +192,7 @@ Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, Expr sz,
 Stmt CompressedModeFormat::getAppendFinalizeLevel(Expr szPrev, 
     Expr sz, Mode mode) const {
     ModeFormat parentModeType = mode.getParentModeType();
-  if ((isa<Literal>(szPrev) && to<Literal>(szPrev)->equalsScalar(1)) || 
+  if ((isa<ir::Literal>(szPrev) && to<ir::Literal>(szPrev)->equalsScalar(1)) || 
       !parentModeType.defined() || parentModeType.hasAppend()) {
     return Stmt();
   }
@@ -179,12 +202,72 @@ Stmt CompressedModeFormat::getAppendFinalizeLevel(Expr szPrev,
   
   Expr pVar = Var::make("p" + mode.getName(), Int());
   Expr loadPos = Load::make(getPosArray(mode.getModePack()), pVar);
-  Stmt incCs = Assign::make(csVar, Add::make(csVar, loadPos));
+  Stmt incCs = Assign::make(csVar, ir::Add::make(csVar, loadPos));
   Stmt updatePos = Store::make(getPosArray(mode.getModePack()), pVar, csVar);
   Stmt body = Block::make({incCs, updatePos});
-  Stmt finalizeLoop = For::make(pVar, 1, Add::make(szPrev, 1), 1, body);
+  Stmt finalizeLoop = For::make(pVar, 1, ir::Add::make(szPrev, 1), 1, body);
 
   return Block::make({initCs, finalizeLoop});
+}
+
+Expr CompressedModeFormat::getAssembledSize(Expr prevSize, Mode mode) const {
+  return Load::make(getPosArray(mode.getModePack()), prevSize);
+}
+
+Stmt CompressedModeFormat::getSeqInitEdges(Expr prevSize, 
+    std::vector<AttrQueryResult> queries, Mode mode) const {
+  Expr posArray = getPosArray(mode.getModePack());
+  return Block::make({Allocate::make(posArray, ir::Add::make(prevSize, 1)),
+                      Store::make(posArray, 0, 0)});
+}
+
+Stmt CompressedModeFormat::getSeqInsertEdge(Expr parentPos, 
+    std::vector<Expr> coords, std::vector<AttrQueryResult> queries, 
+    Mode mode) const {
+  Expr posArray = getPosArray(mode.getModePack());
+  Expr prevPos = Load::make(posArray, parentPos);
+  Expr nnz = queries[0].getResult(coords, "nnz");
+  Expr pos = ir::Add::make(prevPos, nnz);
+  return Store::make(posArray, ir::Add::make(parentPos, 1), pos);
+}
+
+Stmt CompressedModeFormat::getInitCoords(Expr prevSize, 
+    std::vector<AttrQueryResult> queries, Mode mode) const {
+  Expr posArray = getPosArray(mode.getModePack());
+  Expr crdArray = getCoordArray(mode.getModePack());
+  return Allocate::make(crdArray, Load::make(posArray, prevSize));
+}
+
+Stmt CompressedModeFormat::getInitYieldPos(Expr prevSize, Mode mode) const {
+  return Stmt();
+}
+
+ModeFunction CompressedModeFormat::getYieldPos(Expr parentPos, 
+    std::vector<Expr> coords, Mode mode) const {
+  Expr ptrArr = getPosArray(mode.getModePack());
+  Expr loadPtr = Load::make(ptrArr, parentPos);
+  Expr pVar = Var::make("p" + mode.getName(), Int());
+  Stmt getPtr = VarDecl::make(pVar, loadPtr);
+  Stmt incPtr = Store::make(ptrArr, parentPos, ir::Add::make(loadPtr, 1));
+  return ModeFunction(Block::make(getPtr, incPtr), {pVar});
+}
+
+Stmt CompressedModeFormat::getInsertCoord(Expr parentPos, Expr pos, 
+    std::vector<Expr> coords, Mode mode) const {
+  taco_iassert(mode.getPackLocation() == 0);
+  Expr crdArray = getCoordArray(mode.getModePack());
+  Expr stride = (int)mode.getModePack().getNumModes();
+  return Store::make(crdArray, ir::Mul::make(pos, stride), coords.back());
+}
+
+Stmt CompressedModeFormat::getFinalizeYieldPos(Expr prevSize, Mode mode) const {
+  Expr posArr = getPosArray(mode.getModePack());
+  Expr pVar = Var::make("p", Int());
+  Stmt resetLoop = For::make(pVar, 0, prevSize, 1, 
+      Store::make(posArr, ir::Sub::make(prevSize, pVar), 
+                  Load::make(posArr, 
+                             ir::Sub::make(ir::Sub::make(prevSize, pVar), 1))));
+  return Block::make(resetLoop, Store::make(posArr, 0, 0));
 }
 
 vector<Expr> CompressedModeFormat::getArrays(Expr tensor, int mode, 

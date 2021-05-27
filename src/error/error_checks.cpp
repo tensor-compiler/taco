@@ -1,9 +1,9 @@
 #include "error_checks.h"
 
+#include <functional>
 #include <map>
 #include <set>
-#include <stack>
-#include <functional>
+#include <tuple>
 
 #include "taco/type.h"
 #include "taco/index_notation/index_notation.h"
@@ -26,41 +26,6 @@ static vector<const AccessNode*> getAccessNodes(const IndexExpr& expr) {
   return readNodes;
 }
 
-bool dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
-                         const IndexExpr& expr,
-                         const Shape& shape) {
-
-  std::map<IndexVar,Dimension> indexVarDims;
-  for (size_t mode = 0; mode < resultVars.size(); mode++) {
-    IndexVar var = resultVars[mode];
-    auto dimension = shape.getDimension(mode);
-    if (util::contains(indexVarDims,var) && indexVarDims.at(var) != dimension) {
-      return false;
-    }
-    else {
-      indexVarDims.insert({var, dimension});
-    }
-  }
-
-  vector<const AccessNode*> readNodes = getAccessNodes(expr);
-  for (auto& readNode : readNodes) {
-    for (size_t mode = 0; mode < readNode->indexVars.size(); mode++) {
-      IndexVar var = readNode->indexVars[mode];
-      Dimension dimension =
-          readNode->tensorVar.getType().getShape().getDimension(mode);
-      if (util::contains(indexVarDims,var) &&
-          indexVarDims.at(var) != dimension) {
-        return false;
-      }
-      else {
-        indexVarDims.insert({var, dimension});
-      }
-    }
-  }
-
-  return true;
-}
-
 static string addDimensionError(const IndexVar& var,
                                 Dimension dimension1, Dimension dimension2) {
   return "Index variable " + util::toString(var) + " is used to index "
@@ -68,19 +33,17 @@ static string addDimensionError(const IndexVar& var,
          " and " + util::toString(dimension2) + ").";
 }
 
-std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
-                                     const IndexExpr& expr,
-                                     const Shape& shape) {
+std::pair<bool, string> dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
+                                            const IndexExpr& expr,
+                                            const Shape& shape) {
   vector<string> errors;
-
   std::map<IndexVar,Dimension> indexVarDims;
   for (size_t mode = 0; mode < resultVars.size(); mode++) {
     IndexVar var = resultVars[mode];
     auto dimension = shape.getDimension(mode);
     if (util::contains(indexVarDims,var) && indexVarDims.at(var) != dimension) {
       errors.push_back(addDimensionError(var, indexVarDims.at(var), dimension));
-    }
-    else {
+    } else {
       indexVarDims.insert({var, dimension});
     }
   }
@@ -89,20 +52,26 @@ std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
   for (auto& readNode : readNodes) {
     for (size_t mode = 0; mode < readNode->indexVars.size(); mode++) {
       IndexVar var = readNode->indexVars[mode];
-      Dimension dimension =
-          readNode->tensorVar.getType().getShape().getDimension(mode);
-      if (util::contains(indexVarDims,var) &&
-          indexVarDims.at(var) != dimension) {
-        errors.push_back(addDimensionError(var, indexVarDims.at(var),
-                                           dimension));
+      Dimension dimension = readNode->tensorVar.getType().getShape().getDimension(mode);
+
+      // If this access has windowed modes, use the dimensions of those windows
+      // as the shape, rather than the shape of the underlying tensor.
+      auto a = Access(readNode);
+      if (a.isModeWindowed(mode)) {
+        dimension = Dimension(a.getWindowSize(mode));
+      } else if (a.isModeIndexSet(mode)) {
+        dimension = Dimension(a.getIndexSet(mode).size());
       }
-      else {
+
+      if (util::contains(indexVarDims,var) && indexVarDims.at(var) != dimension) {
+        errors.push_back(addDimensionError(var, indexVarDims.at(var), dimension));
+      } else {
         indexVarDims.insert({var, dimension});
       }
     }
   }
 
-  return util::join(errors, " ");
+  return std::make_pair(errors.empty(), util::join(errors, " "));
 }
 
 static void addEdges(vector<IndexVar> indexVars, vector<int> modeOrdering,

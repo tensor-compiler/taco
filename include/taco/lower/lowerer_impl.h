@@ -1,6 +1,7 @@
 #ifndef TACO_LOWERER_IMPL_H
 #define TACO_LOWERER_IMPL_H
 
+#include <utility>
 #include <vector>
 #include <map>
 #include <set>
@@ -80,6 +81,16 @@ protected:
                                         std::vector<Iterator> appenders,
                                         std::set<Access> reducedAccesses,
                                         ir::Stmt recoveryStmt);
+
+  /// Lower a forall that iterates over all the coordinates in the forall index
+  /// var's dimension, and locates tensor positions from the locate iterators.
+  virtual ir::Stmt lowerForallDenseAcceleration(Forall forall,
+                                                std::vector<Iterator> locaters,
+                                                std::vector<Iterator> inserters,
+                                                std::vector<Iterator> appenders,
+                                                std::set<Access> reducedAccesses,
+                                                ir::Stmt recoveryStmt);
+
 
   /// Lower a forall that iterates over the coordinates in the iterator, and
   /// locates tensor positions from the locate iterators.
@@ -175,6 +186,9 @@ protected:
 
   /// Lower a sequence statement.
   virtual ir::Stmt lowerSequence(Sequence sequence);
+
+  /// Lower an assemble statement.
+  virtual ir::Stmt lowerAssemble(Assemble assemble);
 
   /// Lower a multi statement.
   virtual ir::Stmt lowerMulti(Multi multi);
@@ -287,7 +301,6 @@ protected:
 
   /// Generate code to initialize result indices.
   ir::Stmt initResultArrays(std::vector<Access> writes, 
-                            std::vector<Access> reads,
                             std::set<Access> reducedAccesses);
 
   /// Generate code to finalize result indices.
@@ -299,7 +312,6 @@ protected:
   ir::Stmt defineScalarVariable(TensorVar var, bool zero);
 
   ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes,
-                            std::vector<Access> reads,
                             std::set<Access> reducedAccesses);
 
   ir::Stmt resizeAndInitValues(const std::vector<Iterator>& appenders,
@@ -333,35 +345,103 @@ protected:
   ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coord, IndexVar coordinateVar);
   ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar);
 
+  /// Returns true iff the temporary used in the where statement is dense and sparse iteration over that
+  /// temporary can be automaticallty supported by the compiler.
+  std::pair<bool,bool> canAccelerateDenseTemp(Where where);
+
+  /// Initializes a temporary workspace
+  std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
+
+  /// Gets the size of a temporary tensorVar in the where statement
+  ir::Expr getTemporarySize(Where where);
+
+  /// Initializes helper arrays to give dense workspaces sparse acceleration
+  std::vector<ir::Stmt> codeToInitializeDenseAcceleratorArrays(Where where);
 
   /// Recovers a derived indexvar from an underived variable.
   ir::Stmt codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar indexVar, bool emitVarDecl);
 
-    /// Conditionally increment iterator position variables.
+  /// Conditionally increment iterator position variables.
   ir::Stmt codeToIncIteratorVars(ir::Expr coordinate, IndexVar coordinateVar,
           std::vector<Iterator> iterators, std::vector<Iterator> mergers);
 
   ir::Stmt codeToLoadCoordinatesFromPosIterators(std::vector<Iterator> iterators, bool declVars);
 
-    /// Create statements to append coordinate to result modes.
+  /// Create statements to append coordinate to result modes.
   ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
 
   /// Create statements to append positions to result modes.
   ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
 
-
   /// Create an expression to index into a tensor value array.
   ir::Expr generateValueLocExpr(Access access) const;
 
-  /// Expression that evaluates to true if none of the iteratators are exhausted
+  /// Expression that evaluates to true if none of the iterators are exhausted
   ir::Expr checkThatNoneAreExhausted(std::vector<Iterator> iterators);
+
+  /// Create an expression that can be used to filter out (some) zeros in the
+  /// result
+  ir::Expr generateAssembleGuard(IndexExpr expr);
+
+  /// Check whether the result tensor should be assembled by ungrouped insertion
+  bool isAssembledByUngroupedInsertion(TensorVar result);
+  bool isAssembledByUngroupedInsertion(ir::Expr result);
+
+  bool isNonFullyInitialized(ir::Expr result);
+
+  /// Check whether the statement writes to a result tensor
+  bool hasStores(ir::Stmt stmt);
+
+  std::pair<std::vector<Iterator>,std::vector<Iterator>>
+  splitAppenderAndInserters(const std::vector<Iterator>& results);
+
+  /// Expression that returns the beginning of a window to iterate over
+  /// in a compressed iterator. It is used when operating over windows of
+  /// tensors, instead of the full tensor.
+  ir::Expr searchForStartOfWindowPosition(Iterator iterator, ir::Expr start, ir::Expr end);
+
+  /// Expression that returns the end of a window to iterate over
+  /// in a compressed iterator. It is used when operating over windows of
+  /// tensors, instead of the full tensor.
+  ir::Expr searchForEndOfWindowPosition(Iterator iterator, ir::Expr start, ir::Expr end);
+
+  /// Statement that guards against going out of bounds of the window that
+  /// the input iterator was configured with.
+  ir::Stmt upperBoundGuardForWindowPosition(Iterator iterator, ir::Expr access);
+
+  /// Expression that recovers a canonical index variable from a position in
+  /// a windowed position iterator. A windowed position iterator iterates over
+  /// values in the range [lo, hi). This expression projects values in that
+  /// range back into the canonical range of [0, n).
+  ir::Expr projectWindowedPositionToCanonicalSpace(Iterator iterator, ir::Expr expr);
+
+  // projectCanonicalSpaceToWindowedPosition is the opposite of
+  // projectWindowedPositionToCanonicalSpace. It takes an expression ranging
+  // through the canonical space of [0, n) and projects it up to the windowed
+  // range of [lo, hi).
+  ir::Expr projectCanonicalSpaceToWindowedPosition(Iterator iterator, ir::Expr expr);
+
+  /// strideBoundsGuard inserts a guard against accessing values from an
+  /// iterator that don't fit in the stride that the iterator is configured
+  /// with. It takes a boolean incrementPosVars to control whether the outer
+  /// loop iterator variable should be incremented when the guard is fired.
+  ir::Stmt strideBoundsGuard(Iterator iterator, ir::Expr access, bool incrementPosVar);
 
 private:
   bool assemble;
   bool compute;
 
+  std::set<TensorVar> needCompute;
+
   int markAssignsAtomicDepth = 0;
   ParallelUnit atomicParallelUnit;
+
+  std::set<TensorVar> assembledByUngroupedInsert;
+
+  std::set<ir::Expr> nonFullyInitializedResults;
+
+  /// Map used to hoist temporary workspace initialization
+  std::map<Forall, Where> temporaryInitialization;
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
@@ -370,6 +450,17 @@ private:
     ir::Expr values;
   };
   std::map<TensorVar, TemporaryArrays> temporaryArrays;
+
+  /// Map form temporary to indexList var if accelerating dense workspace
+  std::map<TensorVar, ir::Expr> tempToIndexList;
+
+  /// Map form temporary to indexListSize if accelerating dense workspace
+  std::map<TensorVar, ir::Expr> tempToIndexListSize;
+
+  /// Map form temporary to bitGuard var if accelerating dense workspace
+  std::map<TensorVar, ir::Expr> tempToBitGuard;
+
+  std::set<TensorVar> guardedTemps;
 
   /// Map from result tensors to variables tracking values array capacity.
   std::map<ir::Expr, ir::Expr> capacityVars;

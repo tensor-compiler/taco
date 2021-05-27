@@ -25,24 +25,19 @@ using namespace std;
 namespace taco {
 namespace ir {
 
+std::string Module::chars = "abcdefghijkmnpqrstuvwxyz0123456789";
+std::default_random_engine Module::gen = std::default_random_engine();
+std::uniform_int_distribution<int> Module::randint =
+    std::uniform_int_distribution<int>(0, chars.length() - 1);
+
 void Module::setJITTmpdir() {
   tmpdir = util::getTmpdir();
 }
 
 void Module::setJITLibname() {
-  string chars = "abcdefghijkmnpqrstuvwxyz0123456789";
   libname.resize(12);
   for (int i=0; i<12; i++)
-    libname[i] = chars[rand() % chars.length()];
-}
-
-void Module::reset() {
-  funcs.clear();
-  moduleFromUserSource = false;
-  header.str("");
-  header.clear();
-  source.str("");
-  source.clear();
+    libname[i] = chars[randint(gen)];
 }
 
 void Module::addFunction(Stmt func) {
@@ -126,7 +121,7 @@ string Module::compile() {
   string file_ending;
   string shims_file;
   if (should_use_CUDA_codegen()) {
-    cc = "nvcc";
+    cc = util::getFromEnv("TACO_NVCC", "nvcc");
     cflags = util::getFromEnv("TACO_NVCCFLAGS",
     get_default_CUDA_compiler_flags());
     file_ending = ".cu";

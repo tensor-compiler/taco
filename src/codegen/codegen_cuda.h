@@ -46,7 +46,7 @@ protected:
   void visit(const Call*);
   void visit(const Store*);
   void visit(const Assign*);
-  void visit(const Break*);
+  void visit(const Continue*);
   void visit(const Free* op);
   std::string printDeviceFuncName(const std::vector<std::pair<std::string, Expr>> currentParameters, int index);
   void printDeviceFuncCall(const std::vector<std::pair<std::string, Expr>> currentParameters, Expr blockSize, int index, Expr gridSize);

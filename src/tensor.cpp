@@ -457,7 +457,48 @@ static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr);
 /// tensors that was used in an expression when we later want to pack arguments.
 struct AccessTensorNode : public AccessNode {
   AccessTensorNode(TensorBase tensor, const std::vector<IndexVar>& indices)
-      :  AccessNode(tensor.getTensorVar(), indices), tensor(tensor) {}
+      :  AccessNode(tensor.getTensorVar(), indices, {}, false), 
+         tensor(tensor) {}
+
+  AccessTensorNode(TensorBase tensor, const std::vector<std::shared_ptr<IndexVarInterface>>& indices)
+    : AccessNode(tensor.getTensorVar()), tensor(tensor) {
+    // Create the vector of IndexVar to assign to this->indexVars.
+    std::vector<IndexVar> ivars(indices.size());
+    for (size_t i = 0; i < indices.size(); i++) {
+      auto var = indices[i];
+      // Match on what the IndexVarInterface actually is.
+      IndexVarInterface::match(var, [&](std::shared_ptr<IndexVar> ivar) {
+        ivars[i] = *ivar;
+      }, [&](std::shared_ptr<WindowedIndexVar> wvar) {
+        ivars[i] = wvar->getIndexVar();
+        auto lo = wvar->getLowerBound();
+        auto hi = wvar->getUpperBound();
+        taco_uassert(lo >= 0) << "slice lower bound must be >= 0";
+        taco_uassert(hi <= tensor.getDimension(i)) <<
+          "slice upper bound must be <= tensor dimension (" << tensor.getDimension(i) << ")";
+        this->windowedModes[i].lo = lo;
+        this->windowedModes[i].hi = hi;
+        this->windowedModes[i].stride = wvar->getStride();
+      }, [&](std::shared_ptr<IndexSetVar> svar) {
+        ivars[i] = svar->getIndexVar();
+        // Extract the user provided index set.
+        auto indexSet = svar->getIndexSet();
+        // Ensure that it has at most dim(t, i) elements.
+        taco_uassert(indexSet.size() <= size_t(tensor.getDimension(i)));
+        // Pack up the index set into a sparse tensor.
+        TensorBase indexSetTensor(type<int>(), {int(indexSet.size())}, Compressed);
+        for (auto& coord : indexSet) {
+          indexSetTensor.insert({coord}, 1);
+        }
+        indexSetTensor.pack();
+        this->indexSetModes[i].set = std::make_shared<std::vector<int>>(indexSet);
+        this->indexSetModes[i].tensor = indexSetTensor;
+      });
+    }
+    // Initialize this->indexVars.
+    this->indexVars = std::move(ivars);
+  }
+
   TensorBase tensor;
   virtual void setAssignment(const Assignment& assignment) {
     tensor.syncDependentTensors();
@@ -495,6 +536,14 @@ const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const 
 }
 
 Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
+  taco_uassert(indices.size() == (size_t)getOrder())
+      << "A tensor of order " << getOrder() << " must be indexed with "
+      << getOrder() << " variables, but is indexed with:  "
+      << util::join(indices);
+  return Access(new AccessTensorNode(*this, indices));
+}
+
+Access TensorBase::operator()(const std::vector<std::shared_ptr<IndexVarInterface>>& indices) {
   taco_uassert(indices.size() == (size_t)getOrder())
       << "A tensor of order " << getOrder() << " must be indexed with "
       << getOrder() << " variables, but is indexed with:  "
@@ -595,7 +644,10 @@ void TensorBase::compile(taco::IndexStmt stmt, bool assembleWhileCompute) {
 
   content->assembleFunc = lower(stmtToCompile, "assemble", true, false);
   content->computeFunc = lower(stmtToCompile, "compute",  assembleWhileCompute, true);
-  content->module->reset();
+  // If we have to recompile the kernel, we need to create a new Module. Since
+  // the module we are holding on to could have been retrieved from the cache,
+  // we can't modify it.
+  content->module = make_shared<Module>();
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();
@@ -678,6 +730,15 @@ static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr) {
         arguments.insert({node->tensorVar, to<AccessTensorNode>(node)->tensor});
       }
 
+      // Also add any tensors backing index sets of tensor accesses.
+      for (auto& p : node->indexSetModes) {
+        auto tv = p.second.tensor.getTensorVar();
+        if (!util::contains(arguments, tv)) {
+          arguments.insert({tv, p.second.tensor});
+        }
+      }
+
+      // TODO (rohany): This seems like dead code.
       TensorBase tensor = to<AccessTensorNode>(node)->tensor;
       if (!util::contains(inserted, tensor)) {
         inserted.insert(tensor);
@@ -696,6 +757,17 @@ vector<void*> packArguments(const TensorBase& tensor) {
 
   // Pack the result tensor
   arguments.push_back(tensor.getStorage());
+
+  // Pack any index sets on the result tensor at the front of the arguments list.
+  auto lhs = getNode(tensor.getAssignment().getLhs());
+  // We check isa<AccessNode> rather than isa<AccessTensorNode> to catch cases
+  // where the underlying access is represented with the base AccessNode class.
+  if (isa<AccessNode>(lhs)) {
+    auto indexSetModes = to<AccessNode>(lhs)->indexSetModes;
+    for (auto& it : indexSetModes) {
+      arguments.push_back(it.second.tensor.getStorage());
+    }
+  }
 
   // Pack operand tensors
   auto operands = getArguments(makeConcreteNotation(tensor.getAssignment()));
@@ -830,6 +902,7 @@ void TensorBase::compileSource(std::string source) {
   }
   content->module->setSource(source + "\n" + ss.str());
   content->module->compile();
+  setNeedsCompile(false);
 }
 
 TensorBase::HelperFuncsCache TensorBase::helperFunctions;

@@ -92,6 +92,25 @@ To run the Python test suite individually:
     python3 build/python_bindings/unit_tests.py
 
 
+## Code coverage analysis
+
+To enable code coverage analysis, configure with `-DCOVERAGE=ON`.  This requires
+the `gcovr` tool to be installed in your PATH.
+
+For best results, the build type should be set to `Debug`.  For example:
+
+    cmake -DCMAKE_BUILD_TYPE=Debug -DCOVERAGE=ON ..
+
+Then to run code coverage analysis:
+
+    make gcovr
+
+This will run the test suite and produce some coverage analysis.  This process
+requires that the tests pass, so any failures must be fixed first.
+If all goes well, coverage results will be output to the `coverage/` folder.
+See `coverage/index.html` for a high level report, and click individual files
+to see the line-by-line results.
+
 # Library example
 
 The following sparse tensor-times-vector multiplication example in C++

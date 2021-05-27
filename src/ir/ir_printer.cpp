@@ -131,7 +131,11 @@ void IRPrinter::visit(const Var* op) {
 }
 
 void IRPrinter::visit(const Neg* op) {
-  stream << "-";
+  if(op->type.isBool()) {
+    stream << "!";
+  } else {
+    stream << "-";
+  }
   parentPrecedence = Precedence::NEG;
   op->a.accept(this);
 }
@@ -554,9 +558,14 @@ void IRPrinter::visit(const BlankLine*) {
   stream << endl;
 }
 
+void IRPrinter::visit(const Continue*) {
+  doIndent();
+  stream << "continue;" << endl;
+}
+
 void IRPrinter::visit(const Break*) {
   doIndent();
-  stream << "continue;" << endl; // TODO: add continue statement
+  stream << "break;" << endl;
 }
 
 void IRPrinter::visit(const Print* op) {
@@ -574,6 +583,16 @@ void IRPrinter::visit(const Print* op) {
 void IRPrinter::visit(const GetProperty* op) {
   stream << op->name;
 }
+
+void IRPrinter::visit(const Sort* op) {
+  doIndent();
+  stream << "qsort(";
+  parentPrecedence = Precedence::CALL;
+  acceptJoin(this, stream, op->args, ", ");
+  stream << ", cmp);";
+  stream << endl;
+}
+
 
 void IRPrinter::resetNameCounters() {
   // seed the unique names with all C99 keywords
@@ -625,11 +644,7 @@ void IRPrinter::doIndent() {
 }
 
 void IRPrinter::printBinOp(Expr a, Expr b, string op, Precedence precedence) {
-  // Add parentheses if required by C operator precedence or for Boolean 
-  // expressions of form `a || (b && c)` (to avoid C compiler warnings)
-  bool parenthesize = (precedence >= parentPrecedence ||
-                       (precedence == Precedence::LAND && 
-                        parentPrecedence == Precedence::LOR));
+  bool parenthesize = needsParentheses(precedence);
   if (parenthesize) {
     stream << "(";
   }
@@ -641,6 +656,14 @@ void IRPrinter::printBinOp(Expr a, Expr b, string op, Precedence precedence) {
   if (parenthesize) {
     stream << ")";
   }
+}
+
+bool IRPrinter::needsParentheses(Precedence precedence) {
+  // Add parentheses if required by C operator precedence or for Boolean
+  // expressions of form `a || (b && c)` (to avoid C compiler warnings)
+  return (precedence >= parentPrecedence ||
+            (precedence == Precedence::LAND &&
+              parentPrecedence == Precedence::LOR));
 }
 
 

@@ -1,6 +1,7 @@
 #ifndef TACO_INDEX_NOTATION_H
 #define TACO_INDEX_NOTATION_H
 
+#include <functional>
 #include <ostream>
 #include <string>
 #include <memory>
@@ -19,7 +20,6 @@
 #include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/ir_tags.h"
-#include "taco/lower/iterator.h"
 #include "taco/index_notation/provenance_graph.h"
 
 namespace taco {
@@ -30,13 +30,17 @@ class Format;
 class Schedule;
 
 class IndexVar;
+class WindowedIndexVar;
+class IndexSetVar;
 class TensorVar;
 
+class IndexStmt;
 class IndexExpr;
 class Assignment;
 class Access;
 
 struct AccessNode;
+struct IndexVarIterationModifier;
 struct LiteralNode;
 struct NegNode;
 struct SqrtNode;
@@ -53,11 +57,20 @@ struct YieldNode;
 struct ForallNode;
 struct WhereNode;
 struct SequenceNode;
+struct AssembleNode;
 struct MultiNode;
 struct SuchThatNode;
 
 class IndexExprVisitorStrict;
 class IndexStmtVisitorStrict;
+
+/// Return true if the index statement is of the given subtype.  The subtypes
+/// are Assignment, Forall, Where, Sequence, and Multi.
+template <typename SubType> bool isa(IndexExpr);
+
+/// Casts the index statement to the given subtype. Assumes S is a subtype and
+/// the subtypes are Assignment, Forall, Where, Sequence, and Multi.
+template <typename SubType> SubType to(IndexExpr);
 
 /// A tensor index expression describes a tensor computation as a scalar
 /// expression where tensors are indexed by index variables (`IndexVar`).  The
@@ -157,6 +170,12 @@ public:
   /// Returns the schedule of the index expression.
   const Schedule& getSchedule() const;
 
+  /// Casts index expression to specified subtype.
+  template <typename SubType>
+  SubType as() {
+    return to<SubType>(*this);
+  }
+
   /// Visit the index expression's sub-expressions.
   void accept(IndexExprVisitorStrict *) const;
 
@@ -200,14 +219,6 @@ IndexExpr operator*(const IndexExpr&, const IndexExpr&);
 /// ```
 IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 
-/// Return true if the index statement is of the given subtype.  The subtypes
-/// are Assignment, Forall, Where, Sequence, and Multi.
-template <typename SubType> bool isa(IndexExpr);
-
-/// Casts the index statement to the given subtype. Assumes S is a subtype and
-/// the subtypes are Assignment, Forall, Where, Sequence, and Multi.
-template <typename SubType> SubType to(IndexExpr);
-
 
 /// An index expression that represents a tensor access, such as `A(i,j))`.
 /// Access expressions are returned when calling the overloaded operator() on
@@ -220,13 +231,50 @@ public:
   Access() = default;
   Access(const Access&) = default;
   Access(const AccessNode*);
-  Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={});
+  Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={}, 
+         const std::map<int, std::shared_ptr<IndexVarIterationModifier>>& modifiers={},
+         bool isAccessingStructure=false);
 
   /// Return the Access expression's TensorVar.
   const TensorVar &getTensorVar() const;
 
   /// Returns the index variables used to index into the Access's TensorVar.
   const std::vector<IndexVar>& getIndexVars() const;
+
+  /// Returns whether access expression returns sparsity pattern of tensor.
+  /// If true, the access expression returns 1 for every physically stored 
+  /// component. If false, the access expression returns the value that is  
+  /// stored for each corresponding component.
+  bool isAccessingStructure() const;
+
+  /// hasWindowedModes returns true if any accessed modes are windowed.
+  bool hasWindowedModes() const;
+
+  /// Returns whether or not the input mode (0-indexed) is windowed.
+  bool isModeWindowed(int mode) const;
+
+  /// Return the {lower,upper} bound of the window on the input mode (0-indexed).
+  int getWindowLowerBound(int mode) const;
+  int getWindowUpperBound(int mode) const;
+
+  /// getWindowSize returns the dimension size of a window.
+  int getWindowSize(int mode) const;
+
+  /// getStride returns the stride of a window.
+  int getStride(int mode) const;
+
+  /// hasIndexSetModes returns true if any accessed modes have an index set.
+  bool hasIndexSetModes() const;
+
+  /// Returns whether or not the input mode (0-indexed) has an index set.
+  bool isModeIndexSet(int mode) const;
+
+  /// getModeIndexSetTensor returns a TensorVar corresponding to the Tensor that
+  /// backs the index set for the input mode.
+  TensorVar getModeIndexSetTensor(int mode) const;
+
+  /// getIndexSet returns the index set of the input mode.
+  const std::vector<int>& getIndexSet(int mode) const;
 
   /// Assign the result of an expression to a left-hand-side tensor access.
   /// ```
@@ -473,6 +521,14 @@ public:
 /// Create a summation index expression.
 Reduction sum(IndexVar i, IndexExpr expr);
 
+/// Return true if the index statement is of the given subtype.  The subtypes
+/// are Assignment, Forall, Where, Multi, and Sequence.
+template <typename SubType> bool isa(IndexStmt);
+
+/// Casts the index statement to the given subtype. Assumes S is a subtype and
+/// the subtypes are Assignment, Forall, Where, Multi, and Sequence.
+template <typename SubType> SubType to(IndexStmt);
+
 /// A an index statement computes a tensor.  The index statements are
 /// assignment, forall, where, multi, and sequence.
 class IndexStmt : public util::IntrusivePtr<const IndexStmtNode> {
@@ -592,9 +648,9 @@ public:
   ///
   /// Preconditions:
   /// The index variable supplied to the coord transformation must be in
-  /// position space. The index variable supplied to the pos transformation
-  /// must be in coordinate space. The pos transformation also takes an
-  /// input to indicate which position space to use. This input must appear in the computation
+  /// position space. The index variable supplied to the pos transformation must 
+  /// be in coordinate space. The pos transformation also takes an input to
+  /// indicate which position space to use. This input must appear in the computation
   /// expression and also be indexed by this index variable. In the case that this
   /// index variable is derived from multiple index variables, these variables must appear
   /// directly nested in the mode ordering of this datastructure. This allows for
@@ -620,26 +676,39 @@ public:
   /// to the pos transformation.
   IndexStmt fuse(IndexVar i, IndexVar j, IndexVar f) const;
 
-  ///  The precompute transformation is described in kjolstad2019
-  ///  allows us to leverage scratchpad memories and
-  ///  reorder computations to increase locality
+  /// The precompute transformation is described in kjolstad2019
+  /// allows us to leverage scratchpad memories and
+  /// reorder computations to increase locality
   IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const;
 
   /// bound specifies a compile-time constraint on an index variable's
   /// iteration space that allows knowledge of the
   /// size or structured sparsity pattern of the inputs to be
-  /// incorporated during bounds propagatio
+  /// incorporated during bounds propagation
   ///
   /// Preconditions:
-  /// The precondition for bound is that the computation bounds supplied are correct
-  /// given the inputs that this code will be run on.
+  /// The precondition for bound is that the computation bounds supplied are 
+  /// correct given the inputs that this code will be run on.
   IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const;
 
-  /// The unroll
-  /// primitive unrolls the corresponding loop by a statically-known
+  /// The unroll primitive unrolls the corresponding loop by a statically-known
   /// integer number of iterations
   /// Preconditions: unrollFactor is a positive nonzero integer
   IndexStmt unroll(IndexVar i, size_t unrollFactor) const;
+
+  /// The assemble primitive specifies whether a result tensor should be 
+  /// assembled by appending or inserting nonzeros into the result tensor.
+  /// In the latter case, the transformation inserts additional loops to 
+  /// precompute statistics about the result tensor that are required for 
+  /// preallocating memory and coordinating insertions of nonzeros.
+  IndexStmt assemble(TensorVar result, AssembleStrategy strategy, 
+                     bool separately_schedulable = false) const;
+
+  /// Casts index statement to specified subtype.
+  template <typename SubType>
+  SubType as() {
+    return to<SubType>(*this);
+  }
 };
 
 /// Check if two index statements are isomorphic.
@@ -651,13 +720,6 @@ bool equals(IndexStmt, IndexStmt);
 /// Print the index statement.
 std::ostream& operator<<(std::ostream&, const IndexStmt&);
 
-/// Return true if the index statement is of the given subtype.  The subtypes
-/// are Assignment, Forall, Where, Multi, and Sequence.
-template <typename SubType> bool isa(IndexStmt);
-
-/// Casts the index statement to the given subtype. Assumes S is a subtype and
-/// the subtypes are Assignment, Forall, Where, Multi, and Sequence.
-template <typename SubType> SubType to(IndexStmt);
 
 /// An assignment statement assigns an index expression to the locations in a
 /// tensor given by an lhs access expression.
@@ -671,9 +733,11 @@ public:
   Assignment(Access lhs, IndexExpr rhs, IndexExpr op = IndexExpr());
 
   /// Create an assignment. Can specify an optional operator `op` that turns the
-  /// assignment into a compound assignment, e.g. `+=`.
+  /// assignment into a compound assignment, e.g. `+=`. Additionally, specify
+  /// any modifers on reduction index variables (windows, index sets, etc.).
   Assignment(TensorVar tensor, std::vector<IndexVar> indices, IndexExpr rhs,
-             IndexExpr op = IndexExpr());
+             IndexExpr op = IndexExpr(),
+             const std::map<int, std::shared_ptr<IndexVarIterationModifier>>& modifiers = {});
 
   /// Return the assignment's left-hand side.
   Access getLhs() const;
@@ -783,6 +847,27 @@ public:
 Sequence sequence(IndexStmt definition, IndexStmt mutation);
 
 
+class Assemble : public IndexStmt {
+public:
+  typedef std::map<TensorVar,std::vector<std::vector<TensorVar>>> AttrQueryResults;
+
+  Assemble() = default;
+  Assemble(const AssembleNode*);
+  Assemble(IndexStmt queries, IndexStmt compute, AttrQueryResults results);
+
+  IndexStmt getQueries() const;
+  IndexStmt getCompute() const;
+
+  const AttrQueryResults& getAttrQueryResults() const;
+
+  typedef AssembleNode Node;
+};
+
+/// Create an assemble index statement.
+Assemble assemble(IndexStmt queries, IndexStmt compute, 
+                  Assemble::AttrQueryResults results);
+
+
 /// A multi statement has two statements that are executed separately, and let
 /// us compute more than one tensor in a concrete index notation statement.
 class Multi : public IndexStmt {
@@ -800,11 +885,97 @@ public:
 /// Create a multi index statement.
 Multi multi(IndexStmt stmt1, IndexStmt stmt2);
 
+/// IndexVarInterface is a marker superclass for IndexVar-like objects.
+/// It is intended to be used in situations where many IndexVar-like objects
+/// must be stored together, like when building an Access AST node where some
+/// of the access variables are windowed. Use cases for IndexVarInterface
+/// will inspect the underlying type of the IndexVarInterface. For sake of
+/// completeness, the current implementers of IndexVarInterface are:
+/// * IndexVar
+/// * WindowedIndexVar
+/// * IndexSetVar
+/// If this set changes, make sure to update the match function.
+class IndexVarInterface {
+public:
+  virtual ~IndexVarInterface() = default;
+
+  /// match performs a dynamic case analysis of the implementers of IndexVarInterface
+  /// as a utility for handling the different values within. It mimics the dynamic
+  /// type assertion of Go.
+  static void match(
+      std::shared_ptr<IndexVarInterface> ptr,
+      std::function<void(std::shared_ptr<IndexVar>)> ivarFunc,
+      std::function<void(std::shared_ptr<WindowedIndexVar>)> wvarFunc,
+      std::function<void(std::shared_ptr<IndexSetVar>)> isetVarFunc
+  ) {
+    auto iptr = std::dynamic_pointer_cast<IndexVar>(ptr);
+    auto wptr = std::dynamic_pointer_cast<WindowedIndexVar>(ptr);
+    auto sptr = std::dynamic_pointer_cast<IndexSetVar>(ptr);
+    if (iptr != nullptr) {
+      ivarFunc(iptr);
+    } else if (wptr != nullptr) {
+      wvarFunc(wptr);
+    } else if (sptr != nullptr) {
+      isetVarFunc(sptr);
+    } else {
+      taco_iassert("IndexVarInterface was not IndexVar, WindowedIndexVar or IndexSetVar");
+    }
+  }
+};
+
+/// WindowedIndexVar represents an IndexVar that has been windowed. For example,
+///   A(i) = B(i(2, 4))
+/// In this case, i(2, 4) is a WindowedIndexVar. WindowedIndexVar is defined
+/// before IndexVar so that IndexVar can return objects of type WindowedIndexVar.
+class WindowedIndexVar : public util::Comparable<WindowedIndexVar>, public IndexVarInterface {
+public:
+  WindowedIndexVar(IndexVar base, int lo = -1, int hi = -1, int stride = 1);
+  ~WindowedIndexVar() = default;
+
+  /// getIndexVar returns the underlying IndexVar.
+  IndexVar getIndexVar() const;
+
+  /// get{Lower,Upper}Bound returns the {lower,upper} bound of the window of
+  /// this index variable.
+  int getLowerBound() const;
+  int getUpperBound() const;
+  /// getStride returns the stride to access the window by.
+  int getStride() const;
+
+  /// getWindowSize returns the number of elements in the window.
+  int getWindowSize() const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+/// IndexSetVar represents an IndexVar that has been projected via a set
+/// of values. For example,
+///  A(i) = B(i({1, 3, 5}))
+/// projects the elements of B to be just elements at indexes 1, 3 and 5. In
+/// this case, i({1, 3, 5}) is an IndexSetvar.
+class IndexSetVar : public util::Comparable<IndexSetVar>, public IndexVarInterface {
+public:
+  IndexSetVar(IndexVar base, std::vector<int> indexSet);
+  ~IndexSetVar() = default;
+
+  /// getIndexVar returns the underlying IndexVar.
+  IndexVar getIndexVar() const;
+  /// getIndexSet returns the index set.
+  const std::vector<int>& getIndexSet() const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.
-class IndexVar : public util::Comparable<IndexVar> {
+class IndexVar : public util::Comparable<IndexVar>, public IndexVarInterface {
 public:
   IndexVar();
+  ~IndexVar() = default;
   IndexVar(const std::string& name);
 
   /// Returns the name of the index variable.
@@ -813,6 +984,12 @@ public:
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);
 
+  /// Indexing into an IndexVar returns a window into it.
+  WindowedIndexVar operator()(int lo, int hi, int stride = 1);
+
+  /// Indexing into an IndexVar with a vector returns an index set into it.
+  IndexSetVar operator()(std::vector<int>&& indexSet);
+  IndexSetVar operator()(std::vector<int>& indexSet);
 
 private:
   struct Content;
@@ -823,7 +1000,22 @@ struct IndexVar::Content {
   std::string name;
 };
 
+struct WindowedIndexVar::Content {
+  IndexVar base;
+  int lo;
+  int hi;
+  int stride;
+};
+
+struct IndexSetVar::Content {
+  IndexVar base;
+  std::vector<int> indexSet;
+};
+
+std::ostream& operator<<(std::ostream&, const std::shared_ptr<IndexVarInterface>&);
 std::ostream& operator<<(std::ostream&, const IndexVar&);
+std::ostream& operator<<(std::ostream&, const WindowedIndexVar&);
+std::ostream& operator<<(std::ostream&, const IndexSetVar&);
 
 /// A suchthat statement provides a set of IndexVarRel that constrain
 /// the iteration space for the child concrete index notation
@@ -953,6 +1145,18 @@ std::vector<TensorVar> getArguments(IndexStmt stmt);
 /// Returns the temporaries in the index statement, in the order they appear.
 std::vector<TensorVar> getTemporaries(IndexStmt stmt);
 
+/// Returns the attribute query results in the index statement, in the order 
+/// they appear.
+std::vector<TensorVar> getAttrQueryResults(IndexStmt stmt);
+
+// [Olivia]
+/// Returns the temporaries in the index statement, in the order they appear.
+std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt);
+
+/// Returns the results in the index statement that should be assembled by 
+/// ungrouped insertion.
+std::vector<TensorVar> getAssembledByUngroupedInsertion(IndexStmt stmt);
+
 /// Returns the tensors in the index statement.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);
 
@@ -976,6 +1180,10 @@ std::vector<IndexVar> getReductionVars(IndexStmt stmt);
 std::vector<ir::Expr> createVars(const std::vector<TensorVar>& tensorVars,
                                  std::map<TensorVar, ir::Expr>* vars, 
                                  bool isParameter=false);
+
+/// Convert index notation tensor variables in the index statement to IR 
+/// pointer variables.
+std::map<TensorVar,ir::Expr> createIRTensorVars(IndexStmt stmt);
 
 
 /// Simplify an index expression by setting the zeroed Access expressions to

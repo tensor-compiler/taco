@@ -182,6 +182,11 @@ bool ModeFormat::hasProperties(const std::vector<Property>& properties) const {
           return false;
         }
         break;
+      case ZEROLESS:
+        if (!isZeroless()) {
+          return false;
+        }
+        break;	
       case NOT_FULL:
         if (isFull()) {
           return false;
@@ -204,6 +209,11 @@ bool ModeFormat::hasProperties(const std::vector<Property>& properties) const {
         break;
       case NOT_COMPACT:
         if (isCompact()) {
+          return false;
+        }
+        break;
+      case NOT_ZEROLESS:
+        if (isZeroless()) {
           return false;
         }
         break;
@@ -237,6 +247,11 @@ bool ModeFormat::isCompact() const {
   return impl->isCompact;
 }
 
+bool ModeFormat::isZeroless() const {
+  taco_iassert(defined());
+  return impl->isZeroless;
+}
+
 bool ModeFormat::hasCoordValIter() const {
   taco_iassert(defined());
   return impl->hasCoordValIter;
@@ -260,6 +275,28 @@ bool ModeFormat::hasInsert() const {
 bool ModeFormat::hasAppend() const {
   taco_iassert(defined());
   return impl->hasAppend;
+}
+
+bool ModeFormat::hasSeqInsertEdge() const {
+  taco_iassert(defined());
+  return impl->hasSeqInsertEdge;
+}
+
+bool ModeFormat::hasInsertCoord() const {
+  taco_iassert(defined());
+  return impl->hasInsertCoord;
+}
+
+bool ModeFormat::isYieldPosPure() const {
+  taco_iassert(defined());
+  return impl->isYieldPosPure;
+}
+
+std::vector<AttrQuery> ModeFormat::getAttrQueries(
+    std::vector<IndexVar> parentCoords, 
+    std::vector<IndexVar> childCoords) const {
+  taco_iassert(defined());
+  return impl->attrQueries(parentCoords, childCoords);
 }
 
 bool ModeFormat::defined() const {

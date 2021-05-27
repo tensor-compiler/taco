@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include <random>
 
 #include "taco/target.h"
 #include "taco/ir/ir.h"
@@ -20,8 +21,6 @@ public:
     setJITLibname();
     setJITTmpdir();
   }
-
-  void reset();
 
   /// Compile the source into a library, returning its full path
   std::string compile();
@@ -82,6 +81,10 @@ private:
   
   void setJITLibname();
   void setJITTmpdir();
+
+  static std::string chars;
+  static std::default_random_engine gen;
+  static std::uniform_int_distribution<int> randint;
 };
 
 } // namespace ir

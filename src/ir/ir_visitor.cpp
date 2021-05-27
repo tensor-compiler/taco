@@ -228,11 +228,19 @@ void IRVisitor::visit(const Comment*) {
 void IRVisitor::visit(const BlankLine*) {
 }
 
+void IRVisitor::visit(const Continue*) {
+}
+
 void IRVisitor::visit(const Break*) {
 }
 
 void IRVisitor::visit(const Print* op) {
   for (auto e: op->params)
+    e.accept(this);
+}
+
+void IRVisitor::visit(const Sort* op) {
+  for (auto e: op->args)
     e.accept(this);
 }
 

@@ -45,9 +45,11 @@ struct Allocate;
 struct Free;
 struct Comment;
 struct BlankLine;
-struct Break;
+struct Continue;
 struct Print;
 struct GetProperty;
+struct Sort;
+struct Break;
 
 /// Extend this class to visit every node in the IR.
 class IRVisitorStrict {
@@ -95,9 +97,11 @@ public:
   virtual void visit(const Free*) = 0;
   virtual void visit(const Comment*) = 0;
   virtual void visit(const BlankLine*) = 0;
-  virtual void visit(const Break*) = 0;
+  virtual void visit(const Continue*) = 0;
   virtual void visit(const Print*) = 0;
   virtual void visit(const GetProperty*) = 0;
+  virtual void visit(const Sort*) = 0;
+  virtual void visit(const Break*) = 0;
 };
 
 
@@ -148,9 +152,11 @@ public:
   virtual void visit(const Free* op);
   virtual void visit(const Comment* op);
   virtual void visit(const BlankLine* op);
-  virtual void visit(const Break* op);
+  virtual void visit(const Continue* op);
   virtual void visit(const Print* op);
   virtual void visit(const GetProperty* op);
+  virtual void visit(const Sort* op);
+  virtual void visit(const Break* op);
 };
 
 }}

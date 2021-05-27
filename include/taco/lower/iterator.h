@@ -10,7 +10,6 @@
 
 #include "taco/ir/ir.h"
 #include "taco/util/comparable.h"
-#include "taco/lower/mode_format_impl.h"
 
 namespace taco {
 class Type;
@@ -20,6 +19,10 @@ class IndexVar;
 class ProvenanceGraph;
 class TensorVar;
 class Access;
+class ModeFunction;
+class Mode;
+class Format;
+class AttrQueryResult;
 
 namespace ir {
 class Stmt;
@@ -69,6 +72,7 @@ public:
   bool isUnique() const;
   bool isBranchless() const;
   bool isCompact() const;
+  bool isZeroless() const;
 
   /// Capabilities supported by levels being iterated.
   bool hasCoordIter() const;
@@ -76,6 +80,12 @@ public:
   bool hasLocate() const;
   bool hasInsert() const;
   bool hasAppend() const;
+
+  /// Attributes of ungrouped insertion level functions.
+  bool hasSeqInsertEdge() const;
+  bool hasInsertCoord() const;
+  bool isYieldPosPure() const;
+
 
   /// Get the index variable this iterator iteratores over.
   IndexVar getIndexVar() const;
@@ -156,8 +166,57 @@ public:
   ir::Stmt getAppendFinalizeLevel(const ir::Expr& szPrev, 
       const ir::Expr& sz) const;
 
+  /// Return code for level functions that implement ungrouped insert 
+  /// capabilitiy.
+  ir::Expr getAssembledSize(const ir::Expr& prevSize) const;
+  ir::Stmt getSeqInitEdges(const ir::Expr& prevSize, 
+      const std::vector<AttrQueryResult>& queries) const;
+  ir::Stmt getSeqInsertEdge(const ir::Expr& parentPos, 
+      const std::vector<ir::Expr>& coords, 
+      const std::vector<AttrQueryResult>& queries) const;
+  ir::Stmt getInitCoords(const ir::Expr& prevSize, 
+      const std::vector<AttrQueryResult>& queries) const;
+  ir::Stmt getInitYieldPos(const ir::Expr& prevSize) const;
+  ModeFunction getYieldPos(const ir::Expr& parentPos, 
+      const std::vector<ir::Expr>& coords) const;
+  ir::Stmt getInsertCoord(const ir::Expr& parentPos, const ir::Expr& pos, 
+      const std::vector<ir::Expr>& coords) const;
+  ir::Stmt getFinalizeYieldPos(const ir::Expr& prevSize) const;
+
   /// Returns true if the iterator is defined, false otherwise.
   bool defined() const;
+
+  /// Methods for querying and operating on windowed tensor modes.
+
+  /// isWindowed returns true if this iterator is operating over a window
+  /// of a tensor mode.
+  bool isWindowed() const;
+
+  /// isStrided returns true if this iterator has a stride != 1. Currently
+  /// only windowed iterators can have strides.
+  bool isStrided() const;
+
+  /// getWindow{Lower,Upper}Bound return the {Lower,Upper} bound of the
+  /// window that this iterator operates over.
+  ir::Expr getWindowLowerBound() const;
+  ir::Expr getWindowUpperBound() const;
+
+  /// getStride returns an Expr holding the stride that this iterator is
+  /// configured with.
+  ir::Expr getStride() const;
+
+  /// getWindowVar returns a Var specific to thw window that this iterator
+  /// is operating over. It can be used as temporary storage.
+  ir::Expr getWindowVar() const;
+
+  /// Methods for querying and operating on tensor modes projected by an index set.
+
+  /// hasIndexSet returns true if this iterator is operating over an index set.
+  bool hasIndexSet() const;
+
+  /// getIndexSetIterator returns the iterator that corresponds to the tensor
+  /// backing the index set.
+  Iterator getIndexSetIterator() const;
 
   friend bool operator==(const Iterator&, const Iterator&);
   friend bool operator<(const Iterator&, const Iterator&);
@@ -169,6 +228,14 @@ private:
 
   Iterator(std::shared_ptr<Content> content);
   void setChild(const Iterator& iterator) const;
+
+  friend class Iterators;
+
+  /// setWindowBounds sets the window bounds of this iterator.
+  void setWindowBounds(ir::Expr lo, ir::Expr hi, ir::Expr stride);
+
+  /// setIndexSetIterator sets the index set iterator of this iterator.
+  void setIndexSetIterator(Iterator iter);
 };
 
 /**
@@ -214,7 +281,8 @@ public:
   std::map<IndexVar, Iterator> modeIterators() const;
 
 private:
-  void createAccessIterators(Access access, Format format, ir::Expr tensorIR, ProvenanceGraph provGraph);
+  void createAccessIterators(Access access, Format format, ir::Expr tensorIR, ProvenanceGraph provGraph,
+                             const std::map<TensorVar, ir::Expr> &tensorVars);
 
   struct Content;
   std::shared_ptr<Content> content;

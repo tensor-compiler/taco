@@ -65,6 +65,8 @@ enum class IRNodeType {
   BlankLine,
   Print,
   GetProperty,
+  Continue,
+  Sort,
   Break
 };
 
@@ -686,9 +688,10 @@ struct Allocate : public StmtNode<Allocate> {
   Expr num_elements;
   Expr old_elements; // used for realloc in CUDA
   bool is_realloc;
+  bool clear; // Whether to use calloc to allocate this memory.
   
   static Stmt make(Expr var, Expr num_elements, bool is_realloc=false,
-                   Expr old_elements=Expr());
+                   Expr old_elements=Expr(), bool clear=false);
   
   static const IRNodeType _type_info = IRNodeType::Allocate;
 };
@@ -718,11 +721,25 @@ struct BlankLine : public StmtNode<BlankLine> {
   static const IRNodeType _type_info = IRNodeType::BlankLine;
 };
 
-/** Breaks current loop */
+/** Continues past current iteration of current loop */
+struct Continue : public StmtNode<Continue> {
+  static Stmt make();
+
+  static const IRNodeType _type_info = IRNodeType::Continue;
+};
+
+/** Breaks out of the current loop */
 struct Break : public StmtNode<Break> {
   static Stmt make();
 
   static const IRNodeType _type_info = IRNodeType::Break;
+};
+
+struct Sort : public StmtNode<Sort> {
+  std::vector<Expr> args;
+  static Stmt make(std::vector<Expr> args);
+
+  static const IRNodeType _type_info = IRNodeType::Sort;
 };
 
 /** A print statement.

@@ -22,7 +22,7 @@ include_directories(${TACO_SRC_DIR})
 add_library(taco ${TACO_LIBRARY_TYPE} ${TACO_HEADERS} ${TACO_SOURCES})
 if (CUDA)
   include_directories(${CUDA_INCLUDE_DIRS})
-  target_link_libraries(taco INTERFACE ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libcudart.so)
+  target_link_libraries(taco PUBLIC ${CUDA_LIBRARIES})
 endif (CUDA)
 
 if (LLVM)

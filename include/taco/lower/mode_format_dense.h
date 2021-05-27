@@ -7,8 +7,10 @@ namespace taco {
 
 class DenseModeFormat : public ModeFormatImpl {
 public:
+  using ModeFormatImpl::getInsertCoord;
+
   DenseModeFormat();
-  DenseModeFormat(const bool isOrdered, const bool isUnique);
+  DenseModeFormat(const bool isOrdered, const bool isUnique, const bool isZeroless);
 
   ~DenseModeFormat() override {}
 
@@ -27,6 +29,10 @@ public:
   ir::Stmt getInsertFinalizeLevel(ir::Expr szPrev, ir::Expr sz, 
                                   Mode mode) const override;
   
+  ir::Expr getAssembledSize(ir::Expr prevSize, Mode mode) const override;
+  ModeFunction getYieldPos(ir::Expr parentPos, std::vector<ir::Expr> coords, 
+                           Mode mode) const override;
+
   std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode, 
                                   int level) const override;
 

@@ -479,3 +479,18 @@ TEST(tensor, recompile) {
   ASSERT_TRUE(c.needsCompile());
   ASSERT_EQ(c.begin()->second, 42.0);
 }
+
+TEST(tensor, cache) {
+  auto dim = 2;
+  IndexVar i("i"), j("j");
+  Tensor<int> a("a", {dim, dim}, {Dense, Dense});
+  Tensor<int> b("b", {dim, dim}, {Dense, Dense});
+  Tensor<int> c("c", {dim, dim}, {Dense, Dense});
+  // Add a computation to the cache.
+  c(i, j) = a(i, j); c.evaluate();
+  // Add a new computation to the cache.
+  c(i, j) = a(i, j) + b(i, j); c.evaluate();
+  // The addition of the new computation shouldn't have affected the cache's
+  // ability to answer a request for the first query.
+  c(i, j) = a(i, j); c.evaluate();
+}

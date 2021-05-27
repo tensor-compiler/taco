@@ -1,25 +1,41 @@
 cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
-project(taco)
+if(POLICY CMP0048)
+  cmake_policy(SET CMP0048 NEW)
+endif()
+if(POLICY CMP0054)
+  cmake_policy(SET CMP0054 NEW)
+endif()
+project(taco
+  VERSION 0.1
+  LANGUAGES C CXX
+)
 option(CUDA "Build for NVIDIA GPU (CUDA must be preinstalled)" OFF)
 option(PYTHON "Build TACO for python environment" OFF)
 option(OPENMP "Build with OpenMP execution support" OFF)
-option(LLVM "Build with LLVM backend support" OFF)
-option(ENABLE_TESTS "Enable tests" ON)
 
+option(LLVM "Build with LLVM backend support")
+option(ENABLE_TESTS "Enable tests" ON)
+option(COVERAGE "Build with code coverage analysis" OFF)
+set(TACO_FEATURE_CUDA 0)
+set(TACO_FEATURE_OPENMP 0)
+set(TACO_FEATURE_PYTHON 0)
 
 if(CUDA)
   message("-- Searching for CUDA Installation")
   find_package(CUDA REQUIRED)
   add_definitions(-DCUDA_BUILT)
+  set(TACO_FEATURE_CUDA 1)
 endif(CUDA)
 if(OPENMP)
   message("-- Will use OpenMP for parallel execution")
   add_definitions(-DUSE_OPENMP)
+  set(TACO_FEATURE_OPENMP 1)
 endif(OPENMP)
 
 if(PYTHON)
   message("-- Will build Python extension")
   add_definitions(-DPYTHON)
+  set(TACO_FEATURE_PYTHON 1)
 endif(PYTHON)
 
 if (LLVM)
@@ -83,14 +99,25 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 set(OPTIMIZE "-O3" CACHE STRING "Optimization level")
+
 if(CUDA)
   set(C_CXX_FLAGS "$ENV{CXXFLAGS} -lcudart -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wmissing-declarations -Woverloaded-virtual -pedantic-errors -Wno-deprecated")
 else()
   set(C_CXX_FLAGS "$ENV{CXXFLAGS} -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wmissing-declarations -Woverloaded-virtual -pedantic-errors -Wno-deprecated")
 endif(CUDA)
+
 if(OPENMP)
   set(C_CXX_FLAGS "-fopenmp ${C_CXX_FLAGS}")
 endif(OPENMP)
+
+if(COVERAGE)
+  find_program(PATH_TO_GCOVR gcovr REQUIRED)
+  # add coverage tooling to build flags
+  set(C_CXX_FLAGS "${C_CXX_FLAGS} -g -fprofile-arcs -ftest-coverage")
+  # name the coverage files "foo.gcno", not "foo.cpp.gcno"
+  set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE 1)
+  message("-- Code coverage analysis (gcovr) enabled")
+endif(COVERAGE)
 
 set(C_CXX_FLAGS "${C_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${C_CXX_FLAGS}")
@@ -107,7 +134,7 @@ include_directories(${TACO_INCLUDE_DIR})
 
 set(TACO_LIBRARY_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 
-install(DIRECTORY ${TACO_INCLUDE_DIR}/ DESTINATION include)
+install(DIRECTORY ${TACO_INCLUDE_DIR}/ DESTINATION include FILES_MATCHING PATTERN "*.h")
 
 add_subdirectory(src)
 
@@ -119,8 +146,69 @@ endif()
 add_subdirectory(tools)
 add_subdirectory(apps)
 string(REPLACE " -Wmissing-declarations" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${TACO_PROJECT_DIR}/.git")
+  # Update submodules as needed
+  option(GIT_SUBMODULE "Check submodules during build" ON)
+  if(GIT_SUBMODULE)
+    message(STATUS "Submodule update")
+    execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            RESULT_VARIABLE GIT_SUBMOD_RESULT)
+    if(NOT GIT_SUBMOD_RESULT EQUAL "0")
+      message(FATAL_ERROR "git submodule update --init failed with ${GIT_SUBMOD_RESULT}, please checkout submodules")
+    endif()
+  endif()
+  # get git revision
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    RESULT_VARIABLE GIT_REVPARSE_RESULT
+    OUTPUT_VARIABLE TACO_GIT_SHORTHASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if(NOT GIT_REVPARSE_RESULT EQUAL "0")
+    message(NOTICE "'git rev-parse --short HEAD' failed with ${GIT_REVPARSE_RESULT}, git version info will be unavailable.")
+    set(TACO_GIT_SHORTHASH "")
+  endif()
+else()
+  set(TACO_GIT_SHORTHASH "")
+endif()
+
+if(NOT EXISTS "${TACO_PROJECT_DIR}/python_bindings/pybind11/CMakeLists.txt")
+  message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
+endif()
+
 if(PYTHON)
   add_subdirectory(python_bindings)
+  message("-- Will build Python extension")
+  add_definitions(-DPYTHON)
 endif(PYTHON)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmissing-declarations")
 add_custom_target(src DEPENDS apps)
+
+if(COVERAGE)
+  # code coverage analysis target
+  add_custom_target(gcovr
+    COMMAND mkdir -p coverage
+    COMMAND ${CMAKE_MAKE_PROGRAM} test
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  )
+  add_custom_command(TARGET gcovr
+    COMMAND echo "Running gcovr..."
+    COMMAND ${PATH_TO_GCOVR} -r ${CMAKE_SOURCE_DIR} --html --html-details -o coverage/index.html ${CMAKE_BINARY_DIR}
+    COMMAND echo "See coverage/index.html for coverage information."
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  )
+  add_dependencies(gcovr taco-test)
+  if(PYTHON)
+    add_dependencies(gcovr core_modules)
+  endif(PYTHON)
+  set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES coverage)
+endif(COVERAGE)
+
+string(TIMESTAMP TACO_BUILD_DATE "%Y-%m-%d")
+configure_file("include/taco/version.h.in" "include/taco/version.h" @ONLY)
+install(FILES "${CMAKE_BINARY_DIR}/include/taco/version.h" DESTINATION "include/taco")

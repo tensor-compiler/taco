@@ -447,6 +447,10 @@ void IRRewriter::visit(const BlankLine* op) {
   stmt = op;
 }
 
+void IRRewriter::visit(const Continue* op) {
+  stmt = op;
+}
+
 void IRRewriter::visit(const Break* op) {
   stmt = op;
 }
@@ -476,6 +480,24 @@ void IRRewriter::visit(const GetProperty* op) {
   }
   else {
     expr = GetProperty::make(tensor, op->property, op->mode, op->index, op->name);
+  }
+}
+
+void IRRewriter::visit(const Sort* op) {
+  std::vector<Expr> args;
+  bool rewritten = false;
+  for (auto& arg : op->args) {
+    Expr rewrittenArg = rewrite(arg);
+    args.push_back(rewrittenArg);
+    if (rewrittenArg != arg) {
+      rewritten = true;
+    }
+  }
+  if (rewritten) {
+    stmt = Sort::make(args);
+  }
+  else {
+    stmt = op;
   }
 }
 

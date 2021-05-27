@@ -5,18 +5,20 @@ using namespace taco::ir;
 
 namespace taco {
 
-DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true) {
+DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true, false) {
 }
 
-DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique) : 
-    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, false,
-                   false, true, true, false) {
+DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique, 
+                                 const bool isZeroless) : 
+    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, isZeroless, 
+                   false, false, true, true, false, false, false, true) {
 }
 
 ModeFormat DenseModeFormat::copy(
     std::vector<ModeFormat::Property> properties) const {
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
+  bool isZeroless = this->isZeroless;  
   for (const auto property : properties) {
     switch (property) {
       case ModeFormat::ORDERED:
@@ -31,17 +33,24 @@ ModeFormat DenseModeFormat::copy(
       case ModeFormat::NOT_UNIQUE:
         isUnique = false;
         break;
+      case ModeFormat::ZEROLESS:
+        isZeroless = true;
+        break;
+      case ModeFormat::NOT_ZEROLESS:
+        isZeroless = false;
+        break;	
       default:
         break;
     }
   }
-  return ModeFormat(std::make_shared<DenseModeFormat>(isOrdered, isUnique));
+  return ModeFormat(
+      std::make_shared<DenseModeFormat>(isOrdered, isUnique, isZeroless));  
 }
 
 ModeFunction DenseModeFormat::locate(ir::Expr parentPos,
                                    std::vector<ir::Expr> coords,
                                    Mode mode) const {
-  Expr pos = Add::make(Mul::make(parentPos, getWidth(mode)), coords.back());
+  Expr pos = ir::Add::make(ir::Mul::make(parentPos, getWidth(mode)), coords.back());
   return ModeFunction(Stmt(), {pos, true});
 }
 
@@ -69,6 +78,15 @@ Stmt DenseModeFormat::getInsertInitLevel(Expr szPrev, Expr sz,
 Stmt DenseModeFormat::getInsertFinalizeLevel(Expr szPrev, 
     Expr sz, Mode mode) const {
   return Stmt();
+}
+
+Expr DenseModeFormat::getAssembledSize(Expr prevSize, Mode mode) const {
+  return ir::Mul::make(prevSize, getWidth(mode));
+}
+
+ModeFunction DenseModeFormat::getYieldPos(Expr parentPos, 
+    std::vector<Expr> coords, Mode mode) const {
+  return locate(parentPos, coords, mode);
 }
 
 vector<Expr> DenseModeFormat::getArrays(Expr tensor, int mode, 

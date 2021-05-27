@@ -182,7 +182,7 @@ protected:
 
   virtual void visit(const Var *op) {
     if (varMap.count(op) == 0) {
-      varMap[op] = codeGen->genUniqueName(op->name);
+      varMap[op] = op->is_ptr? op->name : codeGen->genUniqueName(op->name);
     }
   }
 
@@ -190,6 +190,7 @@ protected:
     if (!util::contains(localVars, op->var)) {
       localVars.push_back(op->var);
     }
+    op->var.accept(this);
     op->rhs.accept(this);
   }
 
@@ -515,7 +516,13 @@ void CodeGen_C::visit(const Allocate* op) {
     stream << ", ";
   }
   else {
-    stream << "malloc(";
+    // If the allocation was requested to clear the allocated memory,
+    // use calloc instead of malloc.
+    if (op->clear) {
+      stream << "calloc(1, ";
+    } else {
+      stream << "malloc(";
+    }
   }
   stream << "sizeof(" << elementType << ")";
   stream << " * ";
