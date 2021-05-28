@@ -254,8 +254,10 @@ TEST(workspaces, precompute4D_add) {
 
 
   IndexStmt stmt = A.getAssignment().concretize();
-  TensorVar ws("ws", Type(Float64, {N, N, N, N}), Format{Dense, Dense, Dense, Dense});
-  stmt = stmt.precompute(precomputedExpr, {i, j, k, l}, {i, j, k, l}, ws);
+  TensorVar ws1("ws1", Type(Float64, {N, N, N, N}), Format{Dense, Dense, Dense, Dense});
+  TensorVar ws2("ws2", Type(Float64, {N, N, N, N}), Format{Dense, Dense, Dense, Dense});
+  stmt = stmt.precompute(precomputedExpr, {i, j, k, l}, {i, j, k, l}, ws1)
+    .precompute(ws1(i, j, k, l) + D(i, j, k, l), {i, j, k, l}, {i, j, k ,l}, ws2);
 
   A.compile(stmt.concretize());
   A.assemble();
@@ -263,6 +265,48 @@ TEST(workspaces, precompute4D_add) {
 
   Tensor<double> expected("expected", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
   expected(i, j, k, l) = B(i, j, k, l) + C(i, j, k, l) + D(i, j, k, l);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+}
+
+TEST(workspaces, precompute4D_multireduce) {
+  int N = 16;
+  Tensor<double> A("A", {N, N}, Format{Dense, Dense});
+  Tensor<double> B("B", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
+  Tensor<double> C("C", {N, N, N}, Format{Dense, Dense, Dense});
+  Tensor<double> D("D", {N, N}, Format{Dense, Dense});
+
+  for (int i = 0; i < N; i++) {
+    for (int j = 0; j < N; j++) {
+      for (int k = 0; k < N; k++) {
+        for (int l = 0; l < N; l++) {
+          B.insert({i, j, k, l}, (double) k*l);
+          C.insert({i, j, k}, (double) j * k);
+          D.insert({i, j}, (double) i+j);
+        }
+      }
+    }
+  }
+
+  IndexVar i("i"), j("j"), k("k"), l("l"), m("m"), n("n");
+  IndexExpr precomputedExpr = B(i, j, k, l) * C(k, l, m);
+  A(i, j) = precomputedExpr * D(m, n);
+
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar ws1("ws1", Type(Float64, {N, N, N}), Format{Dense, Dense, Dense});
+  TensorVar ws2("ws2", Type(Float64, {N, N}), Format{Dense, Dense});
+  stmt = stmt.precompute(precomputedExpr, {i, j, m}, {i, j, m}, ws1)
+    .precompute(ws1(i, j, m) * D(m, n), {i, j}, {i, j}, ws2);
+
+  A.compile(stmt.concretize());
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {N, N}, Format{Dense, Dense});
+  expected(i, j) = B(i, j, k, l) * C(k, l, m) * D(m, n);
   expected.compile();
   expected.assemble();
   expected.compute();
