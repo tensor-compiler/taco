@@ -471,9 +471,11 @@ void CodegenLegion::emitRegisterTasks(std::ostream &out) {
       std::string proc = this->procForTask(ffunc, func);
       out << "registrar.add_constraint(ProcessorConstraint(" << proc << "));\n";
 
+      doIndent();
       if (finder.isLeaf) {
-        doIndent();
         out << "registrar.set_leaf();\n";
+      } else {
+        out << "registrar.set_inner();\n";
       }
 
       doIndent();
