@@ -63,7 +63,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   initCuBLAS(ctx, runtime);
 
   // Compute on the tensors.
-  benchmark([&]() { computeLegion(ctx, runtime, A, B, C, gx, gy); });
+  benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, gx, gy); });
 
   auto a_reg = getRegionToWrite(ctx, runtime, A, A);
   FieldAccessor<READ_WRITE,valType,2,coord_t, Realm::AffineAccessor<valType, 2, coord_t>> a_rw(a_reg, FID_VAL);

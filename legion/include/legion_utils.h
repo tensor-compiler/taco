@@ -5,6 +5,7 @@
 #include "legion.h"
 #include "taco_legion_header.h"
 #include "mappers/default_mapper.h"
+#include "taco_mapper.h"
 #include "taco/version.h"
 #include "fill.h"
 
@@ -21,7 +22,10 @@ void allocate_tensor_fields(Legion::Context ctx, Legion::Runtime* runtime, Legio
 
 Legion::PhysicalRegion getRegionToWrite(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegion r, Legion::LogicalRegion parent);
 
+// Benchmarking utility functions.
 void benchmark(std::function<void(void)> f);
+// Variant of benchmark that prints only once in a control replicated setting.
+void benchmark(Legion::Context ctx, Legion::Runtime* runtime, std::function<void(void)> f);
 
 // We forward declare these functions. If we are building with CUDA, then
 // the CUDA files define them. Otherwise, the CPP files define them.
@@ -39,12 +43,14 @@ void initCUDA();
       } else {              \
         registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC)); \
       }                     \
+      registrar.set_replicable();   \
       Runtime::preregister_task_variant<top_level_task>(registrar, "top_level"); \
     }                       \
     registerTACOFillTasks<FillType>();             \
     Runtime::add_registration_callback(register_taco_mapper);     \
     initCUDA(); \
-    registerTacoTasks();            \
+    registerTacoTasks();    \
+    Runtime::preregister_sharding_functor(TACOShardingFunctorID, new TACOShardingFunctor()); \
     return Runtime::start(argc, argv);             \
   }
 #endif //TACO_LEGION_UTILS_H
