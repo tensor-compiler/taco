@@ -549,6 +549,10 @@ public:
   /// Takes any index notation and concretizes unknowns to make it concrete notation
   IndexStmt concretize() const;
 
+  /// Takes any index notation and concretizes unknowns to make it concrete notation
+  /// given a Provenance Graph of indexVars
+  IndexStmt concretizeScheduled(ProvenanceGraph provGraph) const;
+
   /// The \code{split} transformation splits (strip-mines) an index
   /// variable into two nested index variables, where the size of the
   /// inner index variable is constant.  The size of the outer index
@@ -1126,6 +1130,11 @@ bool isEinsumNotation(IndexStmt, std::string* reason=nullptr);
 /// notation is printed to.
 bool isReductionNotation(IndexStmt, std::string* reason=nullptr);
 
+/// Check whether the statement is in the reduction index notation dialect
+/// given a schedule described by the Provenance Graph
+bool isReductionNotationScheduled(IndexStmt, ProvenanceGraph, std::string* reason=nullptr);
+
+
 /// Check whether the statement is in the concrete index notation dialect.
 /// This means every index variable has a forall node, there are no reduction
 /// nodes, and that every reduction variable use is nested inside a compound
@@ -1142,6 +1151,18 @@ IndexStmt makeReductionNotation(IndexStmt);
 /// replacing reduction nodes by compound assignments, and inserting temporaries
 /// as needed.
 IndexStmt makeConcreteNotation(IndexStmt);
+
+
+/// Convert einsum notation to reduction notation, by applying Einstein's
+/// summation convention to sum non-free/reduction variables over their term
+/// taking into account a schedule given by the Provenance Graph.
+Assignment makeReductionNotationScheduled(Assignment, ProvenanceGraph);
+IndexStmt makeReductionNotationScheduled(IndexStmt, ProvenanceGraph);
+
+/// Convert reduction notation to concrete notation, by inserting forall nodes,
+/// replacing reduction nodes by compound assignments, and inserting temporaries
+/// as needed while taking into account a schedule given by the Provenance Graph.
+IndexStmt makeConcreteNotationScheduled(IndexStmt, ProvenanceGraph);
 
 /// Returns the results of the index statement, in the order they appear.
 std::vector<TensorVar> getResults(IndexStmt stmt);

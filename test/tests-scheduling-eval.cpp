@@ -44,14 +44,14 @@ IndexStmt scheduleSpMVCPU(IndexStmt stmt, int CHUNK_SIZE=16) {
           .parallelize(i0, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }
 
-IndexStmt schedulePrecompute2D(IndexStmt stmt, IndexExpr precomputedExpr) {
-  TensorVar precomputed("precomputed", Type(Float64, {16, 16}), {Dense, Dense});
-  return stmt.precompute(precomputedExpr, {k, l} , {k, l}, precomputed);
+IndexStmt schedulePrecompute3D(IndexStmt stmt, IndexExpr precomputedExpr) {
+  TensorVar precomputed("precomputed", Type(Float64, {16, 16, 16}), {Dense, Dense, Dense});
+  return stmt.precompute(precomputedExpr, {i, j, l} , {i, j, l}, precomputed);
 }
 
 IndexStmt schedulePrecompute1D(IndexStmt stmt, IndexExpr precomputedExpr) {
-  TensorVar precomputed("precomputed", Type(Float64, {103}), {Dense});
-  return stmt.precompute(precomputedExpr, j , j, precomputed);
+  TensorVar precomputed("precomputed", Type(Float64, {102}), {Dense});
+  return stmt.precompute(precomputedExpr, i , i, precomputed);
 }
 
 IndexStmt scheduleSpMMCPU(IndexStmt stmt, Tensor<double> A, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
@@ -917,7 +917,7 @@ TEST(scheduling_eval, precompute2D) {
   y(i, j, l) = precomputed;
 
   IndexStmt stmt = y.getAssignment().concretize();
-  stmt = schedulePrecompute2D(stmt, precomputed);
+  stmt = schedulePrecompute3D(stmt, precomputed);
 
   y.compile(stmt);
   y.assemble();

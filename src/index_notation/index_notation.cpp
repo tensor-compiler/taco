@@ -1461,6 +1461,20 @@ map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() const {
   return indexVarDomains;
 }
 
+
+
+IndexStmt IndexStmt::concretizeScheduled(ProvenanceGraph provGraph) const {
+  IndexStmt stmt = *this;
+  string r;
+  if (isEinsumNotation(stmt)) {
+    stmt = makeReductionNotationScheduled(stmt, provGraph);
+  }
+  if (isReductionNotationScheduled(stmt, provGraph, &r)) {
+    stmt = makeConcreteNotationScheduled(stmt, provGraph);
+  }
+  return stmt;
+}
+
 IndexStmt IndexStmt::concretize() const {
   IndexStmt stmt = *this;
   if (isEinsumNotation(stmt)) {
@@ -2322,8 +2336,10 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
   bool isReduction = true;
 
   util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
+  vector<IndexVar> boundVarsList;
   for (auto& var : to<Assignment>(stmt).getFreeVars()) {
     boundVars.insert({var,0});
+    boundVarsList.push_back(var);
   }
 
   match(stmt,
@@ -2343,6 +2359,67 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
         }
       }
     })
+  );
+  return isReduction;
+}
+
+bool isReductionNotationScheduled(IndexStmt stmt, ProvenanceGraph provGraph, std::string* reason) {
+  INIT_REASON(reason);
+
+  if (!isa<Assignment>(stmt)) {
+    *reason = "reduction notation statements must be assignments";
+    return false;
+  }
+
+  if (!isValid(to<Assignment>(stmt), reason)) {
+    return false;
+  }
+
+  // Reduction notation until proved otherwise
+  bool isReduction = true;
+
+  util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
+  vector<IndexVar> boundVarsList;
+  for (auto& var : to<Assignment>(stmt).getFreeVars()) {
+    boundVars.insert({var,0});
+    boundVarsList.push_back(var);
+  }
+
+  match(stmt,
+        std::function<void(const ReductionNode*,Matcher*)>([&](
+          const ReductionNode* op, Matcher* ctx) {
+          boundVars.scope();
+          boundVars.insert({op->var,0});
+          ctx->match(op->a);
+          boundVars.unscope();
+        }),
+        std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+          for (auto& var : op->indexVars) {
+            if (!boundVars.contains(var)) {
+              // This detects to see if one of the boundVars is an ancestor of var
+              // or if boundVars is a descendant of var given the Provenance Graph.
+              // If either of these are true, then the statement is still in reduction notation.
+              if (provGraph.isFullyDerived(var)) {
+                auto ancestors = provGraph.getUnderivedAncestors(var);
+                for (auto& ancestor: ancestors) {
+                  if (boundVars.contains(ancestor)) {
+                    return true;
+                  }
+                }
+              } else {
+                auto descendants = provGraph.getFullyDerivedDescendants(var);
+                for (auto& descendant : descendants) {
+                  if (boundVars.contains(descendant)) {
+                    return true;
+                  }
+                }
+              }
+                  *reason = "all reduction variables in reduction notation must be "
+                            "bound by a reduction expression";
+              isReduction = false;
+            }
+          }
+        })
   );
   return isReduction;
 }
@@ -2605,6 +2682,207 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
   return stmt;
 }
 
+Assignment makeReductionNotationScheduled(Assignment assignment, ProvenanceGraph provGraph) {
+  IndexExpr expr = assignment.getRhs();
+  std::vector<IndexVar> free = assignment.getLhs().getIndexVars();
+  if (!isEinsumNotation(assignment)) {
+    return assignment;
+  }
+
+  struct MakeReductionNotation : IndexNotationRewriter {
+    MakeReductionNotation(const std::vector<IndexVar>& free, ProvenanceGraph provGraph)
+      : free(free.begin(), free.end()), provGraph(provGraph){}
+
+    ProvenanceGraph provGraph;
+    std::set<IndexVar> free;
+    bool onlyOneTerm;
+
+    IndexExpr addReductions(IndexExpr expr) {
+      auto vars = getIndexVars(expr);
+      for (auto& var : util::reverse(vars)) {
+
+        if (!util::contains(free, var)) {
+          bool shouldReduce = true;
+          /// Do not add a reduction node if mismatch is between a fully derived indexVar and its ancestor
+          if (provGraph.isFullyDerived(var)) {
+            for (auto& f: free) {
+              if (provGraph.isDerivedFrom(var, f)) {
+                shouldReduce = false;
+              }
+            }
+          } else {
+            for (auto& f: free) {
+              if (provGraph.isDerivedFrom(f, var)) {
+                shouldReduce = false;
+              }
+            }
+          }
+          if (shouldReduce)
+            expr = sum(var,expr);
+        }
+      }
+      return expr;
+    }
+
+    IndexExpr einsum(const IndexExpr& expr) {
+      onlyOneTerm = true;
+      IndexExpr einsumexpr = rewrite(expr);
+
+      if (onlyOneTerm) {
+        einsumexpr = addReductions(einsumexpr);
+      }
+
+      return einsumexpr;
+    }
+
+    using IndexNotationRewriter::visit;
+
+    void visit(const AddNode* op) {
+      // Sum every reduction variables over each term
+      onlyOneTerm = false;
+
+      IndexExpr a = addReductions(op->a);
+      IndexExpr b = addReductions(op->b);
+      if (a == op->a && b == op->b) {
+        expr = op;
+      }
+      else {
+        expr = new AddNode(a, b);
+      }
+    }
+
+    void visit(const SubNode* op) {
+      // Sum every reduction variables over each term
+      onlyOneTerm = false;
+
+      IndexExpr a = addReductions(op->a);
+      IndexExpr b = addReductions(op->b);
+      if (a == op->a && b == op->b) {
+        expr = op;
+      }
+      else {
+        expr = new SubNode(a, b);
+      }
+    }
+  };
+  return Assignment(assignment.getLhs(),
+                    MakeReductionNotation(free, provGraph).einsum(expr),
+                    assignment.getOperator());
+}
+
+IndexStmt makeReductionNotationScheduled(IndexStmt stmt, ProvenanceGraph provGraph) {
+  taco_iassert(isEinsumNotation(stmt));
+  return makeReductionNotationScheduled(to<Assignment>(stmt), provGraph);
+}
+
+IndexStmt makeConcreteNotationScheduled(IndexStmt stmt, ProvenanceGraph provGraph) {
+  std::string reason;
+  taco_iassert(isReductionNotationScheduled(stmt, provGraph, &reason))
+    << "Not reduction notation: " << stmt << std::endl << reason;
+  taco_iassert(isa<Assignment>(stmt));
+
+  // Free variables and reductions covering the whole rhs become top level loops
+  vector<IndexVar> freeVars = to<Assignment>(stmt).getFreeVars();
+
+  struct RemoveTopLevelReductions : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    void visit(const AssignmentNode* node) {
+      // Easiest to just walk down the reduction node until we find something
+      // that's not a reduction
+      vector<IndexVar> topLevelReductions;
+      IndexExpr rhs = node->rhs;
+      while (isa<Reduction>(rhs)) {
+        Reduction reduction = to<Reduction>(rhs);
+        topLevelReductions.push_back(reduction.getVar());
+        rhs = reduction.getExpr();
+      }
+
+      if (rhs != node->rhs) {
+        stmt = Assignment(node->lhs, rhs, Add());
+        for (auto& i : util::reverse(topLevelReductions)) {
+          stmt = forall(i, stmt);
+        }
+      }
+      else {
+        stmt = node;
+      }
+    }
+  };
+  stmt = RemoveTopLevelReductions().rewrite(stmt);
+
+  // This gets the list of indexVars on the rhs of an assignment
+  // TODO: check to make sure that we want to get ALL rhs indexVars (not just the upper level)
+  vector<IndexVar> rhsVars;
+  match(stmt,
+        function<void(const AccessNode*, Matcher*)>([&](const AccessNode* op, Matcher* ctx) {
+          rhsVars.insert(rhsVars.end(), op->indexVars.begin(), op->indexVars.end());
+        }),
+        function<void(const AssignmentNode*, Matcher*)>([&](const AssignmentNode* op, Matcher* ctx) {
+          ctx->match(op->rhs);
+        })
+  );
+
+  // Emit the freeVars as foralls if the freeVars are fully derived
+  // else emit the fully derived descendant of the freeVar found in rhsVars
+  for (auto& i : util::reverse(freeVars)) {
+    if (provGraph.isFullyDerived(i))
+      stmt = forall(i, stmt);
+    else {
+      auto derivedVars = provGraph.getFullyDerivedDescendants(i);
+      IndexVar derivedI = *rhsVars.begin();
+      for (auto& derivedVar : derivedVars) {
+        if (std::find(rhsVars.begin(), rhsVars.end(), derivedVar) != rhsVars.end()) {
+          derivedI = derivedVar;
+        }
+      }
+      stmt = forall(derivedI, stmt);
+    }
+  }
+
+  // Replace other reductions with where and forall statements
+  struct ReplaceReductionsWithWheres : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    Reduction reduction;
+    TensorVar t;
+
+    void visit(const AssignmentNode* node) {
+      reduction = Reduction();
+      t = TensorVar();
+
+      IndexExpr rhs = rewrite(node->rhs);
+
+      // nothing was rewritten
+      if (rhs == node->rhs) {
+        stmt = node;
+        return;
+      }
+
+      taco_iassert(t.defined() && reduction.defined());
+      IndexStmt consumer = Assignment(node->lhs, rhs, node->op);
+      IndexStmt producer = forall(reduction.getVar(),
+                                  Assignment(t, reduction.getExpr(),
+                                             reduction.getOp()));
+      stmt = where(rewrite(consumer), rewrite(producer));
+    }
+
+    void visit(const ReductionNode* node) {
+      // only rewrite one reduction at a time
+      if (reduction.defined()) {
+        expr = node;
+        return;
+      }
+
+      reduction = node;
+      t = TensorVar("t" + util::toString(node->var),
+                    node->getDataType());
+      expr = t;
+    }
+  };
+  stmt = ReplaceReductionsWithWheres().rewrite(stmt);
+  return stmt;
+}
 
 vector<TensorVar> getResults(IndexStmt stmt) {
   vector<TensorVar> result;

@@ -356,6 +356,9 @@ protected:
   /// Gets the size of a temporary tensorVar in the where statement
   ir::Expr getTemporarySize(Where where);
 
+  /// Gets the varDecl of temporary dimensions for dense workspaces only
+  ir::Stmt getTemporarySizeDecl(Where where);
+
   /// Initializes helper arrays to give dense workspaces sparse acceleration
   std::vector<ir::Stmt> codeToInitializeDenseAcceleratorArrays(Where where, bool parallel = false);
 
@@ -492,6 +495,9 @@ private:
   std::vector<ir::Stmt> whereConsumers;
   std::vector<TensorVar> whereTemps;
   std::map<TensorVar, const AccessNode *> whereTempsToResult;
+
+  std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap;
+  std::vector<TensorVar> temporaries;
 
   bool captureNextLocatePos = false;
   ir::Stmt capturedLocatePos; // used for whereConsumer when want to replicate same locating

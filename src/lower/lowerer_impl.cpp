@@ -14,6 +14,7 @@
 #include "taco/lower/merge_lattice.h"
 #include "mode_access.h"
 #include "taco/util/collections.h"
+#include "taco/ir/workspace_rewriter.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -386,6 +387,10 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   // Post-process result modes and allocate memory for values if necessary
   Stmt finalizeResults = finalizeResultArrays(resultAccesses);
+
+  // Post-process body to replace workspace/temporary GetProperties with local variables
+  if (generateComputeCode())
+    body = rewriteTemporaryGP(body, temporaries, temporarySizeMap);
 
   // Store scalar stack variables back to results
   if (generateComputeCode()) {
@@ -1802,33 +1807,74 @@ Expr LowererImpl::getTemporarySize(Where where) {
     // All index vars underived then use tensor properties to get tensor size
     taco_iassert(util::contains(dimensions, indexVars[0])) << "Missing " << indexVars[0];
     ir::Expr size = dimensions.at(indexVars[0]);
+    vector<ir::Expr> temporarySizeVector = {size};
+
     for(size_t i = 1; i < indexVars.size(); ++i) {
       taco_iassert(util::contains(dimensions, indexVars[i])) << "Missing " << indexVars[i];
-      size = ir::Mul::make(size, dimensions.at(indexVars[i]));
+      auto dimGP = dimensions.at(indexVars[i]);
+      size = ir::Mul::make(size, dimGP);
+      temporarySizeVector.push_back(dimGP);
     }
+    temporarySizeMap[temporary] = temporarySizeVector;
     return size;
   }
 
   if (temporarySize.isFixed()) {
-    return ir::Literal::make(temporarySize.getSize());
+    auto size = ir::Literal::make(temporarySize.getSize());
+    temporarySizeMap[temporary] = {size};
+    return size;
   }
 
   if (temporarySize.isIndexVarSized()) {
     IndexVar var = temporarySize.getIndexVarSize();
     vector<Expr> bounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds,
                                                      indexVarToExprMap, iterators);
-    return ir::Sub::make(bounds[1], bounds[0]);
+    auto size = ir::Sub::make(bounds[1], bounds[0]);
+    temporarySizeMap[temporary] = {size};
+    return size;
   }
 
   taco_ierror; // TODO
   return Expr();
 }
 
+ir::Stmt LowererImpl::getTemporarySizeDecl(Where where) {
+  TensorVar temporary = where.getTemporary();
+  Dimension temporarySize = temporary.getType().getShape().getDimension(0);
+  Access temporaryAccess = getResultAccesses(where.getProducer()).first[0];
+  std::vector<IndexVar> indexVars = temporaryAccess.getIndexVars();
+
+  if(util::all(indexVars, [&](const IndexVar& var) { return provGraph.isUnderived(var);})) {
+    // All index vars underived then use tensor properties to get tensor size
+    taco_iassert(util::contains(dimensions, indexVars[0])) << "Missing " << indexVars[0];
+    ir::Expr size = dimensions.at(indexVars[0]);
+    for(size_t i = 1; i < indexVars.size(); ++i) {
+      taco_iassert(util::contains(dimensions, indexVars[i])) << "Missing " << indexVars[i];
+      size = ir::Mul::make(size, dimensions.at(indexVars[i]));
+    }
+    return Stmt(); //size;
+  }
+
+  if (temporarySize.isFixed()) {
+    Expr size = ir::Literal::make(temporarySize.getSize());
+    return VarDecl::make(Expr(), size);
+  }
+
+  if (temporarySize.isIndexVarSized()) {
+    IndexVar var = temporarySize.getIndexVarSize();
+    vector<Expr> bounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds,
+                                                     indexVarToExprMap, iterators);
+    Expr size = ir::Sub::make(bounds[1], bounds[0]);
+    return VarDecl::make(Expr(), size);
+  }
+
+  taco_ierror; // TODO
+  return Stmt();
+}
 
 vector<Stmt> LowererImpl::codeToInitializeDenseAcceleratorArrays(Where where, bool parallel) {
   // if parallel == true, need to initialize dense accelerator arrays as size*numThreads
   // and rename all dense accelerator arrays to name + '_all'
-
   TensorVar temporary = where.getTemporary();
 
   // TODO: emit as uint64 and manually emit bit pack code
@@ -2118,9 +2164,12 @@ vector<Stmt> LowererImpl::codeToInitializeTemporary(Where where) {
         needComputeValues(where, temporary)) {
       values = ir::Var::make(temporary.getName(),
                              temporary.getType().getDataType(), true, false);
-      taco_iassert(temporary.getType().getOrder() == 1)
-          << " Temporary order was " << temporary.getType().getOrder();  // TODO
+      //taco_iassert(temporary.getType().getOrder() == 1) << " Temporary order was "
+      //                                                  << temporary.getType().getOrder();  // TODO
+
+      /// Get temporary size for multi-dimensional temporaries (Dense only)
       Expr size = getTemporarySize(where);
+
 
       // no decl needed for shared memory
       Stmt decl = Stmt();

@@ -146,7 +146,7 @@ Precompute::Precompute() : content(nullptr) {
 Precompute::Precompute(IndexExpr expr, IndexVar i, IndexVar iw,
                      TensorVar workspace) : content(new Content) {
   std::vector<IndexVar> i_vars{i};
-  std::vector<IndexVar> iw_vars{i};  
+  std::vector<IndexVar> iw_vars{iw};
   content->expr = expr;
   content->i_vars = i_vars;
   content->iw_vars = iw_vars;
@@ -298,22 +298,57 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
     return IndexStmt();
   }
 
+  ProvenanceGraph provGraph = ProvenanceGraph(stmt);
+
   struct PrecomputeRewriter : public IndexNotationRewriter {
     using IndexNotationRewriter::visit;
-
     Precompute precompute;
-    Forall buildProducer(int index,
+    ProvenanceGraph provGraph;
+
+    Assignment getConsumerAssignment(IndexStmt stmt, TensorVar& ws) {
+      Assignment a = Assignment();
+      match(stmt,
+            function<void(const AssignmentNode*, Matcher*)>([&](const AssignmentNode* op, Matcher* ctx) {
+              a = Assignment(op);
+            }),
+            function<void(const WhereNode*, Matcher*)>([&](const WhereNode* op, Matcher* ctx) {
+              ctx->match(op->consumer);
+              ctx->match(op->producer);
+            }),
+            function<void(const AccessNode*, Matcher*)>([&](const AccessNode* op, Matcher* ctx) {
+              if (op->tensorVar == ws) {
+                return;
+              }
+            })
+      );
+      return a;
+    }
+
+    Forall buildProducer(int indexOriginal,
                          std::map<IndexVar, IndexVar>& substitutions,
                          TensorVar& ws,
                          const std::vector<IndexVar>& i_vars,
                          const std::vector<IndexVar>& iw_vars,
                          const IndexExpr& e) {
+
+      int index = i_vars.size() - indexOriginal - 1;
       substitutions[i_vars[index]] = iw_vars[index];
-      if (index == 0) {
-        return forall(iw_vars[index], ws(iw_vars) = replace(e, substitutions));
+
+      if (indexOriginal == 0) {
+        auto stmt = ws(iw_vars) = replace(e, substitutions);
+        auto concreteStmt = stmt.concretizeScheduled(provGraph);
+
+        taco_iassert(isa<Forall>(concreteStmt)) << "Transformed producer statement does not begin with a Forall";
+        return to<Forall>(concreteStmt);
       }
-      return forall(iw_vars[index], buildProducer(index - 1, substitutions, ws, i_vars,
-                                                  iw_vars, e));
+      return buildProducer(indexOriginal - 1, substitutions, ws, i_vars,
+                                                  iw_vars, e);
+    }
+
+    Forall buildConsumer(Assignment assignment) {
+      auto concreteStmt = assignment.concretizeScheduled(provGraph);
+      taco_iassert(isa<Forall>(concreteStmt)) << "Transformed producer statement does not begin with a Forall";
+      return to<Forall>(concreteStmt);
     }
     
     void visit(const ForallNode* node) {
@@ -325,13 +360,22 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
         TensorVar ws = precompute.getWorkspace();
         IndexExpr e = precompute.getExpr();
         std::vector<IndexVar> iw_vars = precompute.getIWVars();
-        IndexStmt consumer = forall(i_vars[0], replace(s, {{e, ws(iw_vars) }}));
-        std::map<IndexVar,IndexVar> substitutions;
-        IndexStmt producer = buildProducer(i_vars.size() - 1, substitutions, ws, i_vars, iw_vars, e);
-        Where where(consumer, producer);
 
-        stmt = where;
-        return;
+        // Build consumer by replacing with temporary (in replacedStmt)
+        IndexStmt replacedStmt = replace(s, {{e, ws(i_vars) }});
+        if (replacedStmt != s) {
+          // Then modify the replacedStmt to have the correct foralls
+          // by concretizing the consumer assignment
+          IndexStmt consumer = buildConsumer(getConsumerAssignment(replacedStmt, ws));
+
+          // Buld producer by concretizing the producer assignment
+          std::map<IndexVar, IndexVar> substitutions;
+          IndexStmt producer = buildProducer(i_vars.size() - 1, substitutions, ws, i_vars, iw_vars, e);
+          Where where(consumer, producer);
+
+          stmt = where;
+          return;
+        }
       }
 
       IndexStmt s = rewrite(op->stmt);
@@ -366,14 +410,11 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
                     op->output_race_strategy, op->unrollFactor);
     }
   };
+
   PrecomputeRewriter rewriter;
   rewriter.precompute = *this;
-  stmt = rewriter.rewrite(stmt);
-
-  // Convert redundant reductions to assignments
-  stmt = eliminateRedundantReductions(stmt);
-
-  return stmt;
+  rewriter.provGraph = provGraph;
+  return rewriter.rewrite(stmt);
 }
 
 void Precompute::print(std::ostream& os) const {
