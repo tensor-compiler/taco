@@ -561,11 +561,15 @@ void IRRewriter::visit(const PackTaskArgs* op) {
 }
 
 void IRRewriter::visit(const Return* op) {
-  Expr ret = rewrite(op->ret);
-  if (ret == op->ret) {
-    stmt = op;
+  if (op->ret.defined()) {
+    Expr ret = rewrite(op->ret);
+    if (ret == op->ret) {
+      stmt = op;
+    } else {
+      stmt = Return::make(ret);
+    }
   } else {
-    stmt = Return::make(ret);
+    stmt = op;
   }
 }
 

@@ -1346,6 +1346,7 @@ ir::Stmt GEMM::replaceValidStmt(IndexStmt stmt,
   // TODO (rohany): We could walk the statement again here and make sure that it's
   //  the same as the one we verified etc.
 
+  std::vector<ir::Stmt> results;
   auto ctx = ir::Symbol::make("ctx");
   auto rowMajor = ir::Symbol::make("CblasRowMajor");
   auto noTrans = ir::Symbol::make("CblasNoTrans");
@@ -1354,9 +1355,24 @@ ir::Stmt GEMM::replaceValidStmt(IndexStmt stmt,
   for (auto var : this->content->tensorVars) {
     tvars.push_back(tensorVars[var]);
   }
-  auto ibounds = pg.deriveIterBounds(this->content->ivars[0], definedVarOrder, underivedBounds, variableNames, iterators);
-  auto jbounds = pg.deriveIterBounds(this->content->ivars[1], definedVarOrder, underivedBounds, variableNames, iterators);
-  auto kbounds = pg.deriveIterBounds(this->content->ivars[2], definedVarOrder, underivedBounds, variableNames, iterators);
+
+  auto aIndexSpace = ir::GetProperty::make(tvars[0], ir::TensorProperty::IndexSpace);
+  auto bIndexSpace = ir::GetProperty::make(tvars[1], ir::TensorProperty::IndexSpace);
+  auto cIndexSpace = ir::GetProperty::make(tvars[2], ir::TensorProperty::IndexSpace);
+
+  // Unpack the domains for each variable.
+  auto aDomain = ir::Var::make("aDomain", Auto);
+  auto bDomain = ir::Var::make("bDomain", Auto);
+  auto cDomain = ir::Var::make("cDomain", Auto);
+  results.push_back(ir::VarDecl::make(aDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, aIndexSpace}, Auto)));
+  results.push_back(ir::VarDecl::make(bDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, bIndexSpace}, Auto)));
+  results.push_back(ir::VarDecl::make(cDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, cIndexSpace}, Auto)));
+
+  // Break out if either domain is empty.
+  auto bVolZero = ir::Eq::make(ir::MethodCall::make(bDomain, "get_volume", {}, false, Auto), 0);
+  auto cVolZero = ir::Eq::make(ir::MethodCall::make(cDomain, "get_volume", {}, false, Auto), 0);
+  auto guard = ir::Or::make(bVolZero, cVolZero);
+  results.push_back(ir::IfThenElse::make(guard, ir::Return::make(ir::Expr())));
 
   auto aAccess = ir::GetProperty::make(tvars[0], ir::TensorProperty::ValuesWriteAccessor, this->content->tensorVars[0].getOrder());
   if (inReduction) {
@@ -1365,15 +1381,9 @@ ir::Stmt GEMM::replaceValidStmt(IndexStmt stmt,
   auto bAccess = ir::GetProperty::make(tvars[1], ir::TensorProperty::ValuesReadAccessor, this->content->tensorVars[1].getOrder());
   auto cAccess = ir::GetProperty::make(tvars[2], ir::TensorProperty::ValuesReadAccessor, this->content->tensorVars[2].getOrder());
 
-  // We'll declare our own partition bounds here, and let the lowering machinery
-  // emit the partition bounds used in the loop guards.
-  auto aIndexSpace = ir::GetProperty::make(tvars[0], ir::TensorProperty::IndexSpace);
-  auto bIndexSpace = ir::GetProperty::make(tvars[1], ir::TensorProperty::IndexSpace);
-  auto cIndexSpace = ir::GetProperty::make(tvars[2], ir::TensorProperty::IndexSpace);
-
-  auto aBounds = ir::MethodCall::make(ir::Call::make("runtime->get_index_space_domain", {ctx, aIndexSpace}, Auto), "lo", {}, false /* deref */, Auto);
-  auto bBounds = ir::MethodCall::make(ir::Call::make("runtime->get_index_space_domain", {ctx, bIndexSpace}, Auto), "lo", {}, false /* deref */, Auto);
-  auto cBounds = ir::MethodCall::make(ir::Call::make("runtime->get_index_space_domain", {ctx, cIndexSpace}, Auto), "lo", {}, false /* deref */, Auto);
+  auto getBounds = [] (ir::Expr e, std::string func) {
+    return ir::MethodCall::make(e, func, {}, false, Int64);
+  };
 
   auto type = Type(this->content->tensorVars[0].getType().getDataType());
   auto ldA = ir::Div::make(
@@ -1393,21 +1403,22 @@ ir::Stmt GEMM::replaceValidStmt(IndexStmt stmt,
       rowMajor,
       noTrans,
       noTrans,
-      ir::Sub::make(ibounds[1], ibounds[0]),
-      ir::Sub::make(jbounds[1], jbounds[0]),
-      ir::Sub::make(kbounds[1], kbounds[0]),
+      ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(bDomain, "hi"), 0), ir::Load::make(getBounds(bDomain, "lo"), 0))),
+      ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(cDomain, "hi"), 1), ir::Load::make(getBounds(cDomain, "lo"), 1))),
+      ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(cDomain, "hi"), 0), ir::Load::make(getBounds(cDomain, "lo"), 0))),
       1.f,
-      ir::MethodCall::make(bAccess, "ptr", {bBounds}, false /* deref */, Auto),
+      ir::MethodCall::make(bAccess, "ptr", {getBounds(bDomain, "lo")}, false /* deref */, Auto),
       ldB,
-      ir::MethodCall::make(cAccess, "ptr", {cBounds}, false /* deref */, Auto),
+      ir::MethodCall::make(cAccess, "ptr", {getBounds(cDomain, "lo")}, false /* deref */, Auto),
       ldC,
       1.f,
-      ir::MethodCall::make(aAccess, "ptr", {aBounds}, false /* deref */, Auto),
+      ir::MethodCall::make(aAccess, "ptr", {getBounds(aDomain, "lo")}, false /* deref */, Auto),
       ldA,
   };
 
   // TODO (rohany): Pick the right call between double and float here.
-  return ir::SideEffect::make(ir::Call::make("cblas_dgemm", args, Auto));
+  results.push_back(ir::SideEffect::make(ir::Call::make("cblas_dgemm", args, Auto)));
+  return ir::Block::make(results);
 }
 
 void CuGEMM::print(std::ostream &os) const {
@@ -1422,6 +1433,7 @@ ir::Stmt CuGEMM::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<T
   // TODO (rohany): We could walk the statement again here and make sure that it's
   //  the same as the one we verified etc.
 
+  std::vector<ir::Stmt> stmts;
   auto ctx = ir::Symbol::make("ctx");
   auto noTrans = ir::Symbol::make("CUBLAS_OP_N");
 
@@ -1429,9 +1441,24 @@ ir::Stmt CuGEMM::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<T
   for (auto var : this->content->tensorVars) {
     tvars.push_back(tensorVars[var]);
   }
-  auto ibounds = pg.deriveIterBounds(this->content->ivars[0], definedVarOrder, underivedBounds, variableNames, iterators);
-  auto jbounds = pg.deriveIterBounds(this->content->ivars[1], definedVarOrder, underivedBounds, variableNames, iterators);
-  auto kbounds = pg.deriveIterBounds(this->content->ivars[2], definedVarOrder, underivedBounds, variableNames, iterators);
+
+  auto aIndexSpace = ir::GetProperty::make(tvars[0], ir::TensorProperty::IndexSpace);
+  auto bIndexSpace = ir::GetProperty::make(tvars[1], ir::TensorProperty::IndexSpace);
+  auto cIndexSpace = ir::GetProperty::make(tvars[2], ir::TensorProperty::IndexSpace);
+
+  // Unpack the domains for each variable.
+  auto aDomain = ir::Var::make("aDomain", Auto);
+  auto bDomain = ir::Var::make("bDomain", Auto);
+  auto cDomain = ir::Var::make("cDomain", Auto);
+  stmts.push_back(ir::VarDecl::make(aDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, aIndexSpace}, Auto)));
+  stmts.push_back(ir::VarDecl::make(bDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, bIndexSpace}, Auto)));
+  stmts.push_back(ir::VarDecl::make(cDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, cIndexSpace}, Auto)));
+
+  // Break out if either domain is empty.
+  auto bVolZero = ir::Eq::make(ir::MethodCall::make(bDomain, "get_volume", {}, false, Auto), 0);
+  auto cVolZero = ir::Eq::make(ir::MethodCall::make(cDomain, "get_volume", {}, false, Auto), 0);
+  auto guard = ir::Or::make(bVolZero, cVolZero);
+  stmts.push_back(ir::IfThenElse::make(guard, ir::Return::make(ir::Expr())));
 
   auto aAccess = ir::GetProperty::make(tvars[0], ir::TensorProperty::ValuesWriteAccessor, this->content->tensorVars[0].getOrder());
   if (inReduction) {
@@ -1440,15 +1467,9 @@ ir::Stmt CuGEMM::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<T
   auto bAccess = ir::GetProperty::make(tvars[1], ir::TensorProperty::ValuesReadAccessor, this->content->tensorVars[1].getOrder());
   auto cAccess = ir::GetProperty::make(tvars[2], ir::TensorProperty::ValuesReadAccessor, this->content->tensorVars[2].getOrder());
 
-  // We'll declare our own partition bounds here, and let the lowering machinery
-  // emit the partition bounds used in the loop guards.
-  auto aIndexSpace = ir::GetProperty::make(tvars[0], ir::TensorProperty::IndexSpace);
-  auto bIndexSpace = ir::GetProperty::make(tvars[1], ir::TensorProperty::IndexSpace);
-  auto cIndexSpace = ir::GetProperty::make(tvars[2], ir::TensorProperty::IndexSpace);
-
-  auto aBounds = ir::MethodCall::make(ir::Call::make("runtime->get_index_space_domain", {ctx, aIndexSpace}, Auto), "lo", {}, false /* deref */, Auto);
-  auto bBounds = ir::MethodCall::make(ir::Call::make("runtime->get_index_space_domain", {ctx, bIndexSpace}, Auto), "lo", {}, false /* deref */, Auto);
-  auto cBounds = ir::MethodCall::make(ir::Call::make("runtime->get_index_space_domain", {ctx, cIndexSpace}, Auto), "lo", {}, false /* deref */, Auto);
+  auto getBounds = [] (ir::Expr e, std::string func) {
+    return ir::MethodCall::make(e, func, {}, false, Int64);
+  };
 
   auto type = Type(this->content->tensorVars[0].getType().getDataType());
   auto ldA = ir::Div::make(
@@ -1471,7 +1492,6 @@ ir::Stmt CuGEMM::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<T
     return ir::Call::make("CHECK_CUBLAS", {e}, Auto);
   };
 
-  std::vector<ir::Stmt> stmts;
   // There's some extra book-keeping we have to do for CuBLAS that doesn't
   // have to happen for BLAS.
   auto alpha = ir::Var::make("alpha", Float64);
@@ -1494,16 +1514,16 @@ ir::Stmt CuGEMM::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<T
       handle,
       noTrans,
       noTrans,
-      ir::Sub::make(jbounds[1], jbounds[0]),
-      ir::Sub::make(ibounds[1], ibounds[0]),
-      ir::Sub::make(kbounds[1], kbounds[0]),
+      ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(cDomain, "hi"), 1), ir::Load::make(getBounds(cDomain, "lo"), 1))),
+      ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(bDomain, "hi"), 0), ir::Load::make(getBounds(bDomain, "lo"), 0))),
+      ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(cDomain, "hi"), 0), ir::Load::make(getBounds(cDomain, "lo"), 0))),
       addr(alpha),
-      ir::MethodCall::make(cAccess, "ptr", {cBounds}, false /* deref */, Auto),
+      ir::MethodCall::make(cAccess, "ptr", {getBounds(cDomain, "lo")}, false /* deref */, Auto),
       ldC,
-      ir::MethodCall::make(bAccess, "ptr", {bBounds}, false /* deref */, Auto),
+      ir::MethodCall::make(bAccess, "ptr", {getBounds(bDomain, "lo")}, false /* deref */, Auto),
       ldB,
       addr(alpha),
-      ir::MethodCall::make(aAccess, "ptr", {aBounds}, false /* deref */, Auto),
+      ir::MethodCall::make(aAccess, "ptr", {getBounds(aDomain, "lo")}, false /* deref */, Auto),
       ldA,
   };
   stmts.push_back(ir::SideEffect::make(check(ir::Call::make("cublasDgemm", args, Auto))));
