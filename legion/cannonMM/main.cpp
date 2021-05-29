@@ -65,14 +65,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   // Compute on the tensors.
   benchmark([&]() { computeLegion(ctx, runtime, A, B, C, gx, gy); });
 
-  auto a_reg = getRegionToWrite(ctx, runtime, A, A);
-  FieldAccessor<READ_WRITE,valType,2,coord_t, Realm::AffineAccessor<valType, 2, coord_t>> a_rw(a_reg, FID_VAL);
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < n; j++) {
-      assert(a_rw[Point<2>(i, j)] == n);
-    }
-  }
-  runtime->unmap_region(ctx, a_reg);
+  // The result should be equal to 1.
+  tacoValidate<valType>(ctx, runtime, A, valType(n));
 }
 
 TACO_MAIN(valType)

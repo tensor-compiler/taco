@@ -1,39 +1,38 @@
-#ifndef TACO_LG_FILL_H
-#define TACO_LG_FILL_H
+#ifndef TACO_LG_VALIDATE_H
+#define TACO_LG_VALIDATE_H
 
 #include "legion.h"
 #include "pitches.h"
 #include "taco_legion_header.h"
 #include "taco/version.h"
 
-// TODO (rohany): Move these predefined tasks to an enum.
-const int TACO_FILL_TASK = 1;
+const int TACO_VALIDATE_TASK = 10;
 
 template<int DIM, typename T>
-void tacoFillCPU(const Legion::Task* task, Legion::PhysicalRegion r, Legion::Rect<DIM> rect) {
-  typedef Legion::FieldAccessor<WRITE_ONLY,T,DIM,Legion::coord_t,Realm::AffineAccessor<T,DIM,Legion::coord_t>> Accessor;
+void tacoValidateCPU(const Legion::Task* task, Legion::PhysicalRegion r, Legion::Rect<DIM> rect) {
+  typedef Legion::FieldAccessor<READ_ONLY,T,DIM,Legion::coord_t,Realm::AffineAccessor<T,DIM,Legion::coord_t>> Accessor;
   Accessor ar(r, FID_VAL);
   Pitches<DIM - 1> pitches;
   auto volume = pitches.flatten(rect);
   for (size_t i = 0; i < volume; i++) {
-    ar[pitches.unflatten(i, rect.lo)] = *(T*)(task->args);
+    assert(ar[pitches.unflatten(i, rect.lo)] == *(T*)(task->args));
   }
 }
 
 template<int DIM, typename T>
-void tacoFillOMP(const Legion::Task* task, Legion::PhysicalRegion r, Legion::Rect<DIM> rect) {
-  typedef Legion::FieldAccessor<WRITE_ONLY,T,DIM,Legion::coord_t,Realm::AffineAccessor<T,DIM,Legion::coord_t>> Accessor;
+void tacoValidateOMP(const Legion::Task* task, Legion::PhysicalRegion r, Legion::Rect<DIM> rect) {
+  typedef Legion::FieldAccessor<READ_ONLY,T,DIM,Legion::coord_t,Realm::AffineAccessor<T,DIM,Legion::coord_t>> Accessor;
   Accessor ar(r, FID_VAL);
   Pitches<DIM - 1> pitches;
   auto volume = pitches.flatten(rect);
 #pragma omp parallel for schedule(static)
   for (size_t i = 0; i < volume; i++) {
-    ar[pitches.unflatten(i, rect.lo)] = *(T*)(task->args);
+    assert(ar[pitches.unflatten(i, rect.lo)] == *(T*)(task->args));
   }
 }
 
 template<typename T>
-void tacoFillCPUTask(const Legion::Task* task, const std::vector<Legion::PhysicalRegion>& regions, Legion::Context ctx, Legion::Runtime* runtime) {
+void tacoValidateCPUTask(const Legion::Task* task, const std::vector<Legion::PhysicalRegion>& regions, Legion::Context ctx, Legion::Runtime* runtime) {
   Legion::PhysicalRegion r = regions[0];
   auto ispace = r.get_logical_region().get_index_space();
   auto domain = runtime->get_index_space_domain(ispace);
@@ -41,7 +40,7 @@ void tacoFillCPUTask(const Legion::Task* task, const std::vector<Legion::Physica
 #define BLOCK(DIM) \
         case DIM:  \
           {        \
-            tacoFillCPU<DIM, T>(task, r, domain); \
+            tacoValidateCPU<DIM, T>(task, r, domain); \
             break; \
           }
     LEGION_FOREACH_N(BLOCK)
@@ -52,7 +51,7 @@ void tacoFillCPUTask(const Legion::Task* task, const std::vector<Legion::Physica
 }
 
 template<typename T>
-void tacoFillOMPTask(const Legion::Task* task, const std::vector<Legion::PhysicalRegion>& regions, Legion::Context ctx, Legion::Runtime* runtime) {
+void tacoValidateOMPTask(const Legion::Task* task, const std::vector<Legion::PhysicalRegion>& regions, Legion::Context ctx, Legion::Runtime* runtime) {
   Legion::PhysicalRegion r = regions[0];
   auto ispace = r.get_logical_region().get_index_space();
   auto domain = runtime->get_index_space_domain(ispace);
@@ -60,7 +59,7 @@ void tacoFillOMPTask(const Legion::Task* task, const std::vector<Legion::Physica
 #define BLOCK(DIM) \
         case DIM:  \
           {        \
-            tacoFillOMP<DIM, T>(task, r, domain); \
+            tacoValidateOMP<DIM, T>(task, r, domain); \
             break; \
           }
     LEGION_FOREACH_N(BLOCK)
@@ -71,7 +70,7 @@ void tacoFillOMPTask(const Legion::Task* task, const std::vector<Legion::Physica
 }
 
 template<typename T>
-void tacoFill(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegion r, T val) {
+void tacoValidate(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegion r, T val) {
   size_t pieces = 0;
   // Favor TOC proc > OMP proc > CPU proc. The default mapper performs this same heuristic
   // as well, so there's nothing more we need to do.
@@ -90,35 +89,36 @@ void tacoFill(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegi
   auto ispace = runtime->create_index_space(ctx, Legion::Rect<1>(0, pieces - 1));
   auto ipart = runtime->create_equal_partition(ctx, r.get_index_space(), ispace);
   auto lpart = runtime->get_logical_partition(ctx, r, ipart);
-  Legion::IndexLauncher l(TACO_FILL_TASK, runtime->get_index_space_domain(ispace), Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
-  l.add_region_requirement(Legion::RegionRequirement(lpart, 0, WRITE_ONLY, EXCLUSIVE, r).add_field(FID_VAL));
+  Legion::IndexLauncher l(TACO_VALIDATE_TASK, runtime->get_index_space_domain(ispace), Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
+  l.add_region_requirement(Legion::RegionRequirement(lpart, 0, READ_ONLY, EXCLUSIVE, r).add_field(FID_VAL));
   runtime->execute_index_space(ctx, l);
 }
 
+// TODO (rohany): Do the CUDA version of the validation.
 // If we're building with CUDA, then declare the fill kernel.
 #ifdef TACO_USE_CUDA
 template<typename T>
-void registerGPUFillTask();
+void registerGPUValidateTask();
 #endif
 
 template <typename T>
-void registerTACOFillTasks() {
+void registerTACOValidateTasks() {
   // Register the CPU variant.
   {
-    Legion::TaskVariantRegistrar registrar(TACO_FILL_TASK, "taco_fill");
+    Legion::TaskVariantRegistrar registrar(TACO_VALIDATE_TASK, "taco_validate");
     registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
-    Legion::Runtime::preregister_task_variant<tacoFillCPUTask<T>>(registrar, "taco_fill");
+    Legion::Runtime::preregister_task_variant<tacoValidateCPUTask<T>>(registrar, "taco_validate");
   }
   // Register the OMP variant if present.
   if (TACO_FEATURE_OPENMP) {
-    Legion::TaskVariantRegistrar registrar(TACO_FILL_TASK, "taco_fill");
+    Legion::TaskVariantRegistrar registrar(TACO_VALIDATE_TASK, "taco_validate");
     registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::OMP_PROC));
-    Legion::Runtime::preregister_task_variant<tacoFillOMPTask<T>>(registrar, "taco_fill");
+    Legion::Runtime::preregister_task_variant<tacoValidateOMPTask<T>>(registrar, "taco_validate");
   }
   // Register a CUDA variant if we have a CUDA build.
 #ifdef TACO_USE_CUDA
-  registerGPUFillTask<T>();
+  registerGPUValidateTask<T>();
 #endif
 }
 
-#endif // TACO_LG_FILL_H
+#endif // TACO_LG_VALIDATE_H
