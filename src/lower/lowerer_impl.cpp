@@ -1731,6 +1731,16 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       auto rect = ir::Var::make(n + "Rect", txRect);
       partStmts.push_back(ir::VarDecl::make(rect, makeConstructor(txRect, {start, end})));
 
+      // It's possible that this partitioning makes a rectangle that goes out of bounds
+      // of the tensor's index space. If so, replace the rectangle with an empty Rect.
+      auto domain = ir::Var::make(n + "Domain", Auto);
+      auto ispace = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::IndexSpace);
+      partStmts.push_back(ir::VarDecl::make(domain, ir::Call::make("runtime->get_index_space_domain", {ctx, ispace}, Auto)));
+      auto lb = ir::MethodCall::make(domain, "contains", {ir::FieldAccess::make(rect, "lo", false, Auto)}, false, Bool);
+      auto hb = ir::MethodCall::make(domain, "contains", {ir::FieldAccess::make(rect, "hi", false, Auto)}, false, Bool);
+      auto guard = ir::Or::make(ir::Neg::make(lb), ir::Neg::make(hb));
+      partStmts.push_back(ir::IfThenElse::make(guard, ir::Assign::make(rect, ir::MethodCall::make(rect, "make_empty", {}, false, Auto))));
+
       auto coloring = colorings[idx];
       partStmts.push_back(ir::Assign::make(ir::Load::make(coloring, ir::Deref::make(domainIter, Auto)), rect));
     }
