@@ -48,7 +48,7 @@ void tacoValidateGPUTask(const Legion::Task* task, const std::vector<Legion::Phy
 }
 
 template <typename T>
-void registerGPUFillTask() {
+void registerGPUValidateTask() {
   {
     Legion::TaskVariantRegistrar registrar(TACO_VALIDATE_TASK, "taco_validate");
     registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::TOC_PROC));
