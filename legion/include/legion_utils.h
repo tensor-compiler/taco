@@ -8,6 +8,7 @@
 #include "taco_mapper.h"
 #include "taco/version.h"
 #include "fill.h"
+#include "validate.h"
 
 #ifdef TACO_USE_CUDA
 #include "cudalibs.h"
@@ -47,6 +48,7 @@ void initCUDA();
       Runtime::preregister_task_variant<top_level_task>(registrar, "top_level"); \
     }                       \
     registerTACOFillTasks<FillType>();             \
+    registerTACOValidateTasks<FillType>();             \
     Runtime::add_registration_callback(register_taco_mapper);     \
     initCUDA(); \
     registerTacoTasks();    \

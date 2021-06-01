@@ -4,7 +4,6 @@
 #include "legion.h"
 #include "pitches.h"
 #include "taco_legion_header.h"
-
 #include "fill.h"
 
 const int THREADS_PER_BLOCK = 256;

@@ -672,7 +672,9 @@ void IRPrinter::visit(const Sort* op) {
 void IRPrinter::visit(const Return* op) {
   doIndent();
   stream << "return ";
-  op->ret.accept(this);
+  if (op->ret.defined()) {
+    op->ret.accept(this);
+  }
   stream << ";\n";
 }
 

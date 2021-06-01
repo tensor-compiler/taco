@@ -271,7 +271,9 @@ void IRVisitor::visit(const Sort* op) {
 }
 
 void IRVisitor::visit(const Return* op) {
-  op->ret.accept(this);
+  if (op->ret.defined()) {
+    op->ret.accept(this);
+  }
 }
 
 }  // namespace ir
