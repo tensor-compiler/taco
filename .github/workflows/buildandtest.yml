@@ -77,3 +77,26 @@ jobs:
           CTEST_OUTPUT_ON_FAILURE: 1
           CTEST_PARALLEL_LEVEL: 2
         working-directory: build
+
+  build-test-python-macos-clang:
+    name: builds taco and pytaco on macos with clang and runs all tests
+    runs-on: macos-10.15
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: install numpy and scipy
+        run: pip3 install numpy scipy
+      - name: create_build
+        run: mkdir build
+      - name: cmake
+        run: cmake -DCMAKE_BUILD_TYPE=Debug -DPYTHON=ON ..
+        working-directory: build
+      - name: make
+        run: make -j2
+        working-directory: build
+      - name: test
+        run: make test
+        env:
+          CTEST_OUTPUT_ON_FAILURE: 1
+          CTEST_PARALLEL_LEVEL: 2
+        working-directory: build
