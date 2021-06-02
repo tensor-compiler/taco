@@ -521,16 +521,28 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 {
   ProvenanceGraph provGraph = ProvenanceGraph(stmt);
   set<IndexVar> underivedAdded;
+
   // Create dimension iterators
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](auto n, auto m) {
       content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !provGraph.hasCoordBounds(n->indexVar) && provGraph.isCoordVariable(n->indexVar))});
+      cout << "Adding following index var to iterators: " << n->indexVar << " for statement (" << n->stmt << ")" << endl;
       for (const IndexVar& underived : provGraph.getUnderivedAncestors(n->indexVar)) {
         if (!underivedAdded.count(underived)) {
+          cout << "Adding following underived ancestor to iterators: " << underived << endl;
           content->modeIterators.insert({underived, underived});
           underivedAdded.insert(underived);
         }
       }
+
+      // Insert all children of current index variable into iterators as well
+      for (const IndexVar& child : provGraph.getChildren(n->indexVar)) {
+        if (!underivedAdded.count(child)) {
+          content->modeIterators.insert({child, child});
+          underivedAdded.insert(child);
+        }
+      }
+
       m->match(n->stmt);
     })
   );
@@ -553,6 +565,8 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
   for (auto& iterator : content->levelIterators) {
     content->modeAccesses.insert({iterator.second, iterator.first});
   }
+
+  // cout << "FINISHED ITERATORS BUILDING" << endl;
 }
 
 
@@ -662,6 +676,8 @@ ModeAccess Iterators::modeAccess(Iterator iterator) const
 Iterator Iterators::modeIterator(IndexVar indexVar) const
 {
   taco_iassert(content != nullptr);
+  cout << "Searching for " << indexVar << " in "
+      << util::join(content->modeIterators) << endl;
   taco_iassert(util::contains(content->modeIterators, indexVar));
   return content->modeIterators.at(indexVar);
 }

@@ -1514,6 +1514,14 @@ IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorV
   IndexStmt transformed = *this;
   string reason;
 
+  if (i != iw) {
+    IndexVarRel rel = IndexVarRel(new PrecomputeRelNode(i, iw));
+    transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed, &reason);
+    if (!transformed.defined()) {
+      taco_uerror << reason;
+    }
+  }
+
   transformed = Transformation(Precompute(expr, i, iw, workspace)).apply(transformed, &reason);
   if (!transformed.defined()) {
     taco_uerror << reason;
@@ -2358,6 +2366,7 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
       for (auto& var : op->indexVars) {
         // non underived variables may appear in temporaries, but we don't check these
         if (!boundVars.contains(var) && provGraph.isUnderived(var) && (provGraph.isFullyDerived(var) || !provGraph.isRecoverable(var, definedVars))) {
+          // cout << "Variable: " << var << " Statement: " << stmt << endl;
           *reason = "all variables in concrete notation must be bound by a "
                     "forall statement";
           isConcrete = false;

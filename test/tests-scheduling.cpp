@@ -276,7 +276,7 @@ TEST(scheduling, lowerSparseMulSparse) {
   //  codegen->compile(compute, true);
 }
 
-TEST(scheduling, precomputeIndependentIndexVars) {
+TEST(scheduling, NIRVIK_TEST) {
   Tensor<double> A("A", {16}, Format{Dense});
   Tensor<double> B("B", {16}, Format{Dense});
   Tensor<double> C("C", {16}, Format{Dense});
@@ -312,7 +312,7 @@ TEST(scheduling, precomputeIndependentIndexVars) {
   ASSERT_TENSOR_EQ(A, expected);
 }
 
-TEST(scheduling, precomputeIndependentIndexVarsSplit) {
+TEST(scheduling, FAILED_TEST) {
   Tensor<double> A("A", {16}, Format{Dense});
   Tensor<double> B("B", {16}, Format{Dense});
   Tensor<double> C("C", {16}, Format{Dense});
@@ -346,6 +346,11 @@ TEST(scheduling, precomputeIndependentIndexVarsSplit) {
   expected.compile();
   expected.assemble();
   expected.compute();
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+  ir::Stmt compute = lower(stmt, "compute", false, true);
+  cout << "Imperative IR" << endl;
+  irp.print(compute);
 
   ASSERT_TENSOR_EQ(A, expected);
 }
