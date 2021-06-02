@@ -6,6 +6,85 @@
 
 const Legion::ShardingID TACOShardingFunctorID = 15210;
 
+// TODO (rohany): Move this to a separate sharding header file.
+// TACOPlacementShardingFunctor is a sharding functor that is intended to
+// be used by Placement operations. The fact that the placement grid dimensions
+// may not be known until run time complicates this a good amount. In particular,
+// the placement code must instantiate a sharding functor specific to the placement
+// code before performing the index launch that does the placement operation.
+// TODO (rohany): A strategy for this is as follows:
+//  * Code generation needs to assign a static ID to a sharding functor for
+//    every placement operation in the program.
+//  * [DONE] When a tag is applied to an index launch, the mapper (in select_sharding_functor)
+//    will read this tag and dispatch to special logic. Otherwise, it will return
+//    the normal sharding functor.
+//  * [DONE] The special logic uses Legion::Runtime::get_sharding_functor() to get the sharding
+//    functor with the functor ID in the payload. If the sharding functor requested exists
+//    already, then the ID passed through is used. Otherwise, the mapper must create the
+//    desired sharding functor and register it. It will extract out the grid dimensions
+//    payload, and create the sharding functor with the desired grid dimensions.
+// TODO (rohany): I don't know if this pattern is even allowed to happen by the Legion
+//  API. I'll ask in the slack and see what they think about it.
+class TACOPlacementShardingFunctor : public Legion::ShardingFunctor {
+public:
+  TACOPlacementShardingFunctor(std::vector<int> gridDims) : gridDims(gridDims) {}
+  virtual Legion::ShardID shard(const Legion::DomainPoint& point,
+                                const Legion::Domain& launch_space,
+                                const size_t total_shards) {
+    switch (launch_space.dim) {
+#define BLOCK(DIM) \
+      case DIM: {  \
+        return getShard<DIM>(point, launch_space, total_shards); \
+      }
+      LEGION_FOREACH_N(BLOCK)
+#undef BLOCK
+      default:
+        assert(false);
+    }
+  }
+private:
+  template<int DIM>
+  Legion::ShardID getShard(const Legion::DomainPoint& point,
+                           const Legion::Domain& launch_space,
+                           const size_t total_shards) {
+    assert(this->gridDims.size() == DIM);
+    // TODO (rohany): This is an inefficient implementation, but it shouldn't
+    //  matter too much since the leader node would do this anyway for slice
+    //  task, so the critical path length is the same. Additionally, the data
+    //  movement costs of the placement operation heavily outweigh the basically
+    //  constant costs of this operation. However, depending on how the implementation
+    //  of dynamic control replication is done, we could evaluate this function once
+    //  for each point in the launch space, which could then become quite expensive.
+    //  An option here is on the first pass to perform the equivalent of slice_task's
+    //  slicing and cache the results for all the points. Then use this hash table to
+    //  look up the shard for each point after that. Let's see what the legion folks
+    //  have to say about whether this is allowed.
+
+    // We'll iterate over all of the shards in the placement rect.
+    Legion::Rect<DIM> procRect;
+    for (int i = 0; i < DIM; i++) {
+      procRect.lo[i] = 0;
+      procRect.hi[i] = gridDims[i] - 1;
+    }
+    auto shard = 0;
+    for (Legion::PointInRectIterator<DIM> itr(procRect); itr(); itr++) {
+      // Always increment the shard counter, so that we skip nodes when we
+      // have a Face() placement restriction.
+      auto curShard = shard++;
+      if (!launch_space.contains(*itr)) {
+        continue;
+      }
+      if (point == *itr) {
+        return curShard % total_shards;
+      }
+    }
+    // The launch point should have been found within the procRect.
+    assert(false);
+    return 0;
+  }
+  std::vector<int> gridDims;
+};
+
 // Register the TACO mapper.
 void register_taco_mapper(Legion::Machine machine, Legion::Runtime *runtime, const std::set<Legion::Processor> &local_procs);
 
@@ -18,14 +97,42 @@ public:
   enum MappingTags {
     // Indicates that this task launch is used for data placement.
     PLACEMENT = (1 << 5),
+    PLACEMENT_SHARD = (1 << 6),
   };
 
   void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                const Legion::Task& task,
                                const SelectShardingFunctorInput& input,
                                SelectShardingFunctorOutput& output) override {
-    // Use TACO's sharding functor instead of the default sharding functor.
-    output.chosen_functor = TACOShardingFunctorID;
+    // See if there is something special that we need to do. Otherwise, return
+    // the TACO sharding functor.
+    if ((task.tag & PLACEMENT_SHARD) != 0) {
+      int* args = (int*)(task.args);
+      // TODO (rohany): This logic makes it look like an argument
+      //  serializer / deserializer like is done in Legate would be helpful.
+      // The shard ID is the first argument.
+      Legion::ShardingID shardingID = args[0];
+      auto func = Legion::Runtime::get_sharding_functor(shardingID);
+      // If we found the requested sharding functor, then use it.
+      if (func) {
+        output.chosen_functor = shardingID;
+      } else {
+        // Else, we need to create the sharding functor.
+        assert(task.is_index_space);
+        std::vector<int> gridDims(task.index_domain.dim);
+        for (int i = 0; i < task.index_domain.dim; i++) {
+          gridDims[i] = args[i+1];
+        }
+        auto functor = new TACOPlacementShardingFunctor(gridDims);
+        // TODO (rohany): Is this a safe thing to do? Should I do this with
+        //  no arguments? Should I just pass in the runtime when creating the mapper?
+        auto rt = Legion::Runtime::get_runtime(this->local_cpus[0]);
+        rt->register_sharding_functor(shardingID, functor);
+        output.chosen_functor = shardingID;
+      }
+    } else {
+      output.chosen_functor = TACOShardingFunctorID;
+    }
   }
 
   void default_policy_select_constraints(Legion::Mapping::MapperContext ctx,
