@@ -189,14 +189,14 @@ TEST(distributed, cannonMM) {
       //  version of the code does.
       // .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j))
       .distribute({i, j}, {in, jn}, {il, jl}, grid)
-      .divide(k, ko, ki, 2)
+      .divide(k, ko, ki, gx)
       .reorder({ko, il, jl})
       .stagger(ko, {in, jn}, kos)
       .pushCommUnder(b(i, k), kos)
       .pushCommUnder(c(k, j), kos)
       .pushCommUnder(a(i, j), in)
       // This can be enabled on Sapling where we have an OpenMP + OpenBLAS build.
-      // .swapLeafKernel(il, gemm)
+       .swapLeafKernel(il, gemm)
       ;
 
   auto lowered = lower(stmt, "computeLegion", false, true);
