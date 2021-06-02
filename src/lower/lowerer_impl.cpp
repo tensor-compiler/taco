@@ -254,6 +254,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
   }
   argumentsIR.insert(argumentsIR.begin(), indexSetArgs.begin(), indexSetArgs.end());
 
+  
   // Create variables for temporaries
   // TODO Remove this
   for (auto& temp : temporaries) {
@@ -261,6 +262,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
                                    true, true);
     tensorVars.insert({temp, irVar});
   }
+
 
   // Create variables for keeping track of result values array capacity
   createCapacityVars(resultVars, &capacityVars);
@@ -272,9 +274,11 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   for (const IndexVar& indexVar : provGraph.getAllIndexVars()) {
     if (iterators.modeIterators().count(indexVar)) {
+      cout << "Index var from 275 (adding when found in modeIterators): " << indexVar << endl;
       indexVarToExprMap.insert({indexVar, iterators.modeIterators()[indexVar].getIteratorVar()});
     }
     else {
+      cout << "Index var from 279 (adding when not found in modeIterators): " << indexVar << endl;
       indexVarToExprMap.insert({indexVar, Var::make(indexVar.getName(), Int())});
     }
   }
@@ -711,6 +715,10 @@ Stmt LowererImpl::lowerForall(Forall forall)
     parallelUnitSizes[forall.getParallelUnit()] = ir::Sub::make(bounds[1], bounds[0]);
   }
 
+  // cout << "Statement before merge lattice: " << forall << endl;
+  for (auto& i : definedIndexVars) {
+    // cout << "Defined variables: " << i << endl;
+  }
   MergeLattice lattice = MergeLattice::make(forall, iterators, provGraph, definedIndexVars, whereTempsToResult);
   vector<Access> resultAccesses;
   set<Access> reducedAccesses;
@@ -809,7 +817,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
                               forall.getStmt(), reducedAccesses);
   }
 //  taco_iassert(loops.defined());
-
+  // cout << "Loops: " << loops << endl;
   if (!generateComputeCode() && !hasStores(loops)) {
     // If assembly loop does not modify output arrays, then it can be safely
     // omitted.
