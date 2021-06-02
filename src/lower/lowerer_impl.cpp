@@ -253,7 +253,6 @@ LowererImpl::lower(IndexStmt stmt, string name,
     }
   }
   argumentsIR.insert(argumentsIR.begin(), indexSetArgs.begin(), indexSetArgs.end());
-  
   // Create variables for temporaries
   // TODO Remove this
   for (auto& temp : temporaries) {
@@ -808,7 +807,6 @@ Stmt LowererImpl::lowerForall(Forall forall)
     loops = lowerMergeLattice(lattice, underivedAncestors[0],
                               forall.getStmt(), reducedAccesses);
   }
-  //  taco_iassert(loops.defined());
   if (!generateComputeCode() && !hasStores(loops)) {
     // If assembly loop does not modify output arrays, then it can be safely
     // omitted.
