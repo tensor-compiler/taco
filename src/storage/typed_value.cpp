@@ -10,7 +10,7 @@ const Datatype& TypedComponent::getType() const {
   return dType;
 }
 
-size_t TypedComponent::getAsIndex(const ComponentTypeUnion mem) const {
+size_t TypedComponent::getAsIndex(const ComponentTypeUnion &mem) const {
   switch (dType.getKind()) {
     case Datatype::Bool: return (size_t) mem.boolValue;
     case Datatype::UInt8: return (size_t) mem.uint8Value;

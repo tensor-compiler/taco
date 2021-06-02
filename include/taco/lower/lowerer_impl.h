@@ -351,12 +351,13 @@ protected:
 
   /// Initializes a temporary workspace
   std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
-
+  std::vector<ir::Stmt> codeToInitializeTemporaryParallel(Where where, ParallelUnit parallelUnit);
+  std::vector<ir::Stmt> codeToInitializeLocalTemporaryParallel(Where where, ParallelUnit parallelUnit);
   /// Gets the size of a temporary tensorVar in the where statement
   ir::Expr getTemporarySize(Where where);
 
   /// Initializes helper arrays to give dense workspaces sparse acceleration
-  std::vector<ir::Stmt> codeToInitializeDenseAcceleratorArrays(Where where);
+  std::vector<ir::Stmt> codeToInitializeDenseAcceleratorArrays(Where where, bool parallel = false);
 
   /// Recovers a derived indexvar from an underived variable.
   ir::Stmt codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar indexVar, bool emitVarDecl);
@@ -442,6 +443,12 @@ private:
 
   /// Map used to hoist temporary workspace initialization
   std::map<Forall, Where> temporaryInitialization;
+
+  /// Map used to hoist parallel temporary workspaces. Maps workspace shared by all threads to where statement
+  std::map<Where, TensorVar> whereToTemporaryVar;
+  std::map<Where, ir::Expr> whereToIndexListAll;
+  std::map<Where, ir::Expr> whereToIndexListSizeAll;
+  std::map<Where, ir::Expr> whereToBitGuardAll;
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;

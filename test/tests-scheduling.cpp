@@ -919,9 +919,9 @@ TEST(scheduling_eval_test, spmv_fuse) {
           .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
           .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::Atomics)
           .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
-//  ir::CodeGen_CUDA codegen = ir::CodeGen_CUDA(cout, ir::CodeGen_CUDA::ImplementationGen);
-//  ir::Stmt compute = lower(stmt, "compute",  false, true);
-//  codegen.print(compute);
+  // ir::CodeGen_CUDA codegen = ir::CodeGen_CUDA(cout, ir::CodeGen_CUDA::ImplementationGen);
+  // ir::Stmt compute = lower(stmt, "compute",  false, true);
+  // codegen.print(compute);
 
   y.compile(stmt);
   y.assemble();
