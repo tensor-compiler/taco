@@ -613,9 +613,7 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators, ProvenanceGr
 
   vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(indexVar);
   for (auto ancestor : underivedAncestors) {
-    // cout << "Is recoverable from merge lattice: " << ancestor << endl;
     if(!provGraph.isRecoverable(ancestor, definedIndexVars)) {
-      // cout << "Is not recoverable for ancestor " << ancestor << endl;
       return MergeLattice({MergePoint({iterators.modeIterator(indexVar)}, {}, {})});
     }
   }
