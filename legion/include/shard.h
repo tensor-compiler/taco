@@ -69,24 +69,23 @@ public:
 // may not be known until run time complicates this a good amount. In particular,
 // the placement code must instantiate a sharding functor specific to the placement
 // code before performing the index launch that does the placement operation.
-// TODO (rohany): A strategy for this is as follows:
-//  * Code generation needs to assign a static ID to a sharding functor for
-//    every placement operation in the program.
-//  * [DONE] When a tag is applied to an index launch, the mapper (in select_sharding_functor)
-//    will read this tag and dispatch to special logic. Otherwise, it will return
-//    the normal sharding functor.
-//  * [DONE] The special logic uses Legion::Runtime::get_sharding_functor() to get the sharding
-//    functor with the functor ID in the payload. If the sharding functor requested exists
-//    already, then the ID passed through is used. Otherwise, the mapper must create the
-//    desired sharding functor and register it. It will extract out the grid dimensions
-//    payload, and create the sharding functor with the desired grid dimensions.
+// * Code generation will assign a unique sharding functor ID for each generated placement
+//   operation that uses the Face() construct.
+// * When the PLACEMENT_SHARD tag is attached, the mapper will unpack the sharding functor
+//   ID and grid dimensions from the task's arguments.
+// * If the sharding functor with the desired ID exists, then the mapper will return that
+//   (in select_sharding_functor). Otherwise, it will instantiate the sharding functor
+//   with the provided grid dimensions and then return that ID. This process is
+//   _control deterministic_ because each node will be making the same placement
+//  index launch at the same time, and use the same sharding ID to register the functor.
 class TACOPlacementShardingFunctor : public Legion::ShardingFunctor {
 public:
   TACOPlacementShardingFunctor(std::vector<int> gridDims) : gridDims(gridDims) {}
   virtual Legion::ShardID shard(const Legion::DomainPoint& point,
                                 const Legion::Domain& launch_space,
                                 const size_t total_shards) {
-    // Take a lock on the mutex for this functor.
+    // Take a lock on the mutex for this functor. We do this because many
+    // different threads may call into the sharding functor.
     std::lock_guard<std::mutex> guard(this->mu);
     // If the cache is empty, fill the cache with all point entries.
     // This ensures that we iterate over the launch space once, and
@@ -138,4 +137,5 @@ private:
   std::map<Legion::DomainPoint, Legion::ShardID> cache;
   Legion::Domain cachedSpace;
 };
+
 #endif // TACO_SHARD_H
