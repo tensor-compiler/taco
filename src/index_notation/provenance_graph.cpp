@@ -1121,7 +1121,7 @@ bool ProvenanceGraph::isAvailable(IndexVar indexVar, std::set<IndexVar> defined)
 bool ProvenanceGraph::isRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const {
   // all children are either defined or recoverable from their children
   // precompute relations are always recoverable since their children never appear in the same loop
-  if (!(childRelMap.at(indexVar).getRelType() == IndexVarRelType::PRECOMPUTE)) {
+  if (!(childRelMap.count(indexVar) && childRelMap.at(indexVar).getRelType() == IndexVarRelType::PRECOMPUTE)) {
     for (const IndexVar& child : getChildren(indexVar)) {
       if (!defined.count(child) && (isFullyDerived(child) || !isRecoverable(child, defined))) {
         return false;
