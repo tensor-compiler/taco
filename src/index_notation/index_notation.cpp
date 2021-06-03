@@ -2057,7 +2057,7 @@ template <> Assemble to<Assemble>(IndexStmt s) {
   return Assemble(to<AssembleNode>(s.ptr));
 }
 
-Place::Place(IndexExpr e, Grid g, GridPlacement gp) : Place(new PlaceNode(e, g, gp)) {}
+Place::Place(IndexExpr e, std::vector<std::pair<Grid, GridPlacement>> placements) : Place(new PlaceNode(e, placements)) {}
 
 Place::Place(const PlaceNode * n) : IndexStmt(n) {}
 
@@ -3324,7 +3324,7 @@ private:
     } else if (expr == op->expr) {
       stmt = op;
     } else {
-      stmt = new PlaceNode(expr, op->g, op->gp);
+      stmt = new PlaceNode(expr, op->placements);
     }
   }
 };

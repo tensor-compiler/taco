@@ -874,7 +874,7 @@ Assemble assemble(IndexStmt queries, IndexStmt compute,
 class Place : public IndexStmt {
 public:
   Place() = default;
-  Place(IndexExpr e, Grid g, GridPlacement gp);
+  Place(IndexExpr e, std::vector<std::pair<Grid, GridPlacement>> placements);
   Place(const PlaceNode*);
 
   Access getAccess() const;

@@ -1374,92 +1374,145 @@ TensorBase& TensorBase::partition(Grid g) {
 }
 
 IndexStmt TensorBase::place(Grid g, GridPlacement gp, ParallelUnit parUnit) {
-  // The dimension of the partition must be less than or equal to the dimension of
-  // the grid that we are distributing onto. Otherwise, we'd have to decide somehow
-  // which dimensions of the partitioning to collapse.
-  taco_iassert(this->content->partition.getDim() <= g.getDim());
-  // The placement grid and the placement descriptor should have the same number
-  // of dimensions.
-  taco_iassert(size_t(g.getDim()) == gp.axes.size());
-  // The number of specified axes must equal the dimension of the partition.
-  int axisCount = 0;
-  for (auto axis : gp.axes) {
-    if (axis.kind == GridPlacement::AxisMatch::Axis) {
-      taco_iassert(axis.axis < this->content->partition.getDim());
-      axisCount++;
-    }
-  }
-  taco_iassert(this->content->partition.getDim() == axisCount);
+  return this->placeHierarchy({{this->content->partition, g, gp, parUnit}});
+}
 
+// Elements in the tuple are (partitionGrid, placementGrid, placement, parUnit).
+IndexStmt TensorBase::placeHierarchy(std::vector<std::tuple<Grid, Grid, GridPlacement, ParallelUnit>> dists) {
   // A vector of aesthetic index variable names for the generated code.
-  std::vector<std::string> ivarNames {"i", "j", "k", "l", "m", "n"};
+  std::vector<std::string> ivarNames {"i", "j", "k", "l", "m", "n", "o", "p", "q"};
+  size_t idx = 0;
+  auto freshName = [&]() {
+    taco_iassert(idx < ivarNames.size());
+    auto res = ivarNames[idx];
+    idx++;
+    return res;
+  };
+  assert(size_t(this->getOrder()) <= ivarNames.size());
 
-  // We need one variable for every dimension in the placement grid, excluding
-  // Face(f) dimensions. I'll not consider those at the moment.
-  std::vector<IndexVar> placementVars;
-  for (size_t i = 0; i < gp.axes.size(); i++) {
-    placementVars.push_back(IndexVar(ivarNames[i]));
+  for (auto p : dists) {
+    // Each partition grid should be less than the dimension of the tensor.
+    taco_uassert(std::get<0>(p).getDim() <= this->getOrder());
   }
 
-  // We'll use these vars to create an access for our tensor. Placement
-  // dimensions that have an Axis(i) marker are placed into the i'th
-  // position of the access.
-  std::vector<bool> setIndex(this->getOrder());
-  std::vector<IndexVar> accessVars(this->getOrder());
-  for (size_t i = 0; i < gp.axes.size(); i++) {
-    auto axis = gp.axes[i];
-    if (axis.kind == GridPlacement::AxisMatch::Axis) {
-      accessVars[axis.axis] = placementVars[i];
-      setIndex[axis.axis] = true;
+  // We need variables for each variable in the tensor.
+  int numVars = this->getOrder();
+  assert(size_t(numVars) <= ivarNames.size());
+  std::vector<IndexVar> currentVars;
+  for (int i = 0; i < numVars; i++) {
+    currentVars.push_back(IndexVar(freshName()));
+  }
+  // For each distribution, we need fresh variables for unconstrained
+  // dimensions of each placement. These variables allow for replication
+  // across an axis of the processor grid and are importantly not contained
+  // within the access.
+  std::vector<std::vector<IndexVar>> unconstrainedVars(dists.size());
+  for (size_t i = 0; i < dists.size(); i++) {
+    auto p = dists[i];
+    auto placement = std::get<2>(p);
+    for (auto axis : placement.axes) {
+      if (axis.kind != GridPlacement::AxisMatch::Axis) {
+        auto var = IndexVar(freshName());
+        unconstrainedVars[i].push_back(var);
+        currentVars.push_back(var);
+      }
     }
   }
-  // For any unset variable, we need a new index variable that ranges over
-  // the full dimension of the tensor (and we won't distribute these vars).
-  std::vector<IndexVar> extraAccessVars;
-  for (size_t i = 0; i < setIndex.size(); i++) {
-    // If this access position is not set, then create a new index var for this position.
-    if (!setIndex[i]) {
-      IndexVar var(ivarNames[placementVars.size() + extraAccessVars.size()]);
-      accessVars[i] = var;
-      extraAccessVars.push_back(var);
-      setIndex[i] = true;
+
+  // We choose the first getOrder() variables to be used in the
+  // access. The remaining variables are "free", and are only used
+  // for the Replicate() and Face() placement options.
+  std::vector<IndexVar> accessVars;
+  for (int i = 0; i < this->getOrder(); i++) {
+    accessVars.push_back(currentVars[i]);
+  }
+
+  // Extract out placment grid and grid placement objects to put into the Place() node.
+  std::vector<std::pair<Grid, GridPlacement>> placementArgs;
+  for (auto p : dists) {
+    placementArgs.push_back(std::make_pair(std::get<1>(p), std::get<2>(p)));
+  }
+
+  // Build a statement out of the access vars.
+  auto base = Access(this->getTensorVar(), accessVars);
+  IndexStmt stmt = Place(base, placementArgs);
+  for (auto var : currentVars) {
+    stmt = forall(var, stmt);
+  }
+
+  for (size_t j = 0; j < dists.size(); j++) {
+    auto p = dists[j];
+    // Figure out the ordering of the access variables based on
+    // the placement options.
+    auto partGrid = std::get<0>(p);
+    auto placeGrid = std::get<1>(p);
+    auto placement = std::get<2>(p);
+    auto parUnit = std::get<3>(p);
+
+    std::vector<IndexVar> ordering;
+    std::set<IndexVar> reordered;
+    int extraDims = 0;
+    for (size_t i = 0; i < placement.axes.size(); i++) {
+      auto axis = placement.axes[i];
+      // For each index in the placement grid, select the variables
+      // that should be distributed, and place them at the front of
+      // the ordering.
+      if (axis.kind == GridPlacement::AxisMatch::Axis) {
+        ordering.push_back(accessVars[axis.axis]);
+      } else {
+        // If this axis doesn't constrain a dimension of a tensor, then we need to use
+        // a fresh variable that isn't in the access.
+        ordering.push_back(unconstrainedVars[j][extraDims]);
+        extraDims++;
+      }
+      // Record that this variable was reordered.
+      reordered.insert(ordering[i]);
     }
+    // All remaining variables need to be inserted after. The order
+    // of these variables doesn't matter since they are under the
+    // distribution.
+    for (auto v : currentVars) {
+      if (!util::contains(reordered, v)) {
+        ordering.push_back(v);
+      }
+    }
+    // Reorder the variables so that all the variables we are distributing
+    // are at the front.
+    stmt = stmt.reorder(ordering);
+
+    // Utility function to find the index of a variable in a vector. Returns
+    // -1 if the variable is not found.
+    auto idxOf = [&](IndexVar var, std::vector<IndexVar> vars) {
+      for (size_t i = 0; i < vars.size(); i++) {
+        if (vars[i] == var) {
+          return int(i);
+        }
+      }
+      return -1;
+    };
+
+    // Now, distribute over all of the placement vars.
+    std::vector<IndexVar> pVars, distVars, localVars;
+    for (size_t i = 0; i < placement.axes.size(); i++) {
+      auto var = ordering[i];
+      pVars.push_back(var);
+      distVars.push_back(IndexVar(var.getName() + "n"));
+      localVars.push_back(IndexVar(var.getName() + "l"));
+
+      // For each of the variables being distributed, replace their variables
+      // with the local variable in the iteration state.
+      int curIdx = idxOf(var, currentVars);
+      assert(curIdx != -1); // We expect to find this one.
+      currentVars[curIdx] = localVars[i];
+      int accessIdx = idxOf(var, accessVars);
+      // Not all variables will be present in accessVars.
+      if (accessIdx != -1) {
+        accessVars[accessIdx] = localVars[i];
+      }
+    }
+    stmt = stmt.distribute(pVars, distVars, localVars, placeGrid, parUnit);
+    stmt = stmt.pushCommUnder(base, distVars.back());
   }
-
-  // We are going to distribute for each variable in the processor grid. We note that
-  // both Replicate() and Axis() axes are included here. The key is that Replicate()
-  // axes are not included in the Access, so the the partitions created by the remaining
-  // axes will be projected onto those dimensions of the placement grid.
-  // TODO (rohany): We could imagine having Face(f) just be changing the dimension of the
-  //  grid to be 1 (I'm not sure that we would need mapper support to do such a thing).
-  //  It seems like it will require some mapper support, but we want to make it as easy
-  //  as possible (i.e. avoid having to introspect structs etc). If we could set the bounds
-  //  on the index space for any Face(f) axes, and tell the mapper about that, the mapper
-  //  could restrict the iteration over the processor grid to just that value f.
-  std::vector<IndexVar> distVars, localVars;
-  for (int i = 0; i < g.getDim(); i++) {
-    auto ivar = placementVars[i];
-    distVars.push_back(IndexVar(ivar.getName() + "n"));
-    localVars.push_back(IndexVar(ivar.getName() + "l"));
-  }
-
-  // Collect all variables that will be used in the foralls. We place the distribution
-  // variables first, followed by the extra access variables, which won't be part of
-  // the distribution.
-  std::vector<IndexVar> allVars;
-  allVars.insert(allVars.end(), placementVars.begin(), placementVars.end());
-  allVars.insert(allVars.end(), extraAccessVars.begin(), extraAccessVars.end());
-
-  // Start with an access and recursively build the forall.
-  auto access = Access(this->getTensorVar(), accessVars);
-  IndexStmt stmt = Place(access, g, gp);
-  for (int i = allVars.size() - 1; i >= 0; i--) {
-    stmt = forall(allVars[i], stmt);
-  }
-
-  // Finally distribute and push communication underneath all of the distribution variables.
-  stmt = stmt.distribute(placementVars, distVars, localVars, g, parUnit);
-  stmt = stmt.pushCommUnder(access, distVars.back());
 
   return stmt;
 }

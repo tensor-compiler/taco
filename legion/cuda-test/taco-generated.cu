@@ -1,3 +1,5 @@
+#include "cublas_v2.h"
+#include "cudalibs.h"
 #include "taco_legion_header.h"
 #include "taco_mapper.h"
 #define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))
@@ -67,10 +69,16 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
     Point<1> aStart = Point<1>((in * ((b1_dimension + 3) / 4)));
     Point<1> aEnd = Point<1>(TACO_MIN((in * ((b1_dimension + 3) / 4) + ((b1_dimension + 3) / 4 - 1)),(a1_dimension - 1)));
     Rect<1> aRect = Rect<1>(aStart, aEnd);
+    auto aDomain = runtime->get_index_space_domain(ctx, a_index_space);
+    if (!aDomain.contains(aRect.lo) || !aDomain.contains(aRect.hi)) aRect = aRect.make_empty();
+
     aColoring[(*itr)] = aRect;
     Point<1> bStart = Point<1>((in * ((b1_dimension + 3) / 4)));
     Point<1> bEnd = Point<1>(TACO_MIN((in * ((b1_dimension + 3) / 4) + ((b1_dimension + 3) / 4 - 1)),(b1_dimension - 1)));
     Rect<1> bRect = Rect<1>(bStart, bEnd);
+    auto bDomain = runtime->get_index_space_domain(ctx, b_index_space);
+    if (!bDomain.contains(bRect.lo) || !bDomain.contains(bRect.hi)) bRect = bRect.make_empty();
+
     bColoring[(*itr)] = bRect;
   }
   auto aPartition = runtime->create_index_partition(ctx, a_index_space, domain, aColoring, LEGION_DISJOINT_KIND);
@@ -94,7 +102,7 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
 void registerTacoTasks() {
   {
     TaskVariantRegistrar registrar(taskID(1), "task_1");
-    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_1>(registrar, "task_1");
   }

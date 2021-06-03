@@ -385,15 +385,14 @@ struct AssembleNode : public IndexStmtNode {
 };
 
 struct PlaceNode : public IndexStmtNode {
-  PlaceNode(IndexExpr e, Grid g, GridPlacement gp) : expr(e), g(g), gp(gp) {}
+  PlaceNode(IndexExpr e, std::vector<std::pair<Grid, GridPlacement>> placements) : expr(e), placements(placements) {}
 
   void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
   }
 
   IndexExpr expr;
-  Grid g;
-  GridPlacement gp;
+  std::vector<std::pair<Grid, GridPlacement>> placements;
 };
 
 

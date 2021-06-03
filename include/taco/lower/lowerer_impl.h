@@ -535,8 +535,7 @@ private:
   std::vector<TensorVar> tensorVarOrdering;
 
   bool isPlacementCode = false;
-  GridPlacement placement;
-  Grid placementGrid;
+  std::vector<std::pair<Grid, GridPlacement>> placements;
 
   std::map<IndexVar, int> indexVarFaces;
   std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls;
