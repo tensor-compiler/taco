@@ -46,7 +46,7 @@ public:
         }
         auto functor = new TACOPlacementShardingFunctor(gridDims);
         auto rt = Legion::Runtime::get_runtime();
-        rt->register_sharding_functor(shardingID, functor);
+        rt->register_sharding_functor(shardingID, functor, true /* silence_warnings */);
         output.chosen_functor = shardingID;
       }
     } else {
