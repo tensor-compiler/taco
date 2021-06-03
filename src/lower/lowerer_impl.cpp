@@ -1520,6 +1520,9 @@ Stmt LowererImpl::searchForFusedPositionStart(Forall forall, Iterator posIterato
   return ir::Block::make(searchForUnderivedStart);
 }
 
+// TODO (rohany): Replace this static incrementing ID with a pass during code
+//  generation that collects all sharding functors and uniquely numbers them.
+static int shardingFunctorID = 0;
 Stmt LowererImpl::lowerForallDimension(Forall forall,
                                        vector<Iterator> locators,
                                        vector<Iterator> inserters,
@@ -1612,6 +1615,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto ctx = ir::Symbol::make("ctx");
     auto virtualMap = ir::Symbol::make("Mapping::DefaultMapper::VIRTUAL_MAP");
     auto placementMap = ir::Symbol::make("TACOMapper::PLACEMENT");
+    auto placementShard = ir::Symbol::make("TACOMapper::PLACEMENT_SHARD");
     auto sameAddressSpace = ir::Symbol::make("Mapping::DefaultMapper::SAME_ADDRESS_SPACE");
 
     // We need to emit accessing the partition for any child task that uses the partition.
@@ -1889,6 +1893,13 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         }
         if (count > 0) {
           std::vector<Expr> prefixVars, prefixExprs;
+          // Since we are using control replication, we'll need to do some extra
+          // work to set up a sharding functor so that index tasks are sharded to
+          // the right positions. To do so, we'll need to add a sharding functor ID
+          // to the argument pack.
+          int sfID = shardingFunctorID++;
+          prefixVars.push_back(ir::Var::make("sfID", Int32));
+          prefixExprs.push_back(ir::Call::make("shardingID", {sfID}, Int32));
           // If we are directed to place a tensor onto a Face of the placement
           // grid, then we need to package up the full dimensions of the placement
           // grid into the task's arguments so that the mapper can extract it.
@@ -1924,7 +1935,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         itlStmts.push_back(ir::SideEffect::make(mcall));
       }
       if (unpackFaceArgs) {
-        auto addTag = ir::Assign::make(ir::FieldAccess::make(launcher, "tag", false, Auto), placementMap);
+        auto addTag = ir::Assign::make(ir::FieldAccess::make(launcher, "tag", false, Auto), placementShard);
         itlStmts.push_back(addTag);
       }
       // If this is a nested distribution, keep it on the same node.
