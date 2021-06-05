@@ -551,7 +551,7 @@ public:
 
   /// Takes any index notation and concretizes unknowns to make it concrete notation
   /// given a Provenance Graph of indexVars
-  IndexStmt concretizeScheduled(ProvenanceGraph provGraph) const;
+  IndexStmt concretizeScheduled(ProvenanceGraph provGraph, std::vector<IndexVar> forallIndexVarList) const;
 
   /// The \code{split} transformation splits (strip-mines) an index
   /// variable into two nested index variables, where the size of the
@@ -1162,7 +1162,7 @@ IndexStmt makeReductionNotationScheduled(IndexStmt, ProvenanceGraph);
 /// Convert reduction notation to concrete notation, by inserting forall nodes,
 /// replacing reduction nodes by compound assignments, and inserting temporaries
 /// as needed while taking into account a schedule given by the Provenance Graph.
-IndexStmt makeConcreteNotationScheduled(IndexStmt, ProvenanceGraph);
+IndexStmt makeConcreteNotationScheduled(IndexStmt, ProvenanceGraph, std::vector<IndexVar> forallIndexVars);
 
 /// Returns the results of the index statement, in the order they appear.
 std::vector<TensorVar> getResults(IndexStmt stmt);

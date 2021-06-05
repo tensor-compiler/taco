@@ -76,14 +76,25 @@ IndexStmt scheduleSpGEMMCPU(IndexStmt stmt, bool doPrecompute) {
                 {result.getType().getShape().getDimension(1)}), taco::dense);
     stmt = stmt.precompute(assign.getRhs(), j, j, w);
   }
+  cout << "SPGEMM: " << stmt << endl;
   stmt = stmt.assemble(result, AssembleStrategy::Insert, true);
-
-  IndexVar qi = stmt.as<Assemble>().getQueries().as<Forall>().getIndexVar();
+  cout << "Post Assembly SPGEMM: " << stmt << endl;
+  auto qi_stmt = stmt.as<Assemble>().getQueries();
+  IndexVar qi;
+  if (isa<Where>(qi_stmt)) {
+    qi = qi_stmt.as<Where>().getConsumer().as<Forall>().getIndexVar();
+  } else {
+    qi = qi_stmt.as<Forall>().getIndexVar();
+  }
+;
   stmt = stmt.parallelize(i, ParallelUnit::CPUThread,
-                          OutputRaceStrategy::NoRaces)
+                          OutputRaceStrategy::NoRaces);
+  cout << "\nPost Parallelize SPGEMM: " << stmt << endl;
+  stmt = stmt
              .parallelize(qi, ParallelUnit::CPUThread,
                           OutputRaceStrategy::NoRaces);
 
+  cout << "Post Scheduled SPGEMM: " << stmt << endl;
   return stmt;
 }
 
@@ -148,14 +159,21 @@ IndexStmt scheduleTTMCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, in
 }
 
 IndexStmt scheduleMTTKRPCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
+  int NUM_J = 1039/20;
   IndexVar i1("i1"), i2("i2");
+
   IndexExpr precomputeExpr = stmt.as<Forall>().getStmt().as<Forall>().getStmt()
                                  .as<Forall>().getStmt().as<Forall>().getStmt()
                                  .as<Assignment>().getRhs().as<Mul>().getA();
-  TensorVar w("w", Type(Float64, {Dimension(j)}), taco::dense);
-  return stmt.split(i, i1, i2, CHUNK_SIZE)
-          .reorder({i1, i2, k, l, j})
-          .precompute(precomputeExpr, j, j, w)
+  TensorVar w("w", Type(Float64, {NUM_J}), taco::dense);
+
+  stmt = stmt.split(i, i1, i2, CHUNK_SIZE)
+    .reorder({i1, i2, k, l, j});
+
+  cout << stmt << endl;
+  stmt = stmt.precompute(precomputeExpr, j, j, w);
+  cout << stmt << endl;
+  return stmt
           .parallelize(i1, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }
 

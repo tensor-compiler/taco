@@ -1463,14 +1463,18 @@ map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() const {
 
 
 
-IndexStmt IndexStmt::concretizeScheduled(ProvenanceGraph provGraph) const {
+IndexStmt IndexStmt::concretizeScheduled(ProvenanceGraph provGraph, vector<IndexVar> forallIndexVarList) const {
   IndexStmt stmt = *this;
   string r;
-  if (isEinsumNotation(stmt)) {
+  cout << "Pre concretized stmt: " << stmt << endl;
+  if (isEinsumNotation(stmt, &r)) {
     stmt = makeReductionNotationScheduled(stmt, provGraph);
+    cout << "Post Reduction Stmt: " << stmt << endl;
   }
+  cout << r << endl;
   if (isReductionNotationScheduled(stmt, provGraph, &r)) {
-    stmt = makeConcreteNotationScheduled(stmt, provGraph);
+    stmt = makeConcreteNotationScheduled(stmt, provGraph, forallIndexVarList);
+    cout << "Post Concretize Stmt: " << stmt << endl;
   }
   return stmt;
 }
@@ -2775,7 +2779,7 @@ IndexStmt makeReductionNotationScheduled(IndexStmt stmt, ProvenanceGraph provGra
   return makeReductionNotationScheduled(to<Assignment>(stmt), provGraph);
 }
 
-IndexStmt makeConcreteNotationScheduled(IndexStmt stmt, ProvenanceGraph provGraph) {
+IndexStmt makeConcreteNotationScheduled(IndexStmt stmt, ProvenanceGraph provGraph, vector<IndexVar> forallIndexVars) {
   std::string reason;
   taco_iassert(isReductionNotationScheduled(stmt, provGraph, &reason))
     << "Not reduction notation: " << stmt << std::endl << reason;
@@ -2783,9 +2787,14 @@ IndexStmt makeConcreteNotationScheduled(IndexStmt stmt, ProvenanceGraph provGrap
 
   // Free variables and reductions covering the whole rhs become top level loops
   vector<IndexVar> freeVars = to<Assignment>(stmt).getFreeVars();
+  vector<IndexVar> reductionAndFreeVars;
 
   struct RemoveTopLevelReductions : IndexNotationRewriter {
     using IndexNotationRewriter::visit;
+    vector<IndexVar> forallIndexVars;
+    vector<IndexVar> reductionAndFreeVars;
+
+    RemoveTopLevelReductions(vector<IndexVar> forallIndexVars) : forallIndexVars(forallIndexVars) {}
 
     void visit(const AssignmentNode* node) {
       // Easiest to just walk down the reduction node until we find something
@@ -2800,8 +2809,12 @@ IndexStmt makeConcreteNotationScheduled(IndexStmt stmt, ProvenanceGraph provGrap
 
       if (rhs != node->rhs) {
         stmt = Assignment(node->lhs, rhs, Add());
-        for (auto& i : util::reverse(topLevelReductions)) {
-          stmt = forall(i, stmt);
+        if (forallIndexVars.empty()) {
+          for (auto &i : util::reverse(topLevelReductions)) {
+            stmt = forall(i, stmt);
+          }
+        } else {
+          reductionAndFreeVars.insert(reductionAndFreeVars.end(), topLevelReductions.begin(), topLevelReductions.end());
         }
       }
       else {
@@ -2809,34 +2822,73 @@ IndexStmt makeConcreteNotationScheduled(IndexStmt stmt, ProvenanceGraph provGrap
       }
     }
   };
-  stmt = RemoveTopLevelReductions().rewrite(stmt);
-
+  auto rewriter = RemoveTopLevelReductions(forallIndexVars);
+  stmt = rewriter.rewrite(stmt);
+  reductionAndFreeVars = rewriter.reductionAndFreeVars;
   // This gets the list of indexVars on the rhs of an assignment
   // TODO: check to make sure that we want to get ALL rhs indexVars (not just the upper level)
   vector<IndexVar> rhsVars;
   match(stmt,
         function<void(const AccessNode*, Matcher*)>([&](const AccessNode* op, Matcher* ctx) {
-          rhsVars.insert(rhsVars.end(), op->indexVars.begin(), op->indexVars.end());
+          for (auto &i : op->indexVars) {
+            if (std::find(rhsVars.begin(), rhsVars.end(), i) == rhsVars.end()) {
+              rhsVars.push_back(i);
+            }
+          }
         }),
         function<void(const AssignmentNode*, Matcher*)>([&](const AssignmentNode* op, Matcher* ctx) {
           ctx->match(op->rhs);
         })
   );
 
+  cout << "freeVars: ";
+  for (auto &i : freeVars) {
+    cout << i << ", ";
+  }
+  cout << endl;
+
+  cout << "rhsVars: ";
+  for (auto &i : rhsVars) {
+    cout << i << ", ";
+  }
+  cout << endl;
+
+  cout << "forallIndexVars: ";
+  for (auto &i : forallIndexVars) {
+    cout << i << ", ";
+  }
+  cout << endl;
   // Emit the freeVars as foralls if the freeVars are fully derived
   // else emit the fully derived descendant of the freeVar found in rhsVars
-  for (auto& i : util::reverse(freeVars)) {
-    if (provGraph.isFullyDerived(i))
-      stmt = forall(i, stmt);
-    else {
-      auto derivedVars = provGraph.getFullyDerivedDescendants(i);
-      IndexVar derivedI = *rhsVars.begin();
-      for (auto& derivedVar : derivedVars) {
-        if (std::find(rhsVars.begin(), rhsVars.end(), derivedVar) != rhsVars.end()) {
-          derivedI = derivedVar;
+  if (forallIndexVars.empty()) {
+    for (auto &i : util::reverse(freeVars)) {
+      if (provGraph.isFullyDerived(i))
+        stmt = forall(i, stmt);
+      else {
+        auto derivedVars = provGraph.getFullyDerivedDescendants(i);
+        IndexVar derivedI = *rhsVars.begin();
+        for (auto &derivedVar : derivedVars) {
+          if (std::find(rhsVars.begin(), rhsVars.end(), derivedVar) != rhsVars.end()) {
+            derivedI = derivedVar;
+          }
+        }
+        stmt = forall(derivedI, stmt);
+      }
+    }
+  } else {
+    reductionAndFreeVars.insert(reductionAndFreeVars.end(), freeVars.begin(), freeVars.end());
+    for (auto &i : util::reverse(forallIndexVars)) {
+      if (std::find(reductionAndFreeVars.begin(), reductionAndFreeVars.end(), i) != reductionAndFreeVars.end())
+        stmt = forall(i, stmt);
+      else {
+        auto ancestorVars = provGraph.getUnderivedAncestors(i);
+        IndexVar ancestorI = *reductionAndFreeVars.begin();
+        for (auto &ancestorVar : ancestorVars) {
+          if (std::find(reductionAndFreeVars.begin(), reductionAndFreeVars.end(), ancestorVar) != reductionAndFreeVars.end()) {
+            stmt = forall(i, stmt);
+          }
         }
       }
-      stmt = forall(derivedI, stmt);
     }
   }
 
