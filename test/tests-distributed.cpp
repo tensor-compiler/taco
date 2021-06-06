@@ -119,16 +119,18 @@ TEST(distributed, basicComputeOnto) {
 
 TEST(distributed, summaMM) {
   int dim = 10;
-  Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
-  Tensor<int> b("b", {dim, dim}, Format{Dense, Dense});
-  Tensor<int> c("c", {dim, dim}, Format{Dense, Dense});
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense});
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense});
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense});
 
   IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko");
 
   a(i, j) = b(i, k) * c(k, j);
 
   // Place each tensor onto a processor grid.
-  auto grid = Grid(2, 2);
+  auto gx = ir::Var::make("gridX", Int32, false, false, true);
+  auto gy = ir::Var::make("gridY", Int32, false, false, true);
+  auto grid = Grid(gx, gy);
   auto placement = GridPlacement({0, 1});
   auto placeA = a.partition(grid).place(grid, placement);
   auto placeB = b.partition(grid).place(grid, placement);
@@ -137,13 +139,15 @@ TEST(distributed, summaMM) {
   auto placeBLowered = lower(placeB, "placeLegionB", false, true);
   auto placeCLowered = lower(placeC, "placeLegionC", false, true);
 
+  std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
       .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j))
-      .split(k, ko, ki, 256)
+      .split(k, ko, ki, 512)
       .reorder({ko, il, jl})
       .pushCommUnder(b(i, k), ko)
       .pushCommUnder(c(k, j), ko)
+      .swapLeafKernel(il, gemm)
       ;
 
   auto lowered = lower(stmt, "computeLegion", false, true);
