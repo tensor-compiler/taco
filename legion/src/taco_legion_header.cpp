@@ -18,3 +18,7 @@ int getIndexPoint(const Legion::Task* task, int index) {
 TaskID taskID(int offset) {
   return TACO_TASK_BASE_ID + offset;
 }
+
+ShardingID shardingID(int offset) {
+  return TACO_SHARD_BASE_ID + offset;
+}

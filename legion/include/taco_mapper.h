@@ -4,7 +4,7 @@
 #include "legion.h"
 #include "mappers/default_mapper.h"
 
-const Legion::ShardingID TACOShardingFunctorID = 15210;
+#include "shard.h"
 
 // Register the TACO mapper.
 void register_taco_mapper(Legion::Machine machine, Legion::Runtime *runtime, const std::set<Legion::Processor> &local_procs);
@@ -18,14 +18,40 @@ public:
   enum MappingTags {
     // Indicates that this task launch is used for data placement.
     PLACEMENT = (1 << 5),
+    PLACEMENT_SHARD = (1 << 6),
   };
 
   void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                const Legion::Task& task,
                                const SelectShardingFunctorInput& input,
                                SelectShardingFunctorOutput& output) override {
-    // Use TACO's sharding functor instead of the default sharding functor.
-    output.chosen_functor = TACOShardingFunctorID;
+    // See if there is something special that we need to do. Otherwise, return
+    // the TACO sharding functor.
+    if ((task.tag & PLACEMENT_SHARD) != 0) {
+      int* args = (int*)(task.args);
+      // TODO (rohany): This logic makes it look like an argument
+      //  serializer / deserializer like is done in Legate would be helpful.
+      // The shard ID is the first argument.
+      Legion::ShardingID shardingID = args[0];
+      auto func = Legion::Runtime::get_sharding_functor(shardingID);
+      // If we found the requested sharding functor, then use it.
+      if (func) {
+        output.chosen_functor = shardingID;
+      } else {
+        // Else, we need to create the sharding functor.
+        assert(task.is_index_space);
+        std::vector<int> gridDims(task.index_domain.dim);
+        for (int i = 0; i < task.index_domain.dim; i++) {
+          gridDims[i] = args[i+1];
+        }
+        auto functor = new TACOPlacementShardingFunctor(gridDims);
+        auto rt = Legion::Runtime::get_runtime();
+        rt->register_sharding_functor(shardingID, functor, true /* silence_warnings */);
+        output.chosen_functor = shardingID;
+      }
+    } else {
+      output.chosen_functor = TACOShardingFunctorID;
+    }
   }
 
   void default_policy_select_constraints(Legion::Mapping::MapperContext ctx,
@@ -197,63 +223,12 @@ public:
     }
   }
 
-public:
-  // select_num_blocks is a simple wrapper that allows external access to the
-  // DefaultMapper's protected default_select_num_blocks method.
-  template<int DIM>
-  static Legion::Point<DIM,Legion::coord_t> select_num_blocks(
-      long long int factor,
-      const Legion::Rect<DIM,Legion::coord_t> &rect_to_factor) {
-    return DefaultMapper::default_select_num_blocks(factor, rect_to_factor);
-  }
   // TODO (rohany): It may end up being necessary that we need to explicitly map
   //  regions for placement tasks. If so, Manolis says the following approach
   //  is the right thing:
   //  * Slice tasks sends tasks where they are supposed to go.
   //  * Map task needs to create a new instance of the region visible to the
   //    target processor.
-};
-
-class TACOShardingFunctor : public Legion::ShardingFunctor {
-public:
-  virtual Legion::ShardID shard(const Legion::DomainPoint& point,
-                                const Legion::Domain& launch_space,
-                                const size_t total_shards) {
-    // This sharding functor attempts to perform a similar block-wise decomposition
-    // that the default mapper performs when slicing a task. It is equivalent to
-    // the default sharding functor when the number of shards is equal to the
-    // number of points in the launch space.
-    switch (launch_space.dim) {
-#define BLOCK(DIM) \
-        case DIM:  \
-          {        \
-            auto launchRect = Legion::Rect<DIM>(launch_space); \
-            /* Require that all index spaces start at 0. */    \
-            for (int i = 0; i < (DIM); i++) {                    \
-              assert(launchRect.lo[i] == 0);                   \
-            }      \
-            auto blocks = TACOMapper::select_num_blocks<DIM>(total_shards, launchRect); \
-            Legion::Point<DIM> zeroes, ones;                   \
-            for (int i = 0; i < (DIM); i++) {                    \
-                zeroes[i] = 0;                                 \
-                ones[i] = 1;                                   \
-            }      \
-            Legion::Rect<DIM> blockSpace(zeroes, blocks - ones);       \
-            auto numPoints = launchRect.hi - launchRect.lo + ones;                      \
-            /* Invert the block -> point computation in default_decompose_points. */    \
-            Legion::Point<DIM> projected;                      \
-            for (int i = 0; i < (DIM); i++) {                    \
-              projected[i] = point[i] * blocks[i] / numPoints[i];                       \
-            }      \
-            Realm::AffineLinearizedIndexSpace<DIM, Legion::coord_t> linearizer(blockSpace); \
-            return linearizer.linearize(projected);            \
-          }
-      LEGION_FOREACH_N(BLOCK)
-#undef BLOCK
-      default:
-        assert(false);
-    }
-  }
 };
 
 #endif // TACO_MAPPER_H
