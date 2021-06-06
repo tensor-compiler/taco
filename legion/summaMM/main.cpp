@@ -62,7 +62,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   placeLegionC(ctx, runtime, C, gx, gy);
 
   // Compute on the tensors.
-  benchmark([&]() { computeLegion(ctx, runtime, A, B, C, part); });
+  benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, part); });
 
   tacoValidate<valType>(ctx, runtime, A, valType(n));
 }
