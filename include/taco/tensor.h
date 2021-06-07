@@ -154,6 +154,7 @@ public:
   //  grid dimensions map to the partitions of the tensor.
   TensorBase& partition(Grid g);
   IndexStmt place(Grid g, GridPlacement gp, ParallelUnit parUnit = ParallelUnit::DistributedNode);
+  IndexStmt placeHierarchy(std::vector<std::tuple<Grid, Grid, GridPlacement, ParallelUnit>> dists);
 
   /* --- Read Methods        --- */
 

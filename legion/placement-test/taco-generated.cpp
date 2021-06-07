@@ -33,8 +33,11 @@ LogicalPartition placeLegion(Context ctx, Runtime* runtime, LogicalRegion a) {
     int32_t in = (*itr)[0];
     int32_t jn = (*itr)[1];
     Point<2> aStart = Point<2>((in * ((a1_dimension + 3) / 4)), (jn * ((a2_dimension + 3) / 4)));
-    Point<2> aEnd = Point<2>(TACO_MIN((in * ((a1_dimension + 3) / 4) + ((a1_dimension + 3) / 4 - 1)),(a1_dimension - 1)), TACO_MIN((jn * ((a2_dimension + 3) / 4) + ((a2_dimension + 3) / 4 - 1)),(a2_dimension - 1)));
+    Point<2> aEnd = Point<2>(TACO_MIN((in * ((a1_dimension + 3) / 4) + ((a1_dimension + 3) / 4 - 1)), (a1_dimension - 1)), TACO_MIN((jn * ((a2_dimension + 3) / 4) + ((a2_dimension + 3) / 4 - 1)), (a2_dimension - 1)));
     Rect<2> aRect = Rect<2>(aStart, aEnd);
+    auto aDomain = runtime->get_index_space_domain(ctx, a_index_space);
+    if (!aDomain.contains(aRect.lo) || !aDomain.contains(aRect.hi)) aRect = aRect.make_empty();
+
     aColoring[(*itr)] = aRect;
   }
   auto aPartition = runtime->create_index_partition(ctx, a_index_space, domain, aColoring, LEGION_COMPUTE_KIND);

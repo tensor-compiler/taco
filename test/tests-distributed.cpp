@@ -420,6 +420,57 @@ TEST(distributed, packingPlacement) {
   }
 }
 
+TEST(distributed, heirPlacement) {
+  int dim = 10;
+  auto toString = [](IndexStmt stmt) {
+    std::stringstream ss;
+    ss << stmt;
+    return ss.str();
+  };
+  {
+    // Simple partitioning of a vector onto a vector of processors.
+    Tensor<int> a("a", {dim}, Format{Dense});
+    auto grid = Grid(4);
+    auto stmt = a.placeHierarchy({
+      {grid, grid, GridPlacement({0}), ParallelUnit::DistributedNode},
+      {grid, grid, GridPlacement({0}), ParallelUnit::DistributedNode},
+    });
+    ASSERT_EQ(toString(stmt), "suchthat(forall(in, forall(iln, forall(ill, place(a(i))), Distributed, ParallelReduction, transfers: transfer(a(i))), Distributed, ParallelReduction, transfers: transfer(a(i))), divide(i, in, il, 4) and divide(il, iln, ill, 4))");
+  }
+  {
+    // Doubly partition a matrix into matrices on each sub-partition.
+    Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+    auto grid = Grid(4, 4);
+    auto stmt = a.placeHierarchy({
+      {grid, grid, GridPlacement({0, 1}), ParallelUnit::DistributedNode},
+      {grid, grid, GridPlacement({0, 1}), ParallelUnit::DistributedNode},
+    });
+    ASSERT_EQ(toString(stmt), "suchthat(forall(distFused, forall(distFused1, forall(ill, forall(jll, place(a(i,j)))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and multiFuse({in, jn}, reorder(in, jn)) and divide(il, iln, ill, 4) and divide(jl, jln, jll, 4) and multiFuse({iln, jln}, reorder(iln, jln)))");
+  }
+  {
+    Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+    auto g1 = Grid(4);
+    auto g2 = Grid(4, 4);
+    auto stmt = a.placeHierarchy({
+        {g2, g2, GridPlacement({0, Replicate()}), ParallelUnit::DistributedNode},
+        {g2, g2, GridPlacement({0, 1}), ParallelUnit::DistributedNode},
+    });
+    ASSERT_EQ(toString(stmt), "suchthat(forall(distFused, forall(distFused1, forall(ill, forall(jl, forall(kl, place(a(i,j))))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), divide(i, in, il, 4) and divide(k, kn, kl, 4) and multiFuse({in, kn}, reorder(in, kn)) and divide(il, iln, ill, 4) and divide(j, jn, jl, 4) and multiFuse({iln, jn}, reorder(iln, jn)))");
+  }
+  {
+    Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+    auto grid = Grid(4, 4);
+    auto stmt = a.placeHierarchy({
+        {grid, grid, GridPlacement({0, 1}), ParallelUnit::DistributedNode},
+        {grid, grid, GridPlacement({0, 1}), ParallelUnit::DistributedGPU},
+    });
+    std::cout << stmt << std::endl;
+    auto lowered = lower(stmt, "placeLegion", false, true);
+    auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(lowered);
+  }
+}
+
 TEST(distributed, placement) {
   int dim = 10;
 
@@ -457,7 +508,7 @@ TEST(distributed, placement) {
     // Place the vector so that each row of the processor grid holds the chunk of the vector.
     ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({0, Replicate()}))), "suchthat(forall(distFused, forall(il, forall(jl, place(a(i)))), Distributed, ParallelReduction, transfers: transfer(a(i))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and multiFuse({in, jn}, reorder(in, jn)))");
     // Place the vector so that each column of the processor grid holds the chunk of the vector.
-    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({Replicate(), 0}))), "suchthat(forall(distFused, forall(il, forall(jl, place(a(j)))), Distributed, ParallelReduction, transfers: transfer(a(j))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and multiFuse({in, jn}, reorder(in, jn)))");
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({Replicate(), 0}))), "suchthat(forall(distFused, forall(jl, forall(il, place(a(i)))), Distributed, ParallelReduction, transfers: transfer(a(i))), divide(j, jn, jl, 4) and divide(i, in, il, 4) and multiFuse({jn, in}, reorder(jn, in)))");
   }
   {
     // Place a matrix onto a 3-dimensional grid in different ways.
@@ -467,12 +518,12 @@ TEST(distributed, placement) {
     a.partition(grid);
     // Replicate the tensor along each dimension in turn.
     ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({0, 1, Replicate()}))), "suchthat(forall(distFused, forall(il, forall(jl, forall(kl, place(a(i,j))))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and multiFuse({in, jn, kn}, reorder(in, jn, kn)))");
-    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({0, Replicate(), 1}))), "suchthat(forall(distFused, forall(il, forall(jl, forall(kl, place(a(i,k))))), Distributed, ParallelReduction, transfers: transfer(a(i,k))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and multiFuse({in, jn, kn}, reorder(in, jn, kn)))");
-    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({Replicate(), 0, 1}))), "suchthat(forall(distFused, forall(il, forall(jl, forall(kl, place(a(j,k))))), Distributed, ParallelReduction, transfers: transfer(a(j,k))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and multiFuse({in, jn, kn}, reorder(in, jn, kn)))");
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({0, Replicate(), 1}))), "suchthat(forall(distFused, forall(il, forall(kl, forall(jl, place(a(i,j))))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), divide(i, in, il, 4) and divide(k, kn, kl, 4) and divide(j, jn, jl, 4) and multiFuse({in, kn, jn}, reorder(in, kn, jn)))");
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({Replicate(), 0, 1}))), "suchthat(forall(distFused, forall(kl, forall(il, forall(jl, place(a(i,j))))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), divide(k, kn, kl, 4) and divide(i, in, il, 4) and divide(j, jn, jl, 4) and multiFuse({kn, in, jn}, reorder(kn, in, jn)))");
     // Placing the tensor in different orientations (like put the columns along the first axis of the grid).
-    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({1, 0, Replicate()}))), "suchthat(forall(distFused, forall(il, forall(jl, forall(kl, place(a(j,i))))), Distributed, ParallelReduction, transfers: transfer(a(j,i))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and multiFuse({in, jn, kn}, reorder(in, jn, kn)))");
-    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({1, Replicate(), 0}))), "suchthat(forall(distFused, forall(il, forall(jl, forall(kl, place(a(k,i))))), Distributed, ParallelReduction, transfers: transfer(a(k,i))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and multiFuse({in, jn, kn}, reorder(in, jn, kn)))");
-    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({Replicate(), 1, 0}))), "suchthat(forall(distFused, forall(il, forall(jl, forall(kl, place(a(k,j))))), Distributed, ParallelReduction, transfers: transfer(a(k,j))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and multiFuse({in, jn, kn}, reorder(in, jn, kn)))");
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({1, 0, Replicate()}))), "suchthat(forall(distFused, forall(jl, forall(il, forall(kl, place(a(i,j))))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), divide(j, jn, jl, 4) and divide(i, in, il, 4) and divide(k, kn, kl, 4) and multiFuse({jn, in, kn}, reorder(jn, in, kn)))");
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({1, Replicate(), 0}))), "suchthat(forall(distFused, forall(jl, forall(kl, forall(il, place(a(i,j))))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), divide(j, jn, jl, 4) and divide(k, kn, kl, 4) and divide(i, in, il, 4) and multiFuse({jn, kn, in}, reorder(jn, kn, in)))");
+    ASSERT_EQ(toString(a.place(placeGrid, GridPlacement({Replicate(), 1, 0}))), "suchthat(forall(distFused, forall(kl, forall(jl, forall(il, place(a(i,j))))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), divide(k, kn, kl, 4) and divide(j, jn, jl, 4) and divide(i, in, il, 4) and multiFuse({kn, jn, in}, reorder(kn, jn, in)))");
   }
 }
 
