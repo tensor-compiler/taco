@@ -1894,6 +1894,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       // These args have to be for each of the subtasks.
       auto args = ir::Var::make("taskArgs", Auto);
       bool unpackFaceArgs = false;
+      // We only generate code for control replicated placement if the distribution
+      // is done at the top level.
+      auto useCtrlRep = this->distLoopDepth == 0;
       if (this->isPlacementCode) {
         auto placementGrid = this->placements[this->distLoopDepth].first;
         auto placement = this->placements[this->distLoopDepth].second;
@@ -1907,13 +1910,15 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         }
         if (count > 0) {
           std::vector<Expr> prefixVars, prefixExprs;
-          // Since we are using control replication, we'll need to do some extra
-          // work to set up a sharding functor so that index tasks are sharded to
-          // the right positions. To do so, we'll need to add a sharding functor ID
-          // to the argument pack.
-          int sfID = shardingFunctorID++;
-          prefixVars.push_back(ir::Var::make("sfID", Int32));
-          prefixExprs.push_back(ir::Call::make("shardingID", {sfID}, Int32));
+          if (useCtrlRep) {
+            // If we are using control replication, we'll need to do some extra
+            // work to set up a sharding functor so that index tasks are sharded to
+            // the right positions. To do so, we'll need to add a sharding functor ID
+            // to the argument pack.
+            int sfID = shardingFunctorID++;
+            prefixVars.push_back(ir::Var::make("sfID", Int32));
+            prefixExprs.push_back(ir::Call::make("shardingID", {sfID}, Int32));
+          }
           // If we are directed to place a tensor onto a Face of the placement
           // grid, then we need to package up the full dimensions of the placement
           // grid into the task's arguments so that the mapper can extract it.
@@ -1949,7 +1954,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         itlStmts.push_back(ir::SideEffect::make(mcall));
       }
       if (unpackFaceArgs) {
-        auto addTag = ir::Assign::make(ir::FieldAccess::make(launcher, "tag", false, Auto), placementShard);
+        auto tag = placementMap;
+        if (useCtrlRep) {
+          tag = placementShard;
+        }
+        auto addTag = ir::Assign::make(ir::FieldAccess::make(launcher, "tag", false, Auto), tag);
         itlStmts.push_back(addTag);
       }
       // If this is a nested distribution, keep it on the same node.

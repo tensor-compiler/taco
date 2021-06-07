@@ -469,6 +469,19 @@ TEST(distributed, heirPlacement) {
     auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
     codegen->compile(lowered);
   }
+  {
+    Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+    auto grid = Grid(4, 4);
+    auto pgrid = Grid(4, 4, 4);
+    auto stmt = a.placeHierarchy({
+        {grid, pgrid, GridPlacement({0, 1, Face(0)}), ParallelUnit::DistributedNode},
+        {grid, pgrid, GridPlacement({0, 1, Face(0)}), ParallelUnit::DistributedGPU},
+    });
+    std::cout << stmt << std::endl;
+    auto lowered = lower(stmt, "placeLegion", false, true);
+    auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(lowered);
+  }
 }
 
 TEST(distributed, placement) {
