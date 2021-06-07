@@ -471,6 +471,10 @@ std::vector<IndexVar> DivideOntoPartition::getIrregulars() const {
   return {this->content->outerVar};
 }
 
+int DivideOntoPartition::getAccessIdx() const {
+  return this->content->accessIdx;
+}
+
 std::vector<ir::Expr> DivideOntoPartition::computeRelativeBound(std::set<IndexVar> definedVars,
                                                                 std::map<IndexVar, std::vector<ir::Expr>> computedBounds,
                                                                 std::map<IndexVar, ir::Expr> variableExprs,
@@ -509,10 +513,10 @@ std::vector<ir::Expr> DivideOntoPartition::deriveIterBounds(IndexVar indexVar,
     return {lo, ir::Add::make(hi, 1)};
   } else if (indexVar == this->content->innerVar) {
     // Use the appropriate bounds available on the partition to get the bounds.
-    auto bounds = provGraph.getPartitionBoundsVar();
-    auto lo = ir::Load::make(ir::MethodCall::make(bounds, "lo", {}, false, Int32), this->content->accessIdx);
+    auto bounds = provGraph.getPartitionBounds().at(this->getTensorVar()).at(this->getAccessIdx());
+    auto lo = bounds.first;
+    auto hi = bounds.second;
     // hi is inclusive, so we need to add 1 to it.
-    auto hi = ir::Load::make(ir::MethodCall::make(bounds, "hi", {}, false, Int32), this->content->accessIdx);
     return {lo, ir::Add::make(hi, 1)};
   }
   taco_ierror;
@@ -1216,10 +1220,23 @@ ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
       parentsMap[child] = parents;
     }
 
-    if (rel.getRelType() == DIVIDE_ONTO_PARTITION && !this->partitionColorSpace.defined()) {
+    // TODO (rohany): Revisit this check once we can do hierarchical distribution
+    //  onto a hierarchical placement.
+    if (rel.getRelType() == DIVIDE_ONTO_PARTITION) {
       auto node = rel.getNode<DivideOntoPartition>();
-      this->partitionColorSpace = ir::Var::make(node->getTensorVar().getName() + "PartitionColorSpace", Auto);
-      this->partitionBounds = ir::Var::make(node->getTensorVar().getName() + "PartitionBounds", Domain());
+      auto tv = node->getTensorVar();
+      auto accessIdx = node->getAccessIdx();
+      if (!this->partitionColorSpace.defined()) {
+        this->partitionColorSpace = ir::Var::make(node->getTensorVar().getName() + "PartitionColorSpace", Auto);
+      }
+      auto getName = [&](std::string typ) {
+        std::stringstream ss;
+        ss << tv.getName() << "PartitionBounds" << accessIdx << typ;
+        return ss.str();
+      };
+      if (this->partitionBounds[tv].count(accessIdx) == 0) {
+        this->partitionBounds[tv][accessIdx] = std::make_pair(ir::Var::make(getName("lo"), Int64), ir::Var::make(getName("hi"), Int64));
+      }
     }
   }
 }
@@ -1706,7 +1723,7 @@ ir::Expr ProvenanceGraph::getPartitionColorSpaceVar() const {
   return this->partitionColorSpace;
 }
 
-ir::Expr ProvenanceGraph::getPartitionBoundsVar() const {
+const std::map<TensorVar, std::map<int, std::pair<ir::Expr, ir::Expr>>>& ProvenanceGraph::getPartitionBounds() const {
   return this->partitionBounds;
 }
 
