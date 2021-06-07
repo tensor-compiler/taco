@@ -1623,6 +1623,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto simultaneous = ir::Symbol::make("LEGION_SIMULTANEOUS");
     auto fidVal = ir::Symbol::make("FID_VAL");
     auto ctx = ir::Symbol::make("ctx");
+    auto runtime = ir::Symbol::make("runtime");
     auto virtualMap = ir::Symbol::make("Mapping::DefaultMapper::VIRTUAL_MAP");
     auto placementMap = ir::Symbol::make("TACOMapper::PLACEMENT");
     auto placementShard = ir::Symbol::make("TACOMapper::PLACEMENT_SHARD");
@@ -1914,19 +1915,39 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
             // If we are using control replication, we'll need to do some extra
             // work to set up a sharding functor so that index tasks are sharded to
             // the right positions. To do so, we'll need to add a sharding functor ID
-            // to the argument pack.
+            // to the argument pack. Next, we need to register the sharding functor
+            // to the runtime system, rather than letting the mapper handle it.
             int sfID = shardingFunctorID++;
             prefixVars.push_back(ir::Var::make("sfID", Int32));
             prefixExprs.push_back(ir::Call::make("shardingID", {sfID}, Int32));
-          }
-          // If we are directed to place a tensor onto a Face of the placement
-          // grid, then we need to package up the full dimensions of the placement
-          // grid into the task's arguments so that the mapper can extract it.
-          for (int i = 0; i < placementGrid.getDim(); i++) {
-            std::stringstream varname;
-            varname << "dim" << i;
-            auto var = ir::Var::make(varname.str(), Int32);
-            prefixVars.push_back(var); prefixExprs.push_back(placementGrid.getDimSize(i));
+
+            // Create the vector of dimensions.
+            auto vecty = Datatype("std::vector<int>");
+            auto dimVec = ir::Var::make("dims", vecty);
+            itlStmts.push_back(ir::VarDecl::make(dimVec, ir::makeConstructor(vecty, {})));
+            for (int i = 0; i < placementGrid.getDim(); i++) {
+              itlStmts.push_back(ir::SideEffect::make(
+                  ir::MethodCall::make(dimVec, "push_back", {placementGrid.getDimSize(i)}, false /* deref */, Auto)));
+            }
+            itlStmts.push_back(
+              ir::SideEffect::make(
+                ir::Call::make(
+                  "registerPlacementShardingFunctor",
+                  {ctx, runtime, ir::Call::make("shardingID", {sfID}, Int32), dimVec},
+                  Auto
+                )
+              )
+            );
+          } else {
+            // If we are directed to place a tensor onto a Face of the placement
+            // grid, then we need to package up the full dimensions of the placement
+            // grid into the task's arguments so that the mapper can extract it.
+            for (int i = 0; i < placementGrid.getDim(); i++) {
+              std::stringstream varname;
+              varname << "dim" << i;
+              auto var = ir::Var::make(varname.str(), Int32);
+              prefixVars.push_back(var); prefixExprs.push_back(placementGrid.getDimSize(i));
+            }
           }
           itlStmts.push_back(ir::PackTaskArgs::make(args, taskID, prefixVars, prefixExprs));
           unpackFaceArgs = true;

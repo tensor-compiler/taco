@@ -21,4 +21,6 @@ int getIndexPoint(const Legion::Task* task, int index);
 Legion::TaskID taskID(int offset);
 Legion::ShardingID shardingID(int offset);
 
+void registerPlacementShardingFunctor(Legion::Context ctx, Legion::Runtime* runtime, Legion::ShardingID funcID, std::vector<int>& dims);
+
 #endif // TACO_LEGION_INCLUDES_H

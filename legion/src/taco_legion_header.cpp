@@ -1,4 +1,5 @@
 #include "taco_legion_header.h"
+#include "shard.h"
 
 using namespace Legion;
 
@@ -21,4 +22,13 @@ TaskID taskID(int offset) {
 
 ShardingID shardingID(int offset) {
   return TACO_SHARD_BASE_ID + offset;
+}
+
+void registerPlacementShardingFunctor(Context ctx, Runtime* runtime, ShardingID funcID, std::vector<int>& dims) {
+  auto func = Legion::Runtime::get_sharding_functor(funcID);
+  // If the sharding functor already exists, return.
+  if (func) { return; }
+  // Otherwise, register the functor.
+  auto functor = new TACOPlacementShardingFunctor(dims);
+  runtime->register_sharding_functor(funcID, functor);//, true /* silence_warnings */);
 }

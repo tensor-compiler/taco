@@ -31,24 +31,10 @@ public:
       int* args = (int*)(task.args);
       // TODO (rohany): This logic makes it look like an argument
       //  serializer / deserializer like is done in Legate would be helpful.
-      // The shard ID is the first argument.
+      // The shard ID is the first argument. The generated code registers the desired
+      // sharding functor before launching the task.
       Legion::ShardingID shardingID = args[0];
-      auto func = Legion::Runtime::get_sharding_functor(shardingID);
-      // If we found the requested sharding functor, then use it.
-      if (func) {
-        output.chosen_functor = shardingID;
-      } else {
-        // Else, we need to create the sharding functor.
-        assert(task.is_index_space);
-        std::vector<int> gridDims(task.index_domain.dim);
-        for (int i = 0; i < task.index_domain.dim; i++) {
-          gridDims[i] = args[i+1];
-        }
-        auto functor = new TACOPlacementShardingFunctor(gridDims);
-        auto rt = Legion::Runtime::get_runtime();
-        rt->register_sharding_functor(shardingID, functor, true /* silence_warnings */);
-        output.chosen_functor = shardingID;
-      }
+      output.chosen_functor = shardingID;
     } else {
       output.chosen_functor = TACOShardingFunctorID;
     }
