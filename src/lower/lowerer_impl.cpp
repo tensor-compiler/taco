@@ -727,36 +727,45 @@ LowererImpl::lower(IndexStmt stmt, string name,
 
   match(stmt, function<void(const PlaceNode*)>([&](const PlaceNode* node) {
     this->isPlacementCode = true;
-    this->placement = node->gp;
-    this->placementGrid = node->g;
+    this->placements = node->placements;
   }));
 
   if (this->isPlacementCode) {
-    // When generating placement code, we might need to do extra work if we
-    // were requested to place data onto a Face of the processor grid.
-    // We start by finding the index variable that is the collapsed
-    // variable for all of the distributed variables.
-    struct IndexVarCollector : public IndexNotationVisitor {
-      void visit(const ForallNode* node) {
-        this->vars.push_back(node->indexVar);
+    // Set up Face() index launch bounds restrictions for any placement operations
+    // that use Face().
+    struct IndexVarFaceCollector : public IndexNotationVisitor {
+      IndexVarFaceCollector(std::map<IndexVar, int>& indexVarFaces,
+                            std::vector<std::pair<Grid, GridPlacement>>& placements,
+                            ProvenanceGraph& pg)
+        : indexVarFaces(indexVarFaces), placements(placements), pg(pg) {}
+
+      void visit (const ForallNode* node) {
+        if (distributedParallelUnit(node->parallel_unit)) {
+          auto fused = this->pg.getMultiFusedParents(node->indexVar);
+          taco_iassert(fused.size()  > 0);
+          auto placement = this->placements[distIndex].second;
+          taco_iassert(fused.size() == placement.axes.size());
+          // For all positions that are restricted to a Face of the processor grid,
+          // override the iteration bounds of that variable to just that face of the
+          // grid.
+          for (size_t i = 0; i < placement.axes.size(); i++) {
+            auto axis = placement.axes[i];
+            if (axis.kind == GridPlacement::AxisMatch::Face) {
+              this->indexVarFaces[fused[i]] = axis.face;
+            }
+          }
+          distIndex++;
+        }
         node->stmt.accept(this);
       }
-      std::vector<IndexVar> vars;
+
+      int distIndex = 0;
+      std::map<IndexVar, int>& indexVarFaces;
+      std::vector<std::pair<Grid, GridPlacement>>& placements;
+      ProvenanceGraph& pg;
     };
-    IndexVarCollector col;
-    stmt.accept(&col);
-    auto fused = this->provGraph.getMultiFusedParents(col.vars[0]);
-    taco_iassert(fused.size() > 0);
-    taco_iassert(fused.size() == this->placement.axes.size());
-    // For all positions that are restricted to a Face of the processor grid,
-    // override the iteration bounds of that variable to just that face of the
-    // grid.
-    for (size_t i = 0; i < this->placement.axes.size(); i++) {
-      auto axis = this->placement.axes[i];
-      if (axis.kind == GridPlacement::AxisMatch::Face) {
-        this->indexVarFaces[fused[i]] = axis.face;
-      }
-    }
+    IndexVarFaceCollector fc(this->indexVarFaces, this->placements, this->provGraph);
+    stmt.accept(&fc);
   }
 
   // Lower the index statement to compute and/or assemble
@@ -1564,8 +1573,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   // As a simple hack, don't emit code that actually performs the iteration within a placement node.
   // We just care about emitting the actual distributed loop to do the data placement, not waste
-  // time iterating over the data within it.
-  if (forall.isDistributed() && this->isPlacementCode) {
+  // time iterating over the data within it. Placement can be nested though, so only exclude the
+  // inner body for the deepest placement level.
+  if (forall.isDistributed() && this->isPlacementCode && size_t(this->distLoopDepth + 1) == this->placements.size()) {
     body = ir::Block::make({});
   }
 
@@ -1870,10 +1880,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(regReq, "add_field", {fidVal}, false, Auto)));
 
         // If the task being launched doesn't access the target region, then we can
-        // virtually map the region.
+        // virtually map the region. Or, for placement code, we don't want to virtually
+        // map a region that the leaf placement tasks use.
         AccessFinder finder; finder.targetVar = tvIR;
         body.accept(&finder);
-        if (!finder.readsVar) {
+        if (!finder.readsVar && !(this->isPlacementCode && size_t(this->distLoopDepth + 1) == this->placements.size())) {
           itlStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
         }
 
@@ -1884,9 +1895,12 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       auto args = ir::Var::make("taskArgs", Auto);
       bool unpackFaceArgs = false;
       if (this->isPlacementCode) {
+        auto placementGrid = this->placements[this->distLoopDepth].first;
+        auto placement = this->placements[this->distLoopDepth].second;
+
         // Count the number of Face() axes placements.
         int count = 0;
-        for (auto axis : this->placement.axes) {
+        for (auto axis : placement.axes) {
           if (axis.kind == GridPlacement::AxisMatch::Face) {
             count++;
           }
@@ -1903,11 +1917,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           // If we are directed to place a tensor onto a Face of the placement
           // grid, then we need to package up the full dimensions of the placement
           // grid into the task's arguments so that the mapper can extract it.
-          for (int i = 0; i < this->placementGrid.getDim(); i++) {
+          for (int i = 0; i < placementGrid.getDim(); i++) {
             std::stringstream varname;
             varname << "dim" << i;
             auto var = ir::Var::make(varname.str(), Int32);
-            prefixVars.push_back(var); prefixExprs.push_back(this->placementGrid.getDimSize(i));
+            prefixVars.push_back(var); prefixExprs.push_back(placementGrid.getDimSize(i));
           }
           itlStmts.push_back(ir::PackTaskArgs::make(args, taskID, prefixVars, prefixExprs));
           unpackFaceArgs = true;
@@ -1958,8 +1972,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         itlStmts.push_back(ir::SideEffect::make(fmCall));
       }
 
-      // Placement code should return the LogicalPartition.
-      if (this->isPlacementCode) {
+      // Placement code should return the LogicalPartition for the top level partition.
+      if (this->isPlacementCode && this->distLoopDepth == 0) {
         auto tv = this->tensorVars.begin()->first;
         auto tvIR = this->tensorVars.begin()->second;
         auto call = ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(tvIR), partitionings.at(tv)}, LogicalPartition);

@@ -785,14 +785,21 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
   order.insert(order.end(), this->content->innerVars.begin(), this->content->innerVars.end());
   stmt = stmt.reorder(order);
 
-  static int counter = 0;
+  struct distNameCounter : public IndexNotationVisitor {
+    void visit(const ForallNode* node) {
+      if (node->indexVar.getName().find("distFused") != std::string::npos) {
+        this->count++;
+      }
+      node->stmt.accept(this);
+    }
+    int count = 0;
+  } counter; stmt.accept(&counter);
 
   std::stringstream varname;
   varname << "distFused";
-  if (counter != 0) {
-    varname << counter;
+  if (counter.count != 0) {
+    varname << counter.count;
   }
-  counter++;
 
   IndexVar distFused(varname.str());
   if (this->content->distVars.size() > 1) {
