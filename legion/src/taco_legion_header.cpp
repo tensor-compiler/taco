@@ -30,5 +30,5 @@ void registerPlacementShardingFunctor(Context ctx, Runtime* runtime, ShardingID 
   if (func) { return; }
   // Otherwise, register the functor.
   auto functor = new TACOPlacementShardingFunctor(dims);
-  runtime->register_sharding_functor(funcID, functor);//, true /* silence_warnings */);
+  runtime->register_sharding_functor(funcID, functor, true /* silence_warnings */);
 }
