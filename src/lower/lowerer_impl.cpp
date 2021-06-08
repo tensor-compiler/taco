@@ -593,6 +593,9 @@ LowererImpl::lower(IndexStmt stmt, string name,
         for (auto& t : node->transfers) {
           this->requestedTensorVars.insert(t.getAccess().getTensorVar());
         }
+        if (node->computingOn.defined()) {
+          this->requestedTensorVars.insert(node->computingOn);
+        }
       }
 
       // Recurse down the index statement.

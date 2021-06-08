@@ -504,7 +504,7 @@ std::vector<ir::Expr> DivideOntoPartition::deriveIterBounds(IndexVar indexVar,
                                                             std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                                             std::map<taco::IndexVar, taco::ir::Expr> variableNames,
                                                             Iterators iterators, ProvenanceGraph provGraph) const {
-  // I don't really care about bounds for other variables here.
+  std::vector<ir::Expr> parentBound = parentIterBounds.at(this->content->parentVar);
   if (indexVar == this->content->outerVar) {
     auto colorSpace = provGraph.getPartitionColorSpaceVar();
     auto lo = ir::Load::make(ir::MethodCall::make(colorSpace, "lo", {}, false, Int32), this->content->accessIdx);
@@ -516,8 +516,11 @@ std::vector<ir::Expr> DivideOntoPartition::deriveIterBounds(IndexVar indexVar,
     auto bounds = provGraph.getPartitionBounds().at(this->getTensorVar()).at(this->getAccessIdx());
     auto lo = bounds.first;
     auto hi = bounds.second;
-    // hi is inclusive, so we need to add 1 to it.
-    return {lo, ir::Add::make(hi, 1)};
+    // We keep the iteration of the variables from between [0, n), as this is an implicit
+    // assumption of the rest of the provenance graph machinery. So, this variable ranges
+    // from the lower bound of the parent to lower bound + (hi - lo + 1), since hi is inclusive.
+    ir::Expr minBound = parentBound[0];
+    return {minBound, ir::Add::make(minBound, ir::Add::make(ir::Sub::make(hi, lo), 1))};
   }
   taco_ierror;
   return {};
@@ -528,8 +531,11 @@ ir::Expr DivideOntoPartition::recoverVariable(IndexVar indexVar, std::map<IndexV
                                               std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
                                               std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                               ProvenanceGraph provGraph) const {
-  // The inner variable is exactly what we need.
-  return variableNames[this->content->innerVar];
+  // We recover the variable by adding lo to the inner var, which ranges from [0, (hi - lo) + 1].
+  auto parentBounds = parentIterBounds.at(this->content->parentVar);
+  auto bounds = provGraph.getPartitionBounds().at(this->getTensorVar()).at(this->getAccessIdx());
+  auto lo = bounds.first;
+  return ir::Add::make(variableNames[this->content->innerVar], lo);
 }
 
 ir::Stmt DivideOntoPartition::recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables,

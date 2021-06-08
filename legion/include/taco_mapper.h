@@ -87,6 +87,10 @@ public:
       all_procs.only_kind(kind);
       return std::vector<Legion::Processor>(all_procs.begin(), all_procs.end());
     }
+
+    // Keep the compiler happy.
+    assert(false);
+    return {};
   }
 
   void slice_task(const Legion::Mapping::MapperContext    ctx,
