@@ -199,8 +199,7 @@ TEST(distributed, cannonMM) {
       .pushCommUnder(b(i, k), kos)
       .pushCommUnder(c(k, j), kos)
       .pushCommUnder(a(i, j), in)
-      // This can be enabled on Sapling where we have an OpenMP + OpenBLAS build.
-       .swapLeafKernel(il, gemm)
+      .swapLeafKernel(il, gemm)
       ;
 
   auto lowered = lower(stmt, "computeLegion", false, true);
