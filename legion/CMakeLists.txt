@@ -29,7 +29,7 @@ function(add_app_folder folder)
         if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${folder}/taco-generated.cu")
             cuda_add_executable("${folder}-cuda" "${folder}/main.cpp" "${folder}/taco-generated.cu" ${LG_SOURCES} ${LG_CU_SOURCES})
             target_link_libraries("${folder}-cuda" Legion::Legion cublas)
-	    target_compile_definitions("${folder}-cuda" PUBLIC TACO_USE_CUDA)
+            target_compile_definitions("${folder}-cuda" PUBLIC TACO_USE_CUDA)
         endif()
     endif()
 endfunction()
@@ -37,11 +37,24 @@ endfunction()
 function(add_cuda_folder folder)
     if (Legion_USE_CUDA)
         file(GLOB SOURCES "${folder}/*.cpp" "${folder}/*.cu" ${LG_SOURCES})
-	cuda_add_executable("${folder}" ${SOURCES} ${LG_CU_SOURCES})
+        cuda_add_executable("${folder}" ${SOURCES} ${LG_CU_SOURCES})
         target_link_libraries("${folder}" Legion::Legion)
-	target_compile_definitions("${folder}" PUBLIC TACO_USE_CUDA)
+        target_compile_definitions("${folder}" PUBLIC TACO_USE_CUDA)
     endif()
 endfunction()
+
+set(TEST_BINARIES "")
+macro(add_basic_legion_test binary tag)
+    # TODO (rohany): Handle CUDA here.
+    # TODO (rohany): See what more runtime debug flags I can place here.
+    if (Legion_USE_OPENMP)
+        add_test(NAME "legion-${binary}-${tag}" COMMAND ${binary} -lg:partcheck -lg:safe_mapper -ll:ocpu 1 -ll:othr 1 -ll:csize 5000 ${ARGN})
+    else()
+        add_test(NAME "legion-${binary}-${tag}" COMMAND ${binary} -lg:partcheck -lg:safe_mapper -ll:cpu 1 -ll:csize 5000 ${ARGN})
+    endif()
+    # Collect all the test binaries that we depend on.
+    list(APPEND TEST_BINARIES "${binary}")
+endmacro()
 
 add_app_folder(summaMM)
 add_app_folder(cannonMM)
@@ -50,3 +63,26 @@ add_app_folder(johnsonMM)
 add_app_folder(solomonikMM)
 
 add_cuda_folder(cuda-test)
+
+# Add a variety of tests for the generated code.
+
+# Tests for cannon.
+add_basic_legion_test(cannonMM basic -gx 4 -gy 4 -n 2048)
+add_basic_legion_test(cannonMM nondiv1 -gx 4 -gy 4 -n 2047)
+add_basic_legion_test(cannonMM nondiv2 -gx 4 -gy 4 -n 2049)
+
+# Tests for SUMMA.
+add_basic_legion_test(summaMM basic -gx 4 -gy 4 -n 2048)
+add_basic_legion_test(summaMM nondiv1 -gx 4 -gy 4 -n 2047)
+add_basic_legion_test(summaMM nondiv2 -gx 4 -gy 4 -n 2049)
+
+# Tests for Johnson.
+add_basic_legion_test(johnsonMM basic -n 1024)
+
+# Tests for Solomonik-2.5D.
+add_basic_legion_test(solomonikMM basic -n 1024)
+
+# Deduplicate the list of test binaries so that we have all of our dependencies.
+# All tests must be added above this line.
+list(REMOVE_DUPLICATES TEST_BINARIES)
+add_custom_target(test-legion COMMAND ctest -R legion DEPENDS ${TEST_BINARIES})
