@@ -11,7 +11,7 @@ void registerTacoTasks();
 LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gridX, int32_t gridY);
 LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, int32_t gridX, int32_t gridY);
 LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, int32_t gridX, int32_t gridY);
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, int32_t gridX, int32_t gridY);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, LogicalPartition part, int32_t gx);
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   // Create the regions.
   auto args = runtime->get_input_args();
@@ -63,7 +63,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   initCuBLAS(ctx, runtime);
 
   // Compute on the tensors.
-  benchmark([&]() { computeLegion(ctx, runtime, A, B, C, gx, gy); });
+  benchmark([&]() { computeLegion(ctx, runtime, A, B, C, part, gx); });
 
   // The result should be equal to 1.
   tacoValidate<valType>(ctx, runtime, A, valType(n));
