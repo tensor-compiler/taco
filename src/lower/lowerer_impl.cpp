@@ -1767,7 +1767,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     // If we're doing a reduction, we're most likely not operating on a disjoint
     // partition. So, fall back to an aliased partition.
     auto partKind = disjointPart;
-    if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction) {
+    // TODO (rohany): This is definitely not as accurate as we can be.
+    if (this->performingLegionReduction) {
       partKind = aliasedPart;
     }
 
