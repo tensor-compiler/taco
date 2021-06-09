@@ -45,14 +45,14 @@ LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a) {
   Point<3> upperBound = Point<3>(1, 1, 0);
   auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<3>(lowerBound, upperBound));
   DomainT<3> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<3>(distFusedIndexSpace));
+  auto aDomain = runtime->get_index_space_domain(ctx, a_index_space);
   DomainPointColoring aColoring = DomainPointColoring();
   for (PointInDomainIterator<3> itr = PointInDomainIterator<3>(domain); itr.valid(); itr++) {
     int32_t in = (*itr)[0];
     int32_t jn = (*itr)[1];
     Point<2> aStart = Point<2>((in * ((a1_dimension + 1) / 2)), (jn * ((a2_dimension + 1) / 2)));
-    Point<2> aEnd = Point<2>(TACO_MIN((in * ((a1_dimension + 1) / 2) + ((a1_dimension + 1) / 2 - 1)), (a1_dimension - 1)), TACO_MIN((jn * ((a2_dimension + 1) / 2) + ((a2_dimension + 1) / 2 - 1)), (a2_dimension - 1)));
+    Point<2> aEnd = Point<2>(TACO_MIN((in * ((a1_dimension + 1) / 2) + ((a1_dimension + 1) / 2 - 1)), aDomain.hi()[0]), TACO_MIN((jn * ((a2_dimension + 1) / 2) + ((a2_dimension + 1) / 2 - 1)), aDomain.hi()[1]));
     Rect<2> aRect = Rect<2>(aStart, aEnd);
-    auto aDomain = runtime->get_index_space_domain(ctx, a_index_space);
     if (!aDomain.contains(aRect.lo) || !aDomain.contains(aRect.hi)) aRect = aRect.make_empty();
 
     aColoring[(*itr)] = aRect;
@@ -94,14 +94,14 @@ LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b) {
   Point<3> upperBound = Point<3>(1, 0, 1);
   auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<3>(lowerBound, upperBound));
   DomainT<3> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<3>(distFusedIndexSpace));
+  auto bDomain = runtime->get_index_space_domain(ctx, b_index_space);
   DomainPointColoring bColoring = DomainPointColoring();
   for (PointInDomainIterator<3> itr = PointInDomainIterator<3>(domain); itr.valid(); itr++) {
     int32_t in = (*itr)[0];
     int32_t jn = (*itr)[2];
     Point<2> bStart = Point<2>((in * ((b1_dimension + 1) / 2)), (jn * ((b2_dimension + 1) / 2)));
-    Point<2> bEnd = Point<2>(TACO_MIN((in * ((b1_dimension + 1) / 2) + ((b1_dimension + 1) / 2 - 1)), (b1_dimension - 1)), TACO_MIN((jn * ((b2_dimension + 1) / 2) + ((b2_dimension + 1) / 2 - 1)), (b2_dimension - 1)));
+    Point<2> bEnd = Point<2>(TACO_MIN((in * ((b1_dimension + 1) / 2) + ((b1_dimension + 1) / 2 - 1)), bDomain.hi()[0]), TACO_MIN((jn * ((b2_dimension + 1) / 2) + ((b2_dimension + 1) / 2 - 1)), bDomain.hi()[1]));
     Rect<2> bRect = Rect<2>(bStart, bEnd);
-    auto bDomain = runtime->get_index_space_domain(ctx, b_index_space);
     if (!bDomain.contains(bRect.lo) || !bDomain.contains(bRect.hi)) bRect = bRect.make_empty();
 
     bColoring[(*itr)] = bRect;
@@ -143,14 +143,14 @@ LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c) {
   Point<3> upperBound = Point<3>(0, 1, 1);
   auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<3>(lowerBound, upperBound));
   DomainT<3> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<3>(distFusedIndexSpace));
+  auto cDomain = runtime->get_index_space_domain(ctx, c_index_space);
   DomainPointColoring cColoring = DomainPointColoring();
   for (PointInDomainIterator<3> itr = PointInDomainIterator<3>(domain); itr.valid(); itr++) {
     int32_t in = (*itr)[1];
     int32_t jn = (*itr)[2];
     Point<2> cStart = Point<2>((in * ((c1_dimension + 1) / 2)), (jn * ((c2_dimension + 1) / 2)));
-    Point<2> cEnd = Point<2>(TACO_MIN((in * ((c1_dimension + 1) / 2) + ((c1_dimension + 1) / 2 - 1)), (c1_dimension - 1)), TACO_MIN((jn * ((c2_dimension + 1) / 2) + ((c2_dimension + 1) / 2 - 1)), (c2_dimension - 1)));
+    Point<2> cEnd = Point<2>(TACO_MIN((in * ((c1_dimension + 1) / 2) + ((c1_dimension + 1) / 2 - 1)), cDomain.hi()[0]), TACO_MIN((jn * ((c2_dimension + 1) / 2) + ((c2_dimension + 1) / 2 - 1)), cDomain.hi()[1]));
     Rect<2> cRect = Rect<2>(cStart, cEnd);
-    auto cDomain = runtime->get_index_space_domain(ctx, c_index_space);
     if (!cDomain.contains(cRect.lo) || !cDomain.contains(cRect.hi)) cRect = cRect.make_empty();
 
     cColoring[(*itr)] = cRect;
@@ -184,8 +184,8 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t c1_dimension = args->c1_dimension;
   int32_t c2_dimension = args->c2_dimension;
 
-  AccessorROint32_t2 b_vals(b, FID_VAL);
   AccessorROint32_t2 c_vals(c, FID_VAL);
+  AccessorROint32_t2 b_vals(b, FID_VAL);
   AccessorReduceint32_t2 a_vals(a, FID_VAL, LEGION_REDOP_SUM_INT32);
 
   int32_t in = getIndexPoint(task, 0);
@@ -225,11 +225,8 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
 }
 
 void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c) {
-  int a1_dimension = runtime->get_index_space_domain(get_index_space(a)).hi()[0] + 1;
-  int a2_dimension = runtime->get_index_space_domain(get_index_space(a)).hi()[1] + 1;
   auto a_index_space = get_index_space(a);
   int b1_dimension = runtime->get_index_space_domain(get_index_space(b)).hi()[0] + 1;
-  int b2_dimension = runtime->get_index_space_domain(get_index_space(b)).hi()[1] + 1;
   auto b_index_space = get_index_space(b);
   int c1_dimension = runtime->get_index_space_domain(get_index_space(c)).hi()[0] + 1;
   int c2_dimension = runtime->get_index_space_domain(get_index_space(c)).hi()[1] + 1;
@@ -239,6 +236,9 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
   Point<3> upperBound = Point<3>(1, 1, 1);
   auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<3>(lowerBound, upperBound));
   DomainT<3> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<3>(distFusedIndexSpace));
+  auto aDomain = runtime->get_index_space_domain(ctx, a_index_space);
+  auto bDomain = runtime->get_index_space_domain(ctx, b_index_space);
+  auto cDomain = runtime->get_index_space_domain(ctx, c_index_space);
   DomainPointColoring aColoring = DomainPointColoring();
   DomainPointColoring bColoring = DomainPointColoring();
   DomainPointColoring cColoring = DomainPointColoring();
@@ -247,23 +247,20 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
     int32_t jn = (*itr)[1];
     int32_t kn = (*itr)[2];
     Point<2> aStart = Point<2>((in * ((b1_dimension + 1) / 2)), (jn * ((c2_dimension + 1) / 2)));
-    Point<2> aEnd = Point<2>(TACO_MIN((in * ((b1_dimension + 1) / 2) + ((b1_dimension + 1) / 2 - 1)), (a1_dimension - 1)), TACO_MIN((jn * ((c2_dimension + 1) / 2) + ((c2_dimension + 1) / 2 - 1)), (a2_dimension - 1)));
+    Point<2> aEnd = Point<2>(TACO_MIN((in * ((b1_dimension + 1) / 2) + ((b1_dimension + 1) / 2 - 1)), aDomain.hi()[0]), TACO_MIN((jn * ((c2_dimension + 1) / 2) + ((c2_dimension + 1) / 2 - 1)), aDomain.hi()[1]));
     Rect<2> aRect = Rect<2>(aStart, aEnd);
-    auto aDomain = runtime->get_index_space_domain(ctx, a_index_space);
     if (!aDomain.contains(aRect.lo) || !aDomain.contains(aRect.hi)) aRect = aRect.make_empty();
 
     aColoring[(*itr)] = aRect;
     Point<2> bStart = Point<2>((in * ((b1_dimension + 1) / 2)), (kn * ((c1_dimension + 1) / 2)));
-    Point<2> bEnd = Point<2>(TACO_MIN((in * ((b1_dimension + 1) / 2) + ((b1_dimension + 1) / 2 - 1)), (b1_dimension - 1)), TACO_MIN((kn * ((c1_dimension + 1) / 2) + ((c1_dimension + 1) / 2 - 1)), (b2_dimension - 1)));
+    Point<2> bEnd = Point<2>(TACO_MIN((in * ((b1_dimension + 1) / 2) + ((b1_dimension + 1) / 2 - 1)), bDomain.hi()[0]), TACO_MIN((kn * ((c1_dimension + 1) / 2) + ((c1_dimension + 1) / 2 - 1)), bDomain.hi()[1]));
     Rect<2> bRect = Rect<2>(bStart, bEnd);
-    auto bDomain = runtime->get_index_space_domain(ctx, b_index_space);
     if (!bDomain.contains(bRect.lo) || !bDomain.contains(bRect.hi)) bRect = bRect.make_empty();
 
     bColoring[(*itr)] = bRect;
     Point<2> cStart = Point<2>((kn * ((c1_dimension + 1) / 2)), (jn * ((c2_dimension + 1) / 2)));
-    Point<2> cEnd = Point<2>(TACO_MIN((kn * ((c1_dimension + 1) / 2) + ((c1_dimension + 1) / 2 - 1)), (c1_dimension - 1)), TACO_MIN((jn * ((c2_dimension + 1) / 2) + ((c2_dimension + 1) / 2 - 1)), (c2_dimension - 1)));
+    Point<2> cEnd = Point<2>(TACO_MIN((kn * ((c1_dimension + 1) / 2) + ((c1_dimension + 1) / 2 - 1)), cDomain.hi()[0]), TACO_MIN((jn * ((c2_dimension + 1) / 2) + ((c2_dimension + 1) / 2 - 1)), cDomain.hi()[1]));
     Rect<2> cRect = Rect<2>(cStart, cEnd);
-    auto cDomain = runtime->get_index_space_domain(ctx, c_index_space);
     if (!cDomain.contains(cRect.lo) || !cDomain.contains(cRect.hi)) cRect = cRect.make_empty();
 
     cColoring[(*itr)] = cRect;
