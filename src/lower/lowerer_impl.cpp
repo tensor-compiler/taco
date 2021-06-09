@@ -1690,6 +1690,15 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       transfers.push_back(ir::VarDecl::make(domain, makeDomain));
     }
 
+    // Extract the region domains for each region in the transfer.
+    std::map<TensorVar, ir::Expr> domains;
+    for (auto& t : forall.getTransfers()) {
+      auto domain = ir::Var::make(t.getAccess().getTensorVar().getName() + "Domain", Auto);
+      auto ispace = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::IndexSpace);
+      transfers.push_back(ir::VarDecl::make(domain, ir::Call::make("runtime->get_index_space_domain", {ctx, ispace}, Auto)));
+      domains[t.getAccess().getTensorVar()] = domain;
+    }
+
     // Make a coloring for each transfer.
     std::vector<Expr> colorings;
     for (auto& t : forall.getTransfers()) {
@@ -1736,20 +1745,16 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       auto txPoint = Point(tensorDim);
       auto txRect = Rect(tensorDim);
 
-      // TODO (rohany): Hoist this out of the partition loop.
-      auto domain = ir::Var::make(n + "Domain", Auto);
-      auto ispace = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::IndexSpace);
-      partStmts.push_back(ir::VarDecl::make(domain, ir::Call::make("runtime->get_index_space_domain", {ctx, ispace}, Auto)));
-
-      auto bounds = this->derivedBounds[this->curDistVar][t.getAccess().getTensorVar()];
+      auto rdomain = domains[t.getAccess().getTensorVar()];
+      auto tbounds = this->derivedBounds[this->curDistVar][t.getAccess().getTensorVar()];
       std::vector<Expr> los, his;
       for (size_t dimIdx = 0; dimIdx < tensorDim; dimIdx++) {
-        los.push_back(bounds[dimIdx][0]);
+        los.push_back(tbounds[dimIdx][0]);
         auto dimBound = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::Dimension, dimIdx);
-	// The upper bound of the partition should be at most the upper bound of
-	// the region itself.
-	auto partUpper = ir::Load::make(ir::MethodCall::make(domain, "hi", {}, false, Int64), dimIdx);
-        auto upper = ir::Min::make(bounds[dimIdx][1], partUpper);
+        // The upper bound of the partition should be at most the upper bound of
+        // the region itself.
+        auto partUpper = ir::Load::make(ir::MethodCall::make(rdomain, "hi", {}, false, Int64), int(dimIdx));
+        auto upper = ir::Min::make(tbounds[dimIdx][1], partUpper);
         his.push_back(upper);
       }
       auto start = ir::Var::make(n + "Start", txPoint);
@@ -1761,8 +1766,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
       // It's possible that this partitioning makes a rectangle that goes out of bounds
       // of the tensor's index space. If so, replace the rectangle with an empty Rect.
-      auto lb = ir::MethodCall::make(domain, "contains", {ir::FieldAccess::make(rect, "lo", false, Auto)}, false, Bool);
-      auto hb = ir::MethodCall::make(domain, "contains", {ir::FieldAccess::make(rect, "hi", false, Auto)}, false, Bool);
+      auto lb = ir::MethodCall::make(rdomain, "contains", {ir::FieldAccess::make(rect, "lo", false, Auto)}, false, Bool);
+      auto hb = ir::MethodCall::make(rdomain, "contains", {ir::FieldAccess::make(rect, "hi", false, Auto)}, false, Bool);
       auto guard = ir::Or::make(ir::Neg::make(lb), ir::Neg::make(hb));
       partStmts.push_back(ir::IfThenElse::make(guard, ir::Assign::make(rect, ir::MethodCall::make(rect, "make_empty", {}, false, Auto))));
 
