@@ -358,74 +358,6 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
       return returnStmt;
     }
 
-    Forall buildProducer(int indexOriginal,
-                         std::map<IndexVar, IndexVar>& substitutions,
-                         TensorVar& ws,
-                         const std::vector<IndexVar>& i_vars,
-                         const std::vector<IndexVar>& iw_vars,
-                         const IndexExpr& e, vector<IndexVar> forallIndexVars) {
-
-      int index = i_vars.size() - indexOriginal - 1;
-      substitutions[i_vars[index]] = iw_vars[index];
-
-      if (indexOriginal == 0) {
-        auto assignment = ws(iw_vars) = replace(e, substitutions);
-
-        if (!assignment.getReductionVars().empty()) {
-          assignment = Assignment(assignment.getLhs(), assignment.getRhs(), Add());
-        } else {
-          assignment = Assignment(assignment.getLhs(), assignment.getRhs());
-        }
-
-        auto assignmentIndexVars = assignment.getIndexVars();
-        //auto concreteStmt = stmt.concretizeScheduled(provGraph, forallIndexVarList);
-        IndexStmt concreteStmt = assignment;
-        for (auto &i : util::reverse(forallIndexVars)) {
-          if (provGraph.isFullyDerived(i) &&
-              std::find(assignmentIndexVars.begin(), assignmentIndexVars.end(), i) != assignmentIndexVars.end()) {
-            concreteStmt = forall(i, concreteStmt);
-          } else if (provGraph.isFullyDerived(i) && substitutions.find(i) != substitutions.end()
-                     && std::find(assignmentIndexVars.begin(), assignmentIndexVars.end(), substitutions[i]) != assignmentIndexVars.end()) {
-            concreteStmt = forall(substitutions[i], concreteStmt);
-          } else {
-            for (auto& underivedI : provGraph.getUnderivedAncestors(i)) {
-              if (std::find(assignmentIndexVars.begin(), assignmentIndexVars.end(), underivedI) != assignmentIndexVars.end()) {
-                concreteStmt = forall(i, concreteStmt);
-              } else if (substitutions.find(underivedI) != substitutions.end()
-                         && std::find(assignmentIndexVars.begin(), assignmentIndexVars.end(), substitutions[underivedI]) != assignmentIndexVars.end()) {
-                concreteStmt = forall(substitutions[i], concreteStmt);
-              }
-            }
-          }
-        }
-
-        taco_iassert(isa<Forall>(concreteStmt)) << "Transformed producer statement does not begin with a Forall";
-        return to<Forall>(concreteStmt);
-      }
-      return buildProducer(indexOriginal - 1, substitutions, ws, i_vars,
-                                                  iw_vars, e, forallIndexVars);
-    }
-
-    Forall buildConsumer(Assignment assignment, vector<IndexVar> forallIndexVars) {
-      auto assignmentIndexVars = assignment.getIndexVars();
-      IndexStmt concreteStmt = assignment;
-      for (auto &i : util::reverse(forallIndexVars)) {
-        if (provGraph.isFullyDerived(i) && std::find(assignmentIndexVars.begin(), assignmentIndexVars.end(), i) != assignmentIndexVars.end()) {
-          concreteStmt = forall(i, concreteStmt);
-        } else {
-          for (auto& underivedI : provGraph.getUnderivedAncestors(i)) {
-            if (std::find(assignmentIndexVars.begin(), assignmentIndexVars.end(), underivedI) != assignmentIndexVars.end()) {
-              concreteStmt = forall(i, concreteStmt);
-            }
-          }
-        }
-      }
-      //auto concreteStmt = assignment.concretizeScheduled(provGraph, forallIndexVarList);
-      //cout << "Build consumer stmt: " << concreteStmt << endl;
-      taco_iassert(isa<Forall>(concreteStmt)) << "Transformed producer statement does not begin with a Forall";
-      return to<Forall>(concreteStmt);
-    }
-
     bool containsIndexVarScheduled(vector<IndexVar> indexVars,
                                  IndexVar indexVar) {
       bool contains = false;
@@ -451,72 +383,69 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
       Forall foralli(node);
       std::vector<IndexVar> i_vars = precompute.getIVars();
 
-      //if (foralli.getIndexVar() == i_vars[0]) {
-        vector<IndexVar> forallIndexVars;
-        match(foralli,
-              function<void(const ForallNode*)>([&](const ForallNode* op) {
-                forallIndexVars.push_back(op->indexVar);
-              })
-        );
+      vector<IndexVar> forallIndexVars;
+      match(foralli,
+            function<void(const ForallNode*)>([&](const ForallNode* op) {
+              forallIndexVars.push_back(op->indexVar);
+            })
+      );
 
-        IndexStmt s = foralli.getStmt();
-        TensorVar ws = precompute.getWorkspace();
-        IndexExpr e = precompute.getExpr();
-        std::vector<IndexVar> iw_vars = precompute.getIWVars();
+      IndexStmt s = foralli.getStmt();
+      TensorVar ws = precompute.getWorkspace();
+      IndexExpr e = precompute.getExpr();
+      std::vector<IndexVar> iw_vars = precompute.getIWVars();
 
-        map<IndexVar, IndexVar> substitutions;
-        taco_iassert(i_vars.size() == iw_vars.size()) << "i_vars and iw_vars lists must be the same size";
+      map<IndexVar, IndexVar> substitutions;
+      taco_iassert(i_vars.size() == iw_vars.size()) << "i_vars and iw_vars lists must be the same size";
 
-        for (int index = 0; index < (int)i_vars.size(); index++) {
-          substitutions[i_vars[index]] = iw_vars[index];
-        }
+      for (int index = 0; index < (int)i_vars.size(); index++) {
+        substitutions[i_vars[index]] = iw_vars[index];
+      }
 
-        // Build consumer by replacing with temporary (in replacedStmt)
-        IndexStmt replacedStmt = replace(s, {{e, ws(i_vars) }});
-        if (replacedStmt != s) {
-          // Then modify the replacedStmt to have the correct foralls
-          // by concretizing the consumer assignment
+      // Build consumer by replacing with temporary (in replacedStmt)
+      IndexStmt replacedStmt = replace(s, {{e, ws(i_vars) }});
+      if (replacedStmt != s) {
+        // Then modify the replacedStmt to have the correct foralls
+        // by concretizing the consumer assignment
 
-          auto consumerAssignment = getConsumerAssignment(replacedStmt, ws);
-          auto consumerIndexVars = consumerAssignment.getIndexVars();
+        auto consumerAssignment = getConsumerAssignment(replacedStmt, ws);
+        auto consumerIndexVars = consumerAssignment.getIndexVars();
 
-          auto producerAssignment = getProducerAssignment(ws, i_vars, iw_vars, e, substitutions);
-          auto producerIndexVars = producerAssignment.getIndexVars();
+        auto producerAssignment = getProducerAssignment(ws, i_vars, iw_vars, e, substitutions);
+        auto producerIndexVars = producerAssignment.getIndexVars();
 
-//          IndexStmt consumer = buildConsumer(consumerAssignment, forallIndexVars);
-//
-//          // Buld producer by concretizing the producer assignment
-//          std::map<IndexVar, IndexVar> substitutions;
-//          IndexStmt producer = buildProducer(i_vars.size() - 1, substitutions, ws, i_vars, iw_vars, e, forallIndexVars);
-          vector<IndexVar> producerForallIndexVars;
-          vector<IndexVar> consumerForallIndexVars;
-          vector<IndexVar> outerForallIndexVars;
-          for (auto &i : util::reverse(forallIndexVars)) {
-            if (containsIndexVarScheduled(i_vars, i)) {
-              producerForallIndexVars.push_back(substitutions[i]);
+        vector<IndexVar> producerForallIndexVars;
+        vector<IndexVar> consumerForallIndexVars;
+        vector<IndexVar> outerForallIndexVars;
+
+        bool stopForallDistribution = false;
+        for (auto &i : util::reverse(forallIndexVars)) {
+          if (!stopForallDistribution && containsIndexVarScheduled(i_vars, i)) {
+            producerForallIndexVars.push_back(substitutions[i]);
+            consumerForallIndexVars.push_back(i);
+          } else {
+            auto consumerContains = containsIndexVarScheduled(consumerIndexVars, i);
+            auto producerContains = containsIndexVarScheduled(producerIndexVars, i);
+            if (stopForallDistribution || (producerContains && consumerContains)) {
+              outerForallIndexVars.push_back(i);
+              stopForallDistribution = true;
+            } else if (!stopForallDistribution && consumerContains) {
               consumerForallIndexVars.push_back(i);
-            } else {
-              auto consumerContains = containsIndexVarScheduled(consumerIndexVars, i);
-              auto producerContains = containsIndexVarScheduled(producerIndexVars, i);
-              if (producerContains && consumerContains) {
-                outerForallIndexVars.push_back(i);
-              } else if (consumerContains) {
-                consumerForallIndexVars.push_back(i);
-              } else if (producerContains) {
-                producerForallIndexVars.push_back(i);
-              }
+            } else if (!stopForallDistribution && producerContains) {
+              producerForallIndexVars.push_back(i);
             }
           }
-
-          IndexStmt consumer = generateForalls(consumerAssignment, consumerForallIndexVars);
-
-          IndexStmt producer = generateForalls(producerAssignment, producerForallIndexVars);
-          Where where(consumer, producer);
-
-          stmt = generateForalls(where, outerForallIndexVars);
-          return;
         }
-       IndexNotationRewriter::visit(node);
+
+        IndexStmt consumer = generateForalls(consumerAssignment, consumerForallIndexVars);
+
+        IndexStmt producer = generateForalls(producerAssignment, producerForallIndexVars);
+        Where where(consumer, producer);
+
+        stmt = generateForalls(where, outerForallIndexVars);
+        return;
+      }
+      IndexNotationRewriter::visit(node);
     }
   };
 
