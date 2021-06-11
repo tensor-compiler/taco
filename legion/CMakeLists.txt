@@ -45,15 +45,25 @@ endfunction()
 
 set(TEST_BINARIES "")
 macro(add_basic_legion_test binary tag)
-    # TODO (rohany): Handle CUDA here.
     # TODO (rohany): See what more runtime debug flags I can place here.
-    if (Legion_USE_OPENMP)
+    if (OPENMP)
         add_test(NAME "legion-${binary}-${tag}" COMMAND ${binary} -lg:partcheck -lg:safe_mapper -ll:ocpu 1 -ll:othr 1 -ll:csize 5000 ${ARGN})
     else()
         add_test(NAME "legion-${binary}-${tag}" COMMAND ${binary} -lg:partcheck -lg:safe_mapper -ll:cpu 1 -ll:csize 5000 ${ARGN})
     endif()
     # Collect all the test binaries that we depend on.
     list(APPEND TEST_BINARIES "${binary}")
+endmacro()
+macro(add_basic_legion_gpu_test binary tag)
+    if (Legion_USE_CUDA)
+        add_test(NAME "legion-${binary}-cuda-${tag}" COMMAND "${binary}-cuda" -lg:partcheck -lg:safe_mapper -ll:ocpu 1 -ll:othr 1 -ll:gpu 1 -ll:csize 5000 -ll:fsize 2048 ${ARGN})
+        # Collect all the test binaries that we depend on.
+        list(APPEND TEST_BINARIES "${binary}-cuda")
+    endif()
+endmacro()
+macro(add_basic_legion_cpugpu_test binary tag)
+    add_basic_legion_test(${binary} ${tag} ${ARGN})
+    add_basic_legion_gpu_test(${binary} ${tag} ${ARGN})
 endmacro()
 
 add_app_folder(summaMM)
@@ -67,9 +77,9 @@ add_cuda_folder(cuda-test)
 # Add a variety of tests for the generated code.
 
 # Tests for cannon.
-add_basic_legion_test(cannonMM basic -gx 4 -gy 4 -n 2048)
-add_basic_legion_test(cannonMM nondiv1 -gx 4 -gy 4 -n 2047)
-add_basic_legion_test(cannonMM nondiv2 -gx 4 -gy 4 -n 2049)
+add_basic_legion_cpugpu_test(cannonMM basic -gx 4 -gy 4 -n 2048)
+add_basic_legion_cpugpu_test(cannonMM nondiv1 -gx 4 -gy 4 -n 2047)
+add_basic_legion_cpugpu_test(cannonMM nondiv2 -gx 4 -gy 4 -n 2049)
 
 # Tests for SUMMA.
 add_basic_legion_test(summaMM basic -gx 4 -gy 4 -n 2048)

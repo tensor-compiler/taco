@@ -28,14 +28,14 @@ LogicalPartition placeLegion(Context ctx, Runtime* runtime, LogicalRegion a) {
   Point<3> upperBound = Point<3>(3, 3, 0);
   auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<3>(lowerBound, upperBound));
   DomainT<3> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<3>(distFusedIndexSpace));
+  auto aDomain = runtime->get_index_space_domain(ctx, a_index_space);
   DomainPointColoring aColoring = DomainPointColoring();
   for (PointInDomainIterator<3> itr = PointInDomainIterator<3>(domain); itr.valid(); itr++) {
     int32_t in = (*itr)[0];
     int32_t jn = (*itr)[1];
     Point<2> aStart = Point<2>((in * ((a1_dimension + 3) / 4)), (jn * ((a2_dimension + 3) / 4)));
-    Point<2> aEnd = Point<2>(TACO_MIN((in * ((a1_dimension + 3) / 4) + ((a1_dimension + 3) / 4 - 1)), (a1_dimension - 1)), TACO_MIN((jn * ((a2_dimension + 3) / 4) + ((a2_dimension + 3) / 4 - 1)), (a2_dimension - 1)));
+    Point<2> aEnd = Point<2>(TACO_MIN((in * ((a1_dimension + 3) / 4) + ((a1_dimension + 3) / 4 - 1)), aDomain.hi()[0]), TACO_MIN((jn * ((a2_dimension + 3) / 4) + ((a2_dimension + 3) / 4 - 1)), aDomain.hi()[1]));
     Rect<2> aRect = Rect<2>(aStart, aEnd);
-    auto aDomain = runtime->get_index_space_domain(ctx, a_index_space);
     if (!aDomain.contains(aRect.lo) || !aDomain.contains(aRect.hi)) aRect = aRect.make_empty();
 
     aColoring[(*itr)] = aRect;
