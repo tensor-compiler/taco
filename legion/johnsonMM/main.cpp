@@ -4,29 +4,37 @@
 
 using namespace Legion;
 
-typedef int32_t valType;
+typedef double valType;
 
 // Defined by the generated TACO code.
 void registerTacoTasks();
-LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a);
-LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b);
-LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c);
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c);
+LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int gdim);
+LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, int gdim);
+LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, int gdim);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, int gdim);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   // Create the regions.
   auto args = runtime->get_input_args();
   int n = -1;
+  int gdim = -1;
   // Parse input args.
   for (int i = 1; i < args.argc; i++) {
     if (strcmp(args.argv[i], "-n") == 0) {
       n = atoi(args.argv[++i]);
       continue;
     }
-    // TODO (rohany): Add a flag to do the validation or not.
+    if (strcmp(args.argv[i], "-gdim") == 0) {
+      gdim = atoi(args.argv[++i]);
+      continue;
+    }
   }
   if (n == -1) {
     std::cout << "Please provide an input matrix size with -n." << std::endl;
+    return;
+  }
+  if (gdim == -1) {
+    std::cout << "Please provide an input grid size with -gdim." << std::endl;
     return;
   }
 
@@ -39,19 +47,12 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   tacoFill<valType>(ctx, runtime, A, 0); tacoFill<valType>(ctx, runtime, B, 1); tacoFill<valType>(ctx, runtime, C, 1);
 
   // Place the tensors.
-  placeLegionA(ctx, runtime, A); placeLegionB(ctx, runtime, B); placeLegionC(ctx, runtime, C);
+  placeLegionA(ctx, runtime, A, gdim); placeLegionB(ctx, runtime, B, gdim); placeLegionC(ctx, runtime, C, gdim);
 
   // Compute on the tensors.
-  benchmark([&]() { computeLegion(ctx, runtime, A, B, C); });
+  benchmark([&]() { computeLegion(ctx, runtime, A, B, C, gdim); });
 
-  auto a_reg = getRegionToWrite(ctx, runtime, A, A);
-  FieldAccessor<READ_WRITE,valType,2,coord_t, Realm::AffineAccessor<valType, 2, coord_t>> a_rw(a_reg, FID_VAL);
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < n; j++) {
-      assert(a_rw[Point<2>(i, j)] == n);
-    }
-  }
-  runtime->unmap_region(ctx, a_reg);
+  tacoValidate<valType>(ctx, runtime, A, valType(n));
 }
 
 TACO_MAIN(valType)
