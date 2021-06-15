@@ -202,8 +202,8 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t k1s = args->k1s;
   int32_t kn = args->kn;
 
-  AccessorROint32_t2 b_vals(b, FID_VAL);
   AccessorROint32_t2 c_vals(c, FID_VAL);
+  AccessorROint32_t2 b_vals(b, FID_VAL);
   AccessorReduceint32_t2 a_vals(a, FID_VAL, LEGION_REDOP_SUM_INT32);
 
   int32_t k1 = (jn + (in + k1s)) % 2;
