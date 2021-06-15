@@ -31,7 +31,7 @@ protected:
   cublasContext* cublas;
 };
 
-CUDALib getLib(Processor curProc) {
+CUDALib& getLib(Processor curProc) {
   static std::map<Processor, CUDALib> handles;
   auto it = handles.find(curProc);
   if (it == handles.end()) {
