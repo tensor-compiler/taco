@@ -1596,41 +1596,56 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
 
   // Create a provenance graph to learn about some index var relations.
   ProvenanceGraph pg(*this);
-
   auto stmt = *this;
-  // First, remove the transfer for the access, wherever it is.
-  struct TransferRemover : public IndexNotationRewriter {
-    TransferRemover(Access a) : a(a) {}
-    void visit(const ForallNode* node) {
-      auto foundIdx = -1;
-      for (size_t i = 0; i < node->transfers.size(); i++) {
-        if (node->transfers[i].getAccess().getTensorVar() == a.getTensorVar()) {
-          foundIdx = i;
-          break;
-        }
-      }
 
-      if (foundIdx != -1) {
-        // Copy the transfers over.
-        Transfers newTransfers = node->transfers;
-        newTransfers.erase(newTransfers.begin() + foundIdx);
-        stmt = forall(node->indexVar, rewrite(node->stmt), node->parallel_unit, node->output_race_strategy, newTransfers, node->computingOn, node->unrollFactor);
-      } else {
-        IndexNotationRewriter::visit(node);
+  // Let's assume that you can only do transfers after a distribution, and not for prior
+  // distributions.
+  struct DistForallCounter : public IndexNotationVisitor {
+    void visit(const ForallNode* node) {
+      if (distributedParallelUnit(node->parallel_unit)) {
+        count++;
       }
+      node->stmt.accept(this);
     }
-    Access a;
-  };
+    int count = 0;
+  } counter; stmt.accept(&counter);
+
   // TODO (rohany): As a hack, we won't try to remove transfer objects since it leads to
   //  problems with nested distributions.
+  // First, remove the transfer for the access, wherever it is.
+  // struct TransferRemover : public IndexNotationRewriter {
+  //   TransferRemover(Access a) : a(a) {}
+  //   void visit(const ForallNode* node) {
+  //     auto foundIdx = -1;
+  //     for (size_t i = 0; i < node->transfers.size(); i++) {
+  //       if (node->transfers[i].getAccess().getTensorVar() == a.getTensorVar()) {
+  //         foundIdx = i;
+  //         break;
+  //       }
+  //     }
+
+  //     if (foundIdx != -1) {
+  //       // Copy the transfers over.
+  //       Transfers newTransfers = node->transfers;
+  //       newTransfers.erase(newTransfers.begin() + foundIdx);
+  //       stmt = forall(node->indexVar, rewrite(node->stmt), node->parallel_unit, node->output_race_strategy, newTransfers, node->computingOn, node->unrollFactor);
+  //     } else {
+  //       IndexNotationRewriter::visit(node);
+  //     }
+  //   }
+  //   Access a;
+  // };
   // TransferRemover remover(a);
   // stmt = remover.rewrite(stmt);
 
-  // Now add the transfer to the desired forall.
+  // Now add the transfer to the desired forall, as well as all of the forall's along
+  // the way, past the target distributed forall.
   struct TransferAdder : public IndexNotationRewriter {
-    TransferAdder(Access a, IndexVar i, ProvenanceGraph& pg) : a(a), i(i), pg(pg) {}
+    TransferAdder(Access a, IndexVar i, ProvenanceGraph& pg, int targetDistForall) : a(a), i(i), pg(pg), targetDistForall(targetDistForall) {}
     void visit(const ForallNode* node) {
-      auto istmt = rewrite(node->stmt);
+      if (distributedParallelUnit(node->parallel_unit)) {
+        this->distForallCounter++;
+      }
 
       // See if this is a collapsed distributed for loop.
       std::set<IndexVar> collapsed;
@@ -1638,7 +1653,14 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
       collapsed.insert(fused.begin(), fused.end());
 
       if (node->indexVar == i || util::contains(collapsed, i)) {
-        // Copy the transfers over;
+        // Copy the transfers over.
+        Transfers newTransfers = node->transfers;
+        newTransfers.push_back(this->a);
+        // In this case, we don't recurse into the statement, because we matched.
+        stmt = forall(node->indexVar, node->stmt, node->parallel_unit, node->output_race_strategy, newTransfers, node->computingOn, node->unrollFactor);
+      } else if (this->distForallCounter == this->targetDistForall) {
+        // If we haven't matched the target transfer position yet but are in the distributed
+        // forall that we should be, then add a transfer _and_ recurse.
         Transfers newTransfers = node->transfers;
         newTransfers.push_back(this->a);
         stmt = forall(node->indexVar, rewrite(node->stmt), node->parallel_unit, node->output_race_strategy, newTransfers, node->computingOn, node->unrollFactor);
@@ -1649,8 +1671,10 @@ IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
     Access a;
     IndexVar i;
     ProvenanceGraph& pg;
+    int distForallCounter = 0;
+    int targetDistForall;
   };
-  TransferAdder adder(a, i, pg);
+  TransferAdder adder(a, i, pg, counter.count);
   stmt = adder.rewrite(stmt);
 
   return stmt;

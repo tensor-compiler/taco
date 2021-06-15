@@ -504,6 +504,18 @@ LowererImpl::lower(IndexStmt stmt, string name,
           };
           InscopeVarVisitor isv(this->pg); isv.inScopeVars = this->inScopeVars; isv.exprToIndexVarMap = this->exprToIndexVarMap;
           auto recovered = this->pg.recoverVariable(ivar, this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators);
+          auto staggered = this->pg.getStaggeredVar(ivar);
+          if (staggered.first && !util::contains(this->inScopeVars, staggered.second)) {
+            // If this variable is staggered and the staggered variable isn't in scope,
+            // the derived bounds are not correct, because they are like (in + jn % gridX)
+            // which doesn't make any sense. So, we flatten the relationship here and substitute
+            // the upper/lower bound of the variable itself.
+            auto bounds = this->pg.deriveIterBounds(ivar, this->definedIndexVars, this->underivedBounds, this->indexVarToExprMap, this->iterators);
+            auto idx = lower ? 0 : 1;
+            this->changed = true;
+            this->expr = ir::Sub::make(bounds[idx], ir::Literal::make(idx));
+            return;
+          }
           recovered.accept(&isv);
           // If there are some variables in scope, use this as the rewritten expression.
           // A future call to the rewriter will expand the resulting variables.
@@ -558,7 +570,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
                            std::map<IndexVar, std::vector<ir::Expr>>& underivedBounds, std::map<IndexVar, ir::Expr>& indexVarToExprMap,
                            std::set<IndexVar> presentIvars)
         : pg(pg), iterators(iterators), underivedBounds(underivedBounds), indexVarToExprMap(indexVarToExprMap),
-        presentIvars(presentIvars) {
+          presentIvars(presentIvars) {
       for (auto &it : tvs) {
         this->inScopeVars[it.first] = {};
       }
@@ -688,7 +700,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
     // Want to derive bounds for each distributed forall. Can worry about how to
     // connect this all together later.
     auto f = Forall(node);
-    if (f.isDistributed()) {
+    if (f.isDistributed() || !f.getTransfers().empty()) {
       // Get bounds for this forall.
       BoundsInferenceVisitor bi(this->tensorVars, this->provGraph, this->iterators, this->underivedBounds, this->indexVarToExprMap, presentIvars);
       bi.trackingForall = node;
@@ -1562,6 +1574,15 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     this->distLoopDepth++;
   }
 
+  this->varsInScope[this->curDistVar].insert(forall.getIndexVar());
+  auto parents = this->provGraph.getMultiFusedParents(forall.getIndexVar());
+  if (!parents.empty()) {
+    for (auto i : parents) {
+      this->varsInScope[this->curDistVar].insert(i);
+    }
+  }
+  // Save the scope and replace it once we exit from recursion.
+  auto savedScopeVars = std::set<IndexVar>(this->varsInScope[this->curDistVar]);
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
@@ -1570,6 +1591,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     this->curDistVar = forall.getIndexVar();
     this->distLoopDepth--;
   }
+  this->varsInScope[this->curDistVar] = savedScopeVars;
 
   // As a simple hack, don't emit code that actually performs the iteration within a placement node.
   // We just care about emitting the actual distributed loop to do the data placement, not waste
@@ -1613,8 +1635,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto pointT = Point(dim);
     auto rectT = Rect(dim);
     auto indexSpaceT = IndexSpaceT(dim);
-    auto disjointPart = ir::Symbol::make("LEGION_DISJOINT_KIND");
-    auto aliasedPart = ir::Symbol::make("LEGION_COMPUTE_KIND");
+    auto disjointPart = ir::Symbol::make("LEGION_DISJOINT_COMPLETE_KIND");
+    auto aliasedPart = ir::Symbol::make("LEGION_ALIASED_COMPLETE_KIND");
+    auto computePart = ir::Symbol::make("LEGION_COMPUTE_KIND");
     auto readOnly = ir::Symbol::make("READ_ONLY");
     auto readWrite = ir::Symbol::make("READ_WRITE");
     // TODO (rohany): Assuming that all tensors have the same type right now.
@@ -1731,7 +1754,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       auto txPoint = Point(tensorDim);
       auto txRect = Rect(tensorDim);
 
-      auto bounds = this->derivedBounds[this->curDistVar][t.getAccess().getTensorVar()];
+      auto bounds = this->derivedBounds[forall.getIndexVar()][t.getAccess().getTensorVar()];
       std::vector<Expr> los, his;
       for (size_t dimIdx = 0; dimIdx < tensorDim; dimIdx++) {
         los.push_back(bounds[dimIdx][0]);
@@ -1754,7 +1777,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       auto lb = ir::MethodCall::make(domain, "contains", {ir::FieldAccess::make(rect, "lo", false, Auto)}, false, Bool);
       auto hb = ir::MethodCall::make(domain, "contains", {ir::FieldAccess::make(rect, "hi", false, Auto)}, false, Bool);
       auto guard = ir::Or::make(ir::Neg::make(lb), ir::Neg::make(hb));
-      partStmts.push_back(ir::IfThenElse::make(guard, ir::Assign::make(rect, ir::MethodCall::make(rect, "make_empty", {}, false, Auto))));
+      partStmts.push_back(ir::IfThenElse::make(guard, ir::Block::make(ir::Assign::make(rect, ir::MethodCall::make(rect, "make_empty", {}, false, Auto)))));
 
       auto coloring = colorings[idx];
       partStmts.push_back(ir::Assign::make(ir::Load::make(coloring, ir::Deref::make(domainIter, Auto)), rect));
@@ -1769,19 +1792,29 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     );
     transfers.push_back(l);
 
-    // If we're doing a reduction, we're most likely not operating on a disjoint
-    // partition. So, fall back to an aliased partition.
-    auto partKind = disjointPart;
-    if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction) {
-      partKind = aliasedPart;
-    }
-
     std::map<TensorVar, Expr> partitionings;
     for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
       auto& t = forall.getTransfers()[idx];
       auto& tv = t.getAccess().getTensorVar();
       auto coloring = colorings[idx];
       auto part = ir::Var::make(tv.getName() + "Partition", Auto);
+      auto partKind = disjointPart;
+      for (auto ivar : t.getAccess().getIndexVars()) {
+        if (!this->anyParentInScope(ivar)) {
+          partKind = aliasedPart;
+          break;
+        }
+      }
+      // If we're doing a reduction, we're most likely not operating on a disjoint partition.
+      // So, fall back to an aliased partition.
+      if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction) {
+        partKind = aliasedPart;
+      }
+      // If we're lowering placement code, it's too hard to figure this out (for now).
+      if (this->isPlacementCode) {
+        partKind = computePart;
+      }
+
       partitionings[tv] = part;
       auto partcall = ir::Call::make(
           "runtime->create_index_partition",
@@ -4551,6 +4584,19 @@ Expr LowererImpl::projectWindowedPositionToCanonicalSpace(Iterator iterator, ir:
 
 Expr LowererImpl::projectCanonicalSpaceToWindowedPosition(Iterator iterator, ir::Expr expr) {
   return ir::Add::make(ir::Mul::make(expr, iterator.getStride()), iterator.getWindowLowerBound());
+}
+
+bool LowererImpl::anyParentInScope(IndexVar var) {
+  auto children = this->provGraph.getChildren(var);
+  for (auto c : children) {
+    if (util::contains(this->varsInScope[this->curDistVar], c)) {
+      return true;
+    }
+    if (anyParentInScope(c)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }
