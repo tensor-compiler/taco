@@ -38,7 +38,7 @@ std::string CodegenLegion::printFuncName(const Function *func,
   std::stringstream ret;
 
   // Tasks need to have a void function type.
-  if (func->name.find("place") != std::string::npos) {
+  if (func->name.find("place") != std::string::npos || func->name.find("partition") != std::string::npos) {
     ret << "LogicalPartition " << func->name << "(";
   } else {
     ret << "void " << func->name << "(";

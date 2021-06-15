@@ -107,6 +107,7 @@ protected:
   virtual void visit(const MultiNode* op);
   virtual void visit(const SuchThatNode* op);
   virtual void visit(const PlaceNode* op);
+  virtual void visit(const PartitionNode* op);
 };
 
 

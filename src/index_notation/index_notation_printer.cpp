@@ -281,6 +281,12 @@ void IndexNotationPrinter::visit(const PlaceNode* op) {
   os << ")";
 }
 
+void IndexNotationPrinter::visit(const PartitionNode* op) {
+  os << "partition(";
+  op->expr.accept(this);
+  os << ")";
+}
+
 void IndexNotationPrinter::visit(const SequenceNode* op) {
   os << "sequence(";
   op->definition.accept(this);

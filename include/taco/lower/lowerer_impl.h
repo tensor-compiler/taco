@@ -540,6 +540,8 @@ private:
   bool isPlacementCode = false;
   std::vector<std::pair<Grid, GridPlacement>> placements;
 
+  bool isPartitionCode = false;
+
   std::map<IndexVar, int> indexVarFaces;
   std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls;
 };

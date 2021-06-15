@@ -443,6 +443,15 @@ struct Isomorphic : public IndexNotationVisitorStrict {
     auto bnode = to<PlaceNode>(bStmt.ptr);
     eq = check(anode->expr, bnode->expr);
   }
+
+  void visit(const PartitionNode* anode) {
+    if (!isa<PartitionNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<PartitionNode>(bStmt.ptr);
+    eq = check(anode->expr, bnode->expr);
+  }
 };
 
 bool isomorphic(IndexExpr a, IndexExpr b) {
@@ -757,6 +766,15 @@ struct Equals : public IndexNotationVisitorStrict {
       return;
     }
     auto bnode = to<PlaceNode>(bStmt.ptr);
+    eq = check(anode->expr, bnode->expr);
+  }
+
+  void visit(const PartitionNode* anode) {
+    if (!isa<PartitionNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<PartitionNode>(bStmt.ptr);
     eq = check(anode->expr, bnode->expr);
   }
 };
@@ -2085,9 +2103,8 @@ Place::Place(IndexExpr e, std::vector<std::pair<Grid, GridPlacement>> placements
 
 Place::Place(const PlaceNode * n) : IndexStmt(n) {}
 
-//Access Place::getAccess() const {
-//  return getNode(*this)->access;
-//}
+Partition::Partition(Access a) : Partition(new PartitionNode(a)) {}
+Partition::Partition(const PartitionNode* n) : IndexStmt(n) {}
 
 // class Multi
 Multi::Multi(const MultiNode* n) : IndexStmt(n) {
@@ -3349,6 +3366,17 @@ private:
       stmt = op;
     } else {
       stmt = new PlaceNode(expr, op->placements);
+    }
+  }
+
+  void visit(const PartitionNode* op) {
+    auto expr = rewrite(op->expr);
+    if (!expr.defined()) {
+      stmt = IndexStmt();
+    } else if (expr == op->expr) {
+      stmt = op;
+    } else {
+      stmt = new PartitionNode(expr);
     }
   }
 };
