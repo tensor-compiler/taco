@@ -175,6 +175,7 @@ TEST(distributed, cannonMM) {
   auto gx = ir::Var::make("gridX", Int32, false, false, true);
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
+  auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
   auto placement = GridPlacement({0, 1});
   auto placeA = a.partition(grid).place(grid, placement);
   auto placeB = b.partition(grid).place(grid, placement);
@@ -204,7 +205,7 @@ TEST(distributed, cannonMM) {
 
   auto lowered = lower(stmt, "computeLegion", false, true);
   // Code-generate all of the placement and compute code.
-  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
+  auto all = ir::Block::make({partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
   // Also write it into a file.

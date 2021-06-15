@@ -345,6 +345,10 @@ private:
     lattice = build(node->expr);
   }
 
+  void visit(const PartitionNode* node) {
+    lattice = build(node->expr);
+  }
+
   /**
    * The intersection of two lattices is the result of merging all the
    * combinations of merge points from the two lattices.

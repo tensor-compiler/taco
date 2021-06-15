@@ -38,6 +38,7 @@ public:
   void visit(const AssembleNode*);
   void visit(const SuchThatNode*);
   void visit(const PlaceNode*);
+  void visit(const PartitionNode*);
 
 private:
   std::ostream& os;

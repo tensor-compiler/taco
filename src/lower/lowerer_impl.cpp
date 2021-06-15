@@ -65,6 +65,7 @@ private:
     taco_ierror << "Reduction nodes not supported in concrete index notation";
   }
   void visit(const PlaceNode* node) { expr = impl->lower(node->expr); }
+  void visit(const PartitionNode* node) { expr = impl->lower(node->expr); }
 };
 
 LowererImpl::LowererImpl() : visitor(new Visitor(this)) {
@@ -740,6 +741,8 @@ LowererImpl::lower(IndexStmt stmt, string name,
   match(stmt, function<void(const PlaceNode*)>([&](const PlaceNode* node) {
     this->isPlacementCode = true;
     this->placements = node->placements;
+  }), function<void(const PartitionNode*)>([&](const PartitionNode* node) {
+    this->isPartitionCode = true;
   }));
 
   if (this->isPlacementCode) {
@@ -1600,6 +1603,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   if (forall.isDistributed() && this->isPlacementCode && size_t(this->distLoopDepth + 1) == this->placements.size()) {
     body = ir::Block::make({});
   }
+  // We do the same thing for partitioning code.
+  if (forall.isDistributed() && this->isPartitionCode) {
+    body = ir::Block::make({});
+  }
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
@@ -1611,7 +1618,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Stmt declarePartitionBounds;
   auto isTask = forall.isDistributed() || (forall.getTransfers().size() > 0);
   auto taskID = -1;
-  std::vector<ir::Stmt> transfers;
+  std::vector<ir::Stmt> transfers, partitionStmts;
   if (isTask) {
     taskID = this->taskCounter;
     this->taskCounter++;
@@ -1814,6 +1821,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       if (this->isPlacementCode) {
         partKind = computePart;
       }
+      // Pure partitioning code always results in disjoint partitions.
+      if (this->isPartitionCode) {
+        partKind = disjointPart;
+      }
 
       partitionings[tv] = part;
       auto partcall = ir::Call::make(
@@ -1839,6 +1850,16 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto getLogicalRegion = [](Expr e) {
       return ir::Call::make("get_logical_region", {e}, Auto);
     };
+
+    // If we're emitting partitioning code, then this is all we care about. Package
+    // up everything and add on a get_logical_partition call to return.
+    if (this->isPartitionCode) {
+      partitionStmts = transfers;
+      auto pair = partitionings.begin();
+      auto region = this->tensorVars[pair->first];
+      auto part = pair->second;
+      partitionStmts.push_back(ir::Return::make(ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(region), part}, Auto)));
+    }
 
     // AccessFinder finds is the task being lowered accesses the target tensor.
     struct AccessFinder : public IRVisitor {
@@ -2174,6 +2195,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   if (forall.isDistributed()) {
     this->curDistVar = prevDistVar;
+  }
+
+  // Return just the partitioning statements if we are generating partitioning code.
+  if (this->isPartitionCode) {
+    return Block::blanks(ir::Block::make(partitionStmts));
   }
 
   return Block::blanks(ir::Block::make(transfers),

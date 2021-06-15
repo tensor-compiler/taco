@@ -95,6 +95,14 @@ void tacoFill(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegi
   runtime->execute_index_space(ctx, l);
 }
 
+template<typename T>
+void tacoFill(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegion r, Legion::LogicalPartition part, T val) {
+  auto domain = runtime->get_index_partition_color_space(ctx, get_index_partition(part));
+  Legion::IndexLauncher l(TACO_FILL_TASK, domain, Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
+  l.add_region_requirement(Legion::RegionRequirement(part, 0, WRITE_ONLY, EXCLUSIVE, r).add_field(FID_VAL));
+  runtime->execute_index_space(ctx, l);
+}
+
 // If we're building with CUDA, then declare the fill kernel.
 #ifdef TACO_USE_CUDA
 template<typename T>

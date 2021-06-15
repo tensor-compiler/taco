@@ -34,6 +34,7 @@ struct SequenceNode;
 struct AssembleNode;
 struct SuchThatNode;
 struct PlaceNode;
+struct PartitionNode;
 
 /// Visit the nodes in an expression.  This visitor provides some type safety
 /// by requing all visit methods to be overridden.
@@ -71,6 +72,7 @@ public:
   virtual void visit(const MultiNode*) = 0;
   virtual void visit(const SuchThatNode*) = 0;
   virtual void visit(const PlaceNode*) = 0;
+  virtual void visit(const PartitionNode*) = 0;
 };
 
 /// Visit nodes in index notation
@@ -115,6 +117,7 @@ public:
   virtual void visit(const MultiNode* node);
   virtual void visit(const SuchThatNode* node);
   virtual void visit(const PlaceNode* node);
+  virtual void visit(const PartitionNode* node);
 };
 
 
@@ -185,6 +188,7 @@ private:
   RULE(AssembleNode)
   RULE(SuchThatNode)
   RULE(PlaceNode)
+  RULE(PartitionNode)
 };
 
 /**
