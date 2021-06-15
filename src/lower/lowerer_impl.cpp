@@ -606,6 +606,9 @@ LowererImpl::lower(IndexStmt stmt, string name,
         for (auto& t : node->transfers) {
           this->requestedTensorVars.insert(t.getAccess().getTensorVar());
         }
+        if (node->computingOn.defined()) {
+          this->requestedTensorVars.insert(node->computingOn);
+        }
       }
 
       // Recurse down the index statement.
@@ -1661,24 +1664,22 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
     // We need to emit accessing the partition for any child task that uses the partition.
     // TODO (rohany): A hack that doesn't scale to nested distributions.
-    struct ContainsPartVar : public IRVisitor {
-      void visit(const Var* var) {
-        if (var == this->targetVar) {
-          this->found = true;
-        }
-      }
-      ir::Expr targetVar;
-      bool found = false;
-    };
-    ContainsPartVar c; c.targetVar = this->provGraph.getPartitionBoundsVar();
-    if (this->provGraph.getPartitionBoundsVar().defined()) {
-      body.accept(&c);
-    }
-    if (forall.getComputingOn().defined() || c.found) {
-      // Add declaration of the partition bounds to the header of the body.
+    if (forall.getComputingOn().defined()) {
+      // Add a declaration of all the needed partition bounds variables.
       auto tensorIspace = ir::GetProperty::make(this->tensorVars[this->computingOnTensorVar], TensorProperty::IndexSpace);
       auto bounds = ir::Call::make("runtime->get_index_space_domain", {ctx, tensorIspace}, Auto);
-      declarePartitionBounds = ir::VarDecl::make(this->provGraph.getPartitionBoundsVar(), bounds);
+      auto boundsVar = ir::Var::make(forall.getComputingOn().getName() + "PartitionBounds", Auto);
+      std::vector<ir::Stmt> declareBlock;
+      declareBlock.push_back(ir::VarDecl::make(boundsVar, bounds));
+      for (auto tvItr : this->provGraph.getPartitionBounds()) {
+        for (auto idxItr : tvItr.second) {
+          auto lo = ir::Load::make(ir::MethodCall::make(boundsVar, "lo", {}, false, Int64), idxItr.first);
+          auto hi = ir::Load::make(ir::MethodCall::make(boundsVar, "hi", {}, false, Int64), idxItr.first);
+          declareBlock.push_back(ir::VarDecl::make(idxItr.second.first, lo));
+          declareBlock.push_back(ir::VarDecl::make(idxItr.second.second, hi));
+        }
+      }
+      declarePartitionBounds = ir::Block::make(declareBlock);
     }
 
     auto domain = ir::Var::make("domain", dimT);
@@ -1724,6 +1725,15 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       transfers.push_back(ir::VarDecl::make(domain, makeDomain));
     }
 
+    // Extract the region domains for each region in the transfer.
+    std::map<TensorVar, ir::Expr> domains;
+    for (auto& t : forall.getTransfers()) {
+      auto domain = ir::Var::make(t.getAccess().getTensorVar().getName() + "Domain", Auto);
+      auto ispace = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::IndexSpace);
+      transfers.push_back(ir::VarDecl::make(domain, ir::Call::make("runtime->get_index_space_domain", {ctx, ispace}, Auto)));
+      domains[t.getAccess().getTensorVar()] = domain;
+    }
+
     // Make a coloring for each transfer.
     std::vector<Expr> colorings;
     for (auto& t : forall.getTransfers()) {
@@ -1745,11 +1755,20 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     if (forall.getComputingOn().defined()) {
       auto point = ir::Var::make("domPoint", Datatype("DomainPoint"));
       partStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, Auto)));
-      auto partVar = this->provGraph.getPartitionBoundsVar();
+      auto partVar = ir::Var::make(forall.getComputingOn().getName() + "PartitionBounds", Auto);
       auto subreg = ir::Call::make("runtime->get_logical_subregion_by_color", {ctx, this->computingOnPartition, point}, Auto);
       auto subregispace = ir::MethodCall::make(subreg, "get_index_space", {}, false, Auto);
       auto bounds = ir::Call::make("runtime->get_index_space_domain", {subregispace}, Auto);
       partStmts.push_back(ir::VarDecl::make(partVar, bounds));
+      // Declare all of the bounds variables here.
+      for (auto tvItr : this->provGraph.getPartitionBounds()) {
+        for (auto idxItr : tvItr.second) {
+          auto lo = ir::Load::make(ir::MethodCall::make(partVar, "lo", {}, false, Int64), idxItr.first);
+          auto hi = ir::Load::make(ir::MethodCall::make(partVar, "hi", {}, false, Int64), idxItr.first);
+          partStmts.push_back(ir::VarDecl::make(idxItr.second.first, lo));
+          partStmts.push_back(ir::VarDecl::make(idxItr.second.second, hi));
+        }
+      }
     }
 
     // Add a dummy partition object for each transfer.
@@ -1761,12 +1780,16 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       auto txPoint = Point(tensorDim);
       auto txRect = Rect(tensorDim);
 
-      auto bounds = this->derivedBounds[forall.getIndexVar()][t.getAccess().getTensorVar()];
+      auto rdomain = domains[t.getAccess().getTensorVar()];
+      auto tbounds = this->derivedBounds[forall.getIndexVar()][t.getAccess().getTensorVar()];
       std::vector<Expr> los, his;
       for (size_t dimIdx = 0; dimIdx < tensorDim; dimIdx++) {
-        los.push_back(bounds[dimIdx][0]);
+        los.push_back(tbounds[dimIdx][0]);
         auto dimBound = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::Dimension, dimIdx);
-        auto upper = ir::Min::make(bounds[dimIdx][1], ir::Sub::make(dimBound, 1));
+        // The upper bound of the partition should be at most the upper bound of
+        // the region itself.
+        auto partUpper = ir::Load::make(ir::MethodCall::make(rdomain, "hi", {}, false, Int64), int(dimIdx));
+        auto upper = ir::Min::make(tbounds[dimIdx][1], partUpper);
         his.push_back(upper);
       }
       auto start = ir::Var::make(n + "Start", txPoint);
@@ -1778,11 +1801,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
       // It's possible that this partitioning makes a rectangle that goes out of bounds
       // of the tensor's index space. If so, replace the rectangle with an empty Rect.
-      auto domain = ir::Var::make(n + "Domain", Auto);
-      auto ispace = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::IndexSpace);
-      partStmts.push_back(ir::VarDecl::make(domain, ir::Call::make("runtime->get_index_space_domain", {ctx, ispace}, Auto)));
-      auto lb = ir::MethodCall::make(domain, "contains", {ir::FieldAccess::make(rect, "lo", false, Auto)}, false, Bool);
-      auto hb = ir::MethodCall::make(domain, "contains", {ir::FieldAccess::make(rect, "hi", false, Auto)}, false, Bool);
+      auto lb = ir::MethodCall::make(rdomain, "contains", {ir::FieldAccess::make(rect, "lo", false, Auto)}, false, Bool);
+      auto hb = ir::MethodCall::make(rdomain, "contains", {ir::FieldAccess::make(rect, "hi", false, Auto)}, false, Bool);
       auto guard = ir::Or::make(ir::Neg::make(lb), ir::Neg::make(hb));
       partStmts.push_back(ir::IfThenElse::make(guard, ir::Block::make(ir::Assign::make(rect, ir::MethodCall::make(rect, "make_empty", {}, false, Auto)))));
 
@@ -1806,21 +1826,42 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       auto coloring = colorings[idx];
       auto part = ir::Var::make(tv.getName() + "Partition", Auto);
       auto partKind = disjointPart;
+      // If a variable that we are partitioning this tensor by is not yet in scope,
+      // then it's likely that each subtask is accessing an aliased region.
       for (auto ivar : t.getAccess().getIndexVars()) {
-        if (!this->anyParentInScope(ivar)) {
+        if (!this->anyParentInSet(ivar, this->varsInScope[this->curDistVar])) {
           partKind = aliasedPart;
           break;
         }
       }
+
+      // If none of the variables in the access are changing in this loop, then we're
+      // most likely operating on an aliased partition as well.
+      std::set<IndexVar> curLoopVars;
+      curLoopVars.insert(forall.getIndexVar());
+      auto mfp = this->provGraph.getMultiFusedParents(forall.getIndexVar());
+      curLoopVars.insert(mfp.begin(), mfp.end());
+      bool accessIter = false;
+      for (auto var : t.getAccess().getIndexVars()) {
+        if (this->anyParentInSet(var, curLoopVars)) {
+          accessIter = true;
+        }
+      }
+      if (!accessIter) {
+        partKind = aliasedPart;
+      }
+
       // If we're doing a reduction, we're most likely not operating on a disjoint partition.
       // So, fall back to an aliased partition.
       if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction) {
         partKind = aliasedPart;
       }
+
       // If we're lowering placement code, it's too hard to figure this out (for now).
       if (this->isPlacementCode) {
         partKind = computePart;
       }
+
       // Pure partitioning code always results in disjoint partitions.
       if (this->isPartitionCode) {
         partKind = disjointPart;
@@ -4612,13 +4653,13 @@ Expr LowererImpl::projectCanonicalSpaceToWindowedPosition(Iterator iterator, ir:
   return ir::Add::make(ir::Mul::make(expr, iterator.getStride()), iterator.getWindowLowerBound());
 }
 
-bool LowererImpl::anyParentInScope(IndexVar var) {
+bool LowererImpl::anyParentInSet(IndexVar var, std::set<IndexVar>& s) {
   auto children = this->provGraph.getChildren(var);
   for (auto c : children) {
-    if (util::contains(this->varsInScope[this->curDistVar], c)) {
+    if (util::contains(s, c)) {
       return true;
     }
-    if (anyParentInScope(c)) {
+    if (anyParentInSet(c, s)) {
       return true;
     }
   }

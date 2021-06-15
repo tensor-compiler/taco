@@ -1,3 +1,4 @@
+#include "task_ids.h"
 #include "legion.h"
 #include "cudalibs.h"
 #include "mappers/default_mapper.h"
@@ -62,20 +63,19 @@ void initAllCudaLibraries(Machine machine, Runtime*, const std::set<Processor>&)
   }
 }
 
-const int INIT_CUBLAS_TASK_ID = 2000;
 void initCuBLASTask(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) { getCuBLAS(); }
 void initCuBLAS(Context ctx, Runtime* runtime) {
   // Launch a point task for each GPU in the system to initialize.
   auto gpus = runtime->select_tunable_value(ctx, Legion::Mapping::DefaultMapper::DEFAULT_TUNABLE_GLOBAL_GPUS).get<size_t>();
   auto space = runtime->create_index_space(ctx, Rect<1>(0, gpus - 1));
-  auto launcher = IndexLauncher(INIT_CUBLAS_TASK_ID, space, TaskArgument(), ArgumentMap());
+  auto launcher = IndexLauncher(TID_INIT_CUBLAS, space, TaskArgument(), ArgumentMap());
   runtime->execute_index_space(ctx, launcher).wait_all_results();
 }
 
 void initCUDA() {
   Runtime::add_registration_callback(initAllCudaLibraries);
   {
-    TaskVariantRegistrar registrar(INIT_CUBLAS_TASK_ID, "init_cublas");
+    TaskVariantRegistrar registrar(TID_INIT_CUBLAS, "init_cublas");
     registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
     Runtime::preregister_task_variant<initCuBLASTask>(registrar, "init_cublas");
   }

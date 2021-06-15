@@ -1,6 +1,7 @@
 #ifndef TACO_LG_VALIDATE_CUH
 #define TACO_LG_VALIDATE_CUH
 
+#include "task_ids.h"
 #include "legion.h"
 #include "pitches.h"
 #include "taco_legion_header.h"
@@ -50,7 +51,7 @@ void tacoValidateGPUTask(const Legion::Task* task, const std::vector<Legion::Phy
 template <typename T>
 void registerGPUValidateTask() {
   {
-    Legion::TaskVariantRegistrar registrar(TACO_VALIDATE_TASK, "taco_validate");
+    Legion::TaskVariantRegistrar registrar(TID_TACO_VALIDATE_TASK, "taco_validate");
     registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::TOC_PROC));
     Legion::Runtime::preregister_task_variant<tacoValidateGPUTask<T>>(registrar, "taco_validate");
   }

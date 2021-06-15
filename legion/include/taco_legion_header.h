@@ -8,7 +8,7 @@
 enum TensorFields {
   FID_VAL
 };
-const int TACO_TASK_BASE_ID = 1000;
+const int TACO_TASK_BASE_ID = 10000;
 const int TACO_SHARD_BASE_ID = 1000;
 
 Legion::IndexSpace get_index_space(Legion::PhysicalRegion r);

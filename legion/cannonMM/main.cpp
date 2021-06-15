@@ -12,7 +12,7 @@ LogicalPartition partitionLegion(Context ctx, Runtime* runtime, LogicalRegion a,
 LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gridX, int32_t gridY);
 LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, int32_t gridX, int32_t gridY);
 LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, int32_t gridX, int32_t gridY);
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, int32_t gridX, int32_t gridY);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, LogicalPartition part, int32_t gx);
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   // Create the regions.
   auto args = runtime->get_input_args();
@@ -68,14 +68,14 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     tacoFill<valType>(ctx, runtime, C, cPart, 1);
 
     // Place the tensors.
-    placeLegionA(ctx, runtime, A, gx, gy);
+    auto part = placeLegionA(ctx, runtime, A, gx, gy);
     placeLegionB(ctx, runtime, B, gx, gy);
     placeLegionC(ctx, runtime, C, gx, gy);
 
     initCuBLAS(ctx, runtime);
 
     // Compute on the tensors.
-    benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, gx, gy); });
+    benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, part, gy); });
   }
 
   // The result should be equal to 1.

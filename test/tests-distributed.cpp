@@ -189,17 +189,12 @@ TEST(distributed, cannonMM) {
   a(i, j) = b(i, k) * c(k, j);
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
-      // TODO (rohany): Temporarily removing the distributeOnto here until heirarchical
-      //  distributions with distributeOnto work. This test doesn't need it, but the cuda
-      //  version of the code does.
-      // .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j))
-      .distribute({i, j}, {in, jn}, {il, jl}, grid)
+      .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j))
       .divide(k, ko, ki, gx)
       .reorder({ko, il, jl})
       .stagger(ko, {in, jn}, kos)
       .pushCommUnder(b(i, k), kos)
       .pushCommUnder(c(k, j), kos)
-      .pushCommUnder(a(i, j), in)
       .swapLeafKernel(il, gemm)
       ;
 
@@ -242,13 +237,12 @@ TEST(distributed, cuda_cannonMM) {
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
       // Schedule for each node.
-      .distribute({i, j}, {in, jn}, {il, jl}, grid, taco::ParallelUnit::DistributedNode)
-      .divide(k, ko, ki, 2)
+      .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j), taco::ParallelUnit::DistributedNode)
+      .divide(k, ko, ki, gx)
       .reorder({ko, il, jl})
       .stagger(ko, {in, jn}, kos)
       .pushCommUnder(b(i, k), kos)
       .pushCommUnder(c(k, j), kos)
-      .pushCommUnder(a(i, j), jn)
       // Schedule for each GPU within a node.
       .distribute({il, jl}, {iln, jln}, {ill, jll}, Grid(2, 2), taco::ParallelUnit::DistributedGPU)
       .divide(ki, kio, kii, 2)
@@ -342,7 +336,7 @@ TEST(distributed, solomonikMM) {
       .divide(kl, k1, k2, rpoc3)
       .reorder({k1, il, jl})
       .stagger(k1, {in, jn}, k1s)
-      .pushCommUnder(a(i, j), k1s)
+      .pushCommUnder(a(i, j), jn)
       .pushCommUnder(b(i, k), k1s)
       .pushCommUnder(c(k, j), k1s)
       ;

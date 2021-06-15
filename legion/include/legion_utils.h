@@ -3,6 +3,7 @@
 #include <functional>
 
 #include "legion.h"
+#include "task_ids.h"
 #include "taco_legion_header.h"
 #include "mappers/default_mapper.h"
 #include "taco_mapper.h"
@@ -35,7 +36,6 @@ void initCUDA();
 
 #define TACO_MAIN(FillType) \
   int main(int argc, char **argv) { \
-    int TID_TOP_LEVEL = 1000;       \
     Runtime::set_top_level_task_id(TID_TOP_LEVEL); \
     {               \
       TaskVariantRegistrar registrar(TID_TOP_LEVEL, "top_level"); \

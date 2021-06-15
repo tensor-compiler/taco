@@ -427,7 +427,7 @@ protected:
   /// loop iterator variable should be incremented when the guard is fired.
   ir::Stmt strideBoundsGuard(Iterator iterator, ir::Expr access, bool incrementPosVar);
 
-  bool anyParentInScope(IndexVar var);
+  bool anyParentInSet(IndexVar var, std::set<IndexVar>& s);
 
 private:
   bool assemble;
