@@ -1409,7 +1409,7 @@ IndexStmt TensorBase::partitionStmt(Grid g) {
 }
 
 IndexStmt TensorBase::place(Grid g, GridPlacement gp, ParallelUnit parUnit) {
-  return this->placeHierarchy({{this->content->partition, g, gp, parUnit}});
+  return this->placeHierarchy({std::tuple<Grid,Grid,GridPlacement,ParallelUnit>{this->content->partition, g, gp, parUnit}});
 }
 
 // Elements in the tuple are (partitionGrid, placementGrid, placement, parUnit).

@@ -405,31 +405,31 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
 void registerTacoTasks() {
   {
     TaskVariantRegistrar registrar(taskID(1), "task_1");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_1>(registrar, "task_1");
   }
   {
     TaskVariantRegistrar registrar(taskID(2), "task_2");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_2>(registrar, "task_2");
   }
   {
     TaskVariantRegistrar registrar(taskID(3), "task_3");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_3>(registrar, "task_3");
   }
   {
     TaskVariantRegistrar registrar(taskID(4), "task_4");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_4>(registrar, "task_4");
   }
   {
     TaskVariantRegistrar registrar(taskID(5), "task_5");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_inner();
     Runtime::preregister_task_variant<task_5>(registrar, "task_5");
   }
