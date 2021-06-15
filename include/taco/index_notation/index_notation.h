@@ -64,6 +64,7 @@ struct WhereNode;
 struct SequenceNode;
 struct AssembleNode;
 struct PlaceNode;
+struct PartitionNode;
 struct MultiNode;
 struct SuchThatNode;
 
@@ -877,9 +878,15 @@ public:
   Place(IndexExpr e, std::vector<std::pair<Grid, GridPlacement>> placements);
   Place(const PlaceNode*);
 
-  Access getAccess() const;
-
   typedef PlaceNode Node;
+};
+
+class Partition : public IndexStmt {
+public:
+  Partition() = default;
+  Partition(Access a);
+  Partition(const PartitionNode*);
+  typedef PartitionNode Node;
 };
 
 /// A multi statement has two statements that are executed separately, and let

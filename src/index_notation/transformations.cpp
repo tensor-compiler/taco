@@ -1247,7 +1247,7 @@ static bool compare(std::vector<IndexVar> vars1, std::vector<IndexVar> vars2) {
   return vars1 == vars2;
 }
 
-  IndexVar getRootParent(ProvenanceGraph pg, IndexVar var) {
+IndexVar getRootParent(ProvenanceGraph pg, IndexVar var) {
   auto parents = pg.getParents(var);
   if (parents.empty()) {
     return var;

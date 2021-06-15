@@ -395,6 +395,16 @@ struct PlaceNode : public IndexStmtNode {
   std::vector<std::pair<Grid, GridPlacement>> placements;
 };
 
+struct PartitionNode : public IndexStmtNode {
+  PartitionNode(IndexExpr expr) : expr(expr) {}
+
+  void accept(IndexStmtVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  IndexExpr expr;
+};
+
 
 /// Returns true if expression e is of type E.
 template <typename E>

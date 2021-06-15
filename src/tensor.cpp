@@ -1373,8 +1373,43 @@ TensorBase& TensorBase::partition(Grid g) {
   return *this;
 }
 
+IndexStmt TensorBase::partitionStmt(Grid g) {
+  // Vector of aesthetic index variable names.
+  std::vector<std::string> ivarNames {"i", "j", "k", "l", "m", "n", "o", "p", "q"};
+  size_t idx = 0;
+  auto freshName = [&]() {
+    taco_iassert(idx < ivarNames.size());
+    auto res = ivarNames[idx];
+    idx++;
+    return res;
+  };
+  assert(size_t(this->getOrder()) <= ivarNames.size());
+  std::vector<IndexVar> ivars;
+  for (int i = 0; i < this->getOrder(); i++) {
+    ivars.push_back(IndexVar(freshName()));
+  }
+
+  auto access = Access(this->getTensorVar(), ivars);
+  IndexStmt stmt = Partition(access);
+  for (int i = ivars.size() - 1; i >= 0; i--) {
+    stmt = forall(ivars[i], stmt);
+  }
+
+  // Now distribute the statement.
+  std::vector<IndexVar> localVars, distVars, partVars;
+  for (int i = 0; i < g.getDim(); i++) {
+    partVars.push_back(ivars[i]);
+  }
+  for (auto var : partVars) {
+    localVars.push_back(IndexVar(var.getName() + "l"));
+    distVars.push_back(IndexVar(var.getName() + "n"));
+  }
+
+  return stmt.distribute(partVars, distVars, localVars, g).pushCommUnder(access, distVars[distVars.size() - 1]);
+}
+
 IndexStmt TensorBase::place(Grid g, GridPlacement gp, ParallelUnit parUnit) {
-  return this->placeHierarchy({{this->content->partition, g, gp, parUnit}});
+  return this->placeHierarchy({std::tuple<Grid,Grid,GridPlacement,ParallelUnit>{this->content->partition, g, gp, parUnit}});
 }
 
 // Elements in the tuple are (partitionGrid, placementGrid, placement, parUnit).

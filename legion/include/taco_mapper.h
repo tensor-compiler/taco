@@ -4,6 +4,8 @@
 #include "legion.h"
 #include "mappers/default_mapper.h"
 
+#include "shard.h"
+
 // Register the TACO mapper.
 void register_taco_mapper(Legion::Machine machine, Legion::Runtime *runtime, const std::set<Legion::Processor> &local_procs);
 
@@ -16,11 +18,31 @@ public:
   enum MappingTags {
     // Indicates that this task launch is used for data placement.
     PLACEMENT = (1 << 5),
+    PLACEMENT_SHARD = (1 << 6),
   };
+
+  void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
+                               const Legion::Task& task,
+                               const SelectShardingFunctorInput& input,
+                               SelectShardingFunctorOutput& output) override {
+    // See if there is something special that we need to do. Otherwise, return
+    // the TACO sharding functor.
+    if ((task.tag & PLACEMENT_SHARD) != 0) {
+      int* args = (int*)(task.args);
+      // TODO (rohany): This logic makes it look like an argument
+      //  serializer / deserializer like is done in Legate would be helpful.
+      // The shard ID is the first argument. The generated code registers the desired
+      // sharding functor before launching the task.
+      Legion::ShardingID shardingID = args[0];
+      output.chosen_functor = shardingID;
+    } else {
+      output.chosen_functor = TACOShardingFunctorID;
+    }
+  }
 
   void default_policy_select_constraints(Legion::Mapping::MapperContext ctx,
                                          Legion::LayoutConstraintSet &constraints, Legion::Memory target_memory,
-                                         const Legion::RegionRequirement &req) {
+                                         const Legion::RegionRequirement &req) override {
     // Ensure that regions are mapped in row-major order.
     Legion::IndexSpace is = req.region.get_index_space();
     Legion::Domain domain = runtime->get_index_space_domain(ctx, is);
@@ -38,7 +60,7 @@ public:
   void default_policy_select_target_processors(
       Legion::Mapping::MapperContext ctx,
       const Legion::Task &task,
-      std::vector<Legion::Processor> &target_procs) {
+      std::vector<Legion::Processor> &target_procs) override {
     // TODO (rohany): Add a TACO tag to the tasks.
     if (task.is_index_space) {
       // Index launches should be placed directly on the processor
@@ -62,7 +84,8 @@ public:
   std::vector<Legion::Processor> select_targets_for_task(const Legion::Mapping::MapperContext ctx,
                                                          const Legion::Task& task) {
     auto kind = this->default_find_preferred_variant(task, ctx, false /* needs tight bounds */).proc_kind;
-    auto sameAddressSpace = (task.tag & DefaultMapper::SAME_ADDRESS_SPACE) != 0;
+    // We always map to the same address space if replication is enabled.
+    auto sameAddressSpace = ((task.tag & DefaultMapper::SAME_ADDRESS_SPACE) != 0) || this->replication_enabled;
     if (sameAddressSpace) {
       // If we are meant to stay local, then switch to return the appropriate
       // cached processors.
@@ -96,7 +119,7 @@ public:
   void slice_task(const Legion::Mapping::MapperContext    ctx,
                   const Legion::Task&                     task,
                   const SliceTaskInput&                   input,
-                  SliceTaskOutput&                        output) {
+                  SliceTaskOutput&                        output) override {
     if (task.tag & PLACEMENT) {
       // Placement tasks will put the dimensions of the placement grid at the beginning
       // of the task arguments. Here, we extract the packed placement grid dimensions.

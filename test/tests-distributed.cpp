@@ -175,6 +175,7 @@ TEST(distributed, cannonMM) {
   auto gx = ir::Var::make("gridX", Int32, false, false, true);
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
+  auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
   auto placement = GridPlacement({0, 1});
   auto placeA = a.partition(grid).place(grid, placement);
   auto placeB = b.partition(grid).place(grid, placement);
@@ -199,7 +200,7 @@ TEST(distributed, cannonMM) {
 
   auto lowered = lower(stmt, "computeLegion", false, true);
   // Code-generate all of the placement and compute code.
-  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
+  auto all = ir::Block::make({partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
   // Also write it into a file.
@@ -262,13 +263,14 @@ TEST(distributed, cuda_cannonMM) {
 
 TEST(distributed, johnsonMM) {
   int dim = 10;
-  Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
-  Tensor<int> b("b", {dim, dim}, Format{Dense, Dense});
-  Tensor<int> c("c", {dim, dim}, Format{Dense, Dense});
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense});
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense});
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense});
 
   // Each tensor lives on a different face of the processor cube.
-  auto grid = Grid(2, 2);
-  auto cube = Grid(2, 2, 2);
+  auto gdim = ir::Var::make("gridDim", Int32, false, false, true);
+  auto grid = Grid(gdim, gdim);
+  auto cube = Grid(gdim, gdim, gdim);
   auto placeA = a.partition(grid).place(cube, GridPlacement({0, 1, Face(0)}));
   auto placeB = b.partition(grid).place(cube, GridPlacement({0, Face(0), 1}));
   auto placeC = c.partition(grid).place(cube, GridPlacement({Face(0), 0, 1}));
@@ -279,11 +281,13 @@ TEST(distributed, johnsonMM) {
   IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
   a(i, j) = b(i, k) * c(k, j);
   auto stmt = a.getAssignment().concretize();
+  std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
   stmt = stmt
       .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, cube)
       .pushCommUnder(a(i, j), kn)
       .pushCommUnder(b(i, k), kn)
       .pushCommUnder(c(k, j), kn)
+      .swapLeafKernel(il, gemm)
       ;
   auto lowered = lower(stmt, "computeLegion", false, true);
   // Code-generate all of the placement and compute code.
@@ -332,7 +336,7 @@ TEST(distributed, solomonikMM) {
       .divide(kl, k1, k2, rpoc3)
       .reorder({k1, il, jl})
       .stagger(k1, {in, jn}, k1s)
-      .pushCommUnder(a(i, j), k1s)
+      .pushCommUnder(a(i, j), jn)
       .pushCommUnder(b(i, k), k1s)
       .pushCommUnder(c(k, j), k1s)
       ;
@@ -425,8 +429,8 @@ TEST(distributed, heirPlacement) {
     Tensor<int> a("a", {dim}, Format{Dense});
     auto grid = Grid(4);
     auto stmt = a.placeHierarchy({
-      {grid, grid, GridPlacement({0}), ParallelUnit::DistributedNode},
-      {grid, grid, GridPlacement({0}), ParallelUnit::DistributedNode},
+      std::tuple<Grid,Grid,GridPlacement,ParallelUnit>{grid, grid, GridPlacement({0}), ParallelUnit::DistributedNode},
+      std::tuple<Grid,Grid,GridPlacement,ParallelUnit>{grid, grid, GridPlacement({0}), ParallelUnit::DistributedNode},
     });
     ASSERT_EQ(toString(stmt), "suchthat(forall(in, forall(iln, forall(ill, place(a(i))), Distributed, ParallelReduction, transfers: transfer(a(i))), Distributed, ParallelReduction, transfers: transfer(a(i))), divide(i, in, il, 4) and divide(il, iln, ill, 4))");
   }
@@ -435,8 +439,8 @@ TEST(distributed, heirPlacement) {
     Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
     auto grid = Grid(4, 4);
     auto stmt = a.placeHierarchy({
-      {grid, grid, GridPlacement({0, 1}), ParallelUnit::DistributedNode},
-      {grid, grid, GridPlacement({0, 1}), ParallelUnit::DistributedNode},
+      std::tuple<Grid,Grid,GridPlacement,ParallelUnit>{grid, grid, GridPlacement({0, 1}), ParallelUnit::DistributedNode},
+      std::tuple<Grid,Grid,GridPlacement,ParallelUnit>{grid, grid, GridPlacement({0, 1}), ParallelUnit::DistributedNode},
     });
     ASSERT_EQ(toString(stmt), "suchthat(forall(distFused, forall(distFused1, forall(ill, forall(jll, place(a(i,j)))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), divide(i, in, il, 4) and divide(j, jn, jl, 4) and multiFuse({in, jn}, reorder(in, jn)) and divide(il, iln, ill, 4) and divide(jl, jln, jll, 4) and multiFuse({iln, jln}, reorder(iln, jln)))");
   }
@@ -445,8 +449,8 @@ TEST(distributed, heirPlacement) {
     auto g1 = Grid(4);
     auto g2 = Grid(4, 4);
     auto stmt = a.placeHierarchy({
-        {g2, g2, GridPlacement({0, Replicate()}), ParallelUnit::DistributedNode},
-        {g2, g2, GridPlacement({0, 1}), ParallelUnit::DistributedNode},
+        std::tuple<Grid,Grid,GridPlacement,ParallelUnit>{g2, g2, GridPlacement({0, Replicate()}), ParallelUnit::DistributedNode},
+        std::tuple<Grid,Grid,GridPlacement,ParallelUnit>{g2, g2, GridPlacement({0, 1}), ParallelUnit::DistributedNode},
     });
     ASSERT_EQ(toString(stmt), "suchthat(forall(distFused, forall(distFused1, forall(ill, forall(jl, forall(kl, place(a(i,j))))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), Distributed, ParallelReduction, transfers: transfer(a(i,j))), divide(i, in, il, 4) and divide(k, kn, kl, 4) and multiFuse({in, kn}, reorder(in, kn)) and divide(il, iln, ill, 4) and divide(j, jn, jl, 4) and multiFuse({iln, jn}, reorder(iln, jn)))");
   }
@@ -454,8 +458,21 @@ TEST(distributed, heirPlacement) {
     Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
     auto grid = Grid(4, 4);
     auto stmt = a.placeHierarchy({
-        {grid, grid, GridPlacement({0, 1}), ParallelUnit::DistributedNode},
-        {grid, grid, GridPlacement({0, 1}), ParallelUnit::DistributedGPU},
+        std::tuple<Grid,Grid,GridPlacement,ParallelUnit>{grid, grid, GridPlacement({0, 1}), ParallelUnit::DistributedNode},
+        std::tuple<Grid,Grid,GridPlacement,ParallelUnit>{grid, grid, GridPlacement({0, 1}), ParallelUnit::DistributedGPU},
+    });
+    std::cout << stmt << std::endl;
+    auto lowered = lower(stmt, "placeLegion", false, true);
+    auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(lowered);
+  }
+  {
+    Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
+    auto grid = Grid(4, 4);
+    auto pgrid = Grid(4, 4, 4);
+    auto stmt = a.placeHierarchy({
+        std::tuple<Grid,Grid,GridPlacement,ParallelUnit>{grid, pgrid, GridPlacement({0, 1, Face(0)}), ParallelUnit::DistributedNode},
+        std::tuple<Grid,Grid,GridPlacement,ParallelUnit>{grid, pgrid, GridPlacement({0, 1, Face(0)}), ParallelUnit::DistributedGPU},
     });
     std::cout << stmt << std::endl;
     auto lowered = lower(stmt, "placeLegion", false, true);

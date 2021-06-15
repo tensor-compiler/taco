@@ -127,4 +127,8 @@ void IndexNotationVisitor::visit(const PlaceNode* op) {
   op->expr.accept(this);
 }
 
+void IndexNotationVisitor::visit(const PartitionNode* op) {
+  op->expr.accept(this);
+}
+
 }

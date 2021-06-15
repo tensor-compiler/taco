@@ -427,6 +427,8 @@ protected:
   /// loop iterator variable should be incremented when the guard is fired.
   ir::Stmt strideBoundsGuard(Iterator iterator, ir::Expr access, bool incrementPosVar);
 
+  bool anyParentInSet(IndexVar var, std::set<IndexVar>& s);
+
 private:
   bool assemble;
   bool compute;
@@ -525,6 +527,7 @@ private:
 
   std::map<IndexVar, std::map<TensorVar, std::vector<std::vector<ir::Expr>>>> derivedBounds;
   IndexVar curDistVar;
+  std::map<IndexVar, std::set<IndexVar>> varsInScope;
   int distLoopDepth = 0;
 
   ir::Expr computingOnPartition;
@@ -536,6 +539,8 @@ private:
 
   bool isPlacementCode = false;
   std::vector<std::pair<Grid, GridPlacement>> placements;
+
+  bool isPartitionCode = false;
 
   std::map<IndexVar, int> indexVarFaces;
   std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls;

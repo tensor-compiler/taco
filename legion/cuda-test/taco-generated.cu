@@ -70,18 +70,20 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
     Point<1> aStart = Point<1>((in * ((b1_dimension + 3) / 4)));
     Point<1> aEnd = Point<1>(TACO_MIN((in * ((b1_dimension + 3) / 4) + ((b1_dimension + 3) / 4 - 1)),aDomain.hi()[0]));
     Rect<1> aRect = Rect<1>(aStart, aEnd);
-    if (!aDomain.contains(aRect.lo) || !aDomain.contains(aRect.hi)) aRect = aRect.make_empty();
-
+    if (!aDomain.contains(aRect.lo) || !aDomain.contains(aRect.hi)) {
+      aRect = aRect.make_empty();
+    }
     aColoring[(*itr)] = aRect;
     Point<1> bStart = Point<1>((in * ((b1_dimension + 3) / 4)));
     Point<1> bEnd = Point<1>(TACO_MIN((in * ((b1_dimension + 3) / 4) + ((b1_dimension + 3) / 4 - 1)),bDomain.hi()[0]));
     Rect<1> bRect = Rect<1>(bStart, bEnd);
-    if (!bDomain.contains(bRect.lo) || !bDomain.contains(bRect.hi)) bRect = bRect.make_empty();
-
+    if (!bDomain.contains(bRect.lo) || !bDomain.contains(bRect.hi)) {
+      bRect = bRect.make_empty();
+    }
     bColoring[(*itr)] = bRect;
   }
-  auto aPartition = runtime->create_index_partition(ctx, a_index_space, domain, aColoring, LEGION_DISJOINT_KIND);
-  auto bPartition = runtime->create_index_partition(ctx, b_index_space, domain, bColoring, LEGION_DISJOINT_KIND);
+  auto aPartition = runtime->create_index_partition(ctx, a_index_space, domain, aColoring, LEGION_DISJOINT_COMPLETE_KIND);
+  auto bPartition = runtime->create_index_partition(ctx, b_index_space, domain, bColoring, LEGION_DISJOINT_COMPLETE_KIND);
   LogicalPartition aLogicalPartition = runtime->get_logical_partition(ctx, get_logical_region(a), aPartition);
   RegionRequirement aReq = RegionRequirement(aLogicalPartition, 0, READ_WRITE, EXCLUSIVE, get_logical_region(a));
   aReq.add_field(FID_VAL);
