@@ -471,6 +471,10 @@ std::vector<IndexVar> DivideOntoPartition::getIrregulars() const {
   return {this->content->outerVar};
 }
 
+int DivideOntoPartition::getAccessIdx() const {
+  return this->content->accessIdx;
+}
+
 std::vector<ir::Expr> DivideOntoPartition::computeRelativeBound(std::set<IndexVar> definedVars,
                                                                 std::map<IndexVar, std::vector<ir::Expr>> computedBounds,
                                                                 std::map<IndexVar, ir::Expr> variableExprs,
@@ -500,7 +504,7 @@ std::vector<ir::Expr> DivideOntoPartition::deriveIterBounds(IndexVar indexVar,
                                                             std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                                             std::map<taco::IndexVar, taco::ir::Expr> variableNames,
                                                             Iterators iterators, ProvenanceGraph provGraph) const {
-  // I don't really care about bounds for other variables here.
+  std::vector<ir::Expr> parentBound = parentIterBounds.at(this->content->parentVar);
   if (indexVar == this->content->outerVar) {
     auto colorSpace = provGraph.getPartitionColorSpaceVar();
     auto lo = ir::Load::make(ir::MethodCall::make(colorSpace, "lo", {}, false, Int32), this->content->accessIdx);
@@ -509,11 +513,14 @@ std::vector<ir::Expr> DivideOntoPartition::deriveIterBounds(IndexVar indexVar,
     return {lo, ir::Add::make(hi, 1)};
   } else if (indexVar == this->content->innerVar) {
     // Use the appropriate bounds available on the partition to get the bounds.
-    auto bounds = provGraph.getPartitionBoundsVar();
-    auto lo = ir::Load::make(ir::MethodCall::make(bounds, "lo", {}, false, Int32), this->content->accessIdx);
-    // hi is inclusive, so we need to add 1 to it.
-    auto hi = ir::Load::make(ir::MethodCall::make(bounds, "hi", {}, false, Int32), this->content->accessIdx);
-    return {lo, ir::Add::make(hi, 1)};
+    auto bounds = provGraph.getPartitionBounds().at(this->getTensorVar()).at(this->getAccessIdx());
+    auto lo = bounds.first;
+    auto hi = bounds.second;
+    // We keep the iteration of the variables from between [0, n), as this is an implicit
+    // assumption of the rest of the provenance graph machinery. So, this variable ranges
+    // from the lower bound of the parent to lower bound + (hi - lo + 1), since hi is inclusive.
+    ir::Expr minBound = parentBound[0];
+    return {minBound, ir::Add::make(minBound, ir::Add::make(ir::Sub::make(hi, lo), 1))};
   }
   taco_ierror;
   return {};
@@ -524,8 +531,11 @@ ir::Expr DivideOntoPartition::recoverVariable(IndexVar indexVar, std::map<IndexV
                                               std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
                                               std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                               ProvenanceGraph provGraph) const {
-  // The inner variable is exactly what we need.
-  return variableNames[this->content->innerVar];
+  // We recover the variable by adding lo to the inner var, which ranges from [0, (hi - lo) + 1].
+  auto parentBounds = parentIterBounds.at(this->content->parentVar);
+  auto bounds = provGraph.getPartitionBounds().at(this->getTensorVar()).at(this->getAccessIdx());
+  auto lo = bounds.first;
+  return ir::Add::make(variableNames[this->content->innerVar], lo);
 }
 
 ir::Stmt DivideOntoPartition::recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables,
@@ -1216,10 +1226,23 @@ ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
       parentsMap[child] = parents;
     }
 
-    if (rel.getRelType() == DIVIDE_ONTO_PARTITION && !this->partitionColorSpace.defined()) {
+    // TODO (rohany): Revisit this check once we can do hierarchical distribution
+    //  onto a hierarchical placement.
+    if (rel.getRelType() == DIVIDE_ONTO_PARTITION) {
       auto node = rel.getNode<DivideOntoPartition>();
-      this->partitionColorSpace = ir::Var::make(node->getTensorVar().getName() + "PartitionColorSpace", Auto);
-      this->partitionBounds = ir::Var::make(node->getTensorVar().getName() + "PartitionBounds", Domain());
+      auto tv = node->getTensorVar();
+      auto accessIdx = node->getAccessIdx();
+      if (!this->partitionColorSpace.defined()) {
+        this->partitionColorSpace = ir::Var::make(node->getTensorVar().getName() + "PartitionColorSpace", Auto);
+      }
+      auto getName = [&](std::string typ) {
+        std::stringstream ss;
+        ss << tv.getName() << "PartitionBounds" << accessIdx << typ;
+        return ss.str();
+      };
+      if (this->partitionBounds[tv].count(accessIdx) == 0) {
+        this->partitionBounds[tv][accessIdx] = std::make_pair(ir::Var::make(getName("lo"), Int64), ir::Var::make(getName("hi"), Int64));
+      }
     }
   }
 }
@@ -1706,7 +1729,7 @@ ir::Expr ProvenanceGraph::getPartitionColorSpaceVar() const {
   return this->partitionColorSpace;
 }
 
-ir::Expr ProvenanceGraph::getPartitionBoundsVar() const {
+const std::map<TensorVar, std::map<int, std::pair<ir::Expr, ir::Expr>>>& ProvenanceGraph::getPartitionBounds() const {
   return this->partitionBounds;
 }
 

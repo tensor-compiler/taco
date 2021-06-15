@@ -1,13 +1,11 @@
 #ifndef TACO_LG_FILL_H
 #define TACO_LG_FILL_H
 
+#include "task_ids.h"
 #include "legion.h"
 #include "pitches.h"
 #include "taco_legion_header.h"
 #include "taco/version.h"
-
-// TODO (rohany): Move these predefined tasks to an enum.
-const int TACO_FILL_TASK = 1;
 
 template<int DIM, typename T>
 void tacoFillCPU(const Legion::Task* task, Legion::PhysicalRegion r, Legion::Rect<DIM> rect) {
@@ -90,7 +88,7 @@ void tacoFill(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegi
   auto ispace = runtime->create_index_space(ctx, Legion::Rect<1>(0, pieces - 1));
   auto ipart = runtime->create_equal_partition(ctx, r.get_index_space(), ispace);
   auto lpart = runtime->get_logical_partition(ctx, r, ipart);
-  Legion::IndexLauncher l(TACO_FILL_TASK, runtime->get_index_space_domain(ispace), Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
+  Legion::IndexLauncher l(TID_TACO_FILL_TASK, runtime->get_index_space_domain(ispace), Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
   l.add_region_requirement(Legion::RegionRequirement(lpart, 0, WRITE_ONLY, EXCLUSIVE, r).add_field(FID_VAL));
   runtime->execute_index_space(ctx, l);
 }
@@ -98,7 +96,7 @@ void tacoFill(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegi
 template<typename T>
 void tacoFill(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegion r, Legion::LogicalPartition part, T val) {
   auto domain = runtime->get_index_partition_color_space(ctx, get_index_partition(part));
-  Legion::IndexLauncher l(TACO_FILL_TASK, domain, Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
+  Legion::IndexLauncher l(TID_TACO_FILL_TASK, domain, Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
   l.add_region_requirement(Legion::RegionRequirement(part, 0, WRITE_ONLY, EXCLUSIVE, r).add_field(FID_VAL));
   runtime->execute_index_space(ctx, l);
 }
@@ -113,13 +111,13 @@ template <typename T>
 void registerTACOFillTasks() {
   // Register the CPU variant.
   {
-    Legion::TaskVariantRegistrar registrar(TACO_FILL_TASK, "taco_fill");
+    Legion::TaskVariantRegistrar registrar(TID_TACO_FILL_TASK, "taco_fill");
     registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     Legion::Runtime::preregister_task_variant<tacoFillCPUTask<T>>(registrar, "taco_fill");
   }
   // Register the OMP variant if present.
   if (TACO_FEATURE_OPENMP) {
-    Legion::TaskVariantRegistrar registrar(TACO_FILL_TASK, "taco_fill");
+    Legion::TaskVariantRegistrar registrar(TID_TACO_FILL_TASK, "taco_fill");
     registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::OMP_PROC));
     Legion::Runtime::preregister_task_variant<tacoFillOMPTask<T>>(registrar, "taco_fill");
   }

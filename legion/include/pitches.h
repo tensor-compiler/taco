@@ -10,6 +10,13 @@ template <int DIM>
 class Pitches {
 public:
   __CUDA_HD__
+  Pitches() {
+    for (int i = 0; i < DIM; i++) {
+      this->pitches[i] = 0;
+    }
+  }
+
+  __CUDA_HD__
   inline size_t flatten(const Legion::Rect<DIM + 1>& rect)
   {
     size_t pitch  = 1;

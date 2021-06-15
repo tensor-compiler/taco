@@ -176,6 +176,8 @@ struct DivideOntoPartition : public IndexVarRelNode {
   std::vector<IndexVar> getChildren() const; // outerVar, innerVar
   std::vector<IndexVar> getIrregulars() const; // innerVar
 
+  int getAccessIdx() const;
+
   TensorVar getTensorVar() const;
 
   std::vector<ir::Expr>
@@ -485,7 +487,7 @@ public:
   std::pair<bool, IndexVar> getStaggeredVar(IndexVar indexVar) const;
 
   ir::Expr getPartitionColorSpaceVar() const;
-  ir::Expr getPartitionBoundsVar() const;
+  const std::map<TensorVar, std::map<int, std::pair<ir::Expr, ir::Expr>>>& getPartitionBounds() const;
 
 private:
   std::map<IndexVar, IndexVarRel> childRelMap;
@@ -497,7 +499,9 @@ private:
   std::set<IndexVar> nodes;
 
   ir::Expr partitionColorSpace;
-  ir::Expr partitionBounds;
+  // TODO (rohany): This should then be a vector once we can do
+  //  hierarchical distribution onto a hierarchical placement.
+  std::map<TensorVar, std::map<int, std::pair<ir::Expr, ir::Expr>>> partitionBounds;
 };
 
 }

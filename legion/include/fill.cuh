@@ -1,6 +1,7 @@
 #ifndef TACO_LG_FILL_CUH
 #define TACO_LG_FILL_CUH
 
+#include "task_ids.h"
 #include "legion.h"
 #include "pitches.h"
 #include "taco_legion_header.h"
@@ -50,7 +51,7 @@ void tacoFillGPUTask(const Legion::Task* task, const std::vector<Legion::Physica
 template <typename T>
 void registerGPUFillTask() {
   {
-    Legion::TaskVariantRegistrar registrar(TACO_FILL_TASK, "taco_fill");
+    Legion::TaskVariantRegistrar registrar(TID_TACO_FILL_TASK, "taco_fill");
     registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::TOC_PROC));
     Legion::Runtime::preregister_task_variant<tacoFillGPUTask<T>>(registrar, "taco_fill");
   }

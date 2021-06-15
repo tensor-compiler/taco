@@ -1,12 +1,11 @@
 #ifndef TACO_LG_VALIDATE_H
 #define TACO_LG_VALIDATE_H
 
+#include "task_ids.h"
 #include "legion.h"
 #include "pitches.h"
 #include "taco_legion_header.h"
 #include "taco/version.h"
-
-const int TACO_VALIDATE_TASK = 10;
 
 template<int DIM, typename T>
 void tacoValidateCPU(const Legion::Task* task, Legion::PhysicalRegion r, Legion::Rect<DIM> rect) {
@@ -89,7 +88,7 @@ void tacoValidate(Legion::Context ctx, Legion::Runtime* runtime, Legion::Logical
   auto ispace = runtime->create_index_space(ctx, Legion::Rect<1>(0, pieces - 1));
   auto ipart = runtime->create_equal_partition(ctx, r.get_index_space(), ispace);
   auto lpart = runtime->get_logical_partition(ctx, r, ipart);
-  Legion::IndexLauncher l(TACO_VALIDATE_TASK, runtime->get_index_space_domain(ispace), Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
+  Legion::IndexLauncher l(TID_TACO_VALIDATE_TASK, runtime->get_index_space_domain(ispace), Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
   l.add_region_requirement(Legion::RegionRequirement(lpart, 0, READ_ONLY, EXCLUSIVE, r).add_field(FID_VAL));
   runtime->execute_index_space(ctx, l);
 }
@@ -97,7 +96,7 @@ void tacoValidate(Legion::Context ctx, Legion::Runtime* runtime, Legion::Logical
 template<typename T>
 void tacoValidate(Legion::Context ctx, Legion::Runtime* runtime, Legion::LogicalRegion r, Legion::LogicalPartition part, T val) {
   auto domain = runtime->get_index_partition_color_space(ctx, get_index_partition(part));
-  Legion::IndexLauncher l(TACO_VALIDATE_TASK, domain, Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
+  Legion::IndexLauncher l(TID_TACO_VALIDATE_TASK, domain, Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
   l.add_region_requirement(Legion::RegionRequirement(part, 0, READ_ONLY, EXCLUSIVE, r).add_field(FID_VAL));
   runtime->execute_index_space(ctx, l);
 }
@@ -113,13 +112,13 @@ template <typename T>
 void registerTACOValidateTasks() {
   // Register the CPU variant.
   {
-    Legion::TaskVariantRegistrar registrar(TACO_VALIDATE_TASK, "taco_validate");
+    Legion::TaskVariantRegistrar registrar(TID_TACO_VALIDATE_TASK, "taco_validate");
     registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     Legion::Runtime::preregister_task_variant<tacoValidateCPUTask<T>>(registrar, "taco_validate");
   }
   // Register the OMP variant if present.
   if (TACO_FEATURE_OPENMP) {
-    Legion::TaskVariantRegistrar registrar(TACO_VALIDATE_TASK, "taco_validate");
+    Legion::TaskVariantRegistrar registrar(TID_TACO_VALIDATE_TASK, "taco_validate");
     registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::OMP_PROC));
     Legion::Runtime::preregister_task_variant<tacoValidateOMPTask<T>>(registrar, "taco_validate");
   }
