@@ -63,6 +63,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     py = gy;
   }
 
+  initCuBLAS(ctx, runtime);
+
   auto fspace = runtime->create_field_space(ctx);
   allocate_tensor_fields<valType>(ctx, runtime, fspace);
   auto ispace = runtime->create_index_space(ctx, Rect<2>({0, 0}, {n - 1, n - 1}));
@@ -86,8 +88,6 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     auto part = placeLegionA(ctx, runtime, A, gx, gy);
     placeLegionB(ctx, runtime, B, gx, gy);
     placeLegionC(ctx, runtime, C, gx, gy);
-
-    initCuBLAS(ctx, runtime);
 
     // Compute on the tensors.
     benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, part, gx); });
