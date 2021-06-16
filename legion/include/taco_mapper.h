@@ -59,27 +59,6 @@ public:
     }
   }
 
-  void select_task_variant(const Legion::Mapping::MapperContext   ctx,
-                           const Legion::Task&                    task,
-                           const SelectVariantInput&              input,
-                           SelectVariantOutput&                   output) override {
-    if (this->preferCPUFill && task.task_id == TID_TACO_FILL_TASK) {
-      // See if we have any OMP procs.
-      auto targetKind = Legion::Processor::Kind::LOC_PROC;
-      Legion::Machine::ProcessorQuery omps(this->machine);
-      omps.only_kind(Legion::Processor::OMP_PROC);
-      if (omps.count() > 0) {
-        targetKind = Legion::Processor::Kind::OMP_PROC;
-      }
-      std::vector<Legion::VariantID> variants;
-      runtime->find_valid_variants(ctx, task.task_id, variants, targetKind);
-      assert(variants.size() > 0);
-      output.chosen_variant = variants[0];
-    } else {
-      DefaultMapper::select_task_variant(ctx, task, input, output);
-    }
-  }
-
   void default_policy_select_constraints(Legion::Mapping::MapperContext ctx,
                                          Legion::LayoutConstraintSet &constraints, Legion::Memory target_memory,
                                          const Legion::RegionRequirement &req) override {
@@ -124,6 +103,18 @@ public:
   std::vector<Legion::Processor> select_targets_for_task(const Legion::Mapping::MapperContext ctx,
                                                          const Legion::Task& task) {
     auto kind = this->default_find_preferred_variant(task, ctx, false /* needs tight bounds */).proc_kind;
+    // If we're requested to fill on the CPU, then hijack the initial processor
+    // selection to do so.
+    if (this->preferCPUFill && task.task_id == TID_TACO_FILL_TASK) {
+      // See if we have any OMP procs.
+      auto targetKind = Legion::Processor::Kind::LOC_PROC;
+      Legion::Machine::ProcessorQuery omps(this->machine);
+      omps.only_kind(Legion::Processor::OMP_PROC);
+      if (omps.count() > 0) {
+        targetKind = Legion::Processor::Kind::OMP_PROC;
+      }
+      kind = targetKind;
+    }
     // We always map to the same address space if replication is enabled.
     auto sameAddressSpace = ((task.tag & DefaultMapper::SAME_ADDRESS_SPACE) != 0) || this->replication_enabled;
     if (sameAddressSpace) {
