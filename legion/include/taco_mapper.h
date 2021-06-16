@@ -4,6 +4,7 @@
 #include "legion.h"
 #include "mappers/default_mapper.h"
 
+#include "task_ids.h"
 #include "shard.h"
 
 // Register the TACO mapper.
@@ -12,7 +13,21 @@ void register_taco_mapper(Legion::Machine machine, Legion::Runtime *runtime, con
 class TACOMapper : public Legion::Mapping::DefaultMapper {
 public:
   TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine& machine, const Legion::Processor& local)
-      : DefaultMapper(rt, machine, local) {}
+      : DefaultMapper(rt, machine, local) {
+    {
+      int argc = Legion::HighLevelRuntime::get_input_args().argc;
+      char **argv = Legion::HighLevelRuntime::get_input_args().argv;
+      for (int i=1; i < argc; i++) {
+#define BOOL_ARG(argname, varname) do {       \
+          if (!strcmp(argv[i], argname)) {    \
+            varname = true;                   \
+            continue;                         \
+          } } while(0);
+        BOOL_ARG("-tm:fill_cpu", this->preferCPUFill);
+#undef BOOL_ARG
+      }
+    }
+  }
 
   // Mapping tags handled specific for the TACO mapper.
   enum MappingTags {
@@ -20,6 +35,10 @@ public:
     PLACEMENT = (1 << 5),
     PLACEMENT_SHARD = (1 << 6),
   };
+
+  // Denotes whether the fill operation should place data onto CPU memories
+  // or GPU memories.
+  bool preferCPUFill = false;
 
   void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                const Legion::Task& task,
@@ -37,6 +56,27 @@ public:
       output.chosen_functor = shardingID;
     } else {
       output.chosen_functor = TACOShardingFunctorID;
+    }
+  }
+
+  void select_task_variant(const Legion::Mapping::MapperContext   ctx,
+                           const Legion::Task&                    task,
+                           const SelectVariantInput&              input,
+                           SelectVariantOutput&                   output) override {
+    if (this->preferCPUFill && task.task_id == TID_TACO_FILL_TASK) {
+      // See if we have any OMP procs.
+      auto targetKind = Legion::Processor::Kind::LOC_PROC;
+      Legion::Machine::ProcessorQuery omps(this->machine);
+      omps.only_kind(Legion::Processor::OMP_PROC);
+      if (omps.count() > 0) {
+        targetKind = Legion::Processor::Kind::OMP_PROC;
+      }
+      std::vector<Legion::VariantID> variants;
+      runtime->find_valid_variants(ctx, task.task_id, variants, targetKind);
+      assert(variants.size() > 0);
+      output.chosen_variant = variants[0];
+    } else {
+      DefaultMapper::select_task_variant(ctx, task, input, output);
     }
   }
 
