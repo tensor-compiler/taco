@@ -24,6 +24,8 @@ public:
             continue;                         \
           } } while(0);
         BOOL_ARG("-tm:fill_cpu", this->preferCPUFill);
+        BOOL_ARG("-tm:disable_mapping_cache", this->disableMappingCache);
+        BOOL_ARG("-tm:untrack_valid_regions", this->untrackValidRegions);
 #undef BOOL_ARG
       }
     }
@@ -33,12 +35,21 @@ public:
   enum MappingTags {
     // Indicates that this task launch is used for data placement.
     PLACEMENT = (1 << 5),
+    // Indicates that this task launch is used for data placement, but the placement
+    // will be handled by sharding functors rather than slice_task.
     PLACEMENT_SHARD = (1 << 6),
+    // Marks that the task should have its read-only regions be eligible for collection.
+    UNTRACK_VALID_REGIONS = (1 << 7),
   };
 
   // Denotes whether the fill operation should place data onto CPU memories
   // or GPU memories.
   bool preferCPUFill = false;
+  // Denotes whether the default mapper's task mapping cache should be used.
+  bool disableMappingCache = false;
+  // Denotes whether read-only valid regions of leaf tasks should be marked
+  // eagerly for collection.
+  bool untrackValidRegions = false;
 
   void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                const Legion::Task& task,
@@ -59,6 +70,24 @@ public:
     }
   }
 
+  void map_task(const Legion::Mapping::MapperContext  ctx,
+                const Legion::Task&                   task,
+                const MapTaskInput&                   input,
+                MapTaskOutput&                        output) override {
+    DefaultMapper::map_task(ctx, task, input, output);
+    // If the tag is marked for untracked valid regions, then mark all of its
+    // read only regions as up for collection.
+    if ((task.tag & UNTRACK_VALID_REGIONS) != 0 && this->untrackValidRegions) {
+      for (size_t i = 0; i < task.regions.size(); i++) {
+        auto& rg = task.regions[i];
+        if (rg.privilege == READ_ONLY) {
+          output.untracked_valid_regions.insert(i);
+        }
+      }
+    }
+  }
+
+
   void default_policy_select_constraints(Legion::Mapping::MapperContext ctx,
                                          Legion::LayoutConstraintSet &constraints, Legion::Memory target_memory,
                                          const Legion::RegionRequirement &req) override {
@@ -74,6 +103,16 @@ public:
     dimension_ordering[dim] = LEGION_DIM_F;
     constraints.add_constraint(Legion::OrderingConstraint(dimension_ordering, false/*contiguous*/));
     DefaultMapper::default_policy_select_constraints(ctx, constraints, target_memory, req);
+  }
+
+  // Command line tunable value for controlling whether the default mapper sits
+  // on a cache of mapped tasks.
+  CachedMappingPolicy default_policy_select_task_cache_policy(Legion::Mapping::MapperContext ctx,
+                                                              const Legion::Task &task) override {
+    if (this->disableMappingCache) {
+      return DEFAULT_CACHE_POLICY_DISABLE;
+    }
+    return DEFAULT_CACHE_POLICY_ENABLE;
   }
 
   void default_policy_select_target_processors(

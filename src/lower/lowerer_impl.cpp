@@ -1660,6 +1660,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto virtualMap = ir::Symbol::make("Mapping::DefaultMapper::VIRTUAL_MAP");
     auto placementMap = ir::Symbol::make("TACOMapper::PLACEMENT");
     auto placementShard = ir::Symbol::make("TACOMapper::PLACEMENT_SHARD");
+    auto untrackValidRegions = ir::Symbol::make("TACOMapper::UNTRACK_VALID_REGIONS");
     auto sameAddressSpace = ir::Symbol::make("Mapping::DefaultMapper::SAME_ADDRESS_SPACE");
 
     // We need to emit accessing the partition for any child task that uses the partition.
@@ -1933,6 +1934,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       std::vector<Stmt> itlStmts;
       std::vector<Expr> regionReqs;
       std::vector<Expr> regionReqArgs;
+      bool taskReadsAnyVars = false;
       for (auto& it : this->tensorVarOrdering) {
         auto tv = it;
         auto tvIR = this->tensorVars[tv];
@@ -1983,7 +1985,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         if (!finder.readsVar && !(this->isPlacementCode && size_t(this->distLoopDepth + 1) == this->placements.size())) {
           itlStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
         }
-
+        taskReadsAnyVars |= finder.readsVar;
         regionReqs.push_back(regReq);
       }
 
@@ -2077,6 +2079,13 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         auto addTag = ir::Assign::make(ir::FieldAccess::make(launcher, "tag", false, Auto), tag);
         itlStmts.push_back(addTag);
       }
+      // If this task reads the regions explicitly, then give a chance to the
+      // mapper to potentially garbage collect these instances.
+      if (taskReadsAnyVars && !this->isPlacementCode) {
+        auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
+        itlStmts.push_back(ir::Assign::make(tag, ir::BitOr::make(tag, untrackValidRegions)));
+      }
+
       // If this is a nested distribution, keep it on the same node.
       if (this->distLoopDepth > 0) {
         auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
@@ -2116,6 +2125,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       taskCallStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, pointT)));
       std::vector<Expr> regionReqs;
       std::vector<Expr> regionReqArgs;
+      bool taskReadsAnyVars = false;
       for (auto& it : this->tensorVarOrdering) {
         auto tv = it;
         auto tvIR = this->tensorVars[tv];
@@ -2169,7 +2179,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         if (!finder.readsVar) {
           taskCallStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
         }
-
+        taskReadsAnyVars |= finder.readsVar;
         regionReqs.push_back(regReq);
       }
 
@@ -2189,6 +2199,12 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       for (auto& req : regionReqs) {
         auto mcall = ir::MethodCall::make(launcher, "add_region_requirement", {req}, false /* deref */, Auto);
         taskCallStmts.push_back(ir::SideEffect::make(mcall));
+      }
+      // If this task reads the regions explicitly, then give a chance to the
+      // mapper to potentially garbage collect these instances.
+      if (taskReadsAnyVars && !this->isPlacementCode) {
+        auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
+        taskCallStmts.push_back(ir::Assign::make(tag, ir::BitOr::make(tag, untrackValidRegions)));
       }
       // The actual task call.
       auto tcall = ir::Call::make("runtime->execute_task", {ctx, launcher}, Auto);
