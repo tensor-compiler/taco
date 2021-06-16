@@ -187,3 +187,46 @@ TEST(workspaces, tile_denseMatMul) {
   
 }
 
+TEST(DISABLED_workspaces, multiplePrecomputeIndependentIndexVarsSplit) {
+
+  Tensor<double> A("A", {16}, Format{Dense});
+  Tensor<double> B("B", {16}, Format{Dense});
+  Tensor<double> C("C", {16}, Format{Dense});
+  Tensor<double> D("D", {16}, Format{Dense});
+
+  for (int i = 0; i < 16; i++) {
+    B.insert({i}, (double) i);
+    C.insert({i}, (double) i);
+    D.insert({i}, (double) i);
+  }
+
+  IndexVar i("i");
+  IndexVar iw1("iw1");
+  IndexVar iw2("iw2");
+  IndexVar iw2_outter("iw2_outer");
+  IndexVar iw2_inner("iw2_inner");
+  A(i) = B(i) + C(i) + D(i);
+
+  // Precompute then split iw tensor
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar precomputed1("precomputed1", Type(Float64, {16}), taco::dense);
+  TensorVar precomputed2("precomputed2", Type(Float64, {16}), taco::dense);
+  stmt = stmt.precompute(A.getAssignment().getRhs(), i, iw1, precomputed1);
+  cout << stmt.concretize() << endl;
+  stmt = stmt.precompute(B(iw1)+C(iw1), iw1, iw2, precomputed2);
+             //.split(iw2,iw2_outter, iw2_inner, 8);
+
+  cout << stmt.concretize() << endl;
+  A.compile(stmt.concretize());
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {16}, Format{Dense});
+  expected(i) = B(i) + C(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+
+  ASSERT_TENSOR_EQ(A, expected);
+}
+
