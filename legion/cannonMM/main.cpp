@@ -19,6 +19,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   int n = -1;
   int gx = -1;
   int gy = -1;
+  int px = -1;
+  int py = -1;
   // Parse input args.
   for (int i = 1; i < args.argc; i++) {
     if (strcmp(args.argv[i], "-n") == 0) {
@@ -33,7 +35,14 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
       gy = atoi(args.argv[++i]);
       continue;
     }
-    // TODO (rohany): Add a flag to do the validation or not.
+    if (strcmp(args.argv[i], "-px") == 0) {
+      px = atoi(args.argv[++i]);
+      continue;
+    }
+    if (strcmp(args.argv[i], "-py") == 0) {
+      py = atoi(args.argv[++i]);
+      continue;
+    }
   }
   if (n == -1) {
     std::cout << "Please provide an input matrix size with -n." << std::endl;
@@ -47,6 +56,12 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     std::cout << "Please provide a gris y size with -gy." << std::endl;
     return;
   }
+  if (px == -1) {
+    px = gx;
+  }
+  if (py == -1) {
+    py = gy;
+  }
 
   auto fspace = runtime->create_field_space(ctx);
   allocate_tensor_fields<valType>(ctx, runtime, fspace);
@@ -56,9 +71,9 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto C = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(C, "C");
 
   // Partition all of the tensors.
-  auto aPart = partitionLegion(ctx, runtime, A, gx, gy);
-  auto bPart = partitionLegion(ctx, runtime, B, gx, gy);
-  auto cPart = partitionLegion(ctx, runtime, C, gx, gy);
+  auto aPart = partitionLegion(ctx, runtime, A, px, py);
+  auto bPart = partitionLegion(ctx, runtime, B, px, py);
+  auto cPart = partitionLegion(ctx, runtime, C, px, py);
 
   // TODO (rohany): Do some averaging etc of the benchmarks.
   // Run the benchmark several times.
