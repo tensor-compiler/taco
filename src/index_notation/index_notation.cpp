@@ -1466,15 +1466,11 @@ map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() const {
 IndexStmt IndexStmt::concretizeScheduled(ProvenanceGraph provGraph, vector<IndexVar> forallIndexVarList) const {
   IndexStmt stmt = *this;
   string r;
-  cout << "Pre concretized stmt: " << stmt << endl;
   if (isEinsumNotation(stmt, &r)) {
     stmt = makeReductionNotationScheduled(stmt, provGraph);
-    cout << "Post Reduction Stmt: " << stmt << endl;
   }
-  cout << r << endl;
   if (isReductionNotationScheduled(stmt, provGraph, &r)) {
     stmt = makeConcreteNotationScheduled(stmt, provGraph, forallIndexVarList);
-    cout << "Post Concretize Stmt: " << stmt << endl;
   }
   return stmt;
 }
@@ -2851,23 +2847,6 @@ IndexStmt makeConcreteNotationScheduled(IndexStmt stmt, ProvenanceGraph provGrap
         })
   );
 
-  cout << "freeVars: ";
-  for (auto &i : freeVars) {
-    cout << i << ", ";
-  }
-  cout << endl;
-
-  cout << "rhsVars: ";
-  for (auto &i : rhsVars) {
-    cout << i << ", ";
-  }
-  cout << endl;
-
-  cout << "forallIndexVars: ";
-  for (auto &i : forallIndexVars) {
-    cout << i << ", ";
-  }
-  cout << endl;
   // Emit the freeVars as foralls if the freeVars are fully derived
   // else emit the fully derived descendant of the freeVar found in rhsVars
   if (forallIndexVars.empty()) {
