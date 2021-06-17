@@ -194,7 +194,7 @@ TEST(workspaces, tile_denseMatMul) {
 }
 
 TEST(workspaces, precompute2D_add) {
-  size_t N = 16;
+  int N = 16;
   Tensor<double> A("A", {N, N}, Format{Dense, Dense});
   Tensor<double> B("B", {N, N}, Format{Dense, Dense});
   Tensor<double> C("C", {N, N}, Format{Dense, Dense});
@@ -230,7 +230,7 @@ TEST(workspaces, precompute2D_add) {
 }
 
 TEST(workspaces, precompute4D_add) {
-  size_t N = 16;
+  int N = 16;
   Tensor<double> A("A", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
   Tensor<double> B("B", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
   Tensor<double> C("C", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
@@ -272,7 +272,7 @@ TEST(workspaces, precompute4D_add) {
 }
 
 TEST(workspaces, precompute4D_multireduce) {
-  size_t N = 16;
+  int N = 16;
   Tensor<double> A("A", {N, N}, Format{Dense, Dense});
   Tensor<double> B("B", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
   Tensor<double> C("C", {N, N, N}, Format{Dense, Dense, Dense});
@@ -314,7 +314,7 @@ TEST(workspaces, precompute4D_multireduce) {
 }
 
 TEST(workspaces, precompute3D_MspV) {
-  size_t N = 16;
+  int N = 16;
   Tensor<double> A("A", {N, N}, Format{Dense, Dense});
   Tensor<double> B("B", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
   Tensor<double> c("c", {N}, Format{Sparse});
