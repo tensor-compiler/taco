@@ -840,6 +840,7 @@ Stmt LowererImplImperative::lowerForall(Forall forall)
 
 Stmt LowererImplImperative::lowerForallCloned(Forall forall) {
   // want to emit guards outside of loop to prevent unstructured loop exits
+
   // construct guard
   // underived or pos variables that have a descendant that has not been defined yet
   vector<IndexVar> varsWithGuard;
@@ -857,6 +858,7 @@ Stmt LowererImplImperative::lowerForallCloned(Forall forall) {
       }
     }
   }
+
   // determine min and max values for vars given already defined variables.
   // we do a recovery where we fill in undefined variables with either 0's or the max of their iteration
   std::map<IndexVar, Expr> minVarValues;
@@ -901,6 +903,7 @@ Stmt LowererImplImperative::lowerForallCloned(Forall forall) {
     minVarValues[var] = provGraph.recoverVariable(var, currentDefinedVarOrder, underivedBounds, minChildValues, iterators);
     maxVarValues[var] = provGraph.recoverVariable(var, currentDefinedVarOrder, underivedBounds, maxChildValues, iterators);
   }
+
   // Build guards
   Expr guardCondition;
   for (auto var : varsWithGuard) {

@@ -2366,12 +2366,8 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
       for (auto& var : op->indexVars) {
         // non underived variables may appear in temporaries, but we don't check these
         if (!boundVars.contains(var) && provGraph.isUnderived(var) && (provGraph.isFullyDerived(var) || !provGraph.isRecoverable(var, definedVars))) {
-          string string2 = "definedvars: ";
-          for (auto& d : definedVars)
-            string2.append(d.getName() + ", ");
-
           *reason = "all variables in concrete notation must be bound by a "
-                    "forall statement" + var.getName() + string2;
+                    "forall statement";
           isConcrete = false;
         }
       }

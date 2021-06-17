@@ -1136,12 +1136,14 @@ bool ProvenanceGraph::isRecoverable(taco::IndexVar indexVar, std::set<taco::Inde
   return isRecoverablePrecompute(indexVar, defined, producers, consumers);
 }
 
-bool ProvenanceGraph::isRecoverablePrecompute(taco::IndexVar indexVar, std::set<taco::IndexVar> defined, vector<IndexVar> producers, vector<IndexVar> consumers) const {
+bool ProvenanceGraph::isRecoverablePrecompute(taco::IndexVar indexVar, std::set<taco::IndexVar> defined,
+                                              vector<IndexVar> producers, vector<IndexVar> consumers) const {
   vector<IndexVar> childPrecompute;
   if (std::find(consumers.begin(), consumers.end(), indexVar) != consumers.end()) {
     return true;
   }
-  if (!producers.empty() && (childRelMap.count(indexVar) && childRelMap.at(indexVar).getRelType() == IndexVarRelType::PRECOMPUTE)) {
+  if (!producers.empty() && (childRelMap.count(indexVar) &&
+                             childRelMap.at(indexVar).getRelType() == IndexVarRelType::PRECOMPUTE)) {
     auto precomputeChild = getChildren(indexVar)[0];
     if (std::find(producers.begin(), producers.end(), precomputeChild) != producers.end()) {
       return true;
@@ -1149,8 +1151,8 @@ bool ProvenanceGraph::isRecoverablePrecompute(taco::IndexVar indexVar, std::set<
     return isRecoverablePrecompute(precomputeChild, defined, producers, consumers);
   }
   for (const IndexVar& child : getChildren(indexVar)) {
-    if (!defined.count(child) && (isFullyDerived(child)
-                                  || !isRecoverablePrecompute(child, defined, producers, consumers))) {
+    if (!defined.count(child) && (isFullyDerived(child) ||
+                                  !isRecoverablePrecompute(child, defined, producers, consumers))) {
       return false;
     }
   }
@@ -1315,12 +1317,6 @@ bool ProvenanceGraph::hasExactBound(IndexVar indexVar) const {
   {
     return rel.getNode<BoundRelNode>()->getBoundType() == BoundType::MaxExact;
   }
-//  else if (rel.getRelType() == SPLIT)
-//  {
-//    return rel.getNode<SplitRelNode>()->getInnerVar() == indexVar;
-//  } else if (rel.getRelType() == PRECOMPUTE) {
-//    return hasExactBound(rel.getNode<PrecomputeRelNode>()->getParentVar());
-//  }
   // TODO: include non-irregular variables
   return false;
 }
