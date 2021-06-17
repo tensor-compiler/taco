@@ -1405,7 +1405,7 @@ IndexStmt TensorBase::partitionStmt(Grid g) {
     distVars.push_back(IndexVar(var.getName() + "n"));
   }
 
-  return stmt.distribute(partVars, distVars, localVars, g).pushCommUnder(access, distVars[distVars.size() - 1]);
+  return stmt.distribute(partVars, distVars, localVars, g).communicate(access, distVars[distVars.size() - 1]);
 }
 
 IndexStmt TensorBase::place(Grid g, GridPlacement gp, ParallelUnit parUnit) {
@@ -1546,7 +1546,7 @@ IndexStmt TensorBase::placeHierarchy(std::vector<std::tuple<Grid, Grid, GridPlac
       }
     }
     stmt = stmt.distribute(pVars, distVars, localVars, placeGrid, parUnit);
-    stmt = stmt.pushCommUnder(base, distVars.back());
+    stmt = stmt.communicate(base, distVars.back());
   }
 
   return stmt;

@@ -1600,7 +1600,7 @@ IndexStmt IndexStmt::distribute(std::vector<IndexVar> original, std::vector<Inde
   return transformed;
 }
 
-IndexStmt IndexStmt::distributeOnto(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Access onto, ParallelUnit parUnit) {
+IndexStmt IndexStmt::distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Access onto, ParallelUnit parUnit) {
   string reason;
   auto transformed = Distribute(original, outerVars, innerVars, onto, parUnit).apply(*this, &reason);
   if (!transformed.defined()) {
@@ -1609,7 +1609,7 @@ IndexStmt IndexStmt::distributeOnto(std::vector<IndexVar> original, std::vector<
   return transformed;
 }
 
-IndexStmt IndexStmt::pushCommUnder(Access a, IndexVar i) {
+IndexStmt IndexStmt::communicate(Access a, IndexVar i) {
   // TODO (rohany): We should do a bunch of checks here, but I'll omit those for now.
 
   // Create a provenance graph to learn about some index var relations.
