@@ -165,7 +165,7 @@ IndexStmt scheduleMTTKRPCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16,
   IndexExpr precomputeExpr = stmt.as<Forall>().getStmt().as<Forall>().getStmt()
                                  .as<Forall>().getStmt().as<Forall>().getStmt()
                                  .as<Assignment>().getRhs().as<Mul>().getA();
-  TensorVar w("w", Type(Float64, {NUM_J}), taco::dense);
+  TensorVar w("w", Type(Float64, {(size_t)NUM_J}), taco::dense);
 
   stmt = stmt.split(i, i1, i2, CHUNK_SIZE)
     .reorder({i1, i2, k, l, j});

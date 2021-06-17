@@ -1538,7 +1538,7 @@ IndexStmt IndexStmt::precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
  // FIXME: need to re-enable this later
  taco_uassert(i_vars.size() == iw_vars.size()) << "The precompute transformation requires"
                                                << "i_vars and iw_vars to be the same size";
- for (int l = 0; l < i_vars.size(); l++) {
+ for (int l = 0; l < (int) i_vars.size(); l++) {
     IndexVar i = i_vars.at(l);
     IndexVar iw = iw_vars.at(l);
 
@@ -2417,14 +2417,14 @@ bool isReductionNotationScheduled(IndexStmt stmt, ProvenanceGraph provGraph, std
                 auto ancestors = provGraph.getUnderivedAncestors(var);
                 for (auto& ancestor: ancestors) {
                   if (boundVars.contains(ancestor)) {
-                    return true;
+                    isReduction = true;
                   }
                 }
               } else {
                 auto descendants = provGraph.getFullyDerivedDescendants(var);
                 for (auto& descendant : descendants) {
                   if (boundVars.contains(descendant)) {
-                    return true;
+                    isReduction = true;
                   }
                 }
               }
