@@ -89,7 +89,9 @@ def executeCmd(cmd):
     cmdStr = " ".join(cmd)
     print("Executing command: {}".format(cmdStr))
     try:
-        subprocess.run(cmd)
+        result = subprocess.run(cmd, capture_output=True)
+        print(result.stdout.decode())
+        print(result.stderr.decode())
     except Exception as e:
         print("Failed with exception: {}".format(str(e)))
 
@@ -107,7 +109,7 @@ def main():
     else:
         assert(False)
     for p in args.procs:
-        executeCmd(bench.getCommand())
+        executeCmd(bench.getCommand(p))
 
 if __name__ == '__main__':
     main()
