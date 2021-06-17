@@ -1120,8 +1120,39 @@ bool ProvenanceGraph::isAvailable(IndexVar indexVar, std::set<IndexVar> defined)
 
 bool ProvenanceGraph::isRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const {
   // all children are either defined or recoverable from their children
+  // This checks the definedVars list to determine where in the statement the variables are trying to be
+  // recovered from ( either on the producer or consumer side of a where stmt or not in a where stmt)
+  vector<IndexVar> producers;
+  vector<IndexVar> consumers;
+  for (auto& def : defined) {
+    if (childRelMap.count(def) && childRelMap.at(def).getRelType() == IndexVarRelType::PRECOMPUTE) {
+      consumers.push_back(def);
+    }
+    if (parentRelMap.count(def) && parentRelMap.at(def).getRelType() == IndexVarRelType::PRECOMPUTE) {
+      producers.push_back(def);
+    }
+  }
+
+  return isRecoverablePrecompute(indexVar, defined, producers, consumers);
+}
+
+bool ProvenanceGraph::isRecoverablePrecompute(taco::IndexVar indexVar, std::set<taco::IndexVar> defined,
+                                              vector<IndexVar> producers, vector<IndexVar> consumers) const {
+  vector<IndexVar> childPrecompute;
+  if (std::find(consumers.begin(), consumers.end(), indexVar) != consumers.end()) {
+    return true;
+  }
+  if (!producers.empty() && (childRelMap.count(indexVar) &&
+                             childRelMap.at(indexVar).getRelType() == IndexVarRelType::PRECOMPUTE)) {
+    auto precomputeChild = getChildren(indexVar)[0];
+    if (std::find(producers.begin(), producers.end(), precomputeChild) != producers.end()) {
+      return true;
+    }
+    return isRecoverablePrecompute(precomputeChild, defined, producers, consumers);
+  }
   for (const IndexVar& child : getChildren(indexVar)) {
-    if (!defined.count(child) && (isFullyDerived(child) || !isRecoverable(child, defined))) {
+    if (!defined.count(child) && (isFullyDerived(child) ||
+                                  !isRecoverablePrecompute(child, defined, producers, consumers))) {
       return false;
     }
   }
