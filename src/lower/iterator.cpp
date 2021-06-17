@@ -531,6 +531,15 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
           underivedAdded.insert(underived);
         }
       }
+
+      // Insert all children of current index variable into iterators as well
+      for (const IndexVar& child : provGraph.getChildren(n->indexVar)) {
+        if (!underivedAdded.count(child)) {
+          content->modeIterators.insert({child, child});
+          underivedAdded.insert(child);
+        }
+      }
+
       m->match(n->stmt);
     })
   );

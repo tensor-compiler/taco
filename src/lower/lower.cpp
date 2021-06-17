@@ -15,6 +15,7 @@
 #include "taco/ir/ir_printer.h"
 
 #include "taco/lower/lowerer_impl.h"
+#include "taco/lower/lowerer_impl_imperative.h"
 #include "taco/lower/iterator.h"
 #include "mode_access.h"
 
@@ -33,7 +34,7 @@ namespace taco {
 
 
 // class Lowerer
-Lowerer::Lowerer() : impl(new LowererImpl()) {
+Lowerer::Lowerer() : impl(new LowererImplImperative()) {
 }
 
 Lowerer::Lowerer(LowererImpl* impl) : impl(impl) {

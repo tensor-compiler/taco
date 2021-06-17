@@ -1534,15 +1534,18 @@ IndexStmt IndexStmt::precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
   // TODO: need to assert they are same length
   IndexStmt transformed = *this;
   string reason;
-  // if (i != iw) {
-  //   IndexVarRel rel = IndexVarRel(new PrecomputeRelNode(i, iw));
-  //   transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed, &reason);
-  //   if (!transformed.defined()) {
-  //     taco_uerror << reason;
-  //   }
-  // }
+
+ // FIXME: need to re-enable this later
+ // if (i != iw) {
+ //   IndexVarRel rel = IndexVarRel(new PrecomputeRelNode(i, iw));
+ //   transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed, &reason);
+ //   if (!transformed.defined()) {
+ //     taco_uerror << reason;
+ //   }
+ // }
 
   transformed = Transformation(Precompute(expr, i_vars, iw_vars, workspace)).apply(transformed, &reason);
+
   if (!transformed.defined()) {
     taco_uerror << reason;
   }
