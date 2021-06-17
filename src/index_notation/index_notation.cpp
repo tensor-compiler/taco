@@ -1536,13 +1536,20 @@ IndexStmt IndexStmt::precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
   string reason;
 
  // FIXME: need to re-enable this later
- // if (i != iw) {
- //   IndexVarRel rel = IndexVarRel(new PrecomputeRelNode(i, iw));
- //   transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed, &reason);
- //   if (!transformed.defined()) {
- //     taco_uerror << reason;
- //   }
- // }
+ taco_uassert(i_vars.size() == iw_vars.size()) << "The precompute transformation requires"
+                                               << "i_vars and iw_vars to be the same size";
+ for (int l = 0; l < i_vars.size(); l++) {
+    IndexVar i = i_vars.at(l);
+    IndexVar iw = iw_vars.at(l);
+
+    if (i != iw) {
+      IndexVarRel rel = IndexVarRel(new PrecomputeRelNode(i, iw));
+      transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed, &reason);
+      if (!transformed.defined()) {
+        taco_uerror << reason;
+      }
+    }
+  }
 
   transformed = Transformation(Precompute(expr, i_vars, iw_vars, workspace)).apply(transformed, &reason);
 
