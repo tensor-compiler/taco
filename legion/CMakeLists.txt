@@ -104,3 +104,7 @@ add_basic_legion_test(solomonikMM basic -n 1024)
 # All tests must be added above this line.
 list(REMOVE_DUPLICATES TEST_BINARIES)
 add_custom_target(test-legion COMMAND ctest -R legion DEPENDS ${TEST_BINARIES})
+
+# Add some hand written codes here.
+add_executable(spmv SpMV/handwritten.cpp ${LG_SOURCES})
+target_link_libraries(spmv Legion::Legion)
