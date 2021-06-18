@@ -40,7 +40,7 @@ struct WorkspaceRewriter : ir::IRRewriter {
         }
       }
     }
-    expr = GetProperty::make(tensor, op->property, op->mode, op->index, op->name);
+    expr = op;
   }
 
   void visit(const VarDecl* decl) {
