@@ -167,22 +167,29 @@ TEST(distributed, summaMM) {
 
 TEST(distributed, cannonMM) {
   int dim = 10;
-  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense});
-  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense});
-  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense});
-
   // Place each tensor onto a processor grid.
   auto gx = ir::Var::make("gridX", Int32, false, false, true);
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
-  auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
   auto placement = GridPlacement({0, 1});
-  auto placeA = a.partition(grid).place(grid, placement);
-  auto placeB = b.partition(grid).place(grid, placement);
-  auto placeC = c.partition(grid).place(grid, placement);
-  auto placeALowered = lower(placeA, "placeLegionA", false, true);
-  auto placeBLowered = lower(placeB, "placeLegionB", false, true);
-  auto placeCLowered = lower(placeC, "placeLegionC", false, true);
+
+  std::vector<TensorDistribution> distribution{
+    TensorDistribution{
+      grid,
+      grid,
+      placement,
+      ParallelUnit::DistributedNode,
+    }
+  };
+
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, distribution);
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, distribution);
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, distribution);
+
+  auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
+  auto placeALowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
 
   IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko"), kos("kos");
   std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
