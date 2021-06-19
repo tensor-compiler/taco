@@ -76,6 +76,13 @@ TensorBase::TensorBase(std::string name, Datatype ctype,
                  std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
 }
 
+
+TensorBase::TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions,
+                       Format format, std::vector<TensorDistribution> distribution) :
+                       TensorBase(name, ctype, dimensions, format) {
+  this->content->distribution = distribution;
+}
+
 static Format initFormat(Format format) {
   // Initialize coordinate types for Format if not already set
   if (format.getLevelArrayTypes().size() < (size_t)format.getOrder()) {
@@ -1550,6 +1557,17 @@ IndexStmt TensorBase::placeHierarchy(std::vector<std::tuple<Grid, Grid, GridPlac
   }
 
   return stmt;
+}
+
+IndexStmt TensorBase::getPlacementStatement() {
+  // Construct an input for PlaceHierarchy.
+  std::vector<std::tuple<Grid, Grid, GridPlacement, ParallelUnit>> result;
+  for (auto d : this->content->distribution) {
+    result.push_back(
+        std::tuple<Grid, Grid, GridPlacement, ParallelUnit>{d.partitionGrid, d.placementGrid, d.placement,
+                                                            d.parUnit});
+  }
+  return this->placeHierarchy(result);
 }
 
 }

@@ -76,6 +76,9 @@ public:
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions,
              Format format);
 
+  TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions,
+             Format format, std::vector<TensorDistribution> distribution);
+
   /* --- Metadata Methods    --- */
 
   /// Set the name of the tensor.
@@ -156,6 +159,7 @@ public:
   IndexStmt partitionStmt(Grid g);
   IndexStmt place(Grid g, GridPlacement gp, ParallelUnit parUnit = ParallelUnit::DistributedNode);
   IndexStmt placeHierarchy(std::vector<std::tuple<Grid, Grid, GridPlacement, ParallelUnit>> dists);
+  IndexStmt getPlacementStatement();
 
   /* --- Read Methods        --- */
 
@@ -585,6 +589,9 @@ public:
   /// Create a tensor with the given name, dimensions and format
   Tensor(std::string name, std::vector<int> dimensions, Format format);
 
+  Tensor(std::string name, std::vector<int> dimensions, Format format,
+         std::vector<TensorDistribution> distribution);
+
   /// Create a tensor from a TensorBase instance. The Tensor and TensorBase
   /// objects will reference the same underlying tensor so it is a shallow copy.
   Tensor(const TensorBase& tensor);
@@ -906,6 +913,7 @@ struct TensorBase::Content {
   unsigned int       uniqueId;
 
   Grid partition;
+  std::vector<TensorDistribution> distribution;
 
   Content(std::string name, Datatype dataType, const std::vector<int>& dimensions,
           Format format)
@@ -1090,6 +1098,12 @@ Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions,
 template <typename CType>
 Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions, Format format)
     : TensorBase(name, type<CType>(), dimensions, format) {}
+
+
+template <typename CType>
+Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions, Format format,
+       std::vector<TensorDistribution> distribution)
+       : TensorBase(name, type<CType>(), dimensions, format, distribution) {}
 
 template <typename CType>
 Tensor<CType>::Tensor(const TensorBase& tensor) : TensorBase(tensor) {
