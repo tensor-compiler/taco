@@ -1800,7 +1800,8 @@ Stmt LowererImplImperative::lowerForallBody(Expr coordinate, IndexStmt stmt,
 
 Expr LowererImplImperative::getTemporarySize(Where where) {
   TensorVar temporary = where.getTemporary();
-  Dimension temporarySize = temporary.getType().getShape().getDimension(0);
+  int temporaryOrder = temporary.getType().getShape().getOrder();
+
   Access temporaryAccess = getResultAccesses(where.getProducer()).first[0];
   std::vector<IndexVar> indexVars = temporaryAccess.getIndexVars();
 
@@ -1820,20 +1821,28 @@ Expr LowererImplImperative::getTemporarySize(Where where) {
     return size;
   }
 
-  if (temporarySize.isFixed()) {
-    auto size = ir::Literal::make(temporarySize.getSize());
-    temporarySizeMap[temporary] = {size};
-    return size;
-  }
+  vector<Expr> sizeVector;
+  Expr finalSize;
+  for (int i = 0; i < temporaryOrder; i++) {
+    Dimension temporarySize = temporary.getType().getShape().getDimension(i);
+    Expr size;
+    if (temporarySize.isFixed()) {
+      size = ir::Literal::make(temporarySize.getSize());
 
-  if (temporarySize.isIndexVarSized()) {
-    IndexVar var = temporarySize.getIndexVarSize();
-    vector<Expr> bounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds,
-                                                     indexVarToExprMap, iterators);
-    auto size = ir::Sub::make(bounds[1], bounds[0]);
-    temporarySizeMap[temporary] = {size};
-    return size;
+    } else if (temporarySize.isIndexVarSized()) {
+      IndexVar var = temporarySize.getIndexVarSize();
+      vector<Expr> bounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds,
+                                                       indexVarToExprMap, iterators);
+      size = ir::Sub::make(bounds[1], bounds[0]);
+    }
+    sizeVector.push_back(size);
+    if (i == 0)
+      finalSize = size;
+    else
+      finalSize = ir::Mul::make(finalSize, size);
   }
+  temporarySizeMap[temporary] = sizeVector;
+  return finalSize;
 
   taco_ierror; // TODO
   return Expr();
@@ -2077,8 +2086,8 @@ vector<Stmt> LowererImplImperative::codeToInitializeTemporaryParallel(Where wher
     values = ir::Var::make(temporaryAll.getName(),
                            temporaryAll.getType().getDataType(),
                                 true, false);
-    taco_iassert(temporaryAll.getType().getOrder() == 1) << " Temporary order was "
-                                                      << temporaryAll.getType().getOrder();  // TODO
+    // taco_iassert(temporaryAll.getType().getOrder() == 1) << " Temporary order was "
+    //                                                   << temporaryAll.getType().getOrder();  // TODO
     Expr size = getTemporarySize(where);
     Expr sizeAll = ir::Mul::make(size, ir::Call::make("omp_get_max_threads", {}, size.type()));
 

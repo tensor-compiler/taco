@@ -29,12 +29,14 @@ struct WorkspaceRewriter : ir::IRRewriter {
         string gpName = temp.getName() + to_string(op->mode + 1) + "_dimension";
 
         if (temp.defined() && gpName == op->name) {
-          taco_iassert(temporarySizeMap.find(temp) != temporarySizeMap.end()) << "Cannot rewrite workspace Dimension GetProperty "
-                                                                  "due to tensorVar not in expression map";
+          taco_iassert(temporarySizeMap.find(temp) != temporarySizeMap.end()) << "Cannot rewrite workspace Dimension "
+                                                                                 "GetProperty due to tensorVar not in expression map";
           auto tempExprList = temporarySizeMap.at(temp);
 
-          taco_iassert((int)tempExprList.size() > op->mode) << "Cannot rewrite workspace Dimension GetProperty "
-                                                                  "due to mode not in expresison map ";
+          taco_iassert((int)tempExprList.size() > op->mode) << "Cannot rewrite workspace (" << op->tensor <<
+                                                               ") Dimension GetProperty "
+                                                               "due to mode (" << op->mode << ") not in expression map (size = "
+                                                               << tempExprList.size() << ")";
           expr = tempExprList.at(op->mode);
           return;
         }
