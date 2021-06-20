@@ -484,9 +484,6 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       std::vector<ModeFormatPack> modeFormatPacks(dims.size(), Dense);
       Format format(modeFormatPacks);
       TensorVar workspace(name, Type(Float64, dims), format);
-      cout << "Parser ORDER: " << dims.size() << endl;
-      for (auto& d : dims) {cout << d << ", ";}
-      cout << endl;
 
       stmt = stmt.precompute(visitor.expr, origs, pres, workspace);
 
