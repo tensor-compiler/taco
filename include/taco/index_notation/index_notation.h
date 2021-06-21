@@ -691,7 +691,6 @@ public:
   IndexStmt precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
                        std::vector<IndexVar> iw_vars, TensorVar workspace) const;
   
-
   /// bound specifies a compile-time constraint on an index variable's
   /// iteration space that allows knowledge of the
   /// size or structured sparsity pattern of the inputs to be
@@ -1133,7 +1132,6 @@ bool isReductionNotation(IndexStmt, std::string* reason=nullptr);
 /// Check whether the statement is in the reduction index notation dialect
 /// given a schedule described by the Provenance Graph
 bool isReductionNotationScheduled(IndexStmt, ProvenanceGraph, std::string* reason=nullptr);
-
 
 /// Check whether the statement is in the concrete index notation dialect.
 /// This means every index variable has a forall node, there are no reduction

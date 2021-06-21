@@ -45,7 +45,9 @@ vector<vector<string>> ScheduleParser(const string argValue) {
             parenthesesCnt++;
             break;
         case parser::Token::rparen:
-            taco_uassert(parenthesesCnt > 0) << "mismatched parentheses (too many right-parens, negative nesting level) in schedule expression '" << argValue << "'";
+            taco_uassert(parenthesesCnt > 0) << "mismatched parentheses" 
+                                                "(too many right-parens, negative nesting level) "
+                                                "in schedule expression '" << argValue << "'";
             if(parenthesesCnt > 1)
                 current_element += lexer.tokenString(tok);
             parenthesesCnt--;
@@ -76,8 +78,9 @@ vector<vector<string>> ScheduleParser(const string argValue) {
             curlyParenthesesCnt++;
             break;
         case parser::Token::rcurly:
-            taco_uassert(curlyParenthesesCnt > 0) << "mismatched curly parentheses (too many right-curly-parens, "
-                                                     "negative nesting level) in schedule expression '" << argValue << "'";
+            taco_uassert(curlyParenthesesCnt > 0) << "mismatched curly parentheses "
+                                                     "(too many right-curly-parens, negative nesting level)"
+                                                     " in schedule expression '" << argValue << "'";
             current_element += lexer.tokenString(tok);
             curlyParenthesesCnt--;
             break;
@@ -95,7 +98,8 @@ vector<vector<string>> ScheduleParser(const string argValue) {
             break;
         }
     }
-    taco_uassert(parenthesesCnt == 0) << "imbalanced parentheses (too few right-parens) in schedule expression '" << argValue << "'";
+    taco_uassert(parenthesesCnt == 0) << "imbalanced parentheses (too few right-parens) "
+                                         "in schedule expression '" << argValue << "'";
     if(current_element.length() > 0)
         current_schedule.push_back(current_element);
     if(current_schedule.size() > 0)
@@ -131,8 +135,9 @@ vector<string> varListParser(const string argValue) {
         curlyParenthesesCnt++;
         break;
       case parser::Token::rcurly:
-        taco_uassert(curlyParenthesesCnt > 0) << "mismatched curly parentheses (too many right-curly-parens, "
-                                                 "negative nesting level) in schedule expression '" << argValue << "'";
+        taco_uassert(curlyParenthesesCnt > 0) << "mismatched curly parentheses "
+                                                 "(too many right-curly-parens, negative nesting level)"
+                                                 " in schedule expression '" << argValue << "'";
         if (curlyParenthesesCnt == 1) {
             parsed.push_back(current_element);
             current_element = "";
@@ -159,8 +164,8 @@ vector<string> varListParser(const string argValue) {
         break;
     }
   }
-  taco_uassert(curlyParenthesesCnt == 0) << "imbalanced curly brackets (too few right-curly brackets) in"
-                                            " schedule expression '" << argValue << "'";
+  taco_uassert(curlyParenthesesCnt == 0) << "imbalanced curly brackets (too few right-curly brackets) "
+                                            "in schedule expression '" << argValue << "'";
   if(current_element.length() > 0)
     parsed.push_back(current_element);
   return parsed;

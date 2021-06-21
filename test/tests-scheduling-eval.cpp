@@ -76,9 +76,7 @@ IndexStmt scheduleSpGEMMCPU(IndexStmt stmt, bool doPrecompute) {
                 {result.getType().getShape().getDimension(1)}), taco::dense);
     stmt = stmt.precompute(assign.getRhs(), j, j, w);
   }
-  cout << "SPGEMM: " << stmt << endl;
   stmt = stmt.assemble(result, AssembleStrategy::Insert, true);
-  cout << "Post Assembly SPGEMM: " << stmt << endl;
   auto qi_stmt = stmt.as<Assemble>().getQueries();
   IndexVar qi;
   if (isa<Where>(qi_stmt)) {
@@ -86,15 +84,11 @@ IndexStmt scheduleSpGEMMCPU(IndexStmt stmt, bool doPrecompute) {
   } else {
     qi = qi_stmt.as<Forall>().getIndexVar();
   }
-;
   stmt = stmt.parallelize(i, ParallelUnit::CPUThread,
-                          OutputRaceStrategy::NoRaces);
-  cout << "\nPost Parallelize SPGEMM: " << stmt << endl;
-  stmt = stmt
+                          OutputRaceStrategy::NoRaces)
              .parallelize(qi, ParallelUnit::CPUThread,
                           OutputRaceStrategy::NoRaces);
 
-  cout << "Post Scheduled SPGEMM: " << stmt << endl;
   return stmt;
 }
 

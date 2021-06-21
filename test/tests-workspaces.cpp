@@ -247,8 +247,10 @@ TEST(workspaces, precompute4D_add) {
 
 
   IndexStmt stmt = A.getAssignment().concretize();
-  TensorVar ws1("ws1", Type(Float64, {(size_t)N, (size_t)N, (size_t)N, (size_t)N}), Format{Dense, Dense, Dense, Dense});
-  TensorVar ws2("ws2", Type(Float64, {(size_t)N, (size_t)N, (size_t)N, (size_t)N}), Format{Dense, Dense, Dense, Dense});
+  TensorVar ws1("ws1", Type(Float64, {(size_t)N, (size_t)N, (size_t)N, (size_t)N}), 
+                Format{Dense, Dense, Dense, Dense});
+  TensorVar ws2("ws2", Type(Float64, {(size_t)N, (size_t)N, (size_t)N, (size_t)N}), 
+                Format{Dense, Dense, Dense, Dense});
   stmt = stmt.precompute(precomputedExpr, {i, j, k, l}, {i, j, k, l}, ws1)
     .precompute(ws1(i, j, k, l) + D(i, j, k, l), {i, j, k, l}, {i, j, k ,l}, ws2);
 

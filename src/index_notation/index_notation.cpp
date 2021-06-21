@@ -1461,8 +1461,6 @@ map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() const {
   return indexVarDomains;
 }
 
-
-
 IndexStmt IndexStmt::concretizeScheduled(ProvenanceGraph provGraph, vector<IndexVar> forallIndexVarList) const {
   IndexStmt stmt = *this;
   string r;
@@ -2785,7 +2783,8 @@ IndexStmt makeReductionNotationScheduled(IndexStmt stmt, ProvenanceGraph provGra
   return makeReductionNotationScheduled(to<Assignment>(stmt), provGraph);
 }
 
-IndexStmt makeConcreteNotationScheduled(IndexStmt stmt, ProvenanceGraph provGraph, vector<IndexVar> forallIndexVars) {
+IndexStmt makeConcreteNotationScheduled(IndexStmt stmt, ProvenanceGraph provGraph, 
+                                        vector<IndexVar> forallIndexVars) {
   std::string reason;
   taco_iassert(isReductionNotationScheduled(stmt, provGraph, &reason))
     << "Not reduction notation: " << stmt << std::endl << reason;
@@ -2820,7 +2819,8 @@ IndexStmt makeConcreteNotationScheduled(IndexStmt stmt, ProvenanceGraph provGrap
             stmt = forall(i, stmt);
           }
         } else {
-          reductionAndFreeVars.insert(reductionAndFreeVars.end(), topLevelReductions.begin(), topLevelReductions.end());
+          reductionAndFreeVars.insert(reductionAndFreeVars.end(), topLevelReductions.begin(), 
+                                      topLevelReductions.end());
         }
       }
       else {
@@ -2873,7 +2873,8 @@ IndexStmt makeConcreteNotationScheduled(IndexStmt stmt, ProvenanceGraph provGrap
         auto ancestorVars = provGraph.getUnderivedAncestors(i);
         IndexVar ancestorI = *reductionAndFreeVars.begin();
         for (auto &ancestorVar : ancestorVars) {
-          if (std::find(reductionAndFreeVars.begin(), reductionAndFreeVars.end(), ancestorVar) != reductionAndFreeVars.end()) {
+          if (std::find(reductionAndFreeVars.begin(), reductionAndFreeVars.end(), ancestorVar) 
+              != reductionAndFreeVars.end()) {
             stmt = forall(i, stmt);
           }
         }

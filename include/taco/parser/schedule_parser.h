@@ -17,8 +17,6 @@ std::vector<std::string> varListParser(const std::string);
 // serialize the result of a parse (for debugging)
 std::string serializeParsedSchedule(std::vector<std::vector<std::string>>);
 
-
-
 }}
 
 #endif //TACO_EINSUM_PARSER_H
