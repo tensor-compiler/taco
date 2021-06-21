@@ -13,7 +13,9 @@ class Stmt;
 class Expr;
 }
 
-/// Simplifies a statement (e.g. by applying constant copy propagation).
+/// Rewrite a post-lowered IR statement to take into account multidimensional temporaries. 
+/// Replaces Dimension GetProperty nodes that correspond to temporary workspaces with 
+/// their corresponding dimension found in the temporarySizeMap. 
 ir::Stmt rewriteTemporaryGP(const ir::Stmt& stmt, std::vector<TensorVar> whereTemps,
                             std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap);
 
