@@ -230,6 +230,7 @@ TEST(distributed, cuda_cannonMM) {
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
   auto placement = GridPlacement({0, 1});
+  auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
   auto placeA = a.partition(grid).place(grid, placement, taco::ParallelUnit::DistributedGPU);
   auto placeB = b.partition(grid).place(grid, placement, taco::ParallelUnit::DistributedGPU);
   auto placeC = c.partition(grid).place(grid, placement, taco::ParallelUnit::DistributedGPU);
@@ -261,7 +262,7 @@ TEST(distributed, cuda_cannonMM) {
       .swapLeafKernel(ill, gemm)
       ;
   auto lowered = lower(stmt, "computeLegion", false, true);
-  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
+  auto all = ir::Block::make({partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
   ofstream f("../legion/cannonMM/taco-generated.cu");
   auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
