@@ -1,5 +1,6 @@
 import argparse
 import subprocess
+import os
 
 # Arguments specialized to lassen.
 def lgCPUArgs():
@@ -85,6 +86,17 @@ class JohnsonBench(DMMBench):
                ['bin/johnsonMM', '-n', str(psize), '-gdim', str(gdim)] + \
                lgCPUArgs()
 
+class COSMABench(DMMBench):
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        # TODO (rohany): Make the number of OMP threads configurable.
+        envs = ['env', 'OMP_NUM_THREADS=20', 'COSMA_OVERLAP_COMM_AND_COMP=ON']
+        cosmaDir = os.getenv('COSMA_DIR')
+        assert(cosmaDir is not None)
+        return envs + lassenHeader(procs) + \
+               [os.path.join(cosmaDir, 'build/miniapp/cosma_miniapp'), '-r', '10', '-m', psize, '-n', psize, '-k', psize]
+        
+
 def executeCmd(cmd):
     cmdStr = " ".join(cmd)
     print("Executing command: {}".format(cmdStr))
@@ -98,7 +110,7 @@ def executeCmd(cmd):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on")
-    parser.add_argument("--bench", choices=["cannon", "johnson"], type=str)
+    parser.add_argument("--bench", choices=["cannon", "johnson", "cosma"], type=str)
     parser.add_argument("--size", type=int, help="initial size for benchmarks")
     args = parser.parse_args()
 
@@ -106,6 +118,8 @@ def main():
         bench = CannonBench(args.size)
     elif args.bench == "johnson":
         bench = JohnsonBench(args.size)
+    elif args.bench == "cosma":
+        bench = COSMABench(args.size)
     else:
         assert(False)
     for p in args.procs:
