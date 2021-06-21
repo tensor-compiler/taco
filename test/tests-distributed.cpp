@@ -34,10 +34,10 @@ TEST(distributed, test) {
 
   // Communication modification must go at the end.
   // TODO (rohany): name -- placement
-//  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), il1);
-//  stmt = stmt.pushCommUnder(a(i), il1).pushCommUnder(b(i), il1);
-//  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
-  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in).pushCommUnder(c(i), in);
+//  stmt = stmt.pushCommUnder(a(i), in).communicate(b(i), il1);
+//  stmt = stmt.pushCommUnder(a(i), il1).communicate(b(i), il1);
+//  stmt = stmt.pushCommUnder(a(i), in).communicate(b(i), in);
+  stmt = stmt.communicate(a(i), in).communicate(b(i), in).communicate(c(i), in);
 
   auto lowered = lower(stmt, "computeLegion", false, true);
 //  std::cout << lowered << std::endl;
@@ -66,7 +66,7 @@ TEST(distributed, cuda_test) {
       .parallelize(warp, ParallelUnit::GPUWarp, taco::OutputRaceStrategy::IgnoreRaces)
       .parallelize(thread, ParallelUnit::GPUThread, taco::OutputRaceStrategy::IgnoreRaces)
       ;
-  stmt = stmt.pushCommUnder(a(i), in).pushCommUnder(b(i), in);
+  stmt = stmt.communicate(a(i), in).communicate(b(i), in);
   auto lowered = lower(stmt, "computeLegion", false, true);
   auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(lowered);
@@ -87,7 +87,7 @@ TEST(distributed, multiDim) {
   a(i, j) = b(i, j);
   auto stmt = a.getAssignment().concretize();
   stmt = stmt.distribute({i, j}, {in, jn}, {il, jl}, Grid(4, 4));
-  stmt = stmt.pushCommUnder(a(i, j), jn).pushCommUnder(b(i, j), jn);
+  stmt = stmt.communicate(a(i, j), jn).communicate(b(i, j), jn);
 
   auto lowered = lower(stmt, "computeLegion", false, true);
 //  std::cout << lowered << std::endl;
@@ -106,10 +106,10 @@ TEST(distributed, basicComputeOnto) {
 //  a(i) = b(i);
   a(i, j) = b(i, j);
   auto stmt = a.getAssignment().concretize();
-//  stmt = stmt.distributeOnto({i}, {in}, {il}, a(i));
-  stmt = stmt.distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j));
-//  stmt = stmt.pushCommUnder(b(i), in);
-  stmt = stmt.pushCommUnder(b(i, j), jn);
+//  stmt = stmt.distribute({i}, {in}, {il}, a(i));
+  stmt = stmt.distribute({i, j}, {in, jn}, {il, jl}, a(i, j));
+//  stmt = stmt.communicate(b(i), in);
+  stmt = stmt.communicate(b(i, j), jn);
 
   auto lowered = lower(stmt, "computeLegion", false, true);
 //  std::cout << lowered << std::endl;
@@ -142,11 +142,11 @@ TEST(distributed, summaMM) {
   std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
-      .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j))
+      .distribute({i, j}, {in, jn}, {il, jl}, a(i, j))
       .split(k, ko, ki, 512)
       .reorder({ko, il, jl})
-      .pushCommUnder(b(i, k), ko)
-      .pushCommUnder(c(k, j), ko)
+      .communicate(b(i, k), ko)
+      .communicate(c(k, j), ko)
       .swapLeafKernel(il, gemm)
       ;
 
@@ -167,34 +167,41 @@ TEST(distributed, summaMM) {
 
 TEST(distributed, cannonMM) {
   int dim = 10;
-  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense});
-  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense});
-  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense});
-
   // Place each tensor onto a processor grid.
   auto gx = ir::Var::make("gridX", Int32, false, false, true);
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
-  auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
   auto placement = GridPlacement({0, 1});
-  auto placeA = a.partition(grid).place(grid, placement);
-  auto placeB = b.partition(grid).place(grid, placement);
-  auto placeC = c.partition(grid).place(grid, placement);
-  auto placeALowered = lower(placeA, "placeLegionA", false, true);
-  auto placeBLowered = lower(placeB, "placeLegionB", false, true);
-  auto placeCLowered = lower(placeC, "placeLegionC", false, true);
+
+  std::vector<TensorDistribution> distribution{
+    TensorDistribution{
+      grid,
+      grid,
+      placement,
+      ParallelUnit::DistributedNode,
+    }
+  };
+
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, distribution);
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, distribution);
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, distribution);
+
+  auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
+  auto placeALowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
 
   IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko"), kos("kos");
   std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
   a(i, j) = b(i, k) * c(k, j);
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
-      .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j))
+      .distribute({i, j}, {in, jn}, {il, jl}, a(i, j))
       .divide(k, ko, ki, gx)
       .reorder({ko, il, jl})
       .stagger(ko, {in, jn}, kos)
-      .pushCommUnder(b(i, k), kos)
-      .pushCommUnder(c(k, j), kos)
+      .communicate(b(i, k), kos)
+      .communicate(c(k, j), kos)
       .swapLeafKernel(il, gemm)
       ;
 
@@ -237,20 +244,20 @@ TEST(distributed, cuda_cannonMM) {
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
       // Schedule for each node.
-      .distributeOnto({i, j}, {in, jn}, {il, jl}, a(i, j), taco::ParallelUnit::DistributedNode)
+      .distribute({i, j}, {in, jn}, {il, jl}, a(i, j), taco::ParallelUnit::DistributedNode)
       .divide(k, ko, ki, gx)
       .reorder({ko, il, jl})
       .stagger(ko, {in, jn}, kos)
-      .pushCommUnder(b(i, k), kos)
-      .pushCommUnder(c(k, j), kos)
-      // Schedule for each GPU within a node.
+      .communicate(b(i, k), kos)
+      .communicate(c(k, j), kos)
+          // Schedule for each GPU within a node.
       .distribute({il, jl}, {iln, jln}, {ill, jll}, Grid(2, 2), taco::ParallelUnit::DistributedGPU)
       .divide(ki, kio, kii, 2)
       .reorder({kio, ill, jll})
       .stagger(kio, {iln, jln}, kios)
-      .pushCommUnder(b(i, k), kios)
-      .pushCommUnder(c(k, j), kios)
-      .pushCommUnder(a(i, j), jln)
+      .communicate(b(i, k), kios)
+      .communicate(c(k, j), kios)
+      .communicate(a(i, j), jln)
       .swapLeafKernel(ill, gemm)
       ;
   auto lowered = lower(stmt, "computeLegion", false, true);
@@ -284,9 +291,9 @@ TEST(distributed, johnsonMM) {
   std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
   stmt = stmt
       .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, cube)
-      .pushCommUnder(a(i, j), kn)
-      .pushCommUnder(b(i, k), kn)
-      .pushCommUnder(c(k, j), kn)
+      .communicate(a(i, j), kn)
+      .communicate(b(i, k), kn)
+      .communicate(c(k, j), kn)
       .swapLeafKernel(il, gemm)
       ;
   auto lowered = lower(stmt, "computeLegion", false, true);
@@ -336,9 +343,9 @@ TEST(distributed, solomonikMM) {
       .divide(kl, k1, k2, rpoc3)
       .reorder({k1, il, jl})
       .stagger(k1, {in, jn}, k1s)
-      .pushCommUnder(a(i, j), jn)
-      .pushCommUnder(b(i, k), k1s)
-      .pushCommUnder(c(k, j), k1s)
+      .communicate(a(i, j), jn)
+      .communicate(b(i, k), k1s)
+      .communicate(c(k, j), k1s)
       ;
   auto lowered = lower(stmt, "computeLegion", false, true);
   // Code-generate all of the placement and compute code.
@@ -388,9 +395,9 @@ TEST(distributed, reduction) {
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
       .distribute({i, j}, {in, jn}, {il, jl}, Grid(2, 2))
-      .pushCommUnder(a(i), jn)
-      .pushCommUnder(b(i, j), jn)
-      .pushCommUnder(c(j), jn)
+      .communicate(a(i), jn)
+      .communicate(b(i, j), jn)
+      .communicate(c(j), jn)
       ;
 
   auto lowered = lower(stmt, "computeLegion", false, true);

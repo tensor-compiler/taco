@@ -635,9 +635,9 @@ public:
 
   // TODO (rohany): Comment this up later.
   IndexStmt distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Grid g, ParallelUnit parUnit = ParallelUnit::DistributedNode);
-  IndexStmt distributeOnto(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Access onto, ParallelUnit parUnit = ParallelUnit::DistributedNode);
+  IndexStmt distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Access onto, ParallelUnit parUnit = ParallelUnit::DistributedNode);
 
-  IndexStmt pushCommUnder(Access a, IndexVar i);
+  IndexStmt communicate(Access a, IndexVar i);
 
   IndexStmt stagger(IndexVar target, std::vector<IndexVar> staggerBy, IndexVar result);
 

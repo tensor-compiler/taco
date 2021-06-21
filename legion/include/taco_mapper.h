@@ -7,30 +7,8 @@
 #include "task_ids.h"
 #include "shard.h"
 
-// Register the TACO mapper.
-void register_taco_mapper(Legion::Machine machine, Legion::Runtime *runtime, const std::set<Legion::Processor> &local_procs);
-
 class TACOMapper : public Legion::Mapping::DefaultMapper {
 public:
-  TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine& machine, const Legion::Processor& local)
-      : DefaultMapper(rt, machine, local) {
-    {
-      int argc = Legion::HighLevelRuntime::get_input_args().argc;
-      char **argv = Legion::HighLevelRuntime::get_input_args().argv;
-      for (int i=1; i < argc; i++) {
-#define BOOL_ARG(argname, varname) do {       \
-          if (!strcmp(argv[i], argname)) {    \
-            varname = true;                   \
-            continue;                         \
-          } } while(0);
-        BOOL_ARG("-tm:fill_cpu", this->preferCPUFill);
-        BOOL_ARG("-tm:disable_mapping_cache", this->disableMappingCache);
-        BOOL_ARG("-tm:untrack_valid_regions", this->untrackValidRegions);
-#undef BOOL_ARG
-      }
-    }
-  }
-
   // Mapping tags handled specific for the TACO mapper.
   enum MappingTags {
     // Indicates that this task launch is used for data placement.
@@ -42,202 +20,37 @@ public:
     UNTRACK_VALID_REGIONS = (1 << 7),
   };
 
-  // Denotes whether the fill operation should place data onto CPU memories
-  // or GPU memories.
-  bool preferCPUFill = false;
-  // Denotes whether the default mapper's task mapping cache should be used.
-  bool disableMappingCache = false;
-  // Denotes whether read-only valid regions of leaf tasks should be marked
-  // eagerly for collection.
-  bool untrackValidRegions = false;
+  TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine &machine, const Legion::Processor &local);
 
   void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
-                               const Legion::Task& task,
-                               const SelectShardingFunctorInput& input,
-                               SelectShardingFunctorOutput& output) override {
-    // See if there is something special that we need to do. Otherwise, return
-    // the TACO sharding functor.
-    if ((task.tag & PLACEMENT_SHARD) != 0) {
-      int* args = (int*)(task.args);
-      // TODO (rohany): This logic makes it look like an argument
-      //  serializer / deserializer like is done in Legate would be helpful.
-      // The shard ID is the first argument. The generated code registers the desired
-      // sharding functor before launching the task.
-      Legion::ShardingID shardingID = args[0];
-      output.chosen_functor = shardingID;
-    } else {
-      output.chosen_functor = TACOShardingFunctorID;
-    }
-  }
+                               const Legion::Task &task,
+                               const SelectShardingFunctorInput &input,
+                               SelectShardingFunctorOutput &output) override;
 
-  void map_task(const Legion::Mapping::MapperContext  ctx,
-                const Legion::Task&                   task,
-                const MapTaskInput&                   input,
-                MapTaskOutput&                        output) override {
-    DefaultMapper::map_task(ctx, task, input, output);
-    // If the tag is marked for untracked valid regions, then mark all of its
-    // read only regions as up for collection.
-    if ((task.tag & UNTRACK_VALID_REGIONS) != 0 && this->untrackValidRegions) {
-      for (size_t i = 0; i < task.regions.size(); i++) {
-        auto& rg = task.regions[i];
-        if (rg.privilege == READ_ONLY) {
-          output.untracked_valid_regions.insert(i);
-        }
-      }
-    }
-  }
-
+  void map_task(const Legion::Mapping::MapperContext ctx,
+                const Legion::Task &task,
+                const MapTaskInput &input,
+                MapTaskOutput &output) override;
 
   void default_policy_select_constraints(Legion::Mapping::MapperContext ctx,
-                                         Legion::LayoutConstraintSet &constraints, Legion::Memory target_memory,
-                                         const Legion::RegionRequirement &req) override {
-    // Ensure that regions are mapped in row-major order.
-    Legion::IndexSpace is = req.region.get_index_space();
-    Legion::Domain domain = runtime->get_index_space_domain(ctx, is);
-    int dim = domain.get_dim();
-    std::vector<Legion::DimensionKind> dimension_ordering(dim + 1);
-    for (int i = 0; i < dim; ++i) {
-      dimension_ordering[dim - i - 1] =
-          static_cast<Legion::DimensionKind>(static_cast<int>(LEGION_DIM_X) + i);
-    }
-    dimension_ordering[dim] = LEGION_DIM_F;
-    constraints.add_constraint(Legion::OrderingConstraint(dimension_ordering, false/*contiguous*/));
-    DefaultMapper::default_policy_select_constraints(ctx, constraints, target_memory, req);
-  }
+                                         Legion::LayoutConstraintSet &constraints,
+                                         Legion::Memory target_memory,
+                                         const Legion::RegionRequirement &req) override;
 
   // Command line tunable value for controlling whether the default mapper sits
   // on a cache of mapped tasks.
   CachedMappingPolicy default_policy_select_task_cache_policy(Legion::Mapping::MapperContext ctx,
-                                                              const Legion::Task &task) override {
-    if (this->disableMappingCache) {
-      return DEFAULT_CACHE_POLICY_DISABLE;
-    }
-    return DEFAULT_CACHE_POLICY_ENABLE;
-  }
+                                                              const Legion::Task &task) override;
 
   void default_policy_select_target_processors(
       Legion::Mapping::MapperContext ctx,
       const Legion::Task &task,
-      std::vector<Legion::Processor> &target_procs) override {
-    // TODO (rohany): Add a TACO tag to the tasks.
-    if (task.is_index_space) {
-      // Index launches should be placed directly on the processor
-      // they were sliced to.
-      target_procs.push_back(task.target_proc);
-    } else if (std::string(task.get_task_name()).find("task_") != std::string::npos) {
-      // Other point tasks should stay on the originating processor, if they are
-      // using a CPU Proc. Otherwise, send the tasks where the default mapper
-      // says they should go. I think that the heuristics for OMP_PROC and TOC_PROC
-      // are correct for our use case.
-      if (task.target_proc.kind() == task.orig_proc.kind()) {
-        target_procs.push_back(task.orig_proc);
-      } else {
-        DefaultMapper::default_policy_select_target_processors(ctx, task, target_procs);
-      }
-    } else {
-      DefaultMapper::default_policy_select_target_processors(ctx, task, target_procs);
-    }
-  }
+      std::vector<Legion::Processor> &target_procs) override;
 
-  std::vector<Legion::Processor> select_targets_for_task(const Legion::Mapping::MapperContext ctx,
-                                                         const Legion::Task& task) {
-    auto kind = this->default_find_preferred_variant(task, ctx, false /* needs tight bounds */).proc_kind;
-    // If we're requested to fill on the CPU, then hijack the initial processor
-    // selection to do so.
-    if (this->preferCPUFill && task.task_id == TID_TACO_FILL_TASK) {
-      // See if we have any OMP procs.
-      auto targetKind = Legion::Processor::Kind::LOC_PROC;
-      Legion::Machine::ProcessorQuery omps(this->machine);
-      omps.only_kind(Legion::Processor::OMP_PROC);
-      if (omps.count() > 0) {
-        targetKind = Legion::Processor::Kind::OMP_PROC;
-      }
-      kind = targetKind;
-    }
-    // We always map to the same address space if replication is enabled.
-    auto sameAddressSpace = ((task.tag & DefaultMapper::SAME_ADDRESS_SPACE) != 0) || this->replication_enabled;
-    if (sameAddressSpace) {
-      // If we are meant to stay local, then switch to return the appropriate
-      // cached processors.
-      switch (kind) {
-        case Legion::Processor::OMP_PROC: {
-          return this->local_omps;
-        }
-        case Legion::Processor::TOC_PROC: {
-          return this->local_gpus;
-        }
-        case Legion::Processor::LOC_PROC: {
-          return this->local_cpus;
-        }
-        default: {
-          assert(false);
-        }
-      }
-    } else {
-      // If we are meant to distribute over all of the processors, then run a query
-      // to find all processors of the desired kind.
-      Legion::Machine::ProcessorQuery all_procs(machine);
-      all_procs.only_kind(kind);
-      return std::vector<Legion::Processor>(all_procs.begin(), all_procs.end());
-    }
-
-    // Keep the compiler happy.
-    assert(false);
-    return {};
-  }
-
-  void slice_task(const Legion::Mapping::MapperContext    ctx,
-                  const Legion::Task&                     task,
-                  const SliceTaskInput&                   input,
-                  SliceTaskOutput&                        output) override {
-    if (task.tag & PLACEMENT) {
-      // Placement tasks will put the dimensions of the placement grid at the beginning
-      // of the task arguments. Here, we extract the packed placement grid dimensions.
-      int dim = input.domain.get_dim();
-      int* args = (int*)(task.args);
-      std::vector<int> gridDims(dim);
-      for (int i = 0; i < dim; i++) {
-        gridDims[i] = args[i];
-      }
-      auto targets = this->select_targets_for_task(ctx, task);
-      switch (dim) {
-#define BLOCK(DIM) \
-        case DIM:  \
-          {        \
-            Legion::DomainT<DIM, Legion::coord_t> pointSpace = input.domain; \
-            this->decompose_points(pointSpace, gridDims, targets, output.slices);        \
-            break;   \
-          }
-        LEGION_FOREACH_N(BLOCK)
-#undef BLOCK
-        default:
-          assert(false);
-      }
-    } else {
-      // Otherwise, we have our own implementation of slice task. The reason for this is
-      // because the default mapper gets confused and hits a cache of domain slices. This
-      // messes up the placement that we are going for with the index launches. This
-      // implementation mirrors the standard slicing strategy of the default mapper.
-      auto targets = this->select_targets_for_task(ctx, task);
-      switch (input.domain.get_dim()) {
-#define BLOCK(DIM) \
-        case DIM:  \
-          {        \
-            Legion::DomainT<DIM,Legion::coord_t> point_space = input.domain; \
-            Legion::Point<DIM,Legion::coord_t> num_blocks = \
-              default_select_num_blocks<DIM>(targets.size(), point_space.bounds); \
-            this->default_decompose_points<DIM>(point_space, targets, \
-                  num_blocks, false/*recurse*/, \
-                  stealing_enabled, output.slices); \
-            break;   \
-          }
-        LEGION_FOREACH_N(BLOCK)
-#undef BLOCK
-        default:
-          assert(false);
-      }
-    }
-  }
+  void slice_task(const Legion::Mapping::MapperContext ctx,
+                  const Legion::Task &task,
+                  const SliceTaskInput &input,
+                  SliceTaskOutput &output) override;
 
   template<int DIM>
   void decompose_points(const Legion::DomainT<DIM, Legion::coord_t> &point_space,
@@ -283,6 +96,20 @@ public:
     }
   }
 
+private:
+  // Helper method to choose the what processors to slice a task launch onto.
+  std::vector<Legion::Processor> select_targets_for_task(const Legion::Mapping::MapperContext ctx,
+                                                         const Legion::Task &task);
+
+  // Denotes whether the fill operation should place data onto CPU memories
+  // or GPU memories.
+  bool preferCPUFill = false;
+  // Denotes whether the default mapper's task mapping cache should be used.
+  bool disableMappingCache = false;
+  // Denotes whether read-only valid regions of leaf tasks should be marked
+  // eagerly for collection.
+  bool untrackValidRegions = false;
+
   // TODO (rohany): It may end up being necessary that we need to explicitly map
   //  regions for placement tasks. If so, Manolis says the following approach
   //  is the right thing:
@@ -290,5 +117,8 @@ public:
   //  * Map task needs to create a new instance of the region visible to the
   //    target processor.
 };
+
+// Register the TACO mapper.
+void register_taco_mapper(Legion::Machine machine, Legion::Runtime *runtime, const std::set<Legion::Processor> &local_procs);
 
 #endif // TACO_MAPPER_H

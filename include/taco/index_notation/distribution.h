@@ -88,6 +88,14 @@ public:
 GridPlacement::AxisMatch Face(int face);
 GridPlacement::AxisMatch Replicate();
 
+// Struct that represents a level of distribution for a tensor.
+struct TensorDistribution {
+  Grid partitionGrid;
+  Grid placementGrid;
+  GridPlacement placement;
+  ParallelUnit parUnit;
+};
+
 // Transfer represents requesting a portion of data.
 // TODO (rohany): It seems like we're doing all equality on tensorvars, rather than the access.
 //  That is fine, will just need to remember.
