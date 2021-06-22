@@ -26,6 +26,7 @@ TACOMapper::TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine &mach
             continue;                         \
           } } while(0);
       BOOL_ARG("-tm:fill_cpu", this->preferCPUFill);
+      BOOL_ARG("-tm:validate_cpu", this->preferCPUValidate);
       BOOL_ARG("-tm:disable_mapping_cache", this->disableMappingCache);
       BOOL_ARG("-tm:untrack_valid_regions", this->untrackValidRegions);
 #undef BOOL_ARG
@@ -137,9 +138,10 @@ int TACOMapper::default_policy_select_garbage_collection_priority(Legion::Mappin
 std::vector<Legion::Processor> TACOMapper::select_targets_for_task(const Legion::Mapping::MapperContext ctx,
                                                        const Legion::Task& task) {
   auto kind = this->default_find_preferred_variant(task, ctx, false /* needs tight bounds */).proc_kind;
-  // If we're requested to fill on the CPU, then hijack the initial processor
-  // selection to do so.
-  if (this->preferCPUFill && task.task_id == TID_TACO_FILL_TASK) {
+  // If we're requested to fill/validate on the CPU, then hijack the initial
+  // processor selection to do so.
+  if ((this->preferCPUFill && task.task_id == TID_TACO_FILL_TASK) ||
+      (this->preferCPUValidate && task.task_id == TID_TACO_VALIDATE_TASK)) {
     // See if we have any OMP procs.
     auto targetKind = Legion::Processor::Kind::LOC_PROC;
     Legion::Machine::ProcessorQuery omps(this->machine);

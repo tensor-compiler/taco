@@ -110,6 +110,8 @@ private:
   // Denotes whether the fill operation should place data onto CPU memories
   // or GPU memories.
   bool preferCPUFill = false;
+  // Same as preferCPUFill but for validation.
+  bool preferCPUValidate = false;
   // Denotes whether the default mapper's task mapping cache should be used.
   bool disableMappingCache = false;
   // Denotes whether read-only valid regions of leaf tasks should be marked
