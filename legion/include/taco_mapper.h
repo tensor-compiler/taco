@@ -47,6 +47,12 @@ public:
       const Legion::Task &task,
       std::vector<Legion::Processor> &target_procs) override;
 
+  int default_policy_select_garbage_collection_priority(
+      Legion::Mapping::MapperContext ctx,
+      MappingKind kind, Legion::Memory memory,
+      const Legion::Mapping::PhysicalInstance &instance,
+      bool meets_fill_constraints, bool reduction) override;
+
   void slice_task(const Legion::Mapping::MapperContext ctx,
                   const Legion::Task &task,
                   const SliceTaskInput &input,

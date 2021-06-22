@@ -120,6 +120,20 @@ void TACOMapper::default_policy_select_target_processors(
   }
 }
 
+int TACOMapper::default_policy_select_garbage_collection_priority(Legion::Mapping::MapperContext ctx, MappingKind kind,
+                                                                  Legion::Memory memory,
+                                                                  const Legion::Mapping::PhysicalInstance &instance,
+                                                                  bool meets_fill_constraints, bool reduction) {
+  // Copy the default mapper's heuristic to eagerly collection reduction instances.
+  if (reduction) {
+    return LEGION_GC_FIRST_PRIORITY;
+  }
+  // Deviate from the default mapper to give all instances default GC priority. The
+  // default mapper most of the time marks instances as un-collectable from the GC,
+  // which leads to problems when using instances in a "temporary buffer" style.
+  return LEGION_GC_DEFAULT_PRIORITY;
+}
+
 std::vector<Legion::Processor> TACOMapper::select_targets_for_task(const Legion::Mapping::MapperContext ctx,
                                                        const Legion::Task& task) {
   auto kind = this->default_find_preferred_variant(task, ctx, false /* needs tight bounds */).proc_kind;
