@@ -27,7 +27,6 @@ TACOMapper::TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine &mach
           } } while(0);
       BOOL_ARG("-tm:fill_cpu", this->preferCPUFill);
       BOOL_ARG("-tm:validate_cpu", this->preferCPUValidate);
-      BOOL_ARG("-tm:disable_mapping_cache", this->disableMappingCache);
       BOOL_ARG("-tm:untrack_valid_regions", this->untrackValidRegions);
 #undef BOOL_ARG
     }
@@ -86,15 +85,6 @@ void TACOMapper::default_policy_select_constraints(Legion::Mapping::MapperContex
   dimension_ordering[dim] = LEGION_DIM_F;
   constraints.add_constraint(Legion::OrderingConstraint(dimension_ordering, false/*contiguous*/));
   DefaultMapper::default_policy_select_constraints(ctx, constraints, target_memory, req);
-}
-
-DefaultMapper::CachedMappingPolicy
-TACOMapper::default_policy_select_task_cache_policy(Legion::Mapping::MapperContext ctx,
-                                                    const Legion::Task &task) {
-  if (this->disableMappingCache) {
-    return DEFAULT_CACHE_POLICY_DISABLE;
-  }
-  return DEFAULT_CACHE_POLICY_ENABLE;
 }
 
 void TACOMapper::default_policy_select_target_processors(

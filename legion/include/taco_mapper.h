@@ -37,11 +37,6 @@ public:
                                          Legion::Memory target_memory,
                                          const Legion::RegionRequirement &req) override;
 
-  // Command line tunable value for controlling whether the default mapper sits
-  // on a cache of mapped tasks.
-  CachedMappingPolicy default_policy_select_task_cache_policy(Legion::Mapping::MapperContext ctx,
-                                                              const Legion::Task &task) override;
-
   void default_policy_select_target_processors(
       Legion::Mapping::MapperContext ctx,
       const Legion::Task &task,
@@ -112,8 +107,6 @@ private:
   bool preferCPUFill = false;
   // Same as preferCPUFill but for validation.
   bool preferCPUValidate = false;
-  // Denotes whether the default mapper's task mapping cache should be used.
-  bool disableMappingCache = false;
   // Denotes whether read-only valid regions of leaf tasks should be marked
   // eagerly for collection.
   bool untrackValidRegions = false;
