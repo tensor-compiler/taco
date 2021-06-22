@@ -231,9 +231,11 @@ TEST(distributed, cuda_cannonMM) {
   auto grid = Grid(gx, gy);
   auto placement = GridPlacement({0, 1});
   auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
-  auto placeA = a.partition(grid).place(grid, placement, taco::ParallelUnit::DistributedGPU);
-  auto placeB = b.partition(grid).place(grid, placement, taco::ParallelUnit::DistributedGPU);
-  auto placeC = c.partition(grid).place(grid, placement, taco::ParallelUnit::DistributedGPU);
+  // Place the matrices in blocks on each node. It's possible that the matrices themselves are
+  // too large for a single GPU, so keep them in CPU memory.
+  auto placeA = a.partition(grid).place(grid, placement);
+  auto placeB = b.partition(grid).place(grid, placement);
+  auto placeC = c.partition(grid).place(grid, placement);
   auto placeALowered = lower(placeA, "placeLegionA", false, true);
   auto placeBLowered = lower(placeB, "placeLegionB", false, true);
   auto placeCLowered = lower(placeC, "placeLegionC", false, true);

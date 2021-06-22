@@ -13,9 +13,14 @@ def lgCPUArgs():
     ]
 
 def lgGPUArgs(gpus):
-    return lgCPUArgs() + [
-        '-ll:gpu', str(gpus),
-        '-ll:fsize', '15000',
+    return [
+      '-ll:ocpu', '1',
+      '-ll:othr', '16',
+      '-ll:csize', '50000',
+      '-ll:util', '4',
+      '-dm:replicate', '1',
+      '-ll:gpu', str(gpus),
+      '-ll:fsize', '15000',
     ]
 
 def lassenHeader(procs):
@@ -77,6 +82,21 @@ class CannonBench(DMMBench):
                ['bin/cannonMM', '-n', str(psize), '-gx', str(gx), '-gy', str(procs // gx)] + \
                lgCPUArgs()
 
+class CannonGPUBench(CannonBench):
+    def __init__(self, initialProblemSize, gpus):
+        super().__init__(initialProblemSize)
+        self.gpus = gpus
+
+    def getCommand(self, procs):
+        psize = self.problemSize(procs)
+        # We swap the gx and gy here so that x gets a larger extent.
+        # This has a performance impact with multiple GPUs per node.
+        gy = self.getgx(procs)
+        return lassenHeader(procs) + \
+               ['bin/cannonMM-cuda', '-n', str(psize), '-gx', str(procs // gy), '-gy', str(gy), \
+                '-dm:exact_region', '-tm:fill_cpu', '-tm:validate_cpu', '-tm:untrack_valid_regions'] + \
+               lgGPUArgs(self.gpus)
+
 class JohnsonBench(DMMBench):
     def getCommand(self, procs):
         # Assuming that we're running on perfect cubes here.
@@ -110,12 +130,15 @@ def executeCmd(cmd):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on")
-    parser.add_argument("--bench", choices=["cannon", "johnson", "cosma"], type=str)
+    parser.add_argument("--bench", choices=["cannon", "cannon-gpu", "johnson", "cosma"], type=str)
     parser.add_argument("--size", type=int, help="initial size for benchmarks")
+    parser.add_argument("--gpus", type=int, help="number of GPUs for GPU benchmarks")
     args = parser.parse_args()
 
     if args.bench == "cannon":
         bench = CannonBench(args.size)
+    if args.bench == "cannon-gpu":
+        bench = CannonGPUBench(args.size, args.gpus)
     elif args.bench == "johnson":
         bench = JohnsonBench(args.size)
     elif args.bench == "cosma":
