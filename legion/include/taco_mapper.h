@@ -20,7 +20,7 @@ public:
     UNTRACK_VALID_REGIONS = (1 << 7),
   };
 
-  TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine &machine, const Legion::Processor &local);
+  TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine &machine, const Legion::Processor &local, const char* name);
 
   void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                const Legion::Task &task,
