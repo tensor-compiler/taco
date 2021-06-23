@@ -1077,6 +1077,28 @@ Stmt MemStore::make(Expr lhsMem, Expr rhsMem, Expr start, Expr offset, Expr par)
   memStore->par = par;
   return memStore;
 }
+
+Stmt GenBitVector::make(Expr shift, Expr out_bitcnt, Expr in_len, Expr in_fifo, Expr out_fifo) {
+  GenBitVector *genBitVector = new GenBitVector;
+  genBitVector->shift = shift;
+  genBitVector->out_bitcnt = out_bitcnt;
+  genBitVector->in_len = in_len;
+  genBitVector->in_fifo = in_fifo;
+  genBitVector->out_fifo = out_fifo;
+  return genBitVector;
+}
+
+Stmt Scan::make(Expr par, Expr bitcnt, Expr op, Expr in_fifo1, Expr in_fifo2, bool reduction) {
+  Scan *scan = new Scan;
+  scan->par = par;
+  scan->bitcnt = bitcnt;
+  scan->op = op;
+  scan->in_fifo1 = in_fifo1;
+  scan->in_fifo2 = in_fifo2;
+  scan->reduction = reduction;
+  return scan;
+}
+
 /// SPATIAL ONLY END
   
 // visitor methods
@@ -1185,7 +1207,10 @@ template<> void StmtNode<MemLoad>::accept(IRVisitorStrict *v)
     const { v->visit((const MemLoad*)this); }
 template<> void StmtNode<MemStore>::accept(IRVisitorStrict *v)
     const { v->visit((const MemStore*)this); }
-
+template<> void StmtNode<GenBitVector>::accept(IRVisitorStrict *v)
+    const { v->visit((const GenBitVector*)this); }
+template<> void StmtNode<Scan>::accept(IRVisitorStrict *v)
+    const { v->visit((const Scan*)this); }
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {
   if (!stmt.defined()) return os << "Stmt()" << std::endl;

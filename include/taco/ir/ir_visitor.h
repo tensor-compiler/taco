@@ -57,6 +57,8 @@ struct StoreBulk;
 struct MemLoad;
 struct MemStore;
 struct Reduce;
+struct GenBitVector;
+struct Scan;
 
 /// Extend this class to visit every node in the IR.
 class IRVisitorStrict {
@@ -116,6 +118,8 @@ public:
   virtual void visit(const Reduce*) = 0;
   virtual void visit(const MemStore*) = 0;
   virtual void visit(const MemLoad*) = 0;
+  virtual void visit(const GenBitVector*) = 0;
+  virtual void visit(const Scan*) = 0;
 };
 
 
@@ -178,6 +182,8 @@ public:
   virtual void visit(const Reduce*);
   virtual void visit(const MemStore*);
   virtual void visit(const MemLoad*);
+  virtual void visit(const GenBitVector*);
+  virtual void visit(const Scan*);
 };
 
 }}

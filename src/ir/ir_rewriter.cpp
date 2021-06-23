@@ -587,6 +587,40 @@ void IRRewriter::visit(const MemStore* op) {
     stmt = MemStore::make(lhsMem, rhsMem, start, offset, par);
   }
 }
+void IRRewriter::visit(const GenBitVector* op) {
+  Expr shift        = rewrite(op->shift);
+  Expr out_bitcnt   = rewrite(op->out_bitcnt);
+  Expr in_len       = rewrite(op->in_len);
+  Expr in_fifo      = rewrite(op->in_fifo);
+  Expr out_fifo     = rewrite(op->out_fifo);
+
+  if (shift == op->shift && out_bitcnt == op->out_bitcnt && in_len == op->in_len && in_fifo == op->in_fifo
+      && out_fifo == op->out_fifo) {
+    stmt = op;
+  } else {
+    stmt = GenBitVector::make(shift, out_bitcnt, in_len, in_fifo, out_fifo);
+  }
+}
+
+void IRRewriter::visit(const Scan* op) {
+  Expr par          = rewrite(op->par);
+  Expr bitcnt       = rewrite(op->bitcnt);
+  Expr scanOp       = rewrite(op->op);
+  Expr in_fifo1     = rewrite(op->in_fifo1);
+  Expr in_fifo2;
+  if (op->in_fifo2.defined()) {
+    in_fifo2        = rewrite(op->in_fifo2);
+  }
+
+  if (par == op->par && bitcnt == op->bitcnt && scanOp == op->op && in_fifo1 == op->in_fifo1 &&
+      (!op->in_fifo2.defined() || in_fifo2 == op->in_fifo2)) {
+    stmt = op;
+  } else if (op->in_fifo2.defined()){
+    stmt = Scan::make(par, bitcnt, scanOp, in_fifo1, in_fifo2, op->reduction);
+  } else {
+    stmt = Scan::make(par, bitcnt, scanOp, in_fifo1, op->reduction);
+  }
+}
 /// SPATIAL ONLY END
 
 }}

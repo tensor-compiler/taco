@@ -77,6 +77,8 @@ protected:
   virtual void visit(const Reduce*);
   virtual void visit(const MemStore*);
   virtual void visit(const MemLoad*);
+  virtual void visit(const GenBitVector*);
+  virtual void visit(const Scan*);
 
   std::ostream &stream;
   int indent;

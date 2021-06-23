@@ -70,7 +70,9 @@ enum class IRNodeType {
   Break,
   MemStore,     // Spatial Only
   MemLoad,      // Spatial Only
-  Reduce        // Spatial Only
+  Reduce,       // Spatial Only
+  GenBitVector, // Spatial Only
+  Scan          // Spatial Only
 };
 
 enum class TensorProperty {
@@ -847,6 +849,31 @@ struct Reduce : public StmtNode<Reduce> {
                    Stmt contents, Expr returnExpr, bool add=true, size_t par=1);
 
   static const IRNodeType _type_info = IRNodeType::Reduce;
+};
+
+struct GenBitVector : public StmtNode<GenBitVector> {
+  Expr shift;
+  Expr out_bitcnt;
+  Expr in_len;
+  Expr in_fifo;
+  Expr out_fifo;
+
+  static Stmt make(Expr shift, Expr out_bitcnt, Expr in_len, Expr in_fifo, Expr out_fifo);
+
+  static const IRNodeType _type_info = IRNodeType::GenBitVector;
+};
+
+struct Scan : public StmtNode<Scan> {
+  Expr par;
+  Expr bitcnt;
+  Expr op;
+  Expr in_fifo1;
+  Expr in_fifo2; // Second FIFO optional
+  bool reduction;
+
+  static Stmt make(Expr par, Expr bitcnt, Expr op, Expr in_fifo1, Expr in_fifo2=nullptr, bool reduction=false);
+
+  static const IRNodeType _type_info = IRNodeType::Scan;
 };
 
 /// SPATIAL ONLY END

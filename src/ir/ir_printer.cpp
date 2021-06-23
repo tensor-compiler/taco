@@ -702,6 +702,41 @@ void IRPrinter::visit(const MemLoad* op) {
   stream << endl;
 }
 
+void IRPrinter::visit(const GenBitVector* op) {
+  stream << "gen_bitvector(";
+  op->shift.accept(this);
+  stream << ", ";
+  op->out_bitcnt.accept(this);
+  stream << ", ";
+  op->in_len.accept(this);
+  stream << ", ";
+  op->in_fifo.accept(this);
+  stream << ", ";
+  op->out_fifo.accept(this);
+  stream << ")";
+  stream << endl;
+}
+
+void IRPrinter::visit(const Scan* op) {
+  if (op->reduction)
+    stream << "ScanRed(";
+  else
+    stream << "Scan(";
+
+  op->par.accept(this);
+  stream << ", ";
+  op->bitcnt.accept(this);
+  stream << ", ";
+  op->op.accept(this);
+  stream << ", ";
+  op->in_fifo1.accept(this);
+  if (op->in_fifo2.defined()) {
+    stream << ", ";
+    op->in_fifo2.accept(this);
+  }
+  stream << ")";
+}
+
 /// SPATIAL ONLY END
 
 void IRPrinter::resetNameCounters() {

@@ -285,6 +285,23 @@ void IRVisitor::visit(const MemStore* op) {
   op->offset.accept(this);
   op->par.accept(this);
 }
+
+void IRVisitor::visit(const GenBitVector* op) {
+  op->shift.accept(this);
+  op->out_bitcnt.accept(this);
+  op->in_len.accept(this);
+  op->in_fifo.accept(this);
+  op->out_fifo.accept(this);
+}
+
+void IRVisitor::visit(const Scan* op) {
+  op->par.accept(this);
+  op->bitcnt.accept(this);
+  op->op.accept(this);
+  op->in_fifo2.accept(this);
+  if (op->in_fifo2.defined())
+    op->in_fifo2.accept(this);
+}
 /// SPATIAL ONLY END
 
 }  // namespace ir

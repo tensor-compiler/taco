@@ -77,6 +77,8 @@ protected:
   virtual void visit(const Reduce* op);
   virtual void visit(const MemLoad* op);
   virtual void visit(const MemStore* op);
+  virtual void visit(const GenBitVector* op);
+  virtual void visit(const Scan* op);
 };
 
 }}
