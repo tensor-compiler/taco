@@ -168,6 +168,29 @@ TEST(distributed, summaMM) {
   }
 }
 
+TEST(distributed, mttkrp) {
+  int dim = 1000;
+
+  Tensor<double> A("A", {dim, dim}, Dense);
+  Tensor<double> B("B", {dim, dim, dim}, Dense);
+  Tensor<double> C("C", {dim, dim}, Dense);
+  Tensor<double> D("D", {dim, dim}, Dense);
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  IndexVar ii, io;
+  A(i, l) = B(i, j, k) * C(j, l) * D(k, l);
+  // This schedule appears to get similar performance to CTF on a single node
+  // when each use 20 threads on sapling.
+  auto stmt = A.getAssignment().concretize()
+               .reorder({i, j, k, l})
+               .split(i, ii, io, 4)
+               .parallelize(io, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
+               .parallelize(ii, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
+               ;
+  A.compile(stmt);
+  std::cout << A.getSource() << std::endl;
+}
+
 TEST(distributed, cannonMM) {
   int dim = 10;
   // Place each tensor onto a processor grid.
