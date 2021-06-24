@@ -95,7 +95,7 @@ add_basic_legion_test(summaMM nondiv1 -gx 4 -gy 4 -n 2047)
 add_basic_legion_test(summaMM nondiv2 -gx 4 -gy 4 -n 2049)
 
 # Tests for Johnson.
-add_basic_legion_test(johnsonMM basic -n 1024)
+add_basic_legion_test(johnsonMM basic -n 1024 -gdim 3)
 
 # Tests for Solomonik-2.5D.
 add_basic_legion_test(solomonikMM basic -n 1024)

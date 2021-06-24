@@ -22,6 +22,32 @@ struct task_4Args {
   int32_t gridDim;
 };
 
+LogicalPartition partitionLegion(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gridDim) {
+  int a1_dimension = runtime->get_index_space_domain(get_index_space(a)).hi()[0] + 1;
+  int a2_dimension = runtime->get_index_space_domain(get_index_space(a)).hi()[1] + 1;
+  auto a_index_space = get_index_space(a);
+
+  Point<2> lowerBound = Point<2>(0, 0);
+  Point<2> upperBound = Point<2>((gridDim - 1), (gridDim - 1));
+  auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<2>(lowerBound, upperBound));
+  DomainT<2> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<2>(distFusedIndexSpace));
+  auto aDomain = runtime->get_index_space_domain(ctx, a_index_space);
+  DomainPointColoring aColoring = DomainPointColoring();
+  for (PointInDomainIterator<2> itr = PointInDomainIterator<2>(domain); itr.valid(); itr++) {
+    int32_t in = (*itr)[0];
+    int32_t jn = (*itr)[1];
+    Point<2> aStart = Point<2>((in * ((a1_dimension + (gridDim - 1)) / gridDim) + 0 / gridDim), (jn * ((a2_dimension + (gridDim - 1)) / gridDim) + 0 / gridDim));
+    Point<2> aEnd = Point<2>(TACO_MIN((in * ((a1_dimension + (gridDim - 1)) / gridDim) + ((a1_dimension + (gridDim - 1)) / gridDim - 1)), aDomain.hi()[0]), TACO_MIN((jn * ((a2_dimension + (gridDim - 1)) / gridDim) + ((a2_dimension + (gridDim - 1)) / gridDim - 1)), aDomain.hi()[1]));
+    Rect<2> aRect = Rect<2>(aStart, aEnd);
+    if (!aDomain.contains(aRect.lo) || !aDomain.contains(aRect.hi)) {
+      aRect = aRect.make_empty();
+    }
+    aColoring[(*itr)] = aRect;
+  }
+  auto aPartition = runtime->create_index_partition(ctx, a_index_space, domain, aColoring, LEGION_DISJOINT_COMPLETE_KIND);
+  return runtime->get_logical_partition(ctx, get_logical_region(a), aPartition);
+}
+
 void task_1(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   PhysicalRegion a = regions[0];
 
@@ -299,6 +325,7 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
   launcher.add_region_requirement(aReq);
   launcher.add_region_requirement(bReq);
   launcher.add_region_requirement(cReq);
+  launcher.tag |= TACOMapper::UNTRACK_VALID_REGIONS;
   auto fm = runtime->execute_index_space(ctx, launcher);
   fm.wait_all_results();
 

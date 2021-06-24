@@ -8,9 +8,10 @@ typedef double valType;
 
 // Defined by the generated TACO code.
 void registerTacoTasks();
-LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int gdim);
-LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, int gdim);
-LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, int gdim);
+LogicalPartition partitionLegion(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gridDim);
+LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gdim);
+LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, int32_t gdim);
+LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, int32_t gdim);
 void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, int gdim);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
@@ -44,13 +45,25 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto A = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(A, "A");
   auto B = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(B, "B");
   auto C = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(C, "C");
-  tacoFill<valType>(ctx, runtime, A, 0); tacoFill<valType>(ctx, runtime, B, 1); tacoFill<valType>(ctx, runtime, C, 1);
 
-  // Place the tensors.
-  placeLegionA(ctx, runtime, A, gdim); placeLegionB(ctx, runtime, B, gdim); placeLegionC(ctx, runtime, C, gdim);
+  // Partition all of the tensors.
+  auto aPart = partitionLegion(ctx, runtime, A, gdim);
+  auto bPart = partitionLegion(ctx, runtime, B, gdim);
+  auto cPart = partitionLegion(ctx, runtime, C, gdim);
 
-  // Compute on the tensors.
-  benchmark([&]() { computeLegion(ctx, runtime, A, B, C, gdim); });
+  for (int i = 0; i < 10; i++) {
+    tacoFill<valType>(ctx, runtime, A, aPart, 0);
+    tacoFill<valType>(ctx, runtime, B, bPart, 1);
+    tacoFill<valType>(ctx, runtime, C, cPart, 1);
+
+    // Place the tensors.
+    placeLegionA(ctx, runtime, A, gdim);
+    placeLegionB(ctx, runtime, B, gdim);
+    placeLegionC(ctx, runtime, C, gdim);
+
+    // Compute on the tensors.
+    benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, gdim); });
+  }
 
   tacoValidate<valType>(ctx, runtime, A, valType(n));
 }
