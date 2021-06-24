@@ -191,6 +191,46 @@ TEST(distributed, mttkrp) {
   std::cout << A.getSource() << std::endl;
 }
 
+TEST(distributed, ttv) {
+  int dim = 1000;
+  Tensor<double> A("A", {dim, dim}, Dense);
+  Tensor<double> B("B", {dim, dim, dim}, Dense);
+  Tensor<double> C("C", {dim}, Dense);
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  IndexVar ii, io;
+  A(i, j) = B(i, j, k) * C(k);
+  auto stmt = A.getAssignment().concretize()
+               .reorder({i, j, k})
+               .split(i, ii, io, 4)
+               .parallelize(io, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
+               .parallelize(ii, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
+               ;
+  A.compile(stmt);
+  std::cout << A.getSource() << std::endl;
+}
+
+TEST(distributed, ttmc) {
+  int dim = 1000;
+
+  Tensor<double> A("A", {dim, dim, dim}, Dense);
+  Tensor<double> B("B", {dim, dim, dim}, Dense);
+  Tensor<double> C("C", {dim, dim}, Dense);
+  IndexVar i("i"), j("j"), k("k"), l("l"), m("m");
+  IndexVar ii("ii"), io("io"), ji("ji"), jo("jo"), li("li"), lo("lo"), lii("lii"), lio("lio");
+  A(i, j, l) = B(i, j, k) * C(k, l);
+  // This leaf schedule is actually not very good, and I'll replace this
+  // with a hand-written TTM leaf kernel that uses BLAS.
+  auto stmt = A.getAssignment().concretize()
+               .reorder({i, j, k, l})
+               .split(i, ii, io, 4)
+               .parallelize(io, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
+               .parallelize(ii, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
+               ;
+
+  A.compile(stmt);
+  std::cout << A.getSource() << std::endl;
+}
+
 TEST(distributed, cannonMM) {
   int dim = 10;
   // Place each tensor onto a processor grid.
