@@ -131,6 +131,7 @@ TEST(distributed, summaMM) {
   auto gx = ir::Var::make("gridX", Int32, false, false, true);
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
+  auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
   auto placement = GridPlacement({0, 1});
   auto placeA = a.partition(grid).place(grid, placement);
   auto placeB = b.partition(grid).place(grid, placement);
@@ -143,6 +144,8 @@ TEST(distributed, summaMM) {
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
       .distribute({i, j}, {in, jn}, {il, jl}, a(i, j))
+      // Experiment with making this a division. I don't know how good
+      // such a split will be on very large matrices.
       .split(k, ko, ki, 512)
       .reorder({ko, il, jl})
       .communicate(b(i, k), ko)
@@ -154,7 +157,7 @@ TEST(distributed, summaMM) {
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
 
   // Code-generate all of the placement and compute code.
-  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
+  auto all = ir::Block::make({partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
   codegen->compile(all);
   // Also write it into a file.
   {
