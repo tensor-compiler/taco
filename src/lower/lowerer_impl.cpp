@@ -1350,9 +1350,22 @@ Stmt LowererImpl::lowerForallCloned(Forall forall) {
 
   // build loop with guards (not vectorized)
   if (!varsWithGuard.empty()) {
+    // Remember all the accessors that we emitted before lowering this forall.
+    auto emitted = this->emittedPointAccessors;
     ignoreVectorize = true;
     unvectorizedLoop = lowerForall(forall);
     ignoreVectorize = false;
+    // Remote all the accessors that were added by this forall, so that the cloned
+    // forall will also generate those accessors.
+    std::set<TensorVar> toRemove;
+    for (auto e : this->emittedPointAccessors) {
+      if (emitted.count(e) == 0) {
+        toRemove.insert(e);
+      }
+    }
+    for (auto r : toRemove) {
+      this->emittedPointAccessors.erase(r);
+    }
   }
 
   // build loop without guards
@@ -2247,7 +2260,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     kind = LoopKind::Vectorized;
   } else if (forall.getParallelUnit() != ParallelUnit::NotParallel
             && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
-    kind = LoopKind::Runtime;
+    // Realm doesn't support runtime parallel loops yet, so use a static distribution.
+    kind = LoopKind::Static_Chunked;
   }
 
   if (forall.isDistributed()) {
