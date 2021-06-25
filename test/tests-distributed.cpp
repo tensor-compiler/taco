@@ -309,24 +309,55 @@ TEST(distributed, ttv) {
 
 TEST(distributed, ttmc) {
   int dim = 1000;
+  auto pieces = ir::Var::make("pieces", Int32, false, false, true);
+  auto grid = Grid(pieces);
+  std::vector<TensorDistribution> dist{
+    TensorDistribution{
+      grid,
+      grid,
+      GridPlacement({0}),
+      ParallelUnit::DistributedNode,
+    }
+  };
+  std::vector<TensorDistribution> repl{
+    TensorDistribution{
+      Grid(),
+      grid,
+      GridPlacement({Replicate(), Replicate()}),
+      ParallelUnit::DistributedNode,
+    }
+  };
 
-  Tensor<double> A("A", {dim, dim, dim}, Dense);
-  Tensor<double> B("B", {dim, dim, dim}, Dense);
-  Tensor<double> C("C", {dim, dim}, Dense);
+  Tensor<double> A("A", {dim, dim, dim}, {Dense, Dense, Dense}, dist);
+  Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, dist);
+  Tensor<double> C("C", {dim, dim}, {Dense, Dense}, repl);
+
   IndexVar i("i"), j("j"), k("k"), l("l"), m("m");
+  IndexVar in("in"), il("il");
   IndexVar ii("ii"), io("io"), ji("ji"), jo("jo"), li("li"), lo("lo"), lii("lii"), lio("lio");
+
   A(i, j, l) = B(i, j, k) * C(k, l);
-  // This leaf schedule is actually not very good, and I'll replace this
-  // with a hand-written TTM leaf kernel that uses BLAS.
   auto stmt = A.getAssignment().concretize()
-               .reorder({i, j, k, l})
-               .split(i, ii, io, 4)
-               .parallelize(io, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
-               .parallelize(ii, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
+               // TODO (rohany): The disjointness analysis is getting confused here
+               //  so I have to do distribute onto rather than distribute. This should
+               //  work though.
+               .distribute({i}, {in}, {il}, A(i, j, l))
+               .communicate(B(i, j, k), in)
+               .communicate(C(k, l), in)
                ;
 
-  A.compile(stmt);
-  std::cout << A.getSource() << std::endl;
+  auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto all = ir::Block::make({placeALowered, lowered});
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  // Also write it into a file.
+  {
+    ofstream f("../legion/ttmc/taco-generated.cpp");
+    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
 }
 
 TEST(distributed, cannonMM) {

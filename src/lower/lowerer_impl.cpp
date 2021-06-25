@@ -760,6 +760,9 @@ LowererImpl::lower(IndexStmt stmt, string name,
       void visit (const ForallNode* node) {
         if (distributedParallelUnit(node->parallel_unit)) {
           auto fused = this->pg.getMultiFusedParents(node->indexVar);
+          if (fused.size() == 0) {
+            fused = std::vector<IndexVar>({node->indexVar});
+          }
           taco_iassert(fused.size()  > 0);
           auto placement = this->placements[distIndex].second;
           taco_iassert(fused.size() == placement.axes.size());
