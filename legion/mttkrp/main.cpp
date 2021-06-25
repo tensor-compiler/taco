@@ -66,15 +66,16 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto C = runtime->create_logical_region(ctx, cISpace, fspace); runtime->attach_name(C, "C");
   auto D = runtime->create_logical_region(ctx, dISpace, fspace); runtime->attach_name(D, "D");
 
-  tacoFill<valType>(ctx, runtime, A, 0);
   tacoFill<valType>(ctx, runtime, B, 1);
   tacoFill<valType>(ctx, runtime, C, 1);
   tacoFill<valType>(ctx, runtime, D, 1);
 
-  auto part = placeLegionB(ctx, runtime, B, gx, gy, gz);
-  benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, D, part); });
+  for (int i = 0; i < 10; i++) {
+    tacoFill<valType>(ctx, runtime, A, 0);
+    auto part = placeLegionB(ctx, runtime, B, gx, gy, gz);
+    benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, D, part); });
+  }
 
-  // TODO (rohany): Add validation.
   tacoValidate<valType>(ctx, runtime, A, valType(n * n));
 }
 
