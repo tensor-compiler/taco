@@ -193,20 +193,67 @@ TEST(distributed, mttkrp) {
 
 TEST(distributed, ttv) {
   int dim = 1000;
-  Tensor<double> A("A", {dim, dim}, Dense);
-  Tensor<double> B("B", {dim, dim, dim}, Dense);
-  Tensor<double> C("C", {dim}, Dense);
+
+  // Our implementation of TTV will block partition A and B, and then replicate
+  // C onto each block.
+  auto gx = ir::Var::make("gridX", Int32, false, false, true);
+  auto gy = ir::Var::make("gridY", Int32, false, false, true);
+  auto grid = Grid(gx, gy);
+  auto placement = GridPlacement({0, 1});
+  std::vector<TensorDistribution> distribution{
+    TensorDistribution{
+      grid,
+      grid,
+      placement,
+      ParallelUnit::DistributedNode,
+    }
+  };
+  // Prereplicate C onto all of the nodes.
+  std::vector<TensorDistribution> cDistribution{
+      TensorDistribution{
+          Grid(),
+          grid,
+          GridPlacement({Replicate(), Replicate()}),
+          ParallelUnit::DistributedNode,
+      }
+  };
+  Tensor<double> A("A", {dim, dim}, {Dense, Dense}, distribution);
+  Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, distribution);
+  Tensor<double> C("C", {dim}, {Dense}, cDistribution);
+
+  auto partitionA = lower(A.partitionStmt(grid), "partitionLegionA", false, true);
+  auto partitionB = lower(B.partitionStmt(grid), "partitionLegionB", false, true);
+
+  auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
+
   IndexVar i("i"), j("j"), k("k"), l("l");
-  IndexVar ii, io;
+  IndexVar in("in"), il("il"), jn("jn"), jl("jl");
+  IndexVar ii("ii"), io("io");
   A(i, j) = B(i, j, k) * C(k);
   auto stmt = A.getAssignment().concretize()
-               .reorder({i, j, k})
-               .split(i, ii, io, 4)
+               .distribute({i, j}, {in, jn}, {il, jl}, grid)
+               // .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k))
+               .communicate(A(i, j), jn)
+               .communicate(B(i, j, k), jn)
+               .communicate(C(k), jn)
+               .reorder({il, jl, k})
+               .split(il, ii, io, 4)
                .parallelize(io, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
                .parallelize(ii, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
                ;
-  A.compile(stmt);
-  std::cout << A.getSource() << std::endl;
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto all = ir::Block::make({partitionA, partitionB, placeALowered, placeBLowered, placeCLowered, lowered});
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  // Also write it into a file.
+  {
+    ofstream f("../legion/ttv/taco-generated.cpp");
+    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
 }
 
 TEST(distributed, ttmc) {

@@ -79,6 +79,7 @@ add_app_folder(cannonMM)
 add_app_folder(placement-test)
 add_app_folder(johnsonMM)
 add_app_folder(solomonikMM)
+add_app_folder(ttv)
 
 add_cuda_folder(cuda-test)
 
