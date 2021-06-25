@@ -108,6 +108,26 @@ class CuGEMM : public GEMM {
   void print(std::ostream& os) const;
 };
 
+class MTTKRP : public LeafCallInterface {
+public:
+  MTTKRP();
+  void canApply(IndexStmt stmt, ProvenanceGraph pg, IndexVar root, std::string* reason = nullptr) const;
+  IndexVar getRootIvar() const;
+  ir::Stmt replaceValidStmt(IndexStmt stmt,
+                            ProvenanceGraph pg,
+                            std::map<TensorVar, ir::Expr> tensorVars,
+                            bool inReduction,
+                            std::vector<IndexVar> definedVarOrder,
+                            std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
+                            std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                            Iterators iterators
+  ) const;
+  void print(std::ostream& os) const;
+protected:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
 /// The reorder optimization rewrites an index statement to swap the order of
 /// the `i` and `j` loops.
 /// Can also supply replacePattern and will find nested foralls with this set of indexvar

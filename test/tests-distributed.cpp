@@ -171,33 +171,30 @@ TEST(distributed, summaMM) {
 }
 
 TEST(distributed, singlemttkrp) {
-  int dim = 5;
+  int dim = 1000;
   Tensor<double> A("A", {dim, dim}, Dense);
   Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense});
   Tensor<double> C("C", {dim, dim}, Dense);
   Tensor<double> D("D", {dim, dim}, Dense);
 
-  for (int i = 0; i < dim; i++) {
-    for (int j = 0; j < dim; j++) {
-      C.insert({i, j}, (double)1);
-      D.insert({i, j}, (double)1);
-      for (int k = 0; k < dim; k++) {
-        B.insert({i, j, k}, (double)1);
-      }
-    }
-  }
-
   IndexVar i("i"), j("j"), k("k"), l("l");
+  IndexVar io("io"), ii("ii");
   A(i, l) = B(i, j, k) * C(j, l) * D(k, l);
-  A.evaluate();
-  std::cout << A << std::endl;
+  // This schedule generates the code found in `leaf_kernels.h`.
+  auto stmt = A.getAssignment().concretize()
+               .reorder({i, j, k, l})
+               .split(i, io, ii, 4)
+               .parallelize(ii, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
+               .parallelize(io, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
+               ;
+  A.compile(stmt);
+  std::cout << A.getSource() << std::endl;
 }
 
 TEST(distributed, mttkrp) {
   int dim = 1000;
 
   // Implementing the algorithm from https://par.nsf.gov/servlets/purl/10078535.
-
   auto gx = ir::Var::make("gridX", Int32, false, false, true);
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto gz = ir::Var::make("gridZ", Int32, false, false, true);
@@ -218,6 +215,7 @@ TEST(distributed, mttkrp) {
   Tensor<double> C("C", {dim, dim}, Dense);
   Tensor<double> D("D", {dim, dim}, Dense);
 
+  std::shared_ptr<LeafCallInterface> mttkrp = std::make_shared<MTTKRP>();
   IndexVar i("i"), j("j"), k("k"), l("l");
   IndexVar in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
   IndexVar ii("ii"), io("io");
@@ -229,10 +227,7 @@ TEST(distributed, mttkrp) {
                .communicate(A(i, l), kn)
                .communicate(C(j, l), kn)
                .communicate(D(k, l), kn)
-               // Single node schedule here.
-               .split(il, ii, io, 4)
-               .parallelize(io, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
-               .parallelize(ii, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
+               .swapLeafKernel(il, mttkrp)
                ;
 
   auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
@@ -247,17 +242,6 @@ TEST(distributed, mttkrp) {
     codegen->compile(all);
     f.close();
   }
-
-  // This schedule appears to get similar performance to CTF on a single node
-  // when each use 20 threads on sapling.
-//  auto stmt = A.getAssignment().concretize()
-//               .reorder({i, j, k, l})
-//               .split(i, ii, io, 4)
-//               .parallelize(io, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
-//               .parallelize(ii, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
-//               ;
-//  A.compile(stmt);
-//  std::cout << A.getSource() << std::endl;
 }
 
 TEST(distributed, ttv) {

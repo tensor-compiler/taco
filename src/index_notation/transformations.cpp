@@ -1537,6 +1537,162 @@ ir::Stmt CuGEMM::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<T
   return ir::Block::make(stmts);
 }
 
+struct MTTKRP::Content {
+  IndexVar root;
+  TensorVar A;
+  TensorVar B;
+  TensorVar C;
+  TensorVar D;
+};
+
+MTTKRP::MTTKRP() : content(new Content) {}
+
+// TODO (rohany): Implement the MTTKRP validation.
+void MTTKRP::canApply(IndexStmt stmt, ProvenanceGraph pg, IndexVar root, std::string *reason) const {
+  // Find the target set of loops we want to replace with a MTTKRP call.
+  struct Finder : IndexNotationVisitor {
+    void visit(const ForallNode* node) {
+      if (node->indexVar == this->target) {
+        this->root = node;
+      }
+      node->stmt.accept(this);
+    }
+
+    IndexStmt root;
+    IndexVar target;
+  };
+  Finder f; f.target = root;
+  stmt.accept(&f);
+
+  // TODO (rohany): Do validation here later.
+
+  IndexStmt rootStmt = f.root;
+  auto iLoop = to<Forall>(rootStmt);
+  auto jLoop = to<Forall>(iLoop.getStmt());
+  auto kLoop = to<Forall>(jLoop.getStmt());
+  auto lLoop = to<Forall>(kLoop.getStmt());
+  auto assign = to<Assignment>(lLoop.getStmt());
+  auto A = to<Access>(assign.getLhs());
+  auto mul = to<Mul>(assign.getRhs());
+  auto mul2 = to<Mul>(mul.getA());
+  auto B = to<Access>(mul2.getA());
+  auto C = to<Access>(mul2.getB());
+  auto D = to<Access>(mul.getB());
+
+  this->content->root = root;
+  this->content->A = A.getTensorVar();
+  this->content->B = B.getTensorVar();
+  this->content->C = C.getTensorVar();
+  this->content->D = D.getTensorVar();
+}
+
+ir::Stmt MTTKRP::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<TensorVar, ir::Expr> tensorVars,
+                                  bool inReduction, std::vector<IndexVar> definedVarOrder,
+                                  std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
+                                  std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators) const {
+  auto A = tensorVars[this->content->A];
+  auto B = tensorVars[this->content->B];
+  auto C = tensorVars[this->content->C];
+  auto D = tensorVars[this->content->D];
+
+  std::vector<ir::Stmt> results;
+  auto ctx = ir::Symbol::make("ctx");
+
+  auto aIndexSpace = ir::GetProperty::make(A, ir::TensorProperty::IndexSpace);
+  auto bIndexSpace = ir::GetProperty::make(B, ir::TensorProperty::IndexSpace);
+  auto cIndexSpace = ir::GetProperty::make(C, ir::TensorProperty::IndexSpace);
+  auto dIndexSpace = ir::GetProperty::make(D, ir::TensorProperty::IndexSpace);
+
+  // Unpack domains for each variable.
+  auto aDomain = ir::Var::make("aDomain", Auto);
+  auto bDomain = ir::Var::make("bDomain", Auto);
+  auto cDomain = ir::Var::make("cDomain", Auto);
+  auto dDomain = ir::Var::make("dDomain", Auto);
+  results.push_back(ir::VarDecl::make(aDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, aIndexSpace}, Auto)));
+  results.push_back(ir::VarDecl::make(bDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, bIndexSpace}, Auto)));
+  results.push_back(ir::VarDecl::make(cDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, cIndexSpace}, Auto)));
+  results.push_back(ir::VarDecl::make(dDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, dIndexSpace}, Auto)));
+
+  // Break out if any domains are empty.
+  auto bVolZero = ir::Eq::make(ir::MethodCall::make(bDomain, "get_volume", {}, false, Auto), 0);
+  auto cVolZero = ir::Eq::make(ir::MethodCall::make(cDomain, "get_volume", {}, false, Auto), 0);
+  auto dVolZero = ir::Eq::make(ir::MethodCall::make(dDomain, "get_volume", {}, false, Auto), 0);
+  auto guard = ir::Or::make(ir::Or::make(bVolZero, cVolZero), dVolZero);
+  results.push_back(ir::IfThenElse::make(guard, ir::Return::make(ir::Expr())));
+
+  auto aAccess = ir::GetProperty::make(A, ir::TensorProperty::ValuesWriteAccessor, this->content->A.getOrder());
+  if (inReduction) {
+    aAccess = ir::GetProperty::make(A, ir::TensorProperty::ValuesReductionAccessor, this->content->A.getOrder());
+  }
+  auto bAccess = ir::GetProperty::make(B, ir::TensorProperty::ValuesReadAccessor, this->content->B.getOrder());
+  auto cAccess = ir::GetProperty::make(C, ir::TensorProperty::ValuesReadAccessor, this->content->C.getOrder());
+  auto dAccess = ir::GetProperty::make(D, ir::TensorProperty::ValuesReadAccessor, this->content->D.getOrder());
+
+  // Set up the argument pack.
+  auto packTy = Datatype("MTTKRPPack");
+  auto pack = ir::Var::make("pack", packTy);
+  results.push_back(ir::VarDecl::make(pack, ir::makeConstructor(packTy, {})));
+
+  auto getBounds = [] (ir::Expr e, std::string func) {
+    return ir::MethodCall::make(e, func, {}, false, Int64);
+  };
+  auto ld = [] (ir::Expr e, int idx) {
+    return ir::Load::make(e, idx);
+  };
+  auto bDomainHi = getBounds(bDomain, "hi");
+  auto bDomainLo = getBounds(bDomain, "lo");
+  auto iDim = ir::Add::make(1, ir::Sub::make(ld(bDomainHi, 0), ld(bDomainLo, 0)));
+  auto jDim = ir::Add::make(1, ir::Sub::make(ld(bDomainHi, 1), ld(bDomainLo, 1)));
+  auto kDim = ir::Add::make(1, ir::Sub::make(ld(bDomainHi, 2), ld(bDomainLo, 2)));
+  auto lDim = ir::Add::make(1, ir::Sub::make(ld(getBounds(aDomain, "hi"), 1), ld(getBounds(aDomain, "lo"), 1)));
+  auto type = Type(this->content->A.getType().getDataType());
+  auto getLD = [&] (ir::Expr e, int idx) {
+    return ir::Div::make(
+        ir::Load::make(ir::FieldAccess::make(ir::FieldAccess::make(e, "accessor", false, Auto), "strides", false, Int64), idx),
+        ir::Sizeof::make(type)
+    );
+  };
+  auto ldA = getLD(aAccess, 0);
+  auto ldC = getLD(cAccess, 0);
+  auto ldD = getLD(dAccess, 0);
+  auto ldB3 = getLD(bAccess, 1);
+  auto ldB2 = getLD(bAccess, 0);
+
+  results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "iDim", false, Auto), iDim));
+  results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "jDim", false, Auto), jDim));
+  results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "kDim", false, Auto), kDim));
+  results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "lDim", false, Auto), lDim));
+  results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldA", false, Auto), ldA));
+  results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldC", false, Auto), ldC));
+  results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldD", false, Auto), ldD));
+  results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldB3", false, Auto), ldB3));
+  results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldB2", false, Auto), ir::Div::make(ldB2, ldB3)));
+
+  std::stringstream funcName;
+  funcName << "mttkrp<" << type.getDataType() << ">";
+
+  results.push_back(ir::SideEffect::make(ir::Call::make(
+      funcName.str(),
+     {
+       pack,
+       ir::MethodCall::make(aAccess, "ptr", {getBounds(aDomain, "lo")}, false /* deref */, Auto),
+       ir::MethodCall::make(bAccess, "ptr", {getBounds(bDomain, "lo")}, false /* deref */, Auto),
+       ir::MethodCall::make(cAccess, "ptr", {getBounds(cDomain, "lo")}, false /* deref */, Auto),
+       ir::MethodCall::make(dAccess, "ptr", {getBounds(dDomain, "lo")}, false /* deref */, Auto),
+     },
+     Auto
+  )));
+  return ir::Block::make(results);
+}
+
+IndexVar MTTKRP::getRootIvar() const {
+  return this->content->root;
+}
+
+void MTTKRP::print(std::ostream &os) const {
+  os << "MTTKRP";
+}
+
 // Autoscheduling functions
 
 IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
