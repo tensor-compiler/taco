@@ -13,8 +13,7 @@ LogicalPartition partitionLegionB(Context ctx, Runtime* runtime, LogicalRegion B
 LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion A, int32_t gridX, int32_t gridY);
 LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion B, int32_t gridX, int32_t gridY);
 LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t gridX, int32_t gridY);
-// void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalPartition BPartition);
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, int32_t gridX, int32_t gridY);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalPartition BPartition);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   // Create the regions.
@@ -76,8 +75,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     placeLegionC(ctx, runtime, C, gx, gy);
 
     // Compute.
-    // benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, part); });
-    benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, gx, gy); });
+    benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, part); });
   }
 
   tacoValidate<valType>(ctx, runtime, A, aPart, valType(n));

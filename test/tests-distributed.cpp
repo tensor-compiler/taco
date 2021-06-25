@@ -11,6 +11,8 @@
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/provenance_graph.h"
 
+#include "taco/ir/simplify.h"
+
 #include <fstream>
 
 using namespace taco;
@@ -233,10 +235,8 @@ TEST(distributed, ttv) {
   IndexVar ii("ii"), io("io");
   A(i, j) = B(i, j, k) * C(k);
   auto stmt = A.getAssignment().concretize()
-               .distribute({i, j}, {in, jn}, {il, jl}, grid)
-               // .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k))
+               .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k))
                .communicate(A(i, j), jn)
-               .communicate(B(i, j, k), jn)
                .communicate(C(k), jn)
                .reorder({il, jl, k})
                .split(il, ii, io, 4)

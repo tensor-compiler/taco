@@ -1016,11 +1016,14 @@ Stmt LowererImpl::lowerForall(Forall forall)
 {
   bool hasExactBound = provGraph.hasExactBound(forall.getIndexVar());
   bool forallNeedsUnderivedGuards = !hasExactBound && emitUnderivedGuards;
-  if (!ignoreVectorize && forallNeedsUnderivedGuards &&
-      (forall.getParallelUnit() == ParallelUnit::CPUVector ||
-       forall.getUnrollFactor() > 0)) {
-    return lowerForallCloned(forall);
-  }
+
+  // TODO (rohany): The optimization that this method performs does not seem
+  //  to be sound, and gcc is still able to vectorize the code fine.
+  // if (!ignoreVectorize && forallNeedsUnderivedGuards &&
+  //     (forall.getParallelUnit() == ParallelUnit::CPUVector ||
+  //      forall.getUnrollFactor() > 0)) {
+  //   return lowerForallCloned(forall);
+  // }
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel) {
     inParallelLoopDepth++;
