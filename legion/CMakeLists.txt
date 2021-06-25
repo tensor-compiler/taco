@@ -1,4 +1,7 @@
 find_package(Legion REQUIRED)
+if(OPENMP)
+  find_package(OpenMP REQUIRED)
+endif(OPENMP)
 
 # Include the headers and supporting source files.
 include_directories(include/ OpenBLAS/install/include "${CMAKE_BINARY_DIR}/include")
@@ -13,7 +16,7 @@ if (Legion_USE_CUDA)
 endif()
 
 # Optimize these codes.
-SET(CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
+SET(CMAKE_CXX_FLAGS "-O3 ${CMAKE_CXX_FLAGS}")
 
 option(TACO_USE_LOGGING_MAPPER OFF)
 if (TACO_USE_LOGGING_MAPPER)
@@ -25,8 +28,7 @@ function(add_app_folder folder)
     add_executable("${folder}" ${SOURCES})
     target_link_libraries("${folder}" Legion::Legion openblas)
     if (OPENMP)
-        target_link_libraries("${folder}" -fopenmp)
-        target_compile_options("${folder}" PUBLIC -fopenmp)
+      target_compile_options("${folder}" PRIVATE ${OpenMP_CXX_FLAGS})
     endif(OPENMP)
 
     if (Legion_USE_CUDA)

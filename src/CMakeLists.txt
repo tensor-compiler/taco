@@ -6,6 +6,10 @@ else()
   message("-- Static library")
 endif()
 
+if(OPENMP)
+  set(C_CXX_FLAGS "-fopenmp ${C_CXX_FLAGS}")
+endif(OPENMP)
+
 set(TACO_SRC_DIRS . parser index_notation lower ir codegen storage error util)
 
 foreach(dir ${TACO_SRC_DIRS})
@@ -31,3 +35,6 @@ if (LINUX)
 else()
   target_link_libraries(taco PRIVATE ${TACO_LIBRARIES})
 endif()
+if (OPENMP)
+  target_link_libraries(taco PRIVATE -fopenmp)
+endif(OPENMP)

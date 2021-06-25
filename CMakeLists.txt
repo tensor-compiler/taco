@@ -84,9 +84,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 set(OPTIMIZE "-O3" CACHE STRING "Optimization level")
 set(C_CXX_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wmissing-declarations -Wno-deprecated")
-if(OPENMP)
-  set(C_CXX_FLAGS "-fopenmp ${C_CXX_FLAGS}")
-endif(OPENMP)
+# We don't want to do this, because it'll confuse realm later down the line.
+# if(OPENMP)
+#   set(C_CXX_FLAGS "-fopenmp ${C_CXX_FLAGS}")
+# endif(OPENMP)
 
 if(COVERAGE)
   find_program(PATH_TO_GCOVR gcovr REQUIRED)

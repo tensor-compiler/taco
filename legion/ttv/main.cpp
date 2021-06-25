@@ -64,10 +64,11 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto aPart = partitionLegionA(ctx, runtime, A, gx, gy);
   auto bPart = partitionLegionB(ctx, runtime, B, gx, gy);
 
+  // We don't need to fill the large tensor in the loop.
+  tacoFill<valType>(ctx, runtime, B, bPart, 1);
+  tacoFill<valType>(ctx, runtime, C, 1);
   for (int i = 0; i < 10; i++) {
     tacoFill<valType>(ctx, runtime, A, aPart, 0);
-    tacoFill<valType>(ctx, runtime, B, bPart, 1);
-    tacoFill<valType>(ctx, runtime, C, 1);
 
     // Place the tensors.
     placeLegionA(ctx, runtime, A, gx, gy);
