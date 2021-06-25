@@ -82,6 +82,7 @@ add_app_folder(placement-test)
 add_app_folder(johnsonMM)
 add_app_folder(solomonikMM)
 add_app_folder(ttv)
+add_app_folder(mttkrp)
 
 add_cuda_folder(cuda-test)
 

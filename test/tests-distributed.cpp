@@ -170,27 +170,94 @@ TEST(distributed, summaMM) {
   }
 }
 
+TEST(distributed, singlemttkrp) {
+  int dim = 5;
+  Tensor<double> A("A", {dim, dim}, Dense);
+  Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense});
+  Tensor<double> C("C", {dim, dim}, Dense);
+  Tensor<double> D("D", {dim, dim}, Dense);
+
+  for (int i = 0; i < dim; i++) {
+    for (int j = 0; j < dim; j++) {
+      C.insert({i, j}, (double)1);
+      D.insert({i, j}, (double)1);
+      for (int k = 0; k < dim; k++) {
+        B.insert({i, j, k}, (double)1);
+      }
+    }
+  }
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  A(i, l) = B(i, j, k) * C(j, l) * D(k, l);
+  A.evaluate();
+  std::cout << A << std::endl;
+}
+
 TEST(distributed, mttkrp) {
   int dim = 1000;
 
+  // Implementing the algorithm from https://par.nsf.gov/servlets/purl/10078535.
+
+  auto gx = ir::Var::make("gridX", Int32, false, false, true);
+  auto gy = ir::Var::make("gridY", Int32, false, false, true);
+  auto gz = ir::Var::make("gridZ", Int32, false, false, true);
+  auto grid3 = Grid(gx, gy, gz);
+
+  // Partition and place the 3-tensor onto a 3-d grid.
+  std::vector<TensorDistribution> BDist{
+    TensorDistribution{
+      grid3,
+      grid3,
+      GridPlacement({0, 1, 2}),
+      ParallelUnit::DistributedNode,
+    }
+  };
+
   Tensor<double> A("A", {dim, dim}, Dense);
-  Tensor<double> B("B", {dim, dim, dim}, Dense);
+  Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, BDist);
   Tensor<double> C("C", {dim, dim}, Dense);
   Tensor<double> D("D", {dim, dim}, Dense);
 
   IndexVar i("i"), j("j"), k("k"), l("l");
-  IndexVar ii, io;
+  IndexVar in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
+  IndexVar ii("ii"), io("io");
   A(i, l) = B(i, j, k) * C(j, l) * D(k, l);
-  // This schedule appears to get similar performance to CTF on a single node
-  // when each use 20 threads on sapling.
   auto stmt = A.getAssignment().concretize()
                .reorder({i, j, k, l})
-               .split(i, ii, io, 4)
+               .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, B(i, j, k))
+               .reorder({il, jl, kl, l})
+               .communicate(A(i, l), kn)
+               .communicate(C(j, l), kn)
+               .communicate(D(k, l), kn)
+               // Single node schedule here.
+               .split(il, ii, io, 4)
                .parallelize(io, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
                .parallelize(ii, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
                ;
-  A.compile(stmt);
-  std::cout << A.getSource() << std::endl;
+
+  auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto all = ir::Block::make({placeBLowered, lowered});
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  // Also write it into a file.
+  {
+    ofstream f("../legion/mttkrp/taco-generated.cpp");
+    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+
+  // This schedule appears to get similar performance to CTF on a single node
+  // when each use 20 threads on sapling.
+//  auto stmt = A.getAssignment().concretize()
+//               .reorder({i, j, k, l})
+//               .split(i, ii, io, 4)
+//               .parallelize(io, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
+//               .parallelize(ii, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
+//               ;
+//  A.compile(stmt);
+//  std::cout << A.getSource() << std::endl;
 }
 
 TEST(distributed, ttv) {
