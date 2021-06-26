@@ -336,6 +336,7 @@ TEST(distributed, ttmc) {
   IndexVar in("in"), il("il");
   IndexVar ii("ii"), io("io"), ji("ji"), jo("jo"), li("li"), lo("lo"), lii("lii"), lio("lio");
 
+  std::shared_ptr<LeafCallInterface> ttmc = std::make_shared<TTMC>();
   A(i, j, l) = B(i, j, k) * C(k, l);
   auto stmt = A.getAssignment().concretize()
                // TODO (rohany): The disjointness analysis is getting confused here
@@ -344,6 +345,7 @@ TEST(distributed, ttmc) {
                .distribute({i}, {in}, {il}, A(i, j, l))
                .communicate(B(i, j, k), in)
                .communicate(C(k, l), in)
+               .swapLeafKernel(il, ttmc)
                ;
 
   auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);

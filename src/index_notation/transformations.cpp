@@ -1693,6 +1693,146 @@ void MTTKRP::print(std::ostream &os) const {
   os << "MTTKRP";
 }
 
+struct TTMC::Content {
+  IndexVar root;
+  TensorVar A;
+  TensorVar B;
+  TensorVar C;
+};
+
+TTMC::TTMC() : content(new Content) {}
+
+void TTMC::canApply(IndexStmt stmt, ProvenanceGraph pg, IndexVar root, std::string *reason) const {
+  // TODO (rohany): Deduplicate this into a method on the LeafCallInterface.
+  struct Finder : IndexNotationVisitor {
+    void visit(const ForallNode* node) {
+      if (node->indexVar == this->target) {
+        this->root = node;
+      }
+      node->stmt.accept(this);
+    }
+
+    IndexStmt root;
+    IndexVar target;
+  };
+  Finder f; f.target = root;
+  stmt.accept(&f);
+
+  // TODO (rohany): Do validation here later.
+
+  IndexStmt rootStmt = f.root;
+  std::cout << rootStmt << std::endl;
+  auto iLoop = to<Forall>(rootStmt);
+  auto jLoop = to<Forall>(iLoop.getStmt());
+  auto kLoop = to<Forall>(jLoop.getStmt());
+  auto lLoop = to<Forall>(kLoop.getStmt());
+  auto assign = to<Assignment>(lLoop.getStmt());
+  std::cout << assign << std::endl;
+  auto A = to<Access>(assign.getLhs());
+  auto mul = to<Mul>(assign.getRhs());
+  auto B = to<Access>(mul.getA());
+  auto C = to<Access>(mul.getB());
+
+  std::cout << A << " " << B << " " << C << std::endl;
+
+  this->content->root = root;
+  this->content->A = A.getTensorVar();
+  this->content->B = B.getTensorVar();
+  this->content->C = C.getTensorVar();
+}
+
+ir::Stmt TTMC::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<TensorVar, ir::Expr> tensorVars,
+                                bool inReduction, std::vector<IndexVar> definedVarOrder,
+                                std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
+                                std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators) const {
+  auto A = tensorVars[this->content->A];
+  auto B = tensorVars[this->content->B];
+  auto C = tensorVars[this->content->C];
+
+  std::vector<ir::Stmt> results;
+  auto ctx = ir::Symbol::make("ctx");
+  auto rowMajor = ir::Symbol::make("CblasRowMajor");
+  auto noTrans = ir::Symbol::make("CblasNoTrans");
+
+  auto aIndexSpace = ir::GetProperty::make(A, ir::TensorProperty::IndexSpace);
+  auto bIndexSpace = ir::GetProperty::make(B, ir::TensorProperty::IndexSpace);
+  auto cIndexSpace = ir::GetProperty::make(C, ir::TensorProperty::IndexSpace);
+
+  // Unpack domains for each variable.
+  auto aDomain = ir::Var::make("aDomain", Auto);
+  auto bDomain = ir::Var::make("bDomain", Auto);
+  auto cDomain = ir::Var::make("cDomain", Auto);
+  results.push_back(ir::VarDecl::make(aDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, aIndexSpace}, Auto)));
+  results.push_back(ir::VarDecl::make(bDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, bIndexSpace}, Auto)));
+  results.push_back(ir::VarDecl::make(cDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, cIndexSpace}, Auto)));
+
+  // Break out if any domains are empty.
+  auto bVolZero = ir::Eq::make(ir::MethodCall::make(bDomain, "get_volume", {}, false, Auto), 0);
+  auto cVolZero = ir::Eq::make(ir::MethodCall::make(cDomain, "get_volume", {}, false, Auto), 0);
+  auto guard = ir::Or::make(bVolZero, cVolZero);
+  results.push_back(ir::IfThenElse::make(guard, ir::Return::make(ir::Expr())));
+
+  auto aAccess = ir::GetProperty::make(A, ir::TensorProperty::ValuesWriteAccessor, this->content->A.getOrder());
+  if (inReduction) {
+    aAccess = ir::GetProperty::make(A, ir::TensorProperty::ValuesReductionAccessor, this->content->A.getOrder());
+  }
+  auto bAccess = ir::GetProperty::make(B, ir::TensorProperty::ValuesReadAccessor, this->content->B.getOrder());
+  auto cAccess = ir::GetProperty::make(C, ir::TensorProperty::ValuesReadAccessor, this->content->C.getOrder());
+  auto type = Type(this->content->A.getType().getDataType());
+
+  // We'll call BLAS DGEMM in a loop.
+  std::vector<ir::Stmt> loopStmts;
+  auto loopVar = ir::Var::make("loopIdx", Int32);
+
+  auto getBounds = [] (ir::Expr e, std::string func) {
+    return ir::MethodCall::make(e, func, {}, false, Int64);
+  };
+
+  auto getLD = [&] (ir::Expr e, int idx) {
+    return ir::Div::make(
+        ir::Load::make(ir::FieldAccess::make(ir::FieldAccess::make(e, "accessor", false, Auto), "strides", false, Int64), idx),
+        ir::Sizeof::make(type)
+    );
+  };
+
+  auto getBasePtr = [&] (ir::Expr e, ir::Expr domain) {
+    auto ptr = ir::MethodCall::make(e, "ptr", {getBounds(domain, "lo")}, false /* deref */, Int64);
+    auto offset = ir::Mul::make(getLD(e, 0), loopVar);
+    return ir::Add::make(ptr, offset);
+  };
+
+  std::vector<ir::Expr> args {
+    rowMajor,
+    noTrans,
+    noTrans,
+    ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(bDomain, "hi"), 1), ir::Load::make(getBounds(bDomain, "lo"), 1))),
+    ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(cDomain, "hi"), 1), ir::Load::make(getBounds(cDomain, "lo"), 1))),
+    ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(cDomain, "hi"), 0), ir::Load::make(getBounds(cDomain, "lo"), 0))),
+    1.f,
+    getBasePtr(bAccess, bDomain),
+    getLD(bAccess, 1),
+    ir::MethodCall::make(cAccess, "ptr", {getBounds(cDomain, "lo")}, false /* deref */, Auto),
+    getLD(cAccess, 0),
+    1.f,
+    getBasePtr(aAccess, aDomain),
+    getLD(aAccess, 1),
+  };
+  loopStmts.push_back(ir::SideEffect::make(ir::Call::make("cblas_dgemm", args, Auto)));
+
+  // The loop bounds are from 0 to aBounds.hi()[0] - aBounds.lo()[0].
+  auto bounds = ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(aDomain, "hi"), 0), ir::Load::make(getBounds(aDomain, "lo"), 0)));
+  results.push_back(ir::For::make(loopVar, 0, bounds, 1, ir::Block::make(loopStmts)));
+  return ir::Block::make(results);
+}
+
+IndexVar TTMC::getRootIvar() const {
+  return this->content->root;
+}
+
+void TTMC::print(std::ostream &os) const {
+  os << "TTMC";
+}
+
 // Autoscheduling functions
 
 IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
