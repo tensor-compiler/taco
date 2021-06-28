@@ -9,7 +9,10 @@ typedef double valType;
 // Defined by the generated TACO code.
 void registerTacoTasks();
 
+LogicalPartition partition3Tensor(Context ctx, Runtime* runtime, LogicalRegion A, int32_t pieces);
 LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion A, int32_t pieces);
+LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion B, int32_t pieces);
+LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t pieces);
 void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalPartition aPartition);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
@@ -47,16 +50,24 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto B = runtime->create_logical_region(ctx, bISpace, fspace); runtime->attach_name(B, "B");
   auto C = runtime->create_logical_region(ctx, cISpace, fspace); runtime->attach_name(C, "C");
 
-  tacoFill<valType>(ctx, runtime, B, 1);
+  // Partition the tensors.
+  auto aPart = partition3Tensor(ctx, runtime, A, pieces);
+  auto bPart = partition3Tensor(ctx, runtime, B, pieces);
+
+  tacoFill<valType>(ctx, runtime, B, bPart, 1);
   tacoFill<valType>(ctx, runtime, C, 1);
 
   for (int i = 0; i < 10; i++) {
-    tacoFill<valType>(ctx, runtime, A, 0);
+    tacoFill<valType>(ctx, runtime, A, aPart, 0);
+
     auto part = placeLegionA(ctx, runtime, A, pieces);
+    placeLegionB(ctx, runtime, B, pieces);
+    placeLegionC(ctx, runtime, C, pieces);
+
     benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, part); });
   }
 
-  tacoValidate<valType>(ctx, runtime, A, valType(n));
+  tacoValidate<valType>(ctx, runtime, A, aPart, valType(n));
 }
 
 TACO_MAIN(valType)

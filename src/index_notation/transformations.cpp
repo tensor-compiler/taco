@@ -1721,19 +1721,15 @@ void TTMC::canApply(IndexStmt stmt, ProvenanceGraph pg, IndexVar root, std::stri
   // TODO (rohany): Do validation here later.
 
   IndexStmt rootStmt = f.root;
-  std::cout << rootStmt << std::endl;
   auto iLoop = to<Forall>(rootStmt);
   auto jLoop = to<Forall>(iLoop.getStmt());
   auto kLoop = to<Forall>(jLoop.getStmt());
   auto lLoop = to<Forall>(kLoop.getStmt());
   auto assign = to<Assignment>(lLoop.getStmt());
-  std::cout << assign << std::endl;
   auto A = to<Access>(assign.getLhs());
   auto mul = to<Mul>(assign.getRhs());
   auto B = to<Access>(mul.getA());
   auto C = to<Access>(mul.getB());
-
-  std::cout << A << " " << B << " " << C << std::endl;
 
   this->content->root = root;
   this->content->A = A.getTensorVar();

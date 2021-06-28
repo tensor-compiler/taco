@@ -323,7 +323,7 @@ TEST(distributed, ttmc) {
     TensorDistribution{
       Grid(),
       grid,
-      GridPlacement({Replicate(), Replicate()}),
+      GridPlacement({Replicate()}),
       ParallelUnit::DistributedNode,
     }
   };
@@ -348,9 +348,12 @@ TEST(distributed, ttmc) {
                .swapLeafKernel(il, ttmc)
                ;
 
+  auto partition3tensor = lower(A.partitionStmt(grid), "partition3Tensor", false, true);
   auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
   auto lowered = lower(stmt, "computeLegion", false, true);
-  auto all = ir::Block::make({placeALowered, lowered});
+  auto all = ir::Block::make({partition3tensor, placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
   // Also write it into a file.
