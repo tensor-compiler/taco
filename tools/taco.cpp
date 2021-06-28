@@ -621,6 +621,8 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
+  setEvaluateAtAssign(false);
+
   bool computeWithAssemble = false;
 
   bool printCompute        = false;

@@ -1300,5 +1300,9 @@ void taco_set_num_threads(int num_threads);
 /// computations. This will be replaced by a scheduling language in the future.
 int taco_get_num_threads();
 
+void setEvaluateAtAssign(bool evalAtAssign);
+
+bool doEvaluateAtAssign();
+
 }
 #endif

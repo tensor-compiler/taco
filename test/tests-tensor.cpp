@@ -494,3 +494,33 @@ TEST(tensor, cache) {
   // ability to answer a request for the first query.
   c(i, j) = a(i, j); c.evaluate();
 }
+
+class dont_eval_at_assign : public testing::Test {
+protected:
+  void SetUp() {
+    setEvaluateAtAssign(false);
+  }
+
+  void TearDown() {
+    setEvaluateAtAssign(true);
+  }
+};
+
+TEST_F(dont_eval_at_assign, repeat) {
+  Tensor<double> a({3}, Format({Dense}));
+  Tensor<double> b;
+  
+  a(0) = 4.0;
+  a(1) = 5.0;
+
+  IndexVar i;
+  b = a(i);
+
+  b.evaluate();
+  ASSERT_EQ(b.begin()->second, 9.0);
+
+  a(2) = 6.0;
+
+  b.evaluate();
+  ASSERT_EQ(b.begin()->second, 15.0);
+}
