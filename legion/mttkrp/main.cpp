@@ -9,7 +9,16 @@ typedef double valType;
 // Defined by the generated TACO code.
 void registerTacoTasks();
 
+// Partitioning statements.
+LogicalPartition partitionLegionA(Context ctx, Runtime* runtime, LogicalRegion A, int32_t gridX);
+LogicalPartition partitionLegionB(Context ctx, Runtime* runtime, LogicalRegion B, int32_t gridX, int32_t gridY, int32_t gridZ);
+LogicalPartition partitionLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t gridY);
+LogicalPartition partitionLegionD(Context ctx, Runtime* runtime, LogicalRegion D, int32_t gridZ);
+
+LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion A, int32_t gridX, int32_t gridY, int32_t gridZ);
 LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion B, int32_t gridX, int32_t gridY, int32_t gridZ);
+LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t gridY, int32_t gridX, int32_t gridZ);
+LogicalPartition placeLegionD(Context ctx, Runtime* runtime, LogicalRegion D, int32_t gridZ, int32_t gridX, int32_t gridY);
 void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalRegion D, LogicalPartition BPartition);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
@@ -66,17 +75,28 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto C = runtime->create_logical_region(ctx, cISpace, fspace); runtime->attach_name(C, "C");
   auto D = runtime->create_logical_region(ctx, dISpace, fspace); runtime->attach_name(D, "D");
 
-  tacoFill<valType>(ctx, runtime, B, 1);
-  tacoFill<valType>(ctx, runtime, C, 1);
-  tacoFill<valType>(ctx, runtime, D, 1);
+  // Partition all of the tensors.
+  auto aPart = partitionLegionA(ctx, runtime, A, gx);
+  auto bPart = partitionLegionB(ctx, runtime, B, gx, gy, gz);
+  auto cPart = partitionLegionC(ctx, runtime, C, gy);
+  auto dPart = partitionLegionD(ctx, runtime, D, gz);
+
+  tacoFill<valType>(ctx, runtime, B, bPart, 1);
+  tacoFill<valType>(ctx, runtime, C, cPart, 1);
+  tacoFill<valType>(ctx, runtime, D, dPart, 1);
 
   for (int i = 0; i < 10; i++) {
-    tacoFill<valType>(ctx, runtime, A, 0);
+    tacoFill<valType>(ctx, runtime, A, aPart, 0);
+
+    placeLegionA(ctx, runtime, A, gx, gy, gz);
     auto part = placeLegionB(ctx, runtime, B, gx, gy, gz);
+    placeLegionC(ctx, runtime, C, gx, gy, gz);
+    placeLegionD(ctx, runtime, D, gx, gy, gz);
+
     benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, D, part); });
   }
 
-  tacoValidate<valType>(ctx, runtime, A, valType(n * n));
+  tacoValidate<valType>(ctx, runtime, A, aPart, valType(n * n));
 }
 
 TACO_MAIN(valType)

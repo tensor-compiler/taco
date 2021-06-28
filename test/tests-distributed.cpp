@@ -209,11 +209,40 @@ TEST(distributed, mttkrp) {
       ParallelUnit::DistributedNode,
     }
   };
+  // Partition the matrices in a single dimension, and place them along different
+  // edges of the processor grid.
+  std::vector<TensorDistribution> ADist{
+    TensorDistribution{
+      Grid(gx),
+      grid3,
+      // We want this along the edge that the `i` dimension of B is partitioned along.
+      GridPlacement({0, Face(0), Face(0)}),
+      ParallelUnit::DistributedNode,
+    }
+  };
+  std::vector<TensorDistribution> CDist{
+    TensorDistribution{
+      Grid(gy),
+      grid3,
+      // We want this along the edge that the `j` dimension of B is partitioned along.
+      GridPlacement({Face(0), 0, Face(0)}),
+      ParallelUnit::DistributedNode,
+    }
+  };
+  std::vector<TensorDistribution> DDist{
+    TensorDistribution{
+      Grid(gz),
+      grid3,
+      // We want this along the edge that the `j` dimension of B is partitioned along.
+      GridPlacement({Face(0), Face(0), 0}),
+      ParallelUnit::DistributedNode,
+    }
+  };
 
-  Tensor<double> A("A", {dim, dim}, Dense);
+  Tensor<double> A("A", {dim, dim}, {Dense, Dense}, ADist);
   Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, BDist);
-  Tensor<double> C("C", {dim, dim}, Dense);
-  Tensor<double> D("D", {dim, dim}, Dense);
+  Tensor<double> C("C", {dim, dim}, {Dense, Dense}, CDist);
+  Tensor<double> D("D", {dim, dim}, {Dense, Dense}, DDist);
 
   std::shared_ptr<LeafCallInterface> mttkrp = std::make_shared<MTTKRP>();
   IndexVar i("i"), j("j"), k("k"), l("l");
@@ -230,9 +259,23 @@ TEST(distributed, mttkrp) {
                .swapLeafKernel(il, mttkrp)
                ;
 
+  // Generate partitioning statements for each tensor.
+  auto partitionA = lower(A.partitionStmt(Grid(gx)), "partitionLegionA", false, true);
+  auto partitionB = lower(B.partitionStmt(grid3), "partitionLegionB", false, true);
+  auto partitionC = lower(C.partitionStmt(Grid(gy)), "partitionLegionC", false, true);
+  auto partitionD = lower(D.partitionStmt(Grid(gz)), "partitionLegionD", false, true);
+
+  // Placement statements for each tensor.
+  auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
   auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
+  auto placeDLowered = lower(D.getPlacementStatement(), "placeLegionD", false, true);
   auto lowered = lower(stmt, "computeLegion", false, true);
-  auto all = ir::Block::make({placeBLowered, lowered});
+  auto all = ir::Block::make({
+    partitionA, partitionB, partitionC, partitionD,
+    placeALowered, placeBLowered, placeCLowered, placeDLowered,
+    lowered
+  });
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
   // Also write it into a file.
