@@ -12,7 +12,7 @@ LogicalPartition partitionLegion(Context ctx, Runtime* runtime, LogicalRegion a,
 LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gridX, int32_t gridY);
 LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, int32_t gridX, int32_t gridY);
 LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, int32_t gridX, int32_t gridY);
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, LogicalPartition aPartition);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, LogicalPartition aPartition, int32_t gridX);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   // Create the regions.
@@ -73,7 +73,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     placeLegionC(ctx, runtime, C, gx, gy);
 
     // Compute on the tensors.
-    benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, part); });
+    benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, part, gx); });
   }
 
   tacoValidate<valType>(ctx, runtime, A, aPart, valType(n));

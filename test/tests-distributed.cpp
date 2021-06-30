@@ -146,9 +146,7 @@ TEST(distributed, summaMM) {
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
       .distribute({i, j}, {in, jn}, {il, jl}, a(i, j))
-      // Experiment with making this a division. I don't know how good
-      // such a split will be on very large matrices.
-      .split(k, ko, ki, 512)
+      .divide(k, ko, ki, gx)
       .reorder({ko, il, jl})
       .communicate(b(i, k), ko)
       .communicate(c(k, j), ko)
