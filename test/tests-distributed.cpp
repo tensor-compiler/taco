@@ -555,6 +555,88 @@ TEST(distributed, johnsonMM) {
   }
 }
 
+TEST(distributed, cuda_johnsonMM) {
+  int dim = 10;
+  auto gdim = ir::Var::make("gridDim", Int32, false, false, true);
+  auto grid = Grid(gdim, gdim);
+  auto cube = Grid(gdim, gdim, gdim);
+  auto gpuDim = ir::Var::make("gpuDim", Int32, false, false, true);
+  auto gpuGrid = Grid(gpuDim, gpuDim);
+  TensorDistribution gpuDist{
+    gpuGrid,
+    gpuGrid,
+    GridPlacement({0, 1}),
+    ParallelUnit::DistributedGPU,
+  };
+  std::vector<TensorDistribution> aDist{
+    TensorDistribution{
+      grid,
+      cube,
+      GridPlacement({0, 1, Face(0)}),
+      ParallelUnit::DistributedNode,
+    },
+    gpuDist,
+  };
+  std::vector<TensorDistribution> bDist{
+    TensorDistribution{
+      grid,
+      cube,
+      GridPlacement({0, Face(0), 1}),
+      ParallelUnit::DistributedNode,
+    },
+    gpuDist,
+  };
+  std::vector<TensorDistribution> cDist{
+    TensorDistribution{
+      grid,
+      cube,
+      GridPlacement({Face(0), 0, 1}),
+      ParallelUnit::DistributedNode,
+    },
+    gpuDist,
+  };
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, aDist);
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, bDist);
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, cDist);
+
+  auto partDim = ir::Mul::make(gdim, gpuDim);
+  auto partitionStmt = lower(a.partitionStmt(Grid(partDim, partDim)), "partitionLegion", false, true);
+  auto placeALowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
+
+  IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
+  IndexVar iln("iln"), ill("ill"), jln("jln"), jll("jll"), kii("kii"), kio("kio"), kios("kios");
+  a(i, j) = b(i, k) * c(k, j);
+  auto stmt = a.getAssignment().concretize();
+  std::shared_ptr<LeafCallInterface> gemm = std::make_shared<CuGEMM>();
+  stmt = stmt
+      .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, cube)
+      .communicate(a(i, j), kn)
+      .communicate(b(i, k), kn)
+      .communicate(c(k, j), kn)
+      .distribute({il, jl}, {iln, jln}, {ill, jll}, gpuGrid, taco::ParallelUnit::DistributedGPU)
+      .divide(kl, kio, kii, gpuDim)
+      .reorder({kio, ill, jll})
+      .stagger(kio, {iln, jln}, kios)
+      .communicate(b(i, k), kios)
+      .communicate(c(k, j), kios)
+      .communicate(a(i, j), jln)
+      .swapLeafKernel(ill, gemm)
+      ;
+
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto all = ir::Block::make({partitionStmt, placeALowered, placeBLowered, placeCLowered, lowered});
+  auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  {
+    ofstream f("../legion/johnsonMM/taco-generated.cu");
+    auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+}
+
 TEST(distributed, solomonikMM) {
   int dim = 10;
   Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
