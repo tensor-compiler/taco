@@ -126,7 +126,7 @@ TEST(distributed, summaMM) {
   Tensor<double> c("c", {dim, dim}, Format{Dense, Dense});
 
   IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko");
-
+  IndexVar iln("iln"), ill("ill");
   a(i, j) = b(i, k) * c(k, j);
 
   // Place each tensor onto a processor grid.
@@ -150,7 +150,13 @@ TEST(distributed, summaMM) {
       .reorder({ko, il, jl})
       .communicate(b(i, k), ko)
       .communicate(c(k, j), ko)
-      .swapLeafKernel(il, gemm)
+      // Hierarchically parallelize the computation for each NUMA region.
+      // TODO (rohany): Make the number of OpenMP processors configurable.
+      .distribute({il}, {iln}, {ill}, Grid(2))
+      .communicate(a(i, j), iln)
+      .communicate(b(i, k), iln)
+      .communicate(c(k, j), iln)
+      .swapLeafKernel(ill, gemm)
       ;
 
   auto lowered = lower(stmt, "computeLegion", false, true);
