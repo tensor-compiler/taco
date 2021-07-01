@@ -98,7 +98,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto flopCount = getGEMMFLOPCount(n, n, n);
   auto gflops = getGFLOPS(flopCount, avgTime);
   auto nodes = runtime->select_tunable_value(ctx, Mapping::DefaultMapper::DEFAULT_TUNABLE_NODE_COUNT).get<size_t>();
-  LEGION_PRINT_ONCE(runtime, ctx, stdout, "On %ld nodes achieved GFLOPS per node: %lf\n.", nodes, gflops / double(nodes));
+  LEGION_PRINT_ONCE(runtime, ctx, stdout, "On %ld nodes achieved GFLOPS per node: %lf.\n", nodes, gflops / double(nodes));
 
   // The result should be equal to 1.
   tacoValidate<valType>(ctx, runtime, A, aPart, valType(n));
