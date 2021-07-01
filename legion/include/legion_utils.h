@@ -28,6 +28,26 @@ Legion::PhysicalRegion getRegionToWrite(Legion::Context ctx, Legion::Runtime* ru
 void benchmark(std::function<void(void)> f);
 // Variant of benchmark that prints only once in a control replicated setting.
 void benchmark(Legion::Context ctx, Legion::Runtime* runtime, std::function<void(void)> f);
+// Variant of benchmark that collects the runtime into a vector.
+void benchmark(Legion::Context ctx, Legion::Runtime* runtime, std::vector<size_t>& times, std::function<void(void)> f);
+
+// Utility function to get the number of flops performed by a GEMM operation.
+size_t getGEMMFLOPCount(size_t M, size_t N, size_t K);
+
+// Utility function to do the unit conversions for GFLOPS.
+double getGFLOPS(size_t flopCount, size_t ms);
+
+// Utility function to return the average of a list of numbers.
+// TODO (rohany): We can update this to ignore the first element, or the maximum
+//  and minimum element etc.
+template<typename T>
+T average(std::vector<T> vals) {
+  T sum = 0;
+  for (auto elem : vals) {
+    sum += elem;
+  }
+  return sum / (T(vals.size()));
+}
 
 // We forward declare these functions. If we are building with CUDA, then
 // the CUDA files define them. Otherwise, the CPP files define them.

@@ -30,6 +30,25 @@ void benchmark(Legion::Context ctx, Legion::Runtime* runtime, std::function<void
   LEGION_PRINT_ONCE(runtime, ctx, stdout, "Execution time: %lld ms.\n", ms);
 }
 
+void benchmark(Legion::Context ctx, Legion::Runtime* runtime, std::vector<size_t>& times, std::function<void(void)> f) {
+  auto start = std::chrono::high_resolution_clock::now();
+  f();
+  auto end = std::chrono::high_resolution_clock::now();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+  LEGION_PRINT_ONCE(runtime, ctx, stdout, "Execution time: %lld ms.\n", ms);
+  times.push_back(ms);
+}
+
+size_t getGEMMFLOPCount(size_t M, size_t N, size_t K) {
+  return M * N * (2 * K - 1);
+}
+
+double getGFLOPS(size_t flopCount, size_t ms) {
+  double s = double(ms) / 1e3;
+  double GFLOP = double(flopCount) / 1e9;
+  return GFLOP / s;
+}
+
 #ifndef TACO_USE_CUDA
 // Dummy implementations of initCuBLAS and initCUDA if we aren't supposed to use CUDA.
 void initCuBLAS(Context ctx, Runtime* runtime) {}
