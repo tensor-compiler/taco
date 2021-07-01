@@ -2086,8 +2086,7 @@ vector<Stmt> LowererImplImperative::codeToInitializeTemporaryParallel(Where wher
     values = ir::Var::make(temporaryAll.getName(),
                            temporaryAll.getType().getDataType(),
                                 true, false);
-    // taco_iassert(temporaryAll.getType().getOrder() == 1) << " Temporary order was "
-    //                                                   << temporaryAll.getType().getOrder();  // TODO
+
     Expr size = getTemporarySize(where);
     Expr sizeAll = ir::Mul::make(size, ir::Call::make("omp_get_max_threads", {}, size.type()));
 
@@ -2141,8 +2140,7 @@ vector<Stmt> LowererImplImperative::codeToInitializeTemporary(Where where) {
         needComputeValues(where, temporary)) {
       values = ir::Var::make(temporary.getName(),
                              temporary.getType().getDataType(), true, false);
-      //taco_iassert(temporary.getType().getOrder() == 1)
-      //    << " Temporary order was " << temporary.getType().getOrder();  // TODO
+
       Expr size = getTemporarySize(where);
 
       // no decl needed for shared memory

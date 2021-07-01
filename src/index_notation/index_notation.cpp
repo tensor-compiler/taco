@@ -26,6 +26,7 @@
 #include "taco/tensor.h"
 
 #include "taco/util/name_generator.h"
+#include "taco/util/scopedset.h"
 #include "taco/util/scopedmap.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
@@ -1525,11 +1526,9 @@ IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFa
 IndexStmt IndexStmt::precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
                                 std::vector<IndexVar> iw_vars, TensorVar workspace) const {
 
-  // TODO: need to assert they are same length
   IndexStmt transformed = *this;
   string reason;
 
- // FIXME: need to re-enable this later
  taco_uassert(i_vars.size() == iw_vars.size()) << "The precompute transformation requires"
                                                << "i_vars and iw_vars to be the same size";
  for (int l = 0; l < (int) i_vars.size(); l++) {
@@ -2343,10 +2342,10 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
   // Reduction notation until proved otherwise
   bool isReduction = true;
 
-  util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
+  util::ScopedSet<IndexVar> boundVars; 
   vector<IndexVar> boundVarsList;
   for (auto& var : to<Assignment>(stmt).getFreeVars()) {
-    boundVars.insert({var,0});
+    boundVars.insert({var});
     boundVarsList.push_back(var);
   }
 
@@ -2354,7 +2353,7 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const ReductionNode*,Matcher*)>([&](
         const ReductionNode* op, Matcher* ctx) {
       boundVars.scope();
-      boundVars.insert({op->var,0});
+      boundVars.insert({op->var});
       ctx->match(op->a);
       boundVars.unscope();
     }),
@@ -2386,10 +2385,10 @@ bool isReductionNotationScheduled(IndexStmt stmt, ProvenanceGraph provGraph, std
   // Reduction notation until proved otherwise
   bool isReduction = true;
 
-  util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
+  util::ScopedSet<IndexVar> boundVars; 
   vector<IndexVar> boundVarsList;
   for (auto& var : to<Assignment>(stmt).getFreeVars()) {
-    boundVars.insert({var,0});
+    boundVars.insert({var});
     boundVarsList.push_back(var);
   }
 
@@ -2397,7 +2396,7 @@ bool isReductionNotationScheduled(IndexStmt stmt, ProvenanceGraph provGraph, std
         std::function<void(const ReductionNode*,Matcher*)>([&](
           const ReductionNode* op, Matcher* ctx) {
           boundVars.scope();
-          boundVars.insert({op->var,0});
+          boundVars.insert({op->var});
           ctx->match(op->a);
           boundVars.unscope();
         }),
@@ -2441,7 +2440,7 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
 
   bool inWhereProducer = false;
   bool inWhereConsumer = false;
-  util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
+  util::ScopedSet<IndexVar> boundVars; 
   std::set<IndexVar> definedVars; // used to check if all variables recoverable TODO: need to actually use scope like above
 
   ProvenanceGraph provGraph = ProvenanceGraph(stmt);
@@ -2450,7 +2449,7 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const ForallNode*,Matcher*)>([&](const ForallNode* op,
                                                         Matcher* ctx) {
       boundVars.scope();
-      boundVars.insert({op->indexVar,0});
+      boundVars.insert({op->indexVar});
       definedVars.insert(op->indexVar);
       ctx->match(op->stmt);
       boundVars.unscope();
@@ -2606,6 +2605,47 @@ IndexStmt makeReductionNotation(IndexStmt stmt) {
   return makeReductionNotation(to<Assignment>(stmt));
 }
 
+// Replace other reductions with where and forall statements
+struct ReplaceReductionsWithWheres : IndexNotationRewriter {
+  using IndexNotationRewriter::visit;
+
+  Reduction reduction;
+  TensorVar t;
+
+  void visit(const AssignmentNode* node) {
+    reduction = Reduction();
+    t = TensorVar();
+
+    IndexExpr rhs = rewrite(node->rhs);
+
+    // nothing was rewritten
+    if (rhs == node->rhs) {
+      stmt = node;
+      return;
+    }
+
+    taco_iassert(t.defined() && reduction.defined());
+    IndexStmt consumer = Assignment(node->lhs, rhs, node->op);
+    IndexStmt producer = forall(reduction.getVar(),
+                                Assignment(t, reduction.getExpr(),
+                                           reduction.getOp()));
+    stmt = where(rewrite(consumer), rewrite(producer));
+  }
+
+  void visit(const ReductionNode* node) {
+    // only rewrite one reduction at a time
+    if (reduction.defined()) {
+      expr = node;
+      return;
+    }
+
+    reduction = node;
+    t = TensorVar("t" + util::toString(node->var),
+                  node->getDataType());
+    expr = t;
+  }
+};
+
 IndexStmt makeConcreteNotation(IndexStmt stmt) {
   std::string reason;
   taco_iassert(isReductionNotation(stmt, &reason))
@@ -2646,46 +2686,6 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
     stmt = forall(i, stmt);
   }
 
-  // Replace other reductions with where and forall statements
-  struct ReplaceReductionsWithWheres : IndexNotationRewriter {
-    using IndexNotationRewriter::visit;
-
-    Reduction reduction;
-    TensorVar t;
-
-    void visit(const AssignmentNode* node) {
-      reduction = Reduction();
-      t = TensorVar();
-
-      IndexExpr rhs = rewrite(node->rhs);
-
-      // nothing was rewritten
-      if (rhs == node->rhs) {
-        stmt = node;
-        return;
-      }
-
-      taco_iassert(t.defined() && reduction.defined());
-      IndexStmt consumer = Assignment(node->lhs, rhs, node->op);
-      IndexStmt producer = forall(reduction.getVar(),
-                                  Assignment(t, reduction.getExpr(),
-                                             reduction.getOp()));
-      stmt = where(rewrite(consumer), rewrite(producer));
-    }
-
-    void visit(const ReductionNode* node) {
-      // only rewrite one reduction at a time
-      if (reduction.defined()) {
-        expr = node;
-        return;
-      }
-
-      reduction = node;
-      t = TensorVar("t" + util::toString(node->var),
-                    node->getDataType());
-      expr = t;
-    }
-  };
   stmt = ReplaceReductionsWithWheres().rewrite(stmt);
   return stmt;
 }
@@ -2882,46 +2882,6 @@ IndexStmt makeConcreteNotationScheduled(IndexStmt stmt, ProvenanceGraph provGrap
     }
   }
 
-  // Replace other reductions with where and forall statements
-  struct ReplaceReductionsWithWheres : IndexNotationRewriter {
-    using IndexNotationRewriter::visit;
-
-    Reduction reduction;
-    TensorVar t;
-
-    void visit(const AssignmentNode* node) {
-      reduction = Reduction();
-      t = TensorVar();
-
-      IndexExpr rhs = rewrite(node->rhs);
-
-      // nothing was rewritten
-      if (rhs == node->rhs) {
-        stmt = node;
-        return;
-      }
-
-      taco_iassert(t.defined() && reduction.defined());
-      IndexStmt consumer = Assignment(node->lhs, rhs, node->op);
-      IndexStmt producer = forall(reduction.getVar(),
-                                  Assignment(t, reduction.getExpr(),
-                                             reduction.getOp()));
-      stmt = where(rewrite(consumer), rewrite(producer));
-    }
-
-    void visit(const ReductionNode* node) {
-      // only rewrite one reduction at a time
-      if (reduction.defined()) {
-        expr = node;
-        return;
-      }
-
-      reduction = node;
-      t = TensorVar("t" + util::toString(node->var),
-                    node->getDataType());
-      expr = t;
-    }
-  };
   stmt = ReplaceReductionsWithWheres().rewrite(stmt);
   return stmt;
 }

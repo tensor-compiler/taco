@@ -163,10 +163,8 @@ IndexStmt scheduleMTTKRPCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16,
 
   stmt = stmt.split(i, i1, i2, CHUNK_SIZE)
     .reorder({i1, i2, k, l, j});
-
-  cout << stmt << endl;
   stmt = stmt.precompute(precomputeExpr, j, j, w);
-  cout << stmt << endl;
+
   return stmt
           .parallelize(i1, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }
