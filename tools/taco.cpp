@@ -383,23 +383,37 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
     } else if (command == "precompute") {
       string exprStr, i, iw, name;
+      vector<string> i_vars, iw_vars;
+
+      for (auto& s : scheduleCommand) { cout << s << ", ";}
+      cout << endl;
       taco_uassert(scheduleCommand.size() == 3 || scheduleCommand.size() == 4)
         << "'precompute' scheduling directive takes 3 or 4 parameters: "
-        << "precompute(expr, i, iw [, workspace_name])";
+        << "precompute(expr, i, iw [, workspace_name]) or precompute(expr, {i_vars}, "
+           "{iw_vars} [, workspace_name])" << scheduleCommand.size();
+
       exprStr = scheduleCommand[0];
-      i       = scheduleCommand[1];
-      iw      = scheduleCommand[2];
+//      i       = scheduleCommand[1];
+//      iw      = scheduleCommand[2];
+      i_vars  = parser::varListParser(scheduleCommand[1]);
+      iw_vars = parser::varListParser(scheduleCommand[2]);
+
       if (scheduleCommand.size() == 4)
         name  = scheduleCommand[3];
       else
         name  = "workspace";
 
-      IndexVar orig = findVar(i);
-      IndexVar pre;
-      try {
-        pre = findVar(iw);
-      } catch (TacoException &e) {
-        pre = IndexVar(iw);
+      vector<IndexVar> origs;
+      vector<IndexVar> pres;
+      for (auto& i : i_vars) {
+        origs.push_back(findVar(i));
+      }
+      for (auto& iw : iw_vars) {
+        try {
+          pres.push_back(findVar(iw));
+        } catch (TacoException &e) {
+          pres.push_back(IndexVar(iw));
+        }
       }
 
       struct GetExpr : public IndexNotationVisitor {
@@ -456,17 +470,22 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       visitor.setExprStr(exprStr);
       stmt.accept(&visitor);
 
-      Dimension dim;
+      vector<Dimension> dims;
       auto domains = stmt.getIndexVarDomains();
-      auto it = domains.find(orig);
-      if (it != domains.end()) {
-        dim = it->second;
-      } else {
-        dim = Dimension(orig);
+      for (auto& orig : origs) {
+        auto it = domains.find(orig);
+        if (it != domains.end()) {
+          dims.push_back(it->second);
+        } else {
+          dims.push_back(Dimension(orig));
+        }
       }
 
-      TensorVar workspace(name, Type(Float64, {dim}), Dense);
-      stmt = stmt.precompute(visitor.expr, orig, pre, workspace);
+      std::vector<ModeFormatPack> modeFormatPacks(dims.size(), Dense);
+      Format format(modeFormatPacks);
+      TensorVar workspace(name, Type(Float64, dims), format);
+
+      stmt = stmt.precompute(visitor.expr, origs, pres, workspace);
 
     } else if (command == "reorder") {
       taco_uassert(scheduleCommand.size() > 1) << "'reorder' scheduling directive needs at least 2 parameters: reorder(outermost, ..., innermost)";

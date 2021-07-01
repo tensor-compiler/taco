@@ -36,8 +36,6 @@ TEST(workspaces, tile_vecElemMul_NoTail) {
              .split(i_bounded, i0, i1, 4)
              .precompute(precomputedExpr, i1, i1, precomputed);
    
-//    cout << stmt << endl;
-
   A.compile(stmt);
   A.assemble();
   A.compute();
@@ -144,8 +142,8 @@ TEST(workspaces, tile_denseMatMul) {
   Tensor<double> C("C", {16}, Format{Dense});
 
   for (int i = 0; i < 16; i++) {
-      A.insert({i}, (double) i);
       B.insert({i}, (double) i);
+      C.insert({i}, (double) i);
   }
 
   A.pack();
@@ -160,9 +158,10 @@ TEST(workspaces, tile_denseMatMul) {
   IndexStmt stmt = A.getAssignment().concretize();
   TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
   stmt = stmt.bound(i, i_bounded, 16, BoundType::MaxExact)
-             .split(i_bounded, i0, i1, 4)
-             .precompute(precomputedExpr, i1, i1, precomputed);
-   
+             .split(i_bounded, i0, i1, 4);
+
+  stmt = stmt.precompute(precomputedExpr, i1, i1, precomputed);
+
   A.compile(stmt.concretize());
   A.assemble();
   A.compute();
@@ -187,3 +186,251 @@ TEST(workspaces, tile_denseMatMul) {
   
 }
 
+TEST(workspaces, precompute2D_add) {
+  int N = 16;
+  Tensor<double> A("A", {N, N}, Format{Dense, Dense});
+  Tensor<double> B("B", {N, N}, Format{Dense, Dense});
+  Tensor<double> C("C", {N, N}, Format{Dense, Dense});
+  Tensor<double> D("D", {N, N}, Format{Dense, Dense});
+
+  for (int i = 0; i < N; i++) {
+    for (int j = 0; j < N; j++) {
+      B.insert({i, j}, (double) i);
+      C.insert({i, j}, (double) j);
+      D.insert({i, j}, (double) i*j);
+    }
+  }
+
+  IndexVar i("i"), j("j");
+  IndexExpr precomputedExpr = B(i, j) + C(i, j);
+  A(i, j) = precomputedExpr + D(i, j);
+    
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar ws("ws", Type(Float64, {(size_t)N, (size_t)N}), Format{Dense, Dense});
+  stmt = stmt.precompute(precomputedExpr, {i, j}, {i, j}, ws);
+
+  A.compile(stmt.concretize());
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {N, N}, Format{Dense, Dense});
+  expected(i, j) = B(i, j) + C(i, j) + D(i, j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+
+}
+
+TEST(workspaces, precompute4D_add) {
+  int N = 16;
+  Tensor<double> A("A", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
+  Tensor<double> B("B", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
+  Tensor<double> C("C", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
+  Tensor<double> D("D", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
+
+  for (int i = 0; i < N; i++) {
+    for (int j = 0; j < N; j++) {
+      for (int k = 0; k < N; k++) {
+        for (int l = 0; l < N; l++) {
+          B.insert({i, j, k, l}, (double) i + j);
+          C.insert({i, j, k, l}, (double) j * k);
+          D.insert({i, j, k, l}, (double) k * l);
+        }
+      }
+    }
+  }
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  IndexExpr precomputedExpr = B(i, j, k, l) + C(i, j, k, l);
+  A(i, j, k, l) = precomputedExpr + D(i, j, k, l);
+
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar ws1("ws1", Type(Float64, {(size_t)N, (size_t)N, (size_t)N, (size_t)N}), 
+                Format{Dense, Dense, Dense, Dense});
+  TensorVar ws2("ws2", Type(Float64, {(size_t)N, (size_t)N, (size_t)N, (size_t)N}), 
+                Format{Dense, Dense, Dense, Dense});
+  stmt = stmt.precompute(precomputedExpr, {i, j, k, l}, {i, j, k, l}, ws1)
+    .precompute(ws1(i, j, k, l) + D(i, j, k, l), {i, j, k, l}, {i, j, k ,l}, ws2);
+
+  A.compile(stmt.concretize());
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
+  expected(i, j, k, l) = B(i, j, k, l) + C(i, j, k, l) + D(i, j, k, l);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+}
+
+TEST(workspaces, precompute4D_multireduce) {
+  int N = 16;
+  Tensor<double> A("A", {N, N}, Format{Dense, Dense});
+  Tensor<double> B("B", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
+  Tensor<double> C("C", {N, N, N}, Format{Dense, Dense, Dense});
+  Tensor<double> D("D", {N, N}, Format{Dense, Dense});
+
+  for (int i = 0; i < N; i++) {
+    for (int j = 0; j < N; j++) {
+      for (int k = 0; k < N; k++) {
+        for (int l = 0; l < N; l++) {
+          B.insert({i, j, k, l}, (double) k*l);
+          C.insert({i, j, k}, (double) j * k);
+          D.insert({i, j}, (double) i+j);
+        }
+      }
+    }
+  }
+
+  IndexVar i("i"), j("j"), k("k"), l("l"), m("m"), n("n");
+  IndexExpr precomputedExpr = B(i, j, k, l) * C(k, l, m);
+  A(i, j) = precomputedExpr * D(m, n);
+
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar ws1("ws1", Type(Float64, {(size_t)N, (size_t)N, (size_t)N}), Format{Dense, Dense, Dense});
+  TensorVar ws2("ws2", Type(Float64, {(size_t)N, (size_t)N}), Format{Dense, Dense});
+  stmt = stmt.precompute(precomputedExpr, {i, j, m}, {i, j, m}, ws1)
+    .precompute(ws1(i, j, m) * D(m, n), {i, j}, {i, j}, ws2);
+
+  A.compile(stmt.concretize());
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {N, N}, Format{Dense, Dense});
+  expected(i, j) = B(i, j, k, l) * C(k, l, m) * D(m, n);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+}
+
+TEST(workspaces, precompute3D_TspV) {
+  int N = 16;
+  Tensor<double> A("A", {N, N}, Format{Dense, Dense});
+  Tensor<double> B("B", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
+  Tensor<double> c("c", {N}, Format{Sparse});
+
+  for (int i = 0; i < N; i++) {
+    c.insert({i}, (double) i);
+    for (int j = 0; j < N; j++) {
+      for (int k = 0; k < N; k++) {
+        for (int l = 0; l < N; l++) {
+          B.insert({i, j, k, l}, (double) i + j);
+        }
+      }
+    }
+  }
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  IndexExpr precomputedExpr = B(i, j, k, l) * c(l);
+  A(i, j) = precomputedExpr * c(k);
+
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar ws("ws", Type(Float64, {(size_t)N, (size_t)N, (size_t)N}), Format{Dense, Dense, Dense});
+  stmt = stmt.precompute(precomputedExpr, {i, j, k}, {i, j, k}, ws);
+  stmt = stmt.concretize();
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {N, N}, Format{Dense, Dense});
+  expected(i, j) = (B(i, j, k, l) * c(l)) * c(k);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+
+}
+
+TEST(workspaces, precompute3D_multipleWS) {
+  int N = 16;
+  Tensor<double> A("A", {N, N}, Format{Dense, Dense});
+  Tensor<double> B("B", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
+  Tensor<double> c("c", {N}, Format{Sparse});
+
+  for (int i = 0; i < N; i++) {
+    c.insert({i}, (double) i);
+    for (int j = 0; j < N; j++) {
+      for (int k = 0; k < N; k++) {
+        for (int l = 0; l < N; l++) {
+          B.insert({i, j, k, l}, (double) i + j);
+        }
+      }
+    }
+  }
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  IndexExpr precomputedExpr = B(i, j, k, l) * c(l);
+  IndexExpr precomputedExpr2 = precomputedExpr * c(k);
+  A(i, j) = precomputedExpr2;
+
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar ws("ws", Type(Float64, {(size_t)N, (size_t)N, (size_t)N}), Format{Dense, Dense, Dense});
+  TensorVar t("t", Type(Float64, {(size_t) N, (size_t)N}), Format{Dense, Dense});
+  stmt = stmt.precompute(precomputedExpr, {i, j, k}, {i, j, k}, ws);
+
+  stmt = stmt.precompute(ws(i, j, k) * c(k), {i, j}, {i, j}, t);
+  stmt = stmt.concretize();
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {N, N}, Format{Dense, Dense});
+  expected(i, j) = (B(i, j, k, l) * c(l)) * c(k);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+
+}
+
+TEST(workspaces, precompute3D_renamedIVars_TspV) {
+  int N = 16;
+  Tensor<double> A("A", {N, N}, Format{Dense, Dense});
+  Tensor<double> B("B", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
+  Tensor<double> c("c", {N}, Format{Sparse});
+
+  for (int i = 0; i < N; i++) {
+    c.insert({i}, (double) i);
+    for (int j = 0; j < N; j++) {
+      for (int k = 0; k < N; k++) {
+        for (int l = 0; l < N; l++) {
+          B.insert({i, j, k, l}, (double) i + j);
+        }
+      }
+    }
+  }
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  IndexExpr precomputedExpr = B(i, j, k, l) * c(l);
+  A(i, j) = precomputedExpr * c(k);
+
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar ws("ws", Type(Float64, {(size_t)N, (size_t)N, (size_t)N}),
+               Format{Dense, Dense, Dense});
+
+  IndexVar iw("iw"), jw("jw"), kw("kw");
+  stmt = stmt.precompute(precomputedExpr, {i, j, k}, {iw, jw, kw}, ws);
+  stmt = stmt.concretize();
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {N, N}, Format{Dense, Dense});
+  expected(i, j) = (B(i, j, k, l) * c(l)) * c(k);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+
+}

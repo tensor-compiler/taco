@@ -494,6 +494,12 @@ private:
   std::vector<TensorVar> whereTemps;
   std::map<TensorVar, const AccessNode *> whereTempsToResult;
 
+  // Map temporary tensorVars to a list of size expressions for each mode
+  std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap;
+  
+  // List that contains all temporary tensorVars
+  std::vector<TensorVar> temporaries;
+
   bool captureNextLocatePos = false;
   ir::Stmt capturedLocatePos; // used for whereConsumer when want to replicate same locating
 
