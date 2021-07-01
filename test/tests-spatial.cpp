@@ -846,7 +846,7 @@ TEST(spatial, sparse_csr_plus2) {
   set_Spatial_codegen_enabled(false);
 }
 
-TEST(spatial, DISABLED_sparse_csr_plus3) {
+TEST(spatial, sparse_csr_plus3) {
   set_Spatial_codegen_enabled(true);
 
   Tensor<int> A("A", {16, 16}, CSR, taco::MemoryLocation::SpatialFIFO);

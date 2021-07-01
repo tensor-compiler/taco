@@ -1,5 +1,5 @@
-#ifndef TACO_LOWERER_IMPL_C_H
-#define TACO_LOWERER_IMPL_C_H
+#ifndef TACO_LOWERER_IMPL_IMPERATIVE_H
+#define TACO_LOWERER_IMPL_IMPERATIVE_H
 
 #include <utility>
 #include <vector>
@@ -49,10 +49,10 @@ class Stmt;
 class Expr;
 }
 
-class LowererImplC : public LowererImpl {
+class LowererImplImperative : public LowererImpl {
 public:
-  LowererImplC();
-  virtual ~LowererImplC() = default;
+  LowererImplImperative();
+  virtual ~LowererImplImperative() = default;
 
   /// Lower an index statement to an IR function.
   ir::Stmt lower(IndexStmt stmt, std::string name, 
