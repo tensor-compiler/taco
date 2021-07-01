@@ -4,6 +4,7 @@
 #include <string>
 
 #include "taco/format.h"
+#include "taco/ir_tags.h"
 
 namespace taco {
 
@@ -22,7 +23,8 @@ public:
 
   /// Construct a tensor mode.
   Mode(ir::Expr tensor, Dimension size, int mode, ModeFormat modeFormat,
-       ModePack modePack, size_t packLoc, ModeFormat parentModeFormat);
+       ModePack modePack, size_t packLoc, ModeFormat parentModeFormat,
+       MemoryLocation memoryLocation = MemoryLocation::Default);
 
   /// Retrieve the name of the tensor mode.
   std::string getName() const;
@@ -32,6 +34,9 @@ public:
 
   /// Retrieve the size of the tensor mode.
   Dimension getSize() const;
+
+  /// Retrieve the memory location of the tensor mode.
+  MemoryLocation getMemoryLocation() const;
 
   /// Retrieve the mode of this mode in its the mode hierarchy.  The first
   /// mode in a mode hierarchy is at mode 1, and mode 0 is the root mode.

@@ -125,6 +125,10 @@ void IRVisitor::visit(const Call* op) {
   }
 }
 
+void IRVisitor::visit(const CallStmt* op) {
+  op->call.accept(this);
+}
+
 void IRVisitor::visit(const IfThenElse* op) {
   op->cond.accept(this);
   op->then.accept(this);
@@ -132,6 +136,12 @@ void IRVisitor::visit(const IfThenElse* op) {
   if (op->otherwise.defined()) {
     op->otherwise.accept(this);
   }
+}
+
+void IRVisitor::visit(const Ternary* op) {
+  op->cond.accept(this);
+  op->then.accept(this);
+  op->otherwise.accept(this);
 }
 
 void IRVisitor::visit(const Case* op) {
@@ -269,6 +279,22 @@ void IRVisitor::visit(const Reduce* op) {
     op->returnExpr.accept(this);
 }
 
+void IRVisitor::visit(const ReduceScan* op) {
+  op->caseType.accept(this);
+  op->reg.accept(this);
+  op->scanner.accept(this);
+  if (op->contents.defined())
+    op->contents.accept(this);
+  if (op->returnExpr.defined())
+    op->returnExpr.accept(this);
+}
+
+void IRVisitor::visit(const ForScan* op) {
+  op->caseType.accept(this);
+  op->scanner.accept(this);
+  op->contents.accept(this);
+}
+
 void IRVisitor::visit(const MemLoad* op) {
   op->lhsMem.accept(this);
   op->rhsMem.accept(this);
@@ -297,11 +323,24 @@ void IRVisitor::visit(const GenBitVector* op) {
 void IRVisitor::visit(const Scan* op) {
   op->par.accept(this);
   op->bitcnt.accept(this);
-  op->op.accept(this);
   op->in_fifo2.accept(this);
   if (op->in_fifo2.defined())
     op->in_fifo2.accept(this);
 }
+
+void IRVisitor::visit(const TypeCase* op) {
+  for (auto v:op->vars)
+    v.accept(this);
+}
+
+void IRVisitor::visit(const RMW* op) {
+  op->arr.accept(this);
+  op->addr.accept(this);
+  op->data.accept(this);
+  if (op->barrier.defined())
+    op->barrier.accept(this);
+}
+
 /// SPATIAL ONLY END
 
 }  // namespace ir

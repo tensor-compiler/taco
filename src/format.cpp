@@ -368,7 +368,7 @@ ostream& operator<<(ostream& os, const ModeFormatPack& modeFormatPack) {
 
 // Predefined formats
 ModeFormat ModeFormat::Dense(std::make_shared<DenseModeFormat>());
-ModeFormat ModeFormat::Compressed(should_use_Spatial_codegen() ? std::make_shared<CompressedModeFormatSpatial>(): std::make_shared<CompressedModeFormat>());
+ModeFormat ModeFormat::Compressed(should_use_Spatial_codegen() ? std::make_shared<CompressedModeFormatSpatial>() : std::make_shared<CompressedModeFormat>());
 ModeFormat ModeFormat::Sparse = ModeFormat::Compressed;
 ModeFormat ModeFormat::Singleton(std::make_shared<SingletonModeFormat>());
 

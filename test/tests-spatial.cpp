@@ -769,12 +769,52 @@ TEST(spatial, sparse_csr_spMV_default) {
 }
 
 TEST(spatial, sparse_dense_plus2) {
+  set_Spatial_codegen_enabled(true);
+
+  Tensor<int> A("A", {16, 16}, {Dense, Dense}, taco::MemoryLocation::SpatialSparseDRAM);
+  Tensor<int> B("B", {16, 16}, CSR, taco::MemoryLocation::SpatialSparseDRAM);
+  Tensor<int> C("C", {16, 16}, CSR, taco::MemoryLocation::SpatialSparseDRAM);
+
+  for (int i = 0; i < 16; i++) {
+    B.insert({i, i}, (int) i);
+    C.insert({i, i}, (int) i);
+  }
+
+  IndexVar i("i"), j("j");
+  A(i, j) = B(i, j) + C(i, j);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+
+  cout << "----------------Post-Schedule Stmt-----------------" << endl;
+  cout << stmt << endl;
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+
+  cout << "----------------CPU LLIR-----------------" << endl;
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  irp.print(compute);
+  cout << endl;
+
+  cout << "----------------SPATIAL LLIR-----------------" << endl;
+  set_Spatial_codegen_enabled(true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt computes = lower(stmt, "compute",  true, true);
+  irp.print(computes);
+
+  cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  codegen->compile(computes, false);
   set_Spatial_codegen_enabled(false);
+}
 
-  Tensor<int> A("A", {16, 16}, {Dense, Dense}, taco::MemoryLocation::SpatialFIFO);
-  Tensor<int> B("B", {16, 16}, CSR, taco::MemoryLocation::SpatialFIFO);
-  Tensor<int> C("C", {16, 16}, CSR, taco::MemoryLocation::SpatialFIFO);
+TEST(spatial, sparse_csr_plus2) {
+  set_Spatial_codegen_enabled(true);
+  cout << "------SPATIAL CODEGEN------- " << (int)should_use_Spatial_codegen() << endl;
+  Tensor<int> A("A", {16, 16}, {Dense, Sparse}, taco::MemoryLocation::SpatialSparseDRAM);
 
+  Tensor<int> B("B", {16, 16}, {Dense, Sparse}, taco::MemoryLocation::SpatialSparseDRAM);
+
+  Tensor<int> C("C", {16, 16}, {Dense, Sparse}, taco::MemoryLocation::SpatialSparseDRAM);
+  set_Spatial_codegen_enabled(false);
   for (int i = 0; i < 16; i++) {
     B.insert({i, i}, (int) i);
     C.insert({i, i}, (int) i);
@@ -806,8 +846,8 @@ TEST(spatial, sparse_dense_plus2) {
   set_Spatial_codegen_enabled(false);
 }
 
-TEST(spatial, sparse_csr_plus3) {
-  set_Spatial_codegen_enabled(false);
+TEST(spatial, DISABLED_sparse_csr_plus3) {
+  set_Spatial_codegen_enabled(true);
 
   Tensor<int> A("A", {16, 16}, CSR, taco::MemoryLocation::SpatialFIFO);
   Tensor<int> B("B", {16, 16}, CSR, taco::MemoryLocation::SpatialFIFO);
@@ -821,9 +861,12 @@ TEST(spatial, sparse_csr_plus3) {
   }
 
   IndexVar i("i"), j("j");
-  A(i, j) = B(i, j) + C(i, j) + D(i, j);
+  auto precomputedExpr = C(i, j) + D(i, j);
+  A(i, j) = B(i, j) + precomputedExpr;
 
   IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar ws("ws", Type(Float64, {16, 16}), {taco::dense, taco::compressed});
+  stmt = stmt.precompute(precomputedExpr, {i, j}, {i, j}, ws);
 
   cout << "----------------Post-Schedule Stmt-----------------" << endl;
   cout << stmt << endl;

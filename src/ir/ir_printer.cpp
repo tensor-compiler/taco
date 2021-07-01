@@ -240,6 +240,12 @@ void IRPrinter::visit(const Call* op) {
   stream << ")";
 }
 
+void IRPrinter::visit(const CallStmt* op) {
+  doIndent();
+  op->call.accept(this);
+  stream << endl;
+}
+
 void IRPrinter::visit(const IfThenElse* op) {
   taco_iassert(op->cond.defined());
   taco_iassert(op->then.defined());
@@ -279,6 +285,19 @@ void IRPrinter::visit(const IfThenElse* op) {
     stream << "}";
   }
   stream << endl;
+}
+
+void IRPrinter::visit(const Ternary* op) {
+  taco_iassert(op->cond.defined());
+  taco_iassert(op->then.defined());
+  stream << "(";
+  parentPrecedence = Precedence::TOP;
+  op->cond.accept(this);
+  stream << ") ? ";
+
+  op->then.accept(this);
+  stream << " : ";
+  op->otherwise.accept(this);
 }
 
 void IRPrinter::visit(const Case* op) {
@@ -667,6 +686,51 @@ void IRPrinter::visit(const Reduce* op) {
   stream << endl;
 }
 
+void IRPrinter::visit(const ReduceScan* op) {
+  doIndent();
+  stream << keywordString("for") << " (";
+  op->caseType.accept(this);
+  stream << " : ";
+  op->scanner.accept(this);
+  stream << ") {\n";
+  if (op->contents.defined()) {
+    op->contents.accept(this);
+    stream << endl;
+  }
+
+  if (op->returnExpr.defined()) {
+    indent++;
+    doIndent();
+    op->reg.accept(this);
+    stream << " += ";
+    op->returnExpr.accept(this);
+    stream << endl;
+    indent--;
+  }
+
+  doIndent();
+  stream << "}";
+  stream << endl;
+}
+
+void IRPrinter::visit(const ForScan* op) {
+  doIndent();
+  stream << keywordString("for") << " (";
+  op->caseType.accept(this);
+  stream << " : ";
+  op->scanner.accept(this);
+  stream << ") {\n";
+  doIndent();
+  op->contents.accept(this);
+  stream << endl;
+  indent++;
+
+  indent--;
+  doIndent();
+  stream << "}";
+  stream << endl;
+}
+
 void IRPrinter::visit(const MemStore* op) {
   doIndent();
   op->lhsMem.accept(this);
@@ -703,6 +767,7 @@ void IRPrinter::visit(const MemLoad* op) {
 }
 
 void IRPrinter::visit(const GenBitVector* op) {
+  doIndent();
   stream << "gen_bitvector(";
   op->shift.accept(this);
   stream << ", ";
@@ -727,7 +792,10 @@ void IRPrinter::visit(const Scan* op) {
   stream << ", ";
   op->bitcnt.accept(this);
   stream << ", ";
-  op->op.accept(this);
+  if (op->or_op)
+    stream << "\"or\"";
+  else
+    stream << "\"and\"";
   stream << ", ";
   op->in_fifo1.accept(this);
   if (op->in_fifo2.defined()) {
@@ -735,6 +803,31 @@ void IRPrinter::visit(const Scan* op) {
     op->in_fifo2.accept(this);
   }
   stream << ")";
+}
+
+void IRPrinter::visit(const TypeCase* op) {
+  stream << "case List(";
+  for (int i = 0; i < (int)op->vars.size(); i++) {
+    op->vars[i].accept(this);
+    if (i != (int)op->vars.size() - 1)
+      stream << ",";
+  }
+  stream << ")";
+}
+
+void IRPrinter::visit(const RMW* op) {
+  op->arr.accept(this);
+  stream << ".RMW(";
+  op->addr.accept(this);
+  stream << ", ";
+  op->data.accept(this);
+  stream << ", \"" << SpatialRMWOperators_IR[(int) op->op] << "\"";
+  stream << ", \"" << SpatialMemOrdering_IR[(int) op->ordering] << "\", ";
+
+  stream << "Seq(";
+  if (op->barrier.defined())
+    op->barrier.accept(this);
+  stream << "))";
 }
 
 /// SPATIAL ONLY END

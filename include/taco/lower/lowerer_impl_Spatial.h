@@ -58,7 +58,33 @@ protected:
                                std::set<Access> reducedAccesses,
                                ir::Stmt recoveryStmt) override;
 
-private:
+  /// Create statements to append coordinate to result modes.
+  ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord) override;
+
+  /// Returns the segment of IR that generates the bitvectors from the FIFO crd arrays
+  ir::Stmt generateIteratorBitVectors(IndexStmt statement, MergePoint point, std::map<Iterator, ir::Expr>& varMap);
+
+  /// Loads the crd arrays from DRAM into FIFOs
+  ir::Stmt loadDRAMtoFIFO(IndexStmt statement, MergePoint point, std::map<Iterator, ir::Expr>& varMap);
+
+  /// Generates the IR segment that counts up all of the bits in the bitvectors.
+  /// This will be used in the result Pos array
+  ir::Stmt generateIteratorAppendPositions(IndexStmt statement, ir::Expr coordinate, IndexVar coordinateVar, MergePoint point,
+                                   std::vector<Iterator> appenders, std::map<Iterator, ir::Expr>& varMap, bool isUnion = false);
+
+  /// Generate the compute loop that either takes the union or intersection of the multiple sparse iterators.
+  ir::Stmt generateIteratorComputeLoop(IndexStmt statement, ir::Expr coordinate, IndexVar coordinateVar, MergePoint point,
+                                       MergeLattice lattice, std::map<Iterator, ir::Expr>& varMap, const std::set<Access>& reducedAccesses, bool isUnion);
+
+  bool hasSparseDRAMAccesses(IndexExpr expression);
+
+  ir::Stmt hoistSparseDRAMAccesses(IndexExpr expression);
+
+  ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> iterators, std::vector<Iterator> rangers,
+                                       std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar) override;
+
+
+    private:
   class Visitor;
   friend class Visitor;
   std::shared_ptr<Visitor> visitor;
@@ -66,6 +92,8 @@ private:
   bool ignoreVectorize = false;
 
   int markAssignsAtomicDepth = 0;
+
+  std::map<TensorVar, ir::Expr> sparseDRAMAccessMap;
 };
 
 

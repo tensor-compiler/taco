@@ -202,6 +202,15 @@ void IRRewriter::visit(const Call* op) {
   }
 }
 
+void IRRewriter::visit(const CallStmt* op) {
+  Expr call = rewrite(op->call);
+  if (call == op->call) {
+    stmt = op;
+  } else {
+    stmt = ir::CallStmt::make(call);
+  }
+}
+
 void IRRewriter::visit(const IfThenElse* op) {
   Expr cond      = rewrite(op->cond);
   Stmt then      = rewrite(op->then);
@@ -214,6 +223,19 @@ void IRRewriter::visit(const IfThenElse* op) {
                                : IfThenElse::make(cond, then);
   }
 }
+
+void IRRewriter::visit(const Ternary* op) {
+  Expr cond      = rewrite(op->cond);
+  Expr then      = rewrite(op->then);
+  Expr otherwise = rewrite(op->otherwise);
+  if (cond == op->cond && then == op->then && otherwise == op->otherwise) {
+    expr = op;
+  }
+  else {
+    expr = Ternary::make(cond, then, otherwise);
+  }
+}
+
 
 void IRRewriter::visit(const Case* op) {
   vector<std::pair<Expr,Stmt>> clauses;
@@ -547,16 +569,53 @@ void IRRewriter::visit(const Reduce* op) {
   Expr retExpr;
   if (op->returnExpr.defined())
     retExpr   = rewrite(op->returnExpr);
+
   if (var == op->var && reg == op->reg && start == op->start && end == op->end &&
-      increment == op->increment && contents == op->contents && !op->returnExpr.defined()) {
+      increment == op->increment && contents == op->contents && (!op->returnExpr.defined() || retExpr == op->returnExpr)) {
     stmt = op;
-  } else if (var == op->var && reg == op->reg && start == op->start && end == op->end &&
-             increment == op->increment && contents == op->contents && op->returnExpr.defined() && retExpr == op->returnExpr)
-  {
+  } else {
+    stmt = Reduce::make(var, reg, start, end, increment, contents, retExpr, op->add, op->par);
+  }
+}
+
+void IRRewriter::visit(const ReduceScan* op) {
+  Expr caseType  = rewrite(op->caseType);
+  Expr reg       = rewrite(op->reg);
+  Expr scanner   = rewrite(op->scanner);
+  Stmt contents;
+  if (op->contents.defined())
+    contents  = rewrite(op->contents);
+  Expr retExpr;
+  if (op->returnExpr.defined())
+    retExpr   = rewrite(op->returnExpr);
+
+  if (caseType == op->caseType && reg == op->reg && scanner == op->scanner && contents == op->contents &&
+      !op->returnExpr.defined() && !op->contents.defined()) {
+    stmt = op;
+  } else if (caseType == op->caseType && reg == op->reg && scanner == op->scanner && !op->contents.defined()
+             && op->returnExpr.defined() && retExpr == op->returnExpr) {
+    stmt = op;
+  } else if (caseType == op->caseType && reg == op->reg && scanner == op->scanner && op->contents.defined() && contents == op->contents
+             && op->returnExpr.defined() && retExpr == op->returnExpr ) {
+    stmt = op;
+  } else if (caseType == op->caseType && reg == op->reg && scanner == op->scanner && op->contents.defined() && contents == op->contents
+             && !op->returnExpr.defined()) {
+    stmt = op;
+  } else {
+    stmt = ReduceScan::make(caseType, reg, scanner, contents, retExpr, op->add);
+  }
+}
+
+void IRRewriter::visit(const ForScan* op) {
+  Expr caseType  = rewrite(op->caseType);
+  Expr scanner   = rewrite(op->scanner);
+  Stmt contents  = rewrite(op->contents);
+  if (caseType == op->caseType && scanner == op->scanner && contents == op->contents) {
     stmt = op;
   }
   else {
-    stmt = Reduce::make(var, reg, start, end, increment, contents, retExpr, op->add, op->par);
+    stmt = ForScan::make(caseType, scanner, contents, op->kind,
+                     op->parallel_unit, op->unrollFactor, op->vec_width, op->numChunks);
   }
 }
 
@@ -605,20 +664,56 @@ void IRRewriter::visit(const GenBitVector* op) {
 void IRRewriter::visit(const Scan* op) {
   Expr par          = rewrite(op->par);
   Expr bitcnt       = rewrite(op->bitcnt);
-  Expr scanOp       = rewrite(op->op);
   Expr in_fifo1     = rewrite(op->in_fifo1);
   Expr in_fifo2;
   if (op->in_fifo2.defined()) {
     in_fifo2        = rewrite(op->in_fifo2);
   }
 
-  if (par == op->par && bitcnt == op->bitcnt && scanOp == op->op && in_fifo1 == op->in_fifo1 &&
+  if (par == op->par && bitcnt == op->bitcnt && in_fifo1 == op->in_fifo1 &&
       (!op->in_fifo2.defined() || in_fifo2 == op->in_fifo2)) {
-    stmt = op;
+    expr = op;
   } else if (op->in_fifo2.defined()){
-    stmt = Scan::make(par, bitcnt, scanOp, in_fifo1, in_fifo2, op->reduction);
+    expr = Scan::make(par, bitcnt, in_fifo1, in_fifo2, op->or_op, op->reduction);
   } else {
-    stmt = Scan::make(par, bitcnt, scanOp, in_fifo1, op->reduction);
+    expr = Scan::make(par, bitcnt, in_fifo1, op->or_op, op->reduction);
+  }
+}
+
+void IRRewriter::visit(const TypeCase* op) {
+  vector<Expr> vars;
+  bool varsSame = true;
+  for (auto& var : op->vars) {
+    Expr rewrittenVar = rewrite(var);
+
+    if (rewrittenVar.defined()) {
+      vars.push_back(rewrittenVar);
+    }
+
+    if (rewrittenVar != var) {
+      varsSame = false;
+    }
+  }
+  if (varsSame) {
+    expr = op;
+  }
+  else {
+    expr = TypeCase::make(vars);
+  }
+}
+
+void IRRewriter::visit(const RMW* op) {
+  Expr arr      = rewrite(op->arr);
+  Expr addr     = rewrite(op->addr);
+  Expr data     = rewrite(op->data);
+  Expr barrier;
+  if (op->barrier.defined())
+    barrier  = rewrite(op->barrier);
+
+  if (arr == op->arr && addr == op->addr && data == op->data && (!op->barrier.defined() || barrier == op->barrier)) {
+    expr = op;
+  } else {
+    expr = ir::RMW::make(arr, addr, data, barrier, op->op, op->ordering);
   }
 }
 /// SPATIAL ONLY END

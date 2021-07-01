@@ -656,6 +656,18 @@ Stmt IfThenElse::make(Expr cond, Stmt then, Stmt otherwise) {
   return ite;
 }
 
+Expr Ternary::make(Expr cond, Expr then, Expr otherwise) {
+  taco_iassert(then.defined());
+  taco_iassert(cond.defined());
+  taco_iassert(cond.type().isBool()) << "Can only branch on boolean";
+
+  Ternary* ternary = new Ternary;
+  ternary->cond = cond;
+  ternary->then = then;
+  ternary->otherwise = otherwise;
+  return ternary;
+}
+
 Stmt Case::make(std::vector<std::pair<Expr,Stmt>> clauses, bool alwaysMatch) {
   for (auto clause : clauses) {
     taco_iassert(clause.first.type().isBool()) << "Can only branch on boolean";
@@ -1056,6 +1068,46 @@ Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Stmt
   return loop;
 }
 
+// Reduce loop with a scanner as the iteration pattern
+Stmt ReduceScan::make(Expr caseType, Expr reg, Expr scanner, Stmt body,
+                  bool add) {
+  ReduceScan *loop = new ReduceScan;
+  loop->caseType = caseType;
+  loop->reg = reg;
+  loop->scanner = scanner;
+  loop->contents = body;
+  loop->add = add;
+  return loop;
+}
+
+Stmt ReduceScan::make(Expr caseType, Expr reg, Expr scanner, Stmt contents, Expr returnExpr,
+                  bool add) {
+  ReduceScan *loop = new ReduceScan;
+  loop->caseType = caseType;
+  loop->reg = reg;
+  loop->scanner = scanner;
+  if (contents.defined())
+    loop->contents = Scope::make(contents);
+  loop->returnExpr = returnExpr;
+  loop->add = add;
+  return loop;
+}
+
+// For loop with a scanner as the iteration pattern
+Stmt ForScan::make(Expr caseType, Expr scanner, Stmt body,
+               LoopKind kind, ParallelUnit parallel_unit, size_t unrollFactor, int vec_width, size_t numChunks) {
+  ForScan *loop = new ForScan;
+  loop->caseType = caseType;
+  loop->scanner = scanner;
+  loop->contents = Scope::make(body);
+  loop->kind = kind;
+  loop->unrollFactor = unrollFactor;
+  loop->vec_width = vec_width;
+  loop->parallel_unit = parallel_unit;
+  loop->numChunks = numChunks;
+  return loop;
+}
+
 // Spatial Memory Load
 Stmt MemLoad::make(Expr lhsMem, Expr rhsMem, Expr start, Expr offset, Expr par) {
   MemLoad *memLoad = new MemLoad;
@@ -1088,15 +1140,38 @@ Stmt GenBitVector::make(Expr shift, Expr out_bitcnt, Expr in_len, Expr in_fifo, 
   return genBitVector;
 }
 
-Stmt Scan::make(Expr par, Expr bitcnt, Expr op, Expr in_fifo1, Expr in_fifo2, bool reduction) {
+Expr Scan::make(Expr par, Expr bitcnt, Expr in_fifo1, Expr in_fifo2, bool or_op, bool reduction) {
   Scan *scan = new Scan;
   scan->par = par;
   scan->bitcnt = bitcnt;
-  scan->op = op;
   scan->in_fifo1 = in_fifo1;
   scan->in_fifo2 = in_fifo2;
+  scan->or_op = or_op;
   scan->reduction = reduction;
   return scan;
+}
+
+Expr TypeCase::make(std::vector<ir::Expr> vars) {
+  TypeCase *typeCase = new TypeCase;
+  typeCase->vars = vars;
+  return typeCase;
+}
+
+Expr RMW::make(Expr arr, Expr addr, Expr data, Expr barrier, SpatialRMWoperators op, SpatialMemOrdering ordering) {
+  RMW *rmw = new RMW;
+  rmw->arr = arr;
+  rmw->addr = addr;
+  rmw->data = data;
+  rmw->barrier = barrier;
+  rmw->op = op;
+  rmw->ordering = ordering;
+  return rmw;
+}
+
+Stmt CallStmt::make(Expr call) {
+  CallStmt *callStmt = new CallStmt;
+  callStmt->call = call;
+  return callStmt;
 }
 
 /// SPATIAL ONLY END
@@ -1148,8 +1223,12 @@ template<> void ExprNode<Cast>::accept(IRVisitorStrict *v)
     const { v->visit((const Cast*)this); }
 template<> void ExprNode<Call>::accept(IRVisitorStrict *v)
     const { v->visit((const Call*)this); }
+template<> void StmtNode<CallStmt>::accept(IRVisitorStrict *v)
+    const { v->visit((const CallStmt*)this); }
 template<> void StmtNode<IfThenElse>::accept(IRVisitorStrict *v)
     const { v->visit((const IfThenElse*)this); }
+template<> void ExprNode<Ternary>::accept(IRVisitorStrict *v)
+    const { v->visit((const Ternary*)this); }
 template<> void StmtNode<Case>::accept(IRVisitorStrict *v)
     const { v->visit((const Case*)this); }
 template<> void StmtNode<Switch>::accept(IRVisitorStrict *v)
@@ -1203,14 +1282,24 @@ template<> void ExprNode<LoadBulk>::accept(IRVisitorStrict *v)
 /// SPATIAL ONLY
 template<> void StmtNode<Reduce>::accept(IRVisitorStrict *v)
     const { v->visit((const Reduce*)this); }
+template<> void StmtNode<ReduceScan>::accept(IRVisitorStrict *v)
+    const { v->visit((const ReduceScan*)this); }
+template<> void StmtNode<ForScan>::accept(IRVisitorStrict *v)
+    const { v->visit((const ForScan*)this); }
 template<> void StmtNode<MemLoad>::accept(IRVisitorStrict *v)
     const { v->visit((const MemLoad*)this); }
 template<> void StmtNode<MemStore>::accept(IRVisitorStrict *v)
     const { v->visit((const MemStore*)this); }
 template<> void StmtNode<GenBitVector>::accept(IRVisitorStrict *v)
     const { v->visit((const GenBitVector*)this); }
-template<> void StmtNode<Scan>::accept(IRVisitorStrict *v)
+template<> void ExprNode<Scan>::accept(IRVisitorStrict *v)
     const { v->visit((const Scan*)this); }
+template<> void ExprNode<TypeCase>::accept(IRVisitorStrict *v)
+    const { v->visit((const TypeCase*)this); }
+template<> void ExprNode<RMW>::accept(IRVisitorStrict *v)
+    const { v->visit((const RMW*)this); }
+
+
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {
   if (!stmt.defined()) return os << "Stmt()" << std::endl;

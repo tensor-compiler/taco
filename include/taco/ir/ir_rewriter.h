@@ -47,6 +47,7 @@ protected:
   virtual void visit(const Cast* op);
   virtual void visit(const Call* op);
   virtual void visit(const IfThenElse* op);
+  virtual void visit(const Ternary*);
   virtual void visit(const Case* op);
   virtual void visit(const Switch* op);
   virtual void visit(const Load* op);
@@ -72,13 +73,18 @@ protected:
   virtual void visit(const Break *op);
   virtual void visit(const LoadBulk* op);
   virtual void visit(const StoreBulk* op);
+  virtual void visit(const CallStmt* op);
 
   // Spatial Only
   virtual void visit(const Reduce* op);
+  virtual void visit(const ReduceScan*);
+  virtual void visit(const ForScan*);
   virtual void visit(const MemLoad* op);
   virtual void visit(const MemStore* op);
   virtual void visit(const GenBitVector* op);
   virtual void visit(const Scan* op);
+  virtual void visit(const TypeCase*);
+  virtual void visit(const RMW*);
 };
 
 }}

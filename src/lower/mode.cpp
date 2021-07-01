@@ -12,15 +12,16 @@ namespace taco {
 
 // class Mode
 struct Mode::Content {
-  ir::Expr   tensor;            /// the tensor containing mode
-  Dimension  size;              /// the size of the mode
-  int        mode;              /// the location of mode in a mode hierarchy
-  ModeFormat modeFormat;        /// the type of the mode
+  ir::Expr        tensor;            /// the tensor containing mode
+  Dimension       size;              /// the size of the mode
+  MemoryLocation  memoryLocation;    /// the memory location of the tensor (and therefore mode)
+  int             mode;              /// the location of mode in a mode hierarchy
+  ModeFormat      modeFormat;        /// the type of the mode
 
-  ModePack   modePack;          /// the pack that contains the mode
-  size_t     packLoc;           /// position within pack containing mode
+  ModePack        modePack;          /// the pack that contains the mode
+  size_t          packLoc;           /// position within pack containing mode
 
-  ModeFormat parentModeFormat;  /// type of previous mode in the tensor
+  ModeFormat      parentModeFormat;  /// type of previous mode in the tensor
 
   std::map<std::string, ir::Expr> vars;
 };
@@ -29,7 +30,7 @@ Mode::Mode() : content(nullptr) {
 }
 
 Mode::Mode(ir::Expr tensor, Dimension size, int mode, ModeFormat modeFormat,
-     ModePack modePack, size_t packLoc, ModeFormat parentModeFormat)
+     ModePack modePack, size_t packLoc, ModeFormat parentModeFormat, MemoryLocation memoryLocation)
     : content(new Content) {
   taco_iassert(modeFormat.defined());
   content->tensor = tensor;
@@ -39,6 +40,7 @@ Mode::Mode(ir::Expr tensor, Dimension size, int mode, ModeFormat modeFormat,
   content->modePack = modePack;
   content->packLoc = packLoc;
   content->parentModeFormat = parentModeFormat;
+  content->memoryLocation = memoryLocation;
 }
 
 std::string Mode::getName() const {
@@ -51,6 +53,10 @@ ir::Expr Mode::getTensorExpr() const {
 
 Dimension Mode::getSize() const {
   return content->size;
+}
+
+MemoryLocation Mode::getMemoryLocation() const {
+  return content->memoryLocation;
 }
 
 int Mode::getLevel() const {

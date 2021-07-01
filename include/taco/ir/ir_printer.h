@@ -47,6 +47,7 @@ protected:
   virtual void visit(const Cast*);
   virtual void visit(const Call*);
   virtual void visit(const IfThenElse*);
+  virtual void visit(const Ternary*);
   virtual void visit(const Case*);
   virtual void visit(const Switch*);
   virtual void visit(const Load*);
@@ -72,13 +73,18 @@ protected:
   virtual void visit(const Break*);
   virtual void visit(const LoadBulk*);
   virtual void visit(const StoreBulk*);
+  virtual void visit(const CallStmt* op);
 
   // Spatial Only
   virtual void visit(const Reduce*);
+  virtual void visit(const ReduceScan*);
+  virtual void visit(const ForScan*);
   virtual void visit(const MemStore*);
   virtual void visit(const MemLoad*);
   virtual void visit(const GenBitVector*);
   virtual void visit(const Scan*);
+  virtual void visit(const TypeCase*);
+  virtual void visit(const RMW*);
 
   std::ostream &stream;
   int indent;

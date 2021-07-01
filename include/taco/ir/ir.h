@@ -68,11 +68,17 @@ enum class IRNodeType {
   Continue,
   Sort,
   Break,
+  CallStmt,
+  Ternary,
   MemStore,     // Spatial Only
   MemLoad,      // Spatial Only
   Reduce,       // Spatial Only
   GenBitVector, // Spatial Only
-  Scan          // Spatial Only
+  Scan,         // Spatial Only
+  TypeCase,     // Spatial Only
+  ForScan,      // Spatial Only
+  ReduceScan,   // Spatial Only
+  RMW           // Spatial Only
 };
 
 enum class TensorProperty {
@@ -583,6 +589,17 @@ struct IfThenElse : public StmtNode<IfThenElse> {
   static const IRNodeType _type_info = IRNodeType::IfThenElse;
 };
 
+/** A conditional statement. */
+struct Ternary : public ExprNode<Ternary> {
+  Expr cond;
+  Expr then;
+  Expr otherwise;
+
+  static Expr make(Expr cond, Expr then, Expr otherwise);
+
+  static const IRNodeType _type_info = IRNodeType::Ternary;
+};
+
 /** A series of conditionals. */
 struct Case : public StmtNode<Case> {
   std::vector<std::pair<Expr,Stmt>> clauses;
@@ -851,6 +868,44 @@ struct Reduce : public StmtNode<Reduce> {
   static const IRNodeType _type_info = IRNodeType::Reduce;
 };
 
+// TODO: Re-evaluate if the ReduceScan and ForScan nodes are necessary
+struct ReduceScan : public StmtNode<ReduceScan> {
+  Expr caseType;
+  Expr reg;
+  Expr scanner;
+  Stmt contents;
+  Expr returnExpr;
+  bool add;
+
+  static Stmt make(Expr caseType, Expr reg, Expr scanner,
+                   Stmt body, bool add=true);
+
+  static Stmt make(Expr caseType, Expr reg, Expr scanner,
+                   Stmt contents, Expr returnExpr, bool add=true);
+
+  static const IRNodeType _type_info = IRNodeType::ReduceScan;
+};
+
+/** A for loop with a scanner
+ */
+struct ForScan : public StmtNode<ForScan> {
+  Expr caseType;
+  Expr scanner;
+  Stmt contents;
+  LoopKind kind;
+  int vec_width;  // vectorization width
+  ParallelUnit parallel_unit;
+  size_t unrollFactor;
+  size_t numChunks;
+
+  static Stmt make(Expr caseType, Expr scanner,
+                   Stmt contents, LoopKind kind=LoopKind::Serial,
+                   ParallelUnit parallel_unit=ParallelUnit::NotParallel, size_t unrollFactor=0, int vec_width=0, size_t numChunks=1);
+
+  static const IRNodeType _type_info = IRNodeType::ForScan;
+};
+
+
 struct GenBitVector : public StmtNode<GenBitVector> {
   Expr shift;
   Expr out_bitcnt;
@@ -863,17 +918,48 @@ struct GenBitVector : public StmtNode<GenBitVector> {
   static const IRNodeType _type_info = IRNodeType::GenBitVector;
 };
 
-struct Scan : public StmtNode<Scan> {
+struct Scan : public ExprNode<Scan> {
   Expr par;
   Expr bitcnt;
-  Expr op;
   Expr in_fifo1;
   Expr in_fifo2; // Second FIFO optional
+  bool or_op;
   bool reduction;
 
-  static Stmt make(Expr par, Expr bitcnt, Expr op, Expr in_fifo1, Expr in_fifo2=nullptr, bool reduction=false);
+  static Expr make(Expr par, Expr bitcnt, Expr in_fifo1, Expr in_fifo2=nullptr, bool or_op = false, bool reduction=false);
 
   static const IRNodeType _type_info = IRNodeType::Scan;
+};
+
+struct TypeCase : public ExprNode<TypeCase> {
+  std::vector<ir::Expr> vars;
+
+  static Expr make(std::vector<ir::Expr> vars);
+
+  static const IRNodeType _type_info = IRNodeType::TypeCase;
+};
+
+struct RMW : public ExprNode<RMW> {
+  Expr arr;
+  Expr addr;
+  Expr data;
+  Expr barrier;
+  SpatialRMWoperators op;
+  SpatialMemOrdering ordering;
+
+
+  static Expr make(Expr arr, Expr addr, Expr data, Expr barrier = nullptr,
+                   SpatialRMWoperators op=SpatialRMWoperators::Read, SpatialMemOrdering ordering=SpatialMemOrdering::Unordered);
+
+  static const IRNodeType _type_info = IRNodeType::RMW;
+};
+
+struct CallStmt : public StmtNode<CallStmt> {
+  Expr call;
+
+  static Stmt make(Expr call);
+
+  static const IRNodeType _type_info = IRNodeType::CallStmt;
 };
 
 /// SPATIAL ONLY END

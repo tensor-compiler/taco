@@ -27,6 +27,7 @@ struct Or;
 struct Cast;
 struct Call;
 struct IfThenElse;
+struct Ternary;
 struct Case;
 struct Switch;
 struct Load;
@@ -52,13 +53,18 @@ struct Sort;
 struct Break;
 struct LoadBulk;
 struct StoreBulk;
+struct CallStmt;
 
 // Spatial Only
 struct MemLoad;
 struct MemStore;
 struct Reduce;
+struct ReduceScan;
+struct ForScan;
 struct GenBitVector;
 struct Scan;
+struct TypeCase;
+struct RMW;
 
 /// Extend this class to visit every node in the IR.
 class IRVisitorStrict {
@@ -88,6 +94,7 @@ public:
   virtual void visit(const Cast*) = 0;
   virtual void visit(const Call*) = 0;
   virtual void visit(const IfThenElse*) = 0;
+  virtual void visit(const Ternary*) = 0;
   virtual void visit(const Case*) = 0;
   virtual void visit(const Switch*) = 0;
   virtual void visit(const Load*) = 0;
@@ -113,13 +120,18 @@ public:
   virtual void visit(const Break*) = 0;
   virtual void visit(const LoadBulk*) = 0;
   virtual void visit(const StoreBulk*) = 0;
+  virtual void visit(const CallStmt* op) = 0;
 
   // Spatial only
   virtual void visit(const Reduce*) = 0;
+  virtual void visit(const ReduceScan*) = 0;
+  virtual void visit(const ForScan*) = 0;
   virtual void visit(const MemStore*) = 0;
   virtual void visit(const MemLoad*) = 0;
   virtual void visit(const GenBitVector*) = 0;
   virtual void visit(const Scan*) = 0;
+  virtual void visit(const TypeCase*) = 0;
+  virtual void visit(const RMW*) = 0;
 };
 
 
@@ -152,6 +164,7 @@ public:
   virtual void visit(const Cast* op);
   virtual void visit(const Call* op);
   virtual void visit(const IfThenElse* op);
+  virtual void visit(const Ternary*);
   virtual void visit(const Case* op);
   virtual void visit(const Switch* op);
   virtual void visit(const Load* op);
@@ -180,10 +193,16 @@ public:
 
   // Spatial Only
   virtual void visit(const Reduce*);
+  virtual void visit(const ReduceScan*);
+  virtual void visit(const ForScan*);
   virtual void visit(const MemStore*);
   virtual void visit(const MemLoad*);
   virtual void visit(const GenBitVector*);
   virtual void visit(const Scan*);
+  virtual void visit(const TypeCase*);
+  virtual void visit(const RMW*);
+  virtual void visit(const CallStmt* op);
+
 };
 
 }}

@@ -364,7 +364,8 @@ protected:
    *      variable
    */
   ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coord, IndexVar coordinateVar);
-  ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar);
+  virtual ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> iterators, std::vector<Iterator> rangers,
+                                       std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar);
 
   /// Returns true iff the temporary used in the where statement is dense and sparse iteration over that
   /// temporary can be automaticallty supported by the compiler.
@@ -389,7 +390,7 @@ protected:
   ir::Stmt codeToLoadCoordinatesFromPosIterators(std::vector<Iterator> iterators, bool declVars);
 
   /// Create statements to append coordinate to result modes.
-  ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
+  virtual ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
 
   /// Create statements to append positions to result modes.
   ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);

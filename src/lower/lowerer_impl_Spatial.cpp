@@ -71,6 +71,12 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
     TensorVar result = assignment.getLhs().getTensorVar();
 
     if (generateComputeCode()) {
+      // First pass of the concrete index notation to see if sparse DRAM accesses need to be hoisted
+      Stmt hoistedAccesses = Stmt();
+      if (hasSparseDRAMAccesses(assignment.getRhs())) {
+        hoistedAccesses = hoistSparseDRAMAccesses(assignment.getRhs());
+      }
+
       Expr var = getTensorVar(result);
       Expr rhs = lower(assignment.getRhs());
 
@@ -87,6 +93,7 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
       }
         // Assignments to tensor variables (non-scalar).
       else {
+
         Expr values = getValuesArray(result);
         Expr loc = generateValueLocExpr(assignment.getLhs());
 
@@ -106,7 +113,7 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
           computeStmt = compoundStore(values, loc, rhs, result.getMemoryLocation(), MemoryLocation::SpatialReg,false, getAtomicParallelUnit());
         }
         taco_iassert(computeStmt.defined());
-        return computeStmt;
+        return Block::make(hoistedAccesses, computeStmt);
       }
     }
       // We're only assembling so defer allocating value memory to the end when
@@ -123,11 +130,52 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
     return Stmt();
   }
 
+  bool LowererImplSpatial::hasSparseDRAMAccesses(IndexExpr expression) {
+    bool hasSparseDRAMAccess = false;
+    match(expression,
+          std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+            TensorVar var = Access(op).getTensorVar();
+            if (var.getMemoryLocation() == MemoryLocation::SpatialSparseDRAM)
+              hasSparseDRAMAccess = true;
+          })
+    );
+
+    return hasSparseDRAMAccess;
+  }
+
+  Stmt LowererImplSpatial::hoistSparseDRAMAccesses(IndexExpr expression) {
+    vector<Stmt> hoistedStmts;
+    match(expression,
+          std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+            TensorVar var = Access(op).getTensorVar();
+            if (!isScalar(var.getType()) && var.getMemoryLocation() == MemoryLocation::SpatialSparseDRAM) {
+              auto vals = getValuesArray(var);
+              auto loc = generateValueLocExpr(Access(op));
+
+              auto tempVals = ir::Var::make(op->tensorVar.getName() + "_vals_raw", vals.type());
+              auto tempValsDecl = ir::VarDecl::make(tempVals, ir::Load::make(vals, loc, var.getMemoryLocation()));
+              hoistedStmts.push_back(tempValsDecl);
+
+              auto cleanedVals = ir::Var::make(op->tensorVar.getName() + "_vals_clean", vals.type());
+              sparseDRAMAccessMap[var] = cleanedVals;
+              auto mux = ir::Ternary::make(ir::Gte::make(loc, ir::Literal::zero(vals.type())), tempVals, ir::Literal::zero(vals.type()));
+              auto cleanedValsDecl = ir::VarDecl::make(cleanedVals, mux);
+              hoistedStmts.push_back(cleanedValsDecl);
+            }
+          })
+    );
+    return Block::make(hoistedStmts);
+  }
+
   Expr LowererImplSpatial::lowerAccess(Access access) {
     TensorVar var = access.getTensorVar();
 
     if (isScalar(var.getType())) {
       return getTensorVar(var);
+    }
+
+    if (var.getMemoryLocation() == MemoryLocation::SpatialSparseDRAM && sparseDRAMAccessMap.find(var) != sparseDRAMAccessMap.end()) {
+      return sparseDRAMAccessMap.at(var);
     }
 
     return getIterators(access).back().isUnique()
@@ -215,6 +263,7 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
                                         [](Iterator it){return it.hasAppend();});
 
     vector<Iterator> mergers = lattice.points()[0].mergers();
+
     Stmt iteratorVarInits = codeToInitializeIteratorVars(lattice.iterators(), lattice.points()[0].rangers(), mergers, coordinate, coordinateVar);
 
     // if modeiteratornonmerger then will be declared in codeToInitializeIteratorVars
@@ -225,21 +274,26 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
             });
     bool resolvedCoordDeclared = !modeIteratorsNonMergers.empty();
 
-    vector<Stmt> mergeLoopsVec;
-    for (MergePoint point : lattice.points()) {
-      // Each iteration of this loop generates a while loop for one of the merge
-      // points in the merge lattice.
-      IndexStmt zeroedStmt = zero(statement, getExhaustedAccesses(point,lattice));
-      MergeLattice sublattice = lattice.subLattice(point);
-      Stmt mergeLoop = lowerMergePoint(sublattice, coordinate, coordinateVar, zeroedStmt, reducedAccesses, resolvedCoordDeclared);
-      mergeLoopsVec.push_back(mergeLoop);
-    }
-    Stmt mergeLoops = Block::make(mergeLoopsVec);
+    auto rootPoint = lattice.points()[0];
+    // 1) Load from DRAM to FIFO
+    map<Iterator, ir::Expr> varMap;
+    Stmt memoryTransfer = loadDRAMtoFIFO(statement, rootPoint, varMap);
+
+    // 2) generate BitVectors from FIFO to another FIFO
+    Stmt genBitVectors = generateIteratorBitVectors(statement, rootPoint, varMap);
+
+    // 3) Calculate pos arrays using scanner
+    // An iteration lattice point represents a union when it contains more than 2 iterators and
+    // dominates other points.
+    bool isUnion = rootPoint.iterators().size() > 1 && lattice.subLattice(rootPoint).points().size() > 0;
 
     // Append position to the pos array
-    Stmt appendPositions = generateAppendPositions(appenders);
+    Stmt appendPositions = generateIteratorAppendPositions(statement, coordinate, coordinateVar, rootPoint, appenders, varMap, isUnion);
 
-    return Block::make(iteratorVarInits, mergeLoops, appendPositions);
+    // 4) Calculate add
+    Stmt computeLoop = generateIteratorComputeLoop(statement, coordinate, coordinateVar, rootPoint, lattice, varMap,reducedAccesses, isUnion);
+
+    return Block::blanks(iteratorVarInits, memoryTransfer, genBitVectors, appendPositions, computeLoop);
   }
 
   Stmt LowererImplSpatial::lowerMergePoint(MergeLattice pointLattice,
@@ -280,13 +334,6 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
     // Increment iterator position variables
     Stmt incIteratorVarStmts = codeToIncIteratorVars(coordinate, coordinateVar, iterators, mergers);
 
-    cout << "DEBUG: Lower Merge Point"<< endl;
-    cout << loadPosIterCoordinates << endl<< endl;
-    cout << resolvedCoordinate << endl<< endl;
-    cout << loadLocatorPosVars << endl<< endl;
-    cout << deduplicationLoops << endl << endl;
-    cout << caseStmts << endl << endl;
-    cout << incIteratorVarStmts << endl<< endl;
     /// While loop over rangers
     return While::make(checkThatNoneAreExhausted(rangers),
                        Block::make(loadPosIterCoordinates,
@@ -331,7 +378,6 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
 
     // Just one iterator so no conditionals
     if (lattice.iterators().size() == 1) {
-      cout << stmt << endl;
       Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
                                   appenders, reducedAccesses);
       result.push_back(body);
@@ -500,7 +546,6 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
                                         set<Access> reducedAccesses,
                                         ir::Stmt recoveryStmt)
   {
-    cout << "Lower Forall Position" << endl;
     Expr coordinate = getCoordinateVar(forall.getIndexVar());
     Stmt declareCoordinate = Stmt();
     if (getProvGraph().isCoordVariable(forall.getIndexVar())) {
@@ -662,4 +707,368 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
 
   }
 
+  Stmt LowererImplSpatial::generateIteratorComputeLoop(IndexStmt statement, ir::Expr coordinate, IndexVar coordinateVar, MergePoint point,
+                                                       MergeLattice lattice, map<Iterator, ir::Expr>& varMap, const std::set<Access>& reducedAccesses, bool isUnion) {
+
+    taco_iassert(point.iterators().size() <= 2) << "Spatial/Capstan hardware can only handle two sparse iterators"
+                                                   "at once. To fix this please try inserting a temporary workspace";
+
+    vector<Iterator> appenders;
+    vector<Iterator> inserters;
+    tie(appenders, inserters) = splitAppenderAndInserters(lattice.results());
+
+    auto uncompressedCrd = ir::Var::make(coordinate.as<Var>()->name + "_uncomp", coordinate.as<Var>()->type);
+    auto compressedCrd = ir::Var::make(coordinate.as<Var>()->name + "_comp", coordinate.as<Var>()->type);
+
+    Expr scan = Expr();
+    Expr typeCase = Expr();
+    if (point.iterators().size() == 1) {
+      auto iterator = point.iterators()[0];
+      // TODO: fix bitcnt and par factor later
+      scan = ir::Scan::make(ir::Literal::make(1, iterator.getIteratorVar().type()),
+                            ir::Literal::make(512, iterator.getIteratorVar().type()),
+                            varMap[iterator], Expr(), isUnion, false);
+
+
+      typeCase = ir::TypeCase::make({uncompressedCrd, compressedCrd});
+    } else {
+      auto iterator1 = point.iterators()[0];
+      auto iterator2 = point.iterators()[1];
+      // TODO: fix bitcnt and par factor later
+      scan = ir::Scan::make(1, 512, varMap[iterator1], varMap[iterator2], isUnion, false);
+
+      typeCase = ir::TypeCase::make({uncompressedCrd, iterator1.getIteratorVar(), compressedCrd, iterator2.getIteratorVar()});
+    }
+
+    vector<Stmt> iterVars;
+    for (Iterator appender : appenders) {
+      Expr pos = [](Iterator appender) {
+        // Get the position variable associated with the appender. If a mode
+        // is above a branchless mode, then the two modes can share the same
+        // position variable.
+        while (!appender.isLeaf() && appender.getChild().isBranchless()) {
+          appender = appender.getChild();
+        }
+        return appender.getPosVar();
+      }(appender);
+
+      // FIXME: need to get access to pos base
+      Stmt iterDecl = ir::VarDecl::make(appender.getIteratorVar(), ir::Add::make(appender.getBeginVar(), compressedCrd));
+      iterVars.push_back(iterDecl);
+    }
+
+    for (auto& iterator : point.iterators()) {
+      Stmt iterDecl = ir::VarDecl::make(iterator.getIteratorVar(), ir::Add::make(iterator.getBeginVar(), iterator.getIteratorVar()));
+      iterVars.push_back(iterDecl);
+    }
+
+    Stmt body = lowerForallBody(coordinate, statement, {}, inserters,
+                                appenders, reducedAccesses);
+
+    body = Block::make(Block::make(iterVars), body);
+    auto loop = ir::ForScan::make(typeCase, scan, body);
+
+    return loop;
+  }
+
+  Stmt LowererImplSpatial::generateIteratorAppendPositions(IndexStmt statement, ir::Expr coordinate, IndexVar coordinateVar, MergePoint point,
+                                                   std::vector<Iterator> appenders, map<Iterator, ir::Expr>& varMap, bool isUnion) {
+    taco_iassert(point.iterators().size() <= 2) << "Spatial/Capstan hardware can only handle two sparse iterators"
+                                                   "at once. To fix this please try inserting a temporary workspace";
+
+    auto uncompressedCrd = ir::Var::make(coordinate.as<Var>()->name + "_uncomp", coordinate.as<Var>()->type);
+    auto compressedCrd = ir::Var::make(coordinate.as<Var>()->name + "_comp", coordinate.as<Var>()->type);
+
+    Expr scan = Expr();
+    Expr typeCase = Expr();
+    if (point.iterators().size() == 1) {
+      auto iterator = point.iterators()[0];
+      // TODO: fix bitcnt and par factor later
+      scan = ir::Scan::make(ir::Literal::make(1, iterator.getIteratorVar().type()), ir::Literal::make(512, iterator.getIteratorVar().type()),
+                            varMap[iterator], Expr(), isUnion, true);
+
+
+      typeCase = ir::TypeCase::make({uncompressedCrd, compressedCrd});
+    } else {
+      auto iterator1 = point.iterators()[0];
+      auto iterator2 = point.iterators()[1];
+      // TODO: fix bitcnt and par factor later
+      scan = ir::Scan::make(1, 512, varMap[iterator1], varMap[iterator2], isUnion, true);
+
+      typeCase = ir::TypeCase::make({uncompressedCrd, iterator1.getCoordVar(), compressedCrd, iterator2.getCoordVar()});
+    }
+
+    // Generate reduction register
+    auto reg = ir::Var::make(coordinateVar.getName() + "_r_pos", coordinate.type(), false, false, false, MemoryLocation::SpatialReg);
+    auto regDecl = ir::VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
+
+    // Create reduction that counts up all of the bits in the bitvectors. This will be stored in the reulst Pos array
+    // FIXME: weird spatial bug. See if uncompressedCrd is the correct variable here
+    auto reductionBody = ir::Add::make(ir::Literal::make(1), ir::Div::make(compressedCrd, ir::Literal::make(10000)));
+    auto reduction = ir::ReduceScan::make(typeCase, reg, scan, Stmt(), reductionBody);
+
+    vector<Stmt> result;
+    for (Iterator appender : appenders) {
+//      if (appender.isBranchless() ||
+//          isAssembledByUngroupedInsertion(appender.getTensor())) {
+//        continue;
+//      }
+
+      Expr pos = [](Iterator appender) {
+        // Get the position variable associated with the appender. If a mode
+        // is above a branchless mode, then the two modes can share the same
+        // position variable.
+        while (!appender.isLeaf() && appender.getChild().isBranchless()) {
+          appender = appender.getChild();
+        }
+        return appender.getPosVar();
+      }(appender);
+      // FIXME: need to initialize posAccumulationVar
+      Expr posAccumulationVar = ir::Var::make(pos.as<Var>()->name + "_acc", pos.as<Var>()->type);;
+      Expr posNext = ir::Var::make(pos.as<Var>()->name + "_next", pos.as<Var>()->type);
+      Stmt posNextDecl = ir::VarDecl::make(posNext, ir::RMW::make(posAccumulationVar, 0, reg, Expr(), SpatialRMWoperators::Add, SpatialMemOrdering::Ordered));
+      result.push_back(posNextDecl);
+      Stmt beginVarDecl = ir::VarDecl::make(appender.getBeginVar(), ir::Sub::make(posNext, reg));
+      result.push_back(beginVarDecl);
+      varMap[appender] = appender.getBeginVar();
+
+      Expr beginPos = appender.getBeginVar();
+      Expr parentPos = appender.getParent().getPosVar();
+      Stmt appendEdges = appender.getAppendEdges(parentPos, beginPos, posNext);
+
+      result.push_back(appendEdges);
+    }
+    Stmt appendPosition = result.empty() ? Stmt() : Block::make(result);
+
+    return Block::make(regDecl, reduction, appendPosition);
+  }
+
+  Stmt LowererImplSpatial::generateIteratorBitVectors(IndexStmt statement, MergePoint point, map<Iterator, ir::Expr>& varMap) {
+    vector<ir::Stmt> stmts;
+    for (auto& iterator : point.iterators()) {
+      auto crd = iterator.getMode().getModePack().getArray(1);
+      auto parentPos = iterator.getParent().getPosVar();
+      vector<ir::Expr> bounds = {iterator.getIteratorVar(), iterator.getEndVar()};
+      // auto bounds = iterator.posBounds(parentPos);
+
+      taco_iassert(varMap.find(iterator) != varMap.end()) << "Iterator (" << iterator << ") cannot be found in the variable map";
+      auto fifo = varMap[iterator];
+
+      // FIXME: var isn't a pointer but can only allocate pointer type
+      Expr var = ir::Var::make(iterator.getTensor().as<Var>()->name + "_bvRaw",
+                               iterator.getTensor().as<Var>()->type, true, false, false,
+                               MemoryLocation::SpatialFIFO);
+      varMap[iterator] = var;
+
+      // FIXME: do not hardcode size of 16. Also fix this so that the memDecl is a size and not the RHS
+      Stmt allocate = ir::Allocate::make(var, ir::Literal::make(16), false, false,
+                                         false, MemoryLocation::SpatialFIFO);
+      stmts.push_back(allocate);
+
+      // FIXME: do not hardcode out_bitcnt
+      auto genBitVector = ir::GenBitVector::make(ir::Literal::zero(var.type()), ir::Literal::make(512),
+                                                 ir::Sub::make(bounds[1], bounds[0]), fifo, var);
+
+      stmts.push_back(genBitVector);
+    }
+    return  Block::make(stmts);
+  }
+
+  // FIXME: only do this if the iterator TensorVar is stored in DRAM base don tensorVar memoryLocation
+  Stmt LowererImplSpatial::loadDRAMtoFIFO(IndexStmt statement, MergePoint point, map<Iterator, ir::Expr>& varMap) {
+    vector<ir::Stmt> stmts;
+    for (auto& iterator : point.iterators()) {
+      auto crd = iterator.getMode().getModePack().getArray(1);
+      auto parentPos = iterator.getParent().getPosVar();
+      auto bounds = iterator.posBounds(parentPos);
+
+      // FIXME: var isn't a pointer but can only allocate pointer type
+      Expr var = ir::Var::make(iterator.getTensor().as<Var>()->name + "_fifo",
+                                  iterator.getTensor().as<Var>()->type, true, false, false,
+                                  MemoryLocation::SpatialFIFO);
+      varMap[iterator] = var;
+
+      // FIXME: do not hardcode size of 16. Also fix this so that the memDecl is a size and not the RHS
+      Stmt allocate = ir::Allocate::make(var, ir::Literal::make(16), false, false,
+                                         false, MemoryLocation::SpatialFIFO);
+      stmts.push_back(allocate);
+
+      auto storeEnd = ir::Sub::make(bounds[1], bounds[0]);
+      auto data = ir::LoadBulk::make(crd, bounds[0], bounds[1]);
+      Stmt store = ir::StoreBulk::make(var, ir::Literal::zero(bounds[0].type()), storeEnd, data,
+                                       MemoryLocation::SpatialFIFO, MemoryLocation::SpatialDRAM);
+
+      stmts.push_back(store);
+    }
+    return  Block::make(stmts);
+  }
+
+  static
+  bool isLastAppender(Iterator iter) {
+    taco_iassert(iter.hasAppend());
+    while (!iter.isLeaf()) {
+      iter = iter.getChild();
+      if (iter.hasAppend()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Stmt LowererImplSpatial::appendCoordinate(vector<Iterator> appenders, Expr coord) {
+    vector<Stmt> result;
+    for (auto& appender : appenders) {
+      Expr pos = appender.getPosVar();
+      Iterator appenderChild = appender.getChild();
+
+      if (appenderChild.defined() && appenderChild.isBranchless()) {
+        // Already emitted assembly code for current level when handling
+        // branchless child level, so don't emit code again.
+        continue;
+      }
+
+      vector<Stmt> appendStmts;
+
+      //if (generateAssembleCode()) {
+      appendStmts.push_back(appender.getAppendCoord(pos, coord));
+      while (!appender.isRoot() && appender.isBranchless()) {
+        // Need to append result coordinate to parent level as well if child
+        // level is branchless (so child coordinates will have unique parents).
+        appender = appender.getParent();
+        if (!appender.isRoot()) {
+          taco_iassert(appender.hasAppend()) << "Parent level of branchless, "
+                                             << "append-capable level must also be append-capable";
+          taco_iassert(!appender.isUnique()) << "Need to be able to insert "
+                                             << "duplicate coordinates to level, but level is declared unique";
+
+          Expr coord = getCoordinateVar(appender);
+          appendStmts.push_back(appender.getAppendCoord(pos, coord));
+        }
+      }
+
+      if (generateAssembleCode() || isLastAppender(appender)) {
+        //appendStmts.push_back(compoundAssign(pos, 1));
+
+        Stmt appendCode = Block::make(appendStmts);
+        if (appenderChild.defined() && appenderChild.hasAppend()) {
+          // Emit guard to avoid appending empty slices to result.
+          // TODO: Users should be able to configure whether to append zeroes.
+          Expr shouldAppend = Lt::make(appenderChild.getBeginVar(),
+                                       appenderChild.getPosVar());
+          appendCode = IfThenElse::make(shouldAppend, appendCode);
+        }
+        result.push_back(appendCode);
+      }
+    }
+    return result.empty() ? Stmt() : Block::make(result);
+  }
+
+  Stmt LowererImplSpatial::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator> iterators, vector<Iterator> rangers, vector<Iterator> mergers, Expr coordinate, IndexVar coordinateVar) {
+    vector<Stmt> result;
+    taco_iassert(iterator.hasPosIter() || iterator.hasCoordIter() ||
+                 iterator.isDimensionIterator());
+
+    Expr iterVar = iterator.getIteratorVar();
+    Expr endVar = iterator.getEndVar();
+    Expr beginVar = iterator.getBeginVar();
+    if (iterator.hasPosIter()) {
+      Expr parentPos = iterator.getParent().getPosVar();
+      if (iterator.getParent().isRoot() || iterator.getParent().isUnique()) {
+        // E.g. a compressed mode without duplicates
+        ModeFunction bounds = iterator.posBounds(parentPos);
+        result.push_back(bounds.compute());
+        // if has a coordinate ranger then need to binary search
+        if (any(rangers,
+                [](Iterator it){ return it.isDimensionIterator(); })) {
+
+          Expr binarySearchTarget = provGraph.deriveCoordBounds(definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, this->iterators)[coordinateVar][0];
+          if (binarySearchTarget != underivedBounds[coordinateVar][0]) {
+            // If we have a window, then we need to project up the binary search target
+            // into the window rather than the beginning of the level.
+            if (iterator.isWindowed()) {
+              binarySearchTarget = this->projectCanonicalSpaceToWindowedPosition(iterator, binarySearchTarget);
+            }
+            result.push_back(VarDecl::make(iterator.getBeginVar(), binarySearchTarget));
+
+            vector<Expr> binarySearchArgs = {
+              iterator.getMode().getModePack().getArray(1), // array
+              bounds[0], // arrayStart
+              bounds[1], // arrayEnd
+              iterator.getBeginVar() // target
+            };
+            result.push_back(
+              VarDecl::make(iterVar, Call::make("taco_binarySearchAfter", binarySearchArgs, iterVar.type())));
+          }
+          else {
+            result.push_back(VarDecl::make(beginVar, bounds[0]));
+          }
+        }
+        else {
+          auto bound = bounds[0];
+          // If we have a window on this iterator, then search for the start of
+          // the window rather than starting at the beginning of the level.
+          if (iterator.isWindowed()) {
+            bound = this->searchForStartOfWindowPosition(iterator, bounds[0], bounds[1]);
+          }
+          result.push_back(VarDecl::make(beginVar, bound));
+        }
+
+        result.push_back(VarDecl::make(endVar, bounds[1]));
+      } else {
+        taco_iassert(iterator.isOrdered() && iterator.getParent().isOrdered());
+        taco_iassert(iterator.isCompact() && iterator.getParent().isCompact());
+
+        // E.g. a compressed mode with duplicates. Apply iterator chaining
+        Expr parentSegend = iterator.getParent().getSegendVar();
+        ModeFunction startBounds = iterator.posBounds(parentPos);
+        ModeFunction endBounds = iterator.posBounds(ir::Sub::make(parentSegend, 1));
+        result.push_back(startBounds.compute());
+        result.push_back(VarDecl::make(beginVar, startBounds[0]));
+        result.push_back(endBounds.compute());
+        result.push_back(VarDecl::make(endVar, endBounds[1]));
+      }
+    }
+    else if (iterator.hasCoordIter()) {
+      // E.g. a hasmap mode
+      vector<Expr> coords = coordinates(iterator);
+      coords.erase(coords.begin());
+      ModeFunction bounds = iterator.coordBounds(coords);
+      result.push_back(bounds.compute());
+      result.push_back(VarDecl::make(beginVar, bounds[0]));
+      result.push_back(VarDecl::make(endVar, bounds[1]));
+    }
+    else if (iterator.isDimensionIterator()) {
+      // A dimension
+      // If a merger then initialize to 0
+      // If not then get first coord value like doing normal merge
+
+      // If derived then need to recoverchild from this coord value
+      bool isMerger = find(mergers.begin(), mergers.end(), iterator) != mergers.end();
+      if (isMerger) {
+        Expr coord = coordinates(vector<Iterator>({iterator}))[0];
+        result.push_back(VarDecl::make(coord, 0));
+      }
+      else {
+        result.push_back(codeToLoadCoordinatesFromPosIterators(iterators, true));
+
+        Stmt stmt = resolveCoordinate(mergers, coordinate, true);
+        taco_iassert(stmt != Stmt());
+        result.push_back(stmt);
+        result.push_back(codeToRecoverDerivedIndexVar(coordinateVar, iterator.getIndexVar(), true));
+
+        // emit bound for ranger too
+        vector<Expr> startBounds;
+        vector<Expr> endBounds;
+        for (Iterator merger : mergers) {
+          ModeFunction coordBounds = merger.coordBounds(merger.getParent().getPosVar());
+          startBounds.push_back(coordBounds[0]);
+          endBounds.push_back(coordBounds[1]);
+        }
+        //TODO: maybe needed after split reorder? underivedBounds[coordinateVar] = {ir::Max::make(startBounds), ir::Min::make(endBounds)};
+        Stmt end_decl = VarDecl::make(iterator.getEndVar(), provGraph.deriveIterBounds(iterator.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, this->iterators)[1]);
+        result.push_back(end_decl);
+      }
+    }
+    return result.empty() ? Stmt() : Block::make(result);
+  }
 } // namespace taco

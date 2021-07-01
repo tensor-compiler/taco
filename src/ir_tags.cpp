@@ -8,5 +8,13 @@ const char *OutputRaceStrategy_NAMES[] = {"IgnoreRaces", "NoRaces", "Atomics", "
                                           "SpatialReduction"};
 const char *BoundType_NAMES[] = {"MinExact", "MinConstraint", "MaxExact", "MaxConstraint"};
 const char *AssembleStrategy_NAMES[] = {"Append", "Insert"};
-const char *MemoryLocation_NAMES[] = {"Default", "GPUSharedMemory", "SpatialDRAM", "SpatialSRAM", "SpatialReg", "SpatialSparseSRAM", "SpatialFIFO"};
+const char *MemoryLocation_NAMES[] = {"Default", "GPUSharedMemory", "SpatialDRAM", "SpatialSRAM", "SpatialReg", "SpatialSparseSRAM", "SpatialFIFO", "SpatialSparseDRAM"};
+
+// Spatial only
+const char *SpatialRMWOperators_NAMES[] = {"Read", "Write", "Add", "Swap"};
+const char *SpatialRMWOperators_IR[] = {"read", "write", "add", "swap"};
+
+const char *SpatialMemOrdering_NAMES[] = {"Unordered", "Ordered"};
+const char *SpatialMemOrdering_IR[] = {"unordered", "ordered"};
+
 }

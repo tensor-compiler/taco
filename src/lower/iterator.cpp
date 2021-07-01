@@ -29,6 +29,7 @@ struct Iterator::Content {
   ir::Expr segendVar;
   ir::Expr validVar;
   ir::Expr beginVar;
+  ir::Expr baseVar;
 
   // AccessWindow represents a window (or slice) into a tensor mode, given by
   // the expressions representing an upper and lower bound. An iterator
@@ -524,7 +525,9 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
   // Create dimension iterators
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](auto n, auto m) {
-      content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !provGraph.hasCoordBounds(n->indexVar) && provGraph.isCoordVariable(n->indexVar))});
+      content->modeIterators.insert({n->indexVar,
+                                     Iterator(n->indexVar, !provGraph.hasCoordBounds(n->indexVar) &&
+                                                                      provGraph.isCoordVariable(n->indexVar))});
       for (const IndexVar& underived : provGraph.getUnderivedAncestors(n->indexVar)) {
         if (!underivedAdded.count(underived)) {
           content->modeIterators.insert({underived, underived});
@@ -600,7 +603,7 @@ void Iterators::createAccessIterators(Access access, Format format, Expr tensorI
         iteratorIndexVar = indexVar;
       }
       Mode mode(tensorIR, dim, level, modeType, modePack, pos,
-                parentModeType);
+                parentModeType, tensorConcrete.getMemoryLocation());
 
       string name = iteratorIndexVar.getName() + tensorConcrete.getName();
       Iterator iterator(iteratorIndexVar, tensorIR, mode, parent, name, true);
@@ -622,7 +625,8 @@ void Iterators::createAccessIterators(Access access, Format format, Expr tensorI
         auto tvShape = tv.getType().getShape();
         auto accessIvar = access.getIndexVars()[modeNumber];
         ModePack tvModePack(1, tvFormat.getModeFormats()[0], tvVar, 0, 1);
-        Mode tvMode(tvVar, tvShape.getDimension(0), 1, tvFormat.getModeFormats()[0], tvModePack, 0, ModeFormat());
+        Mode tvMode(tvVar, tvShape.getDimension(0), 1, tvFormat.getModeFormats()[0], tvModePack,
+                    0, ModeFormat(), tv.getMemoryLocation());
         // Finally, construct the iterator and register it as an indexSetIterator.
         auto iter = Iterator(accessIvar, tvVar, tvMode, {tvVar}, accessIvar.getName() + tv.getName() + "_filter");
         iterator.setIndexSetIterator(iter);

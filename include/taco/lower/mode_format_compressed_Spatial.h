@@ -14,6 +14,9 @@ public:
 
   ir::Stmt getAppendCoord(ir::Expr pos, ir::Expr coord, 
                           Mode mode) const override;
+
+  ir::Stmt getAppendEdges(ir::Expr pPrev, ir::Expr pBegin, ir::Expr pEnd,
+                                            Mode mode) const override;
 };
 
 }

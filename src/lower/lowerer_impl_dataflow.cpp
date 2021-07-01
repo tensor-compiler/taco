@@ -218,10 +218,7 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   temporaryInitialization = getTemporaryLocations(stmt);
   tempNoZeroInit = getTemporariesWithoutReduction(stmt);
   forallReductions = getForallReductions(stmt);
-  cout << "forallReductions" << endl;
-  for (auto& r: forallReductions) {
-    cout << r.first << "| " << get<0>(r.second) << ", " << get<1>(r.second) << endl;
-  }
+
   // Create datastructure needed for bulk memory load/store optimization from forall
   bulkMemTransfer = getBulkMemTransfers(stmt);
 
@@ -268,6 +265,9 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   iterators = Iterators(stmt, tensorVars);
 
   provGraph = ProvenanceGraph(stmt);
+
+  // TODO: make a temporary variable for storing postion accumulations into
+  //       for each appender in iterators
 
   for (const IndexVar& indexVar : provGraph.getAllIndexVars()) {
     if (iterators.modeIterators().count(indexVar)) {
@@ -334,8 +334,7 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
               ModeAccess ma = {Access(n->lhs), loc+1};
               auto iter = iterators.levelIterator(ma);
               auto prevDimGP = iter.getMode().getModePack().getArray(0).as<GetProperty>();
-              cout << "Previous Dimesnion GP1:" << endl;
-              cout << prevDimGP << endl;
+
               iter.getMode().getModePack().setArray(0, GetProperty::make(prevDimGP->tensor, prevDimGP->property,
                                                                          prevDimGP->mode, provGraph.getVarBound(indexVar)));
 
@@ -379,9 +378,6 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
               auto iter = iterators.levelIterator(ma);
               auto prevDimGP = iter.getMode().getModePack().getArray(0).as<GetProperty>();
               if (prevDimGP->property == TensorProperty::Dimension) {
-                cout << "Previous Dimesnion GP2:" << endl;
-                cout << (int) (prevDimGP->property == TensorProperty::Indices) << endl;
-                cout << prevDimGP->tensor << endl;
                 iter.getMode().getModePack().setArray(0, GetProperty::make(prevDimGP->tensor, prevDimGP->property,
                                                                            prevDimGP->mode,
                                                                            provGraph.getVarBound(indexVar)));
@@ -831,23 +827,21 @@ Stmt LowererImplDataflow::lowerForall(Forall forall)
     }
 
     if (!isWhereProducer && hasPosDescendant && underivedAncestors.size() > 1 && provGraph.isPosVariable(iterator.getIndexVar()) && posDescendant == forall.getIndexVar()) {
-      cout << "LowerForallFusedPosition: " << forall << endl;
       loops = lowerForallFusedPosition(forall, iterator, locators,
                                          inserters, appenders, reducedAccesses, recoveryStmt);
     }
+
 //    else if (canAccelWithSparseIteration) {
-//      cout << "LowerForallDenseAcceleration: " << forall << endl;
 //      loops = lowerForallDenseAcceleration(forall, locators, inserters, appenders, reducedAccesses, recoveryStmt);
 //    }
+
     // Emit dimension coordinate iteration loop
     else if (iterator.isDimensionIterator()) {
-      cout << "LowerForallDimension: " << forall << endl;
       loops = lowerForallDimension(forall, point.locators(),
                                    inserters, appenders, reducedAccesses, recoveryStmt);
     }
     // Emit position iteration loop
     else if (iterator.hasPosIter()) {
-      cout << "LowerForallPosition: " << forall << endl;
       loops = lowerForallPosition(forall, iterator, locators,
                                     inserters, appenders, reducedAccesses, recoveryStmt);
     }
@@ -1841,12 +1835,10 @@ Stmt LowererImplDataflow::lowerForallBody(Expr coordinate, IndexStmt stmt,
                                   const set<Access>& reducedAccesses) {
 
   Stmt initVals = resizeAndInitValues(appenders, reducedAccesses);
-  cout << "init Vals" << endl;
-  cout << initVals << endl;
+
   // Inserter positions
   Stmt declInserterPosVars = declLocatePosVars(inserters);
-  cout << "Inserter Pos Vars:" << endl;
-  cout << declInserterPosVars << endl;
+
   // Locate positions
   Stmt declLocatorPosVars = declLocatePosVars(locators);
 
@@ -2434,7 +2426,9 @@ Expr LowererImplDataflow::lowerAccess(Access access) {
     return true;
   }
 
-  return Load::make(vals, generateValueLocExpr(access));
+  auto load = Load::make(vals, generateValueLocExpr(access));
+
+  return load;
 }
 
 
@@ -3006,7 +3000,7 @@ Stmt LowererImplDataflow::declLocatePosVars(vector<Iterator> locators) {
         taco_iassert(isValue(locate.getResults()[1], true));
         Stmt declarePosVar = VarDecl::make(locateIterator.getPosVar(),
                                            locate.getResults()[0]);
-        cout << declarePosVar << ", ";
+
         result.push_back(declarePosVar);
 
         if (locateIterator.isLeaf()) {

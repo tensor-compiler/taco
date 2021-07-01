@@ -837,6 +837,7 @@ Stmt LowererImplC::lowerForall(Forall forall)
     parallelUnitIndexVars.erase(forall.getParallelUnit());
     parallelUnitSizes.erase(forall.getParallelUnit());
   }
+
   return Block::blanks(preInitValues,
                        temporaryValuesInitFree[0],
                        loops,
@@ -3481,6 +3482,7 @@ Expr LowererImplC::checkThatNoneAreExhausted(std::vector<Iterator> iterators)
     if (bounds[0] != ir::Literal::make(0)) {
       guards = And::make(guards, Gte::make(iterators[0].getIteratorVar(), bounds[0]));
     }
+
     return guards;
   }
 

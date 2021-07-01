@@ -406,13 +406,9 @@ void CodeGen_Spatial::visit(const Yield* op) {
 void CodeGen_Spatial::visit(const Var* op) {
   taco_iassert(varMap.count(op) > 0) <<
       "Var " << op->name << " not found in varMap";
-  if (emittingCoroutine) {
-//    out << "TACO_DEREF(";
-  }
   out << varMap[op];
-  if (emittingCoroutine) {
-//    out << ")";
-  }
+//  if (op->memoryLocation == MemoryLocation::SpatialReg)
+//    out << ".value";
 }
 
 void CodeGen_Spatial::visit(const Malloc* op) {
@@ -522,6 +518,28 @@ void CodeGen_Spatial::visit(const For* op) {
   stream << endl;
 }
 
+void CodeGen_Spatial::visit(const ForScan* op) {
+
+  // FIXME: [Spatial] See if this is the correct location
+  doIndent();
+  stream << keywordString("Foreach") << " (";
+
+
+  op->scanner.accept(this);
+
+  // FIXME: Is the parentPrecedence needed?
+  //parentPrecedence = BOTTOM;
+
+  stream << ") { ";
+  op->caseType.accept(this);
+  stream << " =>\n";
+
+  op->contents.accept(this);
+  doIndent();
+  stream << "}";
+  stream << endl;
+}
+
 void CodeGen_Spatial::visit(const While* op) {
   // it's not clear from documentation that clang will vectorize
   // while loops
@@ -547,7 +565,7 @@ void CodeGen_Spatial::visit(const Reduce* op) {
   if (op->par > 0 && op->par <= 16) {
     stream << " par " << op->par;
   }
-  stream << ") {";
+  stream << ") { ";
   op->var.accept(this);
   stream << " => \n";
 
@@ -555,6 +573,36 @@ void CodeGen_Spatial::visit(const Reduce* op) {
   stream << endl;
   doIndent();
 
+  stream << "} { _ ";
+  if (op->add)
+    stream << "+";
+  else
+    stream << "-";
+  stream << " _ }";
+  stream << endl;
+}
+
+void CodeGen_Spatial::visit(const ReduceScan* op) {
+  doIndent();
+  stream << keywordString("Reduce") << "(" << op->reg << ")(";
+  op->scanner.accept(this);
+  stream << ") { ";
+  op->caseType.accept(this);
+  stream << " => \n";
+
+  if (op->contents.defined())
+    op->contents.accept(this);
+
+
+  if (op->returnExpr.defined()) {
+    indent++;
+    doIndent();
+    op->returnExpr.accept(this);
+    stream << endl;
+    indent--;
+  }
+
+  doIndent();
   stream << "} { _ ";
   if (op->add)
     stream << "+";
@@ -659,8 +707,9 @@ void CodeGen_Spatial::visit(const Store* op) {
   doIndent();
   op->arr.accept(this);
 
-  if ((op->lhs_mem_loc != MemoryLocation::SpatialReg || op->rhs_mem_loc != MemoryLocation::SpatialReg) &&
-      op->lhs_mem_loc != MemoryLocation::SpatialFIFO) {
+  if ((op->lhs_mem_loc != MemoryLocation::SpatialReg || op->rhs_mem_loc != MemoryLocation::SpatialReg)
+      && op->lhs_mem_loc != MemoryLocation::SpatialFIFO
+      && op->lhs_mem_loc != MemoryLocation::SpatialSparseDRAM) {
     stream << "(";
     parentPrecedence = Precedence::TOP;
     op->loc.accept(this);
@@ -676,6 +725,11 @@ void CodeGen_Spatial::visit(const Store* op) {
     stream << " := ";
   } else if (op->lhs_mem_loc == MemoryLocation::SpatialFIFO) {
     stream << ".enq(";
+  } else if (op->lhs_mem_loc == MemoryLocation::SpatialSparseDRAM) {
+    parentPrecedence = Precedence::TOP;
+    stream << ".barrierWrite(";
+    op->loc.accept(this);
+    stream << ", ";
   } else {
     stream << " = ";
   }
@@ -684,6 +738,8 @@ void CodeGen_Spatial::visit(const Store* op) {
   op->data.accept(this);
   if (op->lhs_mem_loc == MemoryLocation::SpatialFIFO) {
     stream << ")";
+  } else if (op->lhs_mem_loc == MemoryLocation::SpatialSparseDRAM) {
+    stream << ", Seq())";
   }
   stream << endl;
 }
@@ -737,12 +793,31 @@ void CodeGen_Spatial::visit(const Load* op) {
   op->arr.accept(this);
   if (op->mem_loc == MemoryLocation::SpatialFIFO) {
     stream << ".deq";
+  } else if (op->mem_loc == MemoryLocation::SpatialSparseDRAM) {
+    stream << ".barrierRead(";
+    parentPrecedence = Precedence::LOAD;
+    op->loc.accept(this);
+    stream << ", Seq())";
   } else {
     stream << "(";
     parentPrecedence = Precedence::LOAD;
     op->loc.accept(this);
     stream << ")";
   }
+}
+
+void CodeGen_Spatial::visit(const Ternary* op) {
+  taco_iassert(op->cond.defined());
+  taco_iassert(op->then.defined());
+  stream << "mux((";
+  parentPrecedence = Precedence::TOP;
+  op->cond.accept(this);
+  stream << "), ";
+
+  op->then.accept(this);
+  stream << ", ";
+  op->otherwise.accept(this);
+  stream << ")";
 }
 
 void CodeGen_Spatial::visit(const LoadBulk* op) {

@@ -34,6 +34,7 @@ protected:
   void visit(const Yield*);
   void visit(const Var*);
   void visit(const For*);
+  void visit(const ForScan*);
   void visit(const While*);
   void visit(const GetProperty*);
   void visit(const Min*);
@@ -44,10 +45,12 @@ protected:
   void visit(const MemStore*);
   void visit(const Assign*);
   void visit(const Load*);
+  void visit(const Ternary*);
   void visit(const MemLoad*);
   void visit(const Malloc*);
   void visit(const Free*);
   void visit(const Reduce*);
+  void visit(const ReduceScan*);
   void visit(const LoadBulk*);
   void visit(const StoreBulk*);
 

@@ -17,7 +17,7 @@ extern const char *ParallelUnit_NAMES[];
 
 /// 
 enum class MemoryLocation {
-  Default, GPUSharedMemory, SpatialDRAM, SpatialSRAM, SpatialReg, SpatialSparseSRAM, SpatialFIFO
+  Default, GPUSharedMemory, SpatialDRAM, SpatialSRAM, SpatialReg, SpatialSparseSRAM, SpatialFIFO, SpatialSparseDRAM
 };
 
 extern const char *MemoryLocation_NAMES[];
@@ -43,6 +43,17 @@ enum class AssembleStrategy {
 };
 extern const char *AssembleStrategy_NAMES[];
 
+enum class SpatialRMWoperators {
+  Read, Write, Add, Swap
+};
+extern const char *SpatialRMWOperators_NAMES[];
+extern const char *SpatialRMWOperators_IR[];
+
+enum class SpatialMemOrdering {
+  Unordered, Ordered
+};
+extern const char *SpatialMemOrdering_NAMES[];
+extern const char *SpatialMemOrdering_IR[];
 }
 
 #endif //TACO_IR_TAGS_H

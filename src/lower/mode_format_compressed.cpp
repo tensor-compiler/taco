@@ -1,4 +1,5 @@
 #include "taco/lower/mode_format_compressed.h"
+#include "taco/spatial.h"
 
 #include "ir/ir_generators.h"
 #include "taco/ir/simplify.h"
@@ -105,27 +106,52 @@ ModeFunction CompressedModeFormat::posIterAccess(ir::Expr pos,
 }
 
 Stmt CompressedModeFormat::getAppendCoord(Expr p, Expr i, Mode mode) const {
-  taco_iassert(mode.getPackLocation() == 0);
+  // FIXME: use CompressedModeFormatSpatial instead
+  if (should_use_Spatial_codegen()) {
+    taco_iassert(mode.getPackLocation() == 0);
 
-  Expr idxArray = getCoordArray(mode.getModePack());
-  Expr stride = (int)mode.getModePack().getNumModes();
-  Stmt storeIdx = Store::make(idxArray, ir::Mul::make(p, stride), i);
+    Expr idxArray = getCoordArray(mode.getModePack());
+    auto varIdxArray = idxArray.as<Var>();
+    Expr stride = (int)mode.getModePack().getNumModes();
+    // FIXME: [Spatial] make sure memory location isn't hardcoded
 
-  if (mode.getModePack().getNumModes() > 1) {
+    Stmt storeIdx = Store::make(idxArray, ir::Mul::make(p, stride), i, mode.getMemoryLocation(), MemoryLocation::SpatialReg);
     return storeIdx;
-  }
+  } else {
+    taco_iassert(mode.getPackLocation() == 0);
 
-  Stmt maybeResizeIdx = doubleSizeIfFull(idxArray, getCoordCapacity(mode), p);
-  return Block::make({maybeResizeIdx, storeIdx});
+    Expr idxArray = getCoordArray(mode.getModePack());
+    Expr stride = (int) mode.getModePack().getNumModes();
+    Stmt storeIdx = Store::make(idxArray, ir::Mul::make(p, stride), i);
+
+    if (mode.getModePack().getNumModes() > 1) {
+      return storeIdx;
+    }
+
+    Stmt maybeResizeIdx = doubleSizeIfFull(idxArray, getCoordCapacity(mode), p);
+    return Block::make({maybeResizeIdx, storeIdx});
+  }
 }
 
 Stmt CompressedModeFormat::getAppendEdges(Expr pPrev, Expr pBegin, Expr pEnd, 
                                           Mode mode) const {
-  Expr posArray = getPosArray(mode.getModePack());
-  ModeFormat parentModeType = mode.getParentModeType();
-  Expr edges = (!parentModeType.defined() || parentModeType.hasAppend())
-               ? pEnd : ir::Sub::make(pEnd, pBegin);
-  return Store::make(posArray, ir::Add::make(pPrev, 1), edges);
+  // FIXME: get ModeFormatImpl to choose the correct CompressedModeFormatSpatial
+  if (should_use_Spatial_codegen()) {
+    Expr posArray = getPosArray(mode.getModePack());
+
+    ModeFormat parentModeType = mode.getParentModeType();
+    Expr edges = pEnd;
+
+    //Expr edges = (!parentModeType.defined() || parentModeType.hasAppend())
+    //             ? pEnd : ir::Sub::make(pEnd, pBegin);
+    return Store::make(posArray, ir::Add::make(pPrev, 1), edges, mode.getMemoryLocation(), MemoryLocation::SpatialReg);
+  } else {
+    Expr posArray = getPosArray(mode.getModePack());
+    ModeFormat parentModeType = mode.getParentModeType();
+    Expr edges = (!parentModeType.defined() || parentModeType.hasAppend())
+                 ? pEnd : ir::Sub::make(pEnd, pBegin);
+    return Store::make(posArray, ir::Add::make(pPrev, 1), edges);
+  }
 }
 
 Expr CompressedModeFormat::getSize(ir::Expr szPrev, Mode mode) const {
@@ -254,6 +280,12 @@ ModeFunction CompressedModeFormat::getYieldPos(Expr parentPos,
 
 Stmt CompressedModeFormat::getInsertCoord(Expr parentPos, Expr pos, 
     std::vector<Expr> coords, Mode mode) const {
+  if (should_use_Spatial_codegen()) {
+    taco_iassert(mode.getPackLocation() == 0);
+    Expr crdArray = getCoordArray(mode.getModePack());
+    Expr stride = (int)mode.getModePack().getNumModes();
+    return Store::make(crdArray, ir::Mul::make(pos, stride), coords.back(), mode.getMemoryLocation(), MemoryLocation::SpatialReg);
+  }
   taco_iassert(mode.getPackLocation() == 0);
   Expr crdArray = getCoordArray(mode.getModePack());
   Expr stride = (int)mode.getModePack().getNumModes();
