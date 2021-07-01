@@ -544,6 +544,7 @@ TEST(distributed, johnsonMM) {
   auto placeCLowered = lower(placeC, "placeLegionC", false, true);
 
   IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
+  IndexVar iln("iln"), ill("ill");
   a(i, j) = b(i, k) * c(k, j);
   auto stmt = a.getAssignment().concretize();
   std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
@@ -552,7 +553,13 @@ TEST(distributed, johnsonMM) {
       .communicate(a(i, j), kn)
       .communicate(b(i, k), kn)
       .communicate(c(k, j), kn)
-      .swapLeafKernel(il, gemm)
+      // Hierarchically parallelize the computation for each NUMA region.
+      // TODO (rohany): Make the number of OpenMP processors configurable.
+      .distribute({il}, {iln}, {ill}, Grid(2))
+      .communicate(a(i, j), iln)
+      .communicate(b(i, k), iln)
+      .communicate(c(k, j), iln)
+      .swapLeafKernel(ill, gemm)
       ;
   auto lowered = lower(stmt, "computeLegion", false, true);
   // Code-generate all of the placement and compute code.
