@@ -433,6 +433,7 @@ TEST(distributed, cannonMM) {
   auto placeCLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
 
   IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko"), kos("kos");
+  IndexVar iln("iln"), ill("ill");
   std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
   a(i, j) = b(i, k) * c(k, j);
   auto stmt = a.getAssignment().concretize();
@@ -443,7 +444,13 @@ TEST(distributed, cannonMM) {
       .stagger(ko, {in, jn}, kos)
       .communicate(b(i, k), kos)
       .communicate(c(k, j), kos)
-      .swapLeafKernel(il, gemm)
+      // Hierarchically parallelize the computation for each NUMA region.
+      // TODO (rohany): Make the number of OpenMP processors configurable.
+      .distribute({il}, {iln}, {ill}, Grid(2))
+      .communicate(a(i, j), iln)
+      .communicate(b(i, k), iln)
+      .communicate(c(k, j), iln)
+      .swapLeafKernel(ill, gemm)
       ;
 
   auto lowered = lower(stmt, "computeLegion", false, true);
