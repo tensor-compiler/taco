@@ -55,7 +55,7 @@ public:
 
   /// Lower an index statement to an IR function.
   ir::Stmt lower(IndexStmt stmt, std::string name, 
-                 bool assemble, bool compute, bool pack, bool unpack);
+                 bool assemble, bool compute, bool pack, bool unpack, bool waitOnFutureMap);
 
 protected:
 
@@ -544,6 +544,8 @@ private:
 
   std::map<IndexVar, int> indexVarFaces;
   std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls;
+
+  bool waitOnFutureMap;
 };
 
 }

@@ -188,11 +188,12 @@ bool hasSparseInserts(const std::vector<Iterator>& resultIterators,
 
 Stmt
 LowererImpl::lower(IndexStmt stmt, string name,
-                   bool assemble, bool compute, bool pack, bool unpack)
+                   bool assemble, bool compute, bool pack, bool unpack, bool waitOnFutureMap)
 {
   this->assemble = assemble;
   this->compute = compute;
   this->legion = name.find("Legion") != std::string::npos;
+  this->waitOnFutureMap = waitOnFutureMap;
   definedIndexVarsOrdered = {};
   definedIndexVars = {};
 
@@ -2126,7 +2127,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           {ctx, launcher},
           Auto
       );
-      if (this->distLoopDepth == 0) {
+      if (this->distLoopDepth == 0 && this->waitOnFutureMap) {
         itlStmts.push_back(ir::VarDecl::make(fm, fmCall));
         itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(fm, "wait_all_results", {}, false, Auto)));
       } else {

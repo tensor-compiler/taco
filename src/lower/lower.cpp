@@ -49,7 +49,7 @@ ir::Stmt lower(IndexStmt stmt, std::string name,
   string reason;
   taco_iassert(isLowerable(stmt, &reason))
       << "Not lowerable, because " << reason << ": " << stmt;
-  ir::Stmt lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute, pack, unpack);
+  ir::Stmt lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute, pack, unpack, true);
 
   // TODO: re-enable this
   // std::string messages;
@@ -59,6 +59,21 @@ ir::Stmt lower(IndexStmt stmt, std::string name,
   // }
   
   return lowered;
+}
+
+ir::Stmt lowerNoWait(IndexStmt stmt, std::string name, Lowerer lowerer) {
+  string reason;
+  taco_iassert(isLowerable(stmt, &reason))
+      << "Not lowerable, because " << reason << ": " << stmt;
+  return lowerer.getLowererImpl()->lower(
+      stmt,
+      name,
+      false /* assemble */,
+      true /* compute */,
+      false /* pack */,
+      false /* unpack */,
+      false /* waitOnFutureMap */
+      );
 }
 
 

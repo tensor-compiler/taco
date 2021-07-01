@@ -48,6 +48,10 @@ ir::Stmt lower(IndexStmt stmt, std::string functionName,
                bool assemble=true, bool compute=true, bool pack=false, bool unpack=false,
                Lowerer lowerer=Lowerer());
 
+// lowerNoWait is a lower version specific to the Legion backend that will not emit
+// a stall on the resulting FutureMap from execute_index_space.
+ir::Stmt lowerNoWait(IndexStmt stmt, std::string functionName, Lowerer lowerer=Lowerer());
+
 /// Check whether the an index statement can be lowered to C code.  If the
 /// statement cannot be lowered and a `reason` string is provided then it is
 /// filled with the a reason.

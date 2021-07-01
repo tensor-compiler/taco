@@ -561,7 +561,7 @@ TEST(distributed, johnsonMM) {
       .communicate(c(k, j), iln)
       .swapLeafKernel(ill, gemm)
       ;
-  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto lowered = lowerNoWait(stmt, "computeLegion");
   // Code-generate all of the placement and compute code.
   auto all = ir::Block::make({partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);

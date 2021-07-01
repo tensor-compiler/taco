@@ -63,7 +63,11 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     placeLegionC(ctx, runtime, C, gdim);
 
     // Compute on the tensors.
-    benchmark(ctx, runtime, times, [&]() { computeLegion(ctx, runtime, A, B, C, gdim); });
+    benchmark(ctx, runtime, times, [&]() {
+      computeLegion(ctx, runtime, A, B, C, gdim);
+      // Call the placement function again to force reduction along each slice of A.
+      placeLegionA(ctx, runtime, A, gdim);
+    });
   }
 
   // Get the GFLOPS per node.
