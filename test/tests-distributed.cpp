@@ -386,10 +386,8 @@ TEST(distributed, ttmc) {
   std::shared_ptr<LeafCallInterface> ttmc = std::make_shared<TTMC>();
   A(i, j, l) = B(i, j, k) * C(k, l);
   auto stmt = A.getAssignment().concretize()
-               // TODO (rohany): The disjointness analysis is getting confused here
-               //  so I have to do distribute onto rather than distribute. This should
-               //  work though.
-               .distribute({i}, {in}, {il}, A(i, j, l))
+               .distribute({i}, {in}, {il}, grid)
+               .communicate(A(i, j, l), in)
                .communicate(B(i, j, k), in)
                .communicate(C(k, l), in)
                .swapLeafKernel(il, ttmc)
