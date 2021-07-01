@@ -1846,13 +1846,21 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       auto coloring = colorings[idx];
       auto part = ir::Var::make(tv.getName() + "Partition", Auto);
       auto partKind = disjointPart;
-      // If a variable that we are partitioning this tensor by is not yet in scope,
-      // then it's likely that each subtask is accessing an aliased region.
+      // Figure out how many axes of the tensor are not being partitioned in order
+      // to figure out how many axes of the tensor are being partitioned. If
+      // the tensor is being partitioned in as many ways as the target loop is
+      // distributed, then the partition is disjoint. If there are unpartitioned
+      // axes and more distribution variables, then the tensor is likely aliased.
+      size_t aliasingVarsCount = 0;
       for (auto ivar : t.getAccess().getIndexVars()) {
         if (!this->anyParentInSet(ivar, this->varsInScope[this->curDistVar])) {
-          partKind = aliasedPart;
-          break;
+          aliasingVarsCount++;
         }
+      }
+      assert(aliasingVarsCount <= t.getAccess().getIndexVars().size());
+      size_t partitionedVars = t.getAccess().getIndexVars().size() - aliasingVarsCount;
+      if (partitionedVars < distIvars.size()) {
+        partKind = aliasedPart;
       }
 
       // If none of the variables in the access are changing in this loop, then we're
