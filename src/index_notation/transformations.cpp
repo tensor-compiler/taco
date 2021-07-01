@@ -1657,6 +1657,7 @@ ir::Stmt MTTKRP::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<T
   auto ldD = getLD(dAccess, 0);
   auto ldB3 = getLD(bAccess, 1);
   auto ldB2 = getLD(bAccess, 0);
+  auto ldB1 = getLD(bAccess, 0);
 
   results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "iDim", false, Auto), iDim));
   results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "jDim", false, Auto), jDim));
@@ -1665,8 +1666,9 @@ ir::Stmt MTTKRP::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<T
   results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldA", false, Auto), ldA));
   results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldC", false, Auto), ldC));
   results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldD", false, Auto), ldD));
-  results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldB3", false, Auto), ldB3));
+  results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldB1", false, Auto), ldB1));
   results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldB2", false, Auto), ir::Div::make(ldB2, ldB3)));
+  results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldB3", false, Auto), ldB3));
 
   std::stringstream funcName;
   funcName << "mttkrp<" << type.getDataType() << ">";
