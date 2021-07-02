@@ -437,10 +437,16 @@ TEST(workspaces, precompute3D_renamedIVars_TspV) {
 
 TEST(workspaces, DISABLED_tile_dotProduct_1) {
   // FIXME: Disabled because currently the precompute algorithm does not appropriately
-  // optimize = from += when rewriting a statement for BOTH the producer and consumer 
-  // side of a where statement insertion. 
-  // Although always using += is CORRECT functionally, this fails the GPU tests since it 
-  // would result in scattering. 
+  //        find the correct forall substmt to next the WhereNode in after i has been 
+  //        split into i0 and i1. As an example, the first precompute below is incorrect
+  //        since it should transform
+  //        forall(i0, forall(i1, A() += B(i) * C(i))) --> 
+  //        forall(i0, where(forall(i1, A() += ws(i1)), forall(i1, ws(i1) += B(i) * C(i))))
+  //        
+  //        But currently the algorithm does 
+  //        forall(i0, forall(i1, A() += B(i) * C(i))) --> 
+  //        where(forall(i1, A() += ws(i1)), forall(i0, forall(i1, ws(i1) += B(i) * C(i))))
+
   int N = 1024;
   Tensor<double> A("A");
   Tensor<double> B("B", {N}, Format({Dense}));
@@ -470,16 +476,25 @@ TEST(workspaces, DISABLED_tile_dotProduct_1) {
   stmt = stmt.bound(i, i_bounded, (size_t)N, BoundType::MaxExact)
              .split(i_bounded, i0, i1, 32);
   stmt = stmt.precompute(precomputedExpr, i1, i1, precomputed);
-
-  stmt = stmt.precompute(BExpr, i1, i1, B_new) 
-          .precompute(CExpr, i1, i1, C_new);
-
-
+  stmt = stmt.precompute(BExpr, i1, i1, B_new)
+    .precompute(CExpr, i1, i1, C_new);
+  
   stmt = stmt.concretize();
 
   A.compile(stmt);
   A.assemble();
   A.compute();
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+    
+  cout << stmt << endl;
+
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  
+  irp.print(compute);
+  cout << endl;
+  codegen->compile(compute, false);
 
   Tensor<double> expected("expected");
   expected() = B(i) * C(i);
@@ -543,3 +558,51 @@ TEST(workspaces, DISABLED_tile_dotProduct_2) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
+TEST(workspaces, tile_dotProduct_3) {
+  int N = 1024;
+  Tensor<double> A("A");
+  Tensor<double> B("B", {N}, Format({Dense}));
+  Tensor<double> C("C", {N}, Format({Dense}));
+
+  for (int i = 0; i < N; i++) {
+    B.insert({i}, (double) i);
+    C.insert({i}, (double) i);
+  }
+
+  B.pack();
+  C.pack();
+
+  IndexVar i("i");
+  IndexVar i_bounded("i_bounded");
+  IndexVar i0("i0"), i1("i1");
+  IndexExpr BExpr = B(i);
+  IndexExpr CExpr = C(i);
+  IndexExpr precomputedExpr = (BExpr) * (CExpr);
+  A() = precomputedExpr;
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar B_new("B_new", Type(Float64, {(size_t)N}), taco::dense);
+  TensorVar C_new("C_new", Type(Float64, {(size_t)N}), taco::dense);
+  TensorVar precomputed("precomputed", Type(Float64, {(size_t)N}), taco::dense);
+
+  stmt = stmt.bound(i, i_bounded, (size_t)N, BoundType::MaxExact)
+    .split(i_bounded, i0, i1, 32);
+  stmt = stmt.precompute(precomputedExpr, i0, i0, precomputed);
+
+  stmt = stmt.precompute(BExpr, i1, i1, B_new)
+    .precompute(CExpr, i1, i1, C_new);
+
+
+  stmt = stmt.concretize();
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected");
+  expected() = B(i) * C(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
+}
