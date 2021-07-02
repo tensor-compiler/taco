@@ -443,8 +443,8 @@ TEST(workspaces, DISABLED_tile_dotProduct_1) {
   // would result in scattering. 
   int N = 1024;
   Tensor<double> A("A");
-  Tensor<double> B("B", {N}, {Dense});
-  Tensor<double> C("C", {N}, {Dense});
+  Tensor<double> B("B", {N}, Format({Dense}));
+  Tensor<double> C("C", {N}, Format({Dense}));
 
   for (int i = 0; i < N; i++) {
     B.insert({i}, (double) i);
@@ -497,8 +497,8 @@ TEST(workspaces, DISABLED_tile_dotProduct_2) {
 
   int N = 1024;
   Tensor<double> A("A");
-  Tensor<double> B("B", {N}, {Dense});
-  Tensor<double> C("C", {N}, {Dense});
+  Tensor<double> B("B", {N}, Format({Dense}));
+  Tensor<double> C("C", {N}, Format({Dense}));
 
   for (int i = 0; i < N; i++) {
     B.insert({i}, (double) i);
