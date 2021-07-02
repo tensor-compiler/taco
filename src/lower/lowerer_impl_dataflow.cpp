@@ -746,7 +746,7 @@ Stmt LowererImplDataflow::lowerForall(Forall forall)
   }
   Stmt recoveryStmt = Block::make(recoverySteps);
 
-  taco_iassert(!definedIndexVars.count(forall.getIndexVar()));
+  taco_iassert(!definedIndexVars.count(forall.getIndexVar())) << forall.getIndexVar();
   definedIndexVars.insert(forall.getIndexVar());
   definedIndexVarsOrdered.push_back(forall.getIndexVar());
 

@@ -288,17 +288,6 @@ Expr Add::make(Expr a, Expr b) {
 }
 
 Expr Add::make(Expr a, Expr b, Datatype type) {
-  //if (a.type().isBool() || b.type().isBool()) {
-  //  std::cout << a << std::endl;
-  //  std::cout << b << std::endl;
-  //  void* callstack[128];
-  //  int i, frames = backtrace(callstack, 128);
-  //  char** strs = backtrace_symbols(callstack, frames);
-  //  for (i = 0; i < frames; ++i) {
-  //    printf("%s\n", strs[i]);
-  //  }
-  //  free(strs);
-  //}
   taco_iassert((!a.type().isBool() || (isa<Var>(a) && a.as<Var>()->is_ptr)) &&
             (!b.type().isBool() || (isa<Var>(b) && b.as<Var>()->is_ptr))) <<
       "Can't do arithmetic on booleans.";

@@ -15,7 +15,8 @@ using namespace taco::ir;
 namespace taco {
 
 struct WorkspaceRewriter : ir::IRRewriter {
-  WorkspaceRewriter(std::vector<TensorVar> whereTemps, std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap) : whereTemps(whereTemps),
+  WorkspaceRewriter(std::vector<TensorVar> whereTemps, std::map<TensorVar, 
+    std::vector<ir::Expr>> temporarySizeMap) : whereTemps(whereTemps),
   temporarySizeMap(temporarySizeMap) {}
   std::vector<TensorVar> whereTemps;
   std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap;
@@ -29,18 +30,24 @@ struct WorkspaceRewriter : ir::IRRewriter {
         string gpName = temp.getName() + to_string(op->mode + 1) + "_dimension";
 
         if (temp.defined() && gpName == op->name) {
-          taco_iassert(temporarySizeMap.find(temp) != temporarySizeMap.end()) << "Cannot rewrite workspace Dimension GetProperty "
-                                                                  "due to tensorVar not in expression map";
+          taco_iassert(temporarySizeMap.find(temp) != temporarySizeMap.end()) << "Cannot rewrite workspace "
+                                                                                 "Dimension GetProperty due "
+                                                                                 "to tensorVar not in "
+                                                                                 "expression map";
           auto tempExprList = temporarySizeMap.at(temp);
 
-          taco_iassert((int)tempExprList.size() > op->mode) << "Cannot rewrite workspace Dimension GetProperty "
-                                                                  "due to mode not in expresison map ";
+          taco_iassert((int)tempExprList.size() > op->mode) << "Cannot rewrite workspace (" 
+                                                            << op->tensor 
+                                                            << ") Dimension GetProperty due to mode (" 
+                                                            << op->mode 
+                                                            << ") not in expression map (size = "
+                                                            << tempExprList.size() << ")";
           expr = tempExprList.at(op->mode);
           return;
         }
       }
     }
-    expr = GetProperty::make(tensor, op->property, op->mode, op->index, op->name);
+    expr = op;
   }
 
   void visit(const VarDecl* decl) {

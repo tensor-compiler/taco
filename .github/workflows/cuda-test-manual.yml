@@ -1,0 +1,42 @@
+name: "CUDA build and test (manual)"
+
+# Note: This workflow is triggered by hand by TACO developers.
+# It should be run after the code has been reviewed by humans.
+# This review step is important to ensure the safety of the
+# self-hosted runner.
+
+on:
+  workflow_dispatch:
+    inputs:
+      CMAKE_BUILD_TYPE:
+        description: CMAKE_BUILD_TYPE
+        required: true
+        default: Debug
+      OPENMP:
+        description: OPENMP
+        required: true
+        default: 'ON'
+      PYTHON:
+        description: PYTHON
+        required: true
+        default: 'OFF'
+jobs:
+  ubuntu1604-cuda:
+    name: tests ubuntu 16.04 with CUDA 9
+    runs-on: [self-hosted, ubuntu-16.04, cuda]
+    steps:
+    - uses: actions/checkout@v2
+    - name: create_build
+      run: mkdir build
+    - name: cmake
+      run: cmake -DCMAKE_BUILD_TYPE=${{ github.event.inputs.CMAKE_BUILD_TYPE }} -DCUDA=ON -DOPENMP=${{ github.event.inputs.OPENMP }} -DPYTHON=${{ github.event.inputs.PYTHON }} ..
+      working-directory: build
+    - name: make
+      run: make -j8
+      working-directory: build
+    - name: test
+      run: make test
+      env:
+        CTEST_OUTPUT_ON_FAILURE: 1
+        CTEST_PARALLEL_LEVEL: 8
+      working-directory: build

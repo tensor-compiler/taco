@@ -14,6 +14,7 @@
 #include "taco/lower/merge_lattice.h"
 #include "mode_access.h"
 #include "taco/util/collections.h"
+#include "taco/ir/workspace_rewriter.h"
 
 using namespace std;
 using namespace taco::ir;

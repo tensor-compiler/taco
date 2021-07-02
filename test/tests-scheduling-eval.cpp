@@ -78,7 +78,6 @@ IndexStmt scheduleSpGEMMCPU(IndexStmt stmt, bool doPrecompute) {
   }
   cout << "SPGEMM: " << stmt << endl;
   stmt = stmt.assemble(result, AssembleStrategy::Insert, true);
-  cout << "Post Assembly SPGEMM: " << stmt << endl;
   auto qi_stmt = stmt.as<Assemble>().getQueries();
   IndexVar qi;
   if (isa<Where>(qi_stmt)) {
@@ -86,7 +85,6 @@ IndexStmt scheduleSpGEMMCPU(IndexStmt stmt, bool doPrecompute) {
   } else {
     qi = qi_stmt.as<Forall>().getIndexVar();
   }
-;
   stmt = stmt.parallelize(i, ParallelUnit::CPUThread,
                           OutputRaceStrategy::NoRaces);
   cout << "\nPost Parallelize SPGEMM: " << stmt << endl;
@@ -165,14 +163,12 @@ IndexStmt scheduleMTTKRPCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16,
   IndexExpr precomputeExpr = stmt.as<Forall>().getStmt().as<Forall>().getStmt()
                                  .as<Forall>().getStmt().as<Forall>().getStmt()
                                  .as<Assignment>().getRhs().as<Mul>().getA();
-  TensorVar w("w", Type(Float64, {NUM_J}), taco::dense);
+  TensorVar w("w", Type(Float64, {(size_t)NUM_J}), taco::dense);
 
   stmt = stmt.split(i, i1, i2, CHUNK_SIZE)
     .reorder({i1, i2, k, l, j});
-
-  cout << stmt << endl;
   stmt = stmt.precompute(precomputeExpr, j, j, w);
-  cout << stmt << endl;
+
   return stmt
           .parallelize(i1, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }

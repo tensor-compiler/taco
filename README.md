@@ -29,13 +29,17 @@ TL;DR build taco using CMake. Run `make test`.
 # Build and test
 ![Build and Test](https://github.com/RSenApps/taco/workflows/Build%20and%20Test/badge.svg?branch=master)
 
-Build taco using CMake 2.8.12 or greater:
+Build taco using CMake 3.4.0 or greater:
 
     cd <taco-directory>
     mkdir build
     cd build
     cmake -DCMAKE_BUILD_TYPE=Release ..
     make -j8
+
+Building taco requires `gcc` 5.0 or newer, or `clang` 3.9 or newer.  You can
+use a specific compiler or version by setting the `CC` and `CXX` environment
+variables before running `cmake`.
 
 ## Building Python API
 To build taco with the Python API (pytaco), add `-DPYTHON=ON` to the cmake line above. For example:
@@ -46,12 +50,19 @@ You will then need to add the pytaco module to PYTHONPATH:
 
     export PYTHONPATH=<taco-directory>/build/lib:$PYTHONPATH
 
-pytaco requires NumPy and SciPy to be installed.
+This requires Python 3.x and some development libraries.  It also requires
+NumPy and SciPy to be installed.  For Debian/Ubuntu, the following packages
+are needed: `python3 libpython3-dev python3-distutils python3-numpy python3-scipy`.
 
 ## Building for OpenMP
 To build taco with support for parallel execution (using OpenMP), add `-DOPENMP=ON` to the cmake line above. For example:
 
     cmake -DCMAKE_BUILD_TYPE=Release -DOPENMP=ON ..
+
+If you are building with the `clang` compiler, you may need to ensure that
+the `libomp` development headers are installed.  For Debian/Ubuntu, this is
+provided by `libomp-dev`, One of the more specific versions like
+`libomp-13-dev` may also work.
 
 ## Building for CUDA
 To build taco for NVIDIA CUDA, add `-DCUDA=ON` to the cmake line above. For example:
@@ -65,6 +76,8 @@ Please also make sure that you have CUDA installed properly and that the followi
     export LIBRARY_PATH=/usr/local/cuda/lib64:$LIBRARY_PATH
 
 If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag.
+
+The generated CUDA code will require compute capability 6.1 or higher to run.
 
 ## Running tests
 To run all tests:

@@ -20,7 +20,7 @@ public:
 
 protected:
   /// Gets the value of this TypedComponent as a size_t (for use in indexing)
-  size_t getAsIndex(const ComponentTypeUnion mem) const;
+  size_t getAsIndex(const ComponentTypeUnion &mem) const;
   /// Sets mem to value (ensure that it does not write to bytes past the size of the type in the union)
   void set(ComponentTypeUnion& mem, const ComponentTypeUnion& value);
   /// Sets mem to casted value of integer
@@ -237,4 +237,3 @@ bool operator!=(const TypedComponentVal& a, const int other);
 
 }
 #endif
-

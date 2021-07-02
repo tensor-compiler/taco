@@ -203,8 +203,7 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
         Expr values = ir::Var::make(temporary.getName(),
                                     temporary.getType().getDataType(),
                                     true, false);
-        taco_iassert(temporary.getType().getOrder() == 1) << " Temporary order was "
-                                                          << temporary.getType().getOrder();  // TODO
+
         Dimension temporarySize = temporary.getType().getShape().getDimension(0);
         Expr size;
         if (temporarySize.isFixed()) {

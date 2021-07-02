@@ -36,8 +36,6 @@ TEST(workspaces, tile_vecElemMul_NoTail) {
              .split(i_bounded, i0, i1, 4)
              .precompute(precomputedExpr, i1, i1, precomputed);
    
-//    cout << stmt << endl;
-
   A.compile(stmt);
   A.assemble();
   A.compute();
@@ -162,12 +160,8 @@ TEST(workspaces, tile_denseMatMul) {
   cout << "------STMT1------" << endl;
   stmt = stmt.bound(i, i_bounded, 16, BoundType::MaxExact)
              .split(i_bounded, i0, i1, 4);
-  cout << stmt << endl;
 
-  cout << "------STMT2------" << endl;
   stmt = stmt.precompute(precomputedExpr, i1, i1, precomputed);
-
-  cout << stmt << endl;
 
   A.compile(stmt.concretize());
   A.assemble();
@@ -213,7 +207,7 @@ TEST(workspaces, precompute2D_add) {
   A(i, j) = precomputedExpr + D(i, j);
     
   IndexStmt stmt = A.getAssignment().concretize();
-  TensorVar ws("ws", Type(Float64, {N, N}), Format{Dense, Dense});
+  TensorVar ws("ws", Type(Float64, {(size_t)N, (size_t)N}), Format{Dense, Dense});
   stmt = stmt.precompute(precomputedExpr, {i, j}, {i, j}, ws);
 
   A.compile(stmt.concretize());
@@ -254,8 +248,10 @@ TEST(workspaces, precompute4D_add) {
 
 
   IndexStmt stmt = A.getAssignment().concretize();
-  TensorVar ws1("ws1", Type(Float64, {N, N, N, N}), Format{Dense, Dense, Dense, Dense});
-  TensorVar ws2("ws2", Type(Float64, {N, N, N, N}), Format{Dense, Dense, Dense, Dense});
+  TensorVar ws1("ws1", Type(Float64, {(size_t)N, (size_t)N, (size_t)N, (size_t)N}), 
+                Format{Dense, Dense, Dense, Dense});
+  TensorVar ws2("ws2", Type(Float64, {(size_t)N, (size_t)N, (size_t)N, (size_t)N}), 
+                Format{Dense, Dense, Dense, Dense});
   stmt = stmt.precompute(precomputedExpr, {i, j, k, l}, {i, j, k, l}, ws1)
     .precompute(ws1(i, j, k, l) + D(i, j, k, l), {i, j, k, l}, {i, j, k ,l}, ws2);
 
@@ -296,8 +292,8 @@ TEST(workspaces, precompute4D_multireduce) {
 
 
   IndexStmt stmt = A.getAssignment().concretize();
-  TensorVar ws1("ws1", Type(Float64, {N, N, N}), Format{Dense, Dense, Dense});
-  TensorVar ws2("ws2", Type(Float64, {N, N}), Format{Dense, Dense});
+  TensorVar ws1("ws1", Type(Float64, {(size_t)N, (size_t)N, (size_t)N}), Format{Dense, Dense, Dense});
+  TensorVar ws2("ws2", Type(Float64, {(size_t)N, (size_t)N}), Format{Dense, Dense});
   stmt = stmt.precompute(precomputedExpr, {i, j, m}, {i, j, m}, ws1)
     .precompute(ws1(i, j, m) * D(m, n), {i, j}, {i, j}, ws2);
 
@@ -313,7 +309,7 @@ TEST(workspaces, precompute4D_multireduce) {
   ASSERT_TENSOR_EQ(A, expected);
 }
 
-TEST(workspaces, precompute3D_MspV) {
+TEST(workspaces, precompute3D_TspV) {
   int N = 16;
   Tensor<double> A("A", {N, N}, Format{Dense, Dense});
   Tensor<double> B("B", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
@@ -336,11 +332,10 @@ TEST(workspaces, precompute3D_MspV) {
 
 
   IndexStmt stmt = A.getAssignment().concretize();
-  TensorVar ws("ws", Type(Float64, {N, N, N}), Format{Dense, Dense, Dense});
+  TensorVar ws("ws", Type(Float64, {(size_t)N, (size_t)N, (size_t)N}), Format{Dense, Dense, Dense});
   stmt = stmt.precompute(precomputedExpr, {i, j, k}, {i, j, k}, ws);
   stmt = stmt.concretize();
-  cout << "----------STMT----------" << endl;
-  cout << stmt << endl;
+
   A.compile(stmt);
   A.assemble();
   A.compute();
@@ -378,16 +373,12 @@ TEST(workspaces, precompute3D_multipleWS) {
 
 
   IndexStmt stmt = A.getAssignment().concretize();
-  TensorVar ws("ws", Type(Float64, {N, N, N}), Format{Dense, Dense, Dense});
-  TensorVar t("t", Type(Float64, {N, N}), Format{Dense, Dense});
-  cout << "----------STMT1----------" << endl;
+  TensorVar ws("ws", Type(Float64, {(size_t)N, (size_t)N, (size_t)N}), Format{Dense, Dense, Dense});
+  TensorVar t("t", Type(Float64, {(size_t) N, (size_t)N}), Format{Dense, Dense});
   stmt = stmt.precompute(precomputedExpr, {i, j, k}, {i, j, k}, ws);
-  cout << stmt << endl;
 
-  cout << "----------STMT2----------" << endl;
   stmt = stmt.precompute(ws(i, j, k) * c(k), {i, j}, {i, j}, t);
   stmt = stmt.concretize();
-  cout << stmt << endl;
 
   A.compile(stmt);
   A.assemble();
@@ -402,3 +393,45 @@ TEST(workspaces, precompute3D_multipleWS) {
 
 }
 
+TEST(workspaces, precompute3D_renamedIVars_TspV) {
+  int N = 16;
+  Tensor<double> A("A", {N, N}, Format{Dense, Dense});
+  Tensor<double> B("B", {N, N, N, N}, Format{Dense, Dense, Dense, Dense});
+  Tensor<double> c("c", {N}, Format{Sparse});
+
+  for (int i = 0; i < N; i++) {
+    c.insert({i}, (double) i);
+    for (int j = 0; j < N; j++) {
+      for (int k = 0; k < N; k++) {
+        for (int l = 0; l < N; l++) {
+          B.insert({i, j, k, l}, (double) i + j);
+        }
+      }
+    }
+  }
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  IndexExpr precomputedExpr = B(i, j, k, l) * c(l);
+  A(i, j) = precomputedExpr * c(k);
+
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar ws("ws", Type(Float64, {(size_t)N, (size_t)N, (size_t)N}),
+               Format{Dense, Dense, Dense});
+
+  IndexVar iw("iw"), jw("jw"), kw("kw");
+  stmt = stmt.precompute(precomputedExpr, {i, j, k}, {iw, jw, kw}, ws);
+  stmt = stmt.concretize();
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {N, N}, Format{Dense, Dense});
+  expected(i, j) = (B(i, j, k, l) * c(l)) * c(k);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(A, expected);
+
+}

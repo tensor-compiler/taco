@@ -357,9 +357,6 @@ protected:
   /// Gets the size of a temporary tensorVar in the where statement
   ir::Expr getTemporarySize(Where where);
 
-  /// Gets the varDecl of temporary dimensions for dense workspaces only
-  ir::Stmt getTemporarySizeDecl(Where where);
-
   /// Initializes helper arrays to give dense workspaces sparse acceleration
   std::vector<ir::Stmt> codeToInitializeDenseAcceleratorArrays(Where where, bool parallel = false);
 
@@ -497,7 +494,10 @@ private:
   std::vector<TensorVar> whereTemps;
   std::map<TensorVar, const AccessNode *> whereTempsToResult;
 
+  // Map temporary tensorVars to a list of size expressions for each mode
   std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap;
+  
+  // List that contains all temporary tensorVars
   std::vector<TensorVar> temporaries;
 
   bool captureNextLocatePos = false;

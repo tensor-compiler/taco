@@ -153,7 +153,7 @@ Precompute::Precompute(IndexExpr expr, IndexVar i, IndexVar iw,
   content->workspace = workspace;
 }
 
-  Precompute::Precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
+Precompute::Precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
                          std::vector<IndexVar> iw_vars,
                          TensorVar workspace) : content(new Content) {
   content->expr = expr;
@@ -385,15 +385,16 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
 
     void visit(const ForallNode* node) {
       Forall foralli(node);
+      std::vector<IndexVar> i_vars = precompute.getIVars();
 
-      bool hasWheres = false;
+      bool containsWhere = false;
       match(foralli,
             function<void(const WhereNode*)>([&](const WhereNode* op) {
-              hasWheres = true;
+              containsWhere = true;
             })
       );
-      if (!hasWheres) {
-        std::vector<IndexVar> i_vars = precompute.getIVars();
+
+      if (!containsWhere) {
 
         vector<IndexVar> forallIndexVars;
         match(foralli,
@@ -417,6 +418,11 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
         // Build consumer by replacing with temporary (in replacedStmt)
         IndexStmt replacedStmt = replace(s, {{e, ws(i_vars)}});
         if (replacedStmt != s) {
+          cout << endl;
+          cout << "Precompute forall: " << foralli << endl;
+          cout << "Stmt" << s << endl;
+          cout << "Replaced Stmt" << replacedStmt << endl;
+          cout << endl;
           // Then modify the replacedStmt to have the correct foralls
           // by concretizing the consumer assignment
 
