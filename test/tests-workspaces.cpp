@@ -470,16 +470,12 @@ TEST(workspaces, DISABLED_tile_dotProduct_1) {
   stmt = stmt.bound(i, i_bounded, (size_t)N, BoundType::MaxExact)
              .split(i_bounded, i0, i1, 32);
   stmt = stmt.precompute(precomputedExpr, i1, i1, precomputed);
-    
-  cout << stmt << endl;
-  cout << endl;
 
   stmt = stmt.precompute(BExpr, i1, i1, B_new) 
           .precompute(CExpr, i1, i1, C_new);
 
 
   stmt = stmt.concretize();
-  cout << stmt << endl;
 
   A.compile(stmt);
   A.assemble();
@@ -527,9 +523,6 @@ TEST(workspaces, DISABLED_tile_dotProduct_2) {
 
   stmt = stmt.precompute(precomputedExpr, i, i, precomputed);
     
-  cout << stmt << endl;
-  cout << endl;
-
   stmt = stmt.precompute(BExpr, i, i, B_new) 
           .precompute(CExpr, i, i, C_new);
 
@@ -537,7 +530,6 @@ TEST(workspaces, DISABLED_tile_dotProduct_2) {
              .split(i_bounded, i0, i1, 32);
 
   stmt = stmt.concretize();
-  cout << stmt << endl;
 
   A.compile(stmt);
   A.assemble();
