@@ -251,15 +251,18 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   // TODO Remove this
 
 
+  map<TensorVar, ir::Expr> temporariesVars;
   // TODO: Make diff node based on whether it is set?
   for (auto& temp : temporaries) {
     ir::Expr irVar = ir::Var::make(temp.getName(), temp.getType().getDataType(),
                                    true, true, false, temp.getMemoryLocation());
     tensorVars.insert({temp, irVar});
+    temporariesVars.insert({temp, irVar});
   }
 
   // Create variables for keeping track of result values array capacity
   createCapacityVars(resultVars, &capacityVars);
+  createCapacityVars(temporariesVars, &capacityVars);
 
   // Create iterators
   iterators = Iterators(stmt, tensorVars);

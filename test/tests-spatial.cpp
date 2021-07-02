@@ -602,12 +602,12 @@ TEST(spatial, tile_dotProduct) {
 
   stmt = stmt.bound(i, i_bounded, n, BoundType::MaxExact)
           .split(i_bounded, i0, i1, 32)
-          .parallelize(i0, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 2)
-          .precompute(precomputedExpr, i1, i1, precomputed);
+          .precompute(precomputedExpr, i0, i0, precomputed)
+          .parallelize(i0, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 2);
   cout << "----------------Post-Schedule 1 Stmt-----------------" << endl;
   cout << stmt << endl;
 
-  stmt = stmt.precompute(BExpr, i1, i1, B_sram); // where (forall(i p = B_sram * C_sram, forall_i (B_sram = B(i))
+  stmt = stmt.precompute(BExpr, i1, i1, B_sram);
   cout << "----------------Post-Schedule 2 Stmt-----------------" << endl;
   cout << stmt << endl;
 
@@ -849,10 +849,10 @@ TEST(spatial, sparse_csr_plus2) {
 TEST(spatial, sparse_csr_plus3) {
   set_Spatial_codegen_enabled(true);
 
-  Tensor<int> A("A", {16, 16}, CSR, taco::MemoryLocation::SpatialFIFO);
-  Tensor<int> B("B", {16, 16}, CSR, taco::MemoryLocation::SpatialFIFO);
-  Tensor<int> C("C", {16, 16}, CSR, taco::MemoryLocation::SpatialFIFO);
-  Tensor<int> D("D", {16, 16}, CSR, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> A("A", {16, 16}, CSR, taco::MemoryLocation::SpatialSparseDRAM);
+  Tensor<int> B("B", {16, 16}, CSR, taco::MemoryLocation::SpatialSparseDRAM);
+  Tensor<int> C("C", {16, 16}, CSR, taco::MemoryLocation::SpatialSparseDRAM);
+  Tensor<int> D("D", {16, 16}, CSR, taco::MemoryLocation::SpatialSparseDRAM);
 
   for (int i = 0; i < 16; i++) {
     B.insert({i, i}, (int) i);
@@ -865,7 +865,7 @@ TEST(spatial, sparse_csr_plus3) {
   A(i, j) = B(i, j) + precomputedExpr;
 
   IndexStmt stmt = A.getAssignment().concretize();
-  TensorVar ws("ws", Type(Float64, {16, 16}), {taco::dense, taco::compressed});
+  TensorVar ws("ws", Type(Float64, {16, 16}), {taco::dense, taco::compressed}, MemoryLocation::SpatialSparseSRAM);
   stmt = stmt.precompute(precomputedExpr, {i, j}, {i, j}, ws);
 
   cout << "----------------Post-Schedule Stmt-----------------" << endl;
