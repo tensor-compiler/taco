@@ -45,7 +45,7 @@ TEST(workspaces, tile_vecElemMul_NoTail) {
   expected.compile();
   expected.assemble();
   expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
+  ASSERT_TENSOR_EQ(expected, A);
 }
 
 TEST(workspaces, tile_vecElemMul_Tail1) {
@@ -83,7 +83,7 @@ TEST(workspaces, tile_vecElemMul_Tail1) {
   expected.compile();
   expected.assemble();
   expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
+  ASSERT_TENSOR_EQ(expected, A);
 }
 
 TEST(workspaces, tile_vecElemMul_Tail2) {
@@ -121,7 +121,7 @@ TEST(workspaces, tile_vecElemMul_Tail2) {
   expected.compile();
   expected.assemble();
   expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
+  ASSERT_TENSOR_EQ(expected, A);
 
 //  ir::IRPrinter irp = ir::IRPrinter(cout);
 //    
@@ -171,7 +171,7 @@ TEST(workspaces, tile_denseMatMul) {
   expected.compile();
   expected.assemble();
   expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
+  ASSERT_TENSOR_EQ(expected, A);
 
 //  ir::IRPrinter irp = ir::IRPrinter(cout);
 //    
@@ -218,7 +218,7 @@ TEST(workspaces, precompute2D_add) {
   expected.compile();
   expected.assemble();
   expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
+  ASSERT_TENSOR_EQ(expected, A);
 
 }
 
@@ -263,7 +263,7 @@ TEST(workspaces, precompute4D_add) {
   expected.compile();
   expected.assemble();
   expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
+  ASSERT_TENSOR_EQ(expected, A);
 }
 
 TEST(workspaces, precompute4D_multireduce) {
@@ -305,7 +305,7 @@ TEST(workspaces, precompute4D_multireduce) {
   expected.compile();
   expected.assemble();
   expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
+  ASSERT_TENSOR_EQ(expected, A);
 }
 
 TEST(workspaces, precompute3D_TspV) {
@@ -344,7 +344,7 @@ TEST(workspaces, precompute3D_TspV) {
   expected.compile();
   expected.assemble();
   expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
+  ASSERT_TENSOR_EQ(expected, A);
 
 }
 
@@ -388,7 +388,7 @@ TEST(workspaces, precompute3D_multipleWS) {
   expected.compile();
   expected.assemble();
   expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
+  ASSERT_TENSOR_EQ(expected, A);
 
 }
 
@@ -431,6 +431,178 @@ TEST(workspaces, precompute3D_renamedIVars_TspV) {
   expected.compile();
   expected.assemble();
   expected.compute();
-  ASSERT_TENSOR_EQ(A, expected);
+  ASSERT_TENSOR_EQ(expected, A);
 
+}
+
+TEST(workspaces, DISABLED_tile_dotProduct_1) {
+  // FIXME: Disabled because currently the precompute algorithm does not appropriately
+  //        find the correct forall substmt to next the WhereNode in after i has been 
+  //        split into i0 and i1. As an example, the first precompute below is incorrect
+  //        since it should transform
+  //        forall(i0, forall(i1, A() += B(i) * C(i))) --> 
+  //        forall(i0, where(forall(i1, A() += ws(i1)), forall(i1, ws(i1) += B(i) * C(i))))
+  //        
+  //        But currently the algorithm does 
+  //        forall(i0, forall(i1, A() += B(i) * C(i))) --> 
+  //        where(forall(i1, A() += ws(i1)), forall(i0, forall(i1, ws(i1) += B(i) * C(i))))
+
+  int N = 1024;
+  Tensor<double> A("A");
+  Tensor<double> B("B", {N}, Format({Dense}));
+  Tensor<double> C("C", {N}, Format({Dense}));
+
+  for (int i = 0; i < N; i++) {
+    B.insert({i}, (double) i);
+    C.insert({i}, (double) i);
+  }
+
+  B.pack();
+  C.pack();
+
+  IndexVar i("i");
+  IndexVar i_bounded("i_bounded");
+  IndexVar i0("i0"), i1("i1");
+  IndexExpr BExpr = B(i);
+  IndexExpr CExpr = C(i);
+  IndexExpr precomputedExpr = (BExpr) * (CExpr);
+  A() = precomputedExpr;
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar B_new("B_new", Type(Float64, {(size_t)N}), taco::dense);
+  TensorVar C_new("C_new", Type(Float64, {(size_t)N}), taco::dense);
+  TensorVar precomputed("precomputed", Type(Float64, {(size_t)N}), taco::dense);
+
+  stmt = stmt.bound(i, i_bounded, (size_t)N, BoundType::MaxExact)
+             .split(i_bounded, i0, i1, 32);
+  stmt = stmt.precompute(precomputedExpr, i1, i1, precomputed);
+  stmt = stmt.precompute(BExpr, i1, i1, B_new)
+    .precompute(CExpr, i1, i1, C_new);
+  
+  stmt = stmt.concretize();
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+    
+  cout << stmt << endl;
+
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  
+  irp.print(compute);
+  cout << endl;
+  codegen->compile(compute, false);
+
+  Tensor<double> expected("expected");
+  expected() = B(i) * C(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
+}
+
+TEST(workspaces, DISABLED_tile_dotProduct_2) {
+  // FIXME: This is also currently disabled since split(...) scheduling commands
+  // only split on the FIRST INSTANCE of an indexVar (assumes only one). 
+  // This is wrong if the indexVar is not renamed across iw_vars since an indexVar can 
+  // then occur on BOTH the consumer and producer side and should be split across both. 
+
+  int N = 1024;
+  Tensor<double> A("A");
+  Tensor<double> B("B", {N}, Format({Dense}));
+  Tensor<double> C("C", {N}, Format({Dense}));
+
+  for (int i = 0; i < N; i++) {
+    B.insert({i}, (double) i);
+    C.insert({i}, (double) i);
+  }
+
+  B.pack();
+  C.pack();
+
+  IndexVar i("i");
+  IndexVar i_bounded("i_bounded");
+  IndexVar i0("i0"), i1("i1");
+  IndexExpr BExpr = B(i);
+  IndexExpr CExpr = C(i);
+  IndexExpr precomputedExpr = (BExpr) * (CExpr);
+  A() = precomputedExpr;
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar B_new("B_new", Type(Float64, {(size_t)N}), taco::dense);
+  TensorVar C_new("C_new", Type(Float64, {(size_t)N}), taco::dense);
+  TensorVar precomputed("precomputed", Type(Float64, {(size_t)N}), taco::dense);
+
+  stmt = stmt.precompute(precomputedExpr, i, i, precomputed);
+    
+  stmt = stmt.precompute(BExpr, i, i, B_new) 
+          .precompute(CExpr, i, i, C_new);
+
+  stmt = stmt.bound(i, i_bounded, (size_t)N, BoundType::MaxExact)
+             .split(i_bounded, i0, i1, 32);
+
+  stmt = stmt.concretize();
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected");
+  expected() = B(i) * C(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
+}
+
+TEST(workspaces, tile_dotProduct_3) {
+  int N = 1024;
+  Tensor<double> A("A");
+  Tensor<double> B("B", {N}, Format({Dense}));
+  Tensor<double> C("C", {N}, Format({Dense}));
+
+  for (int i = 0; i < N; i++) {
+    B.insert({i}, (double) i);
+    C.insert({i}, (double) i);
+  }
+
+  B.pack();
+  C.pack();
+
+  IndexVar i("i");
+  IndexVar i_bounded("i_bounded");
+  IndexVar i0("i0"), i1("i1");
+  IndexExpr BExpr = B(i);
+  IndexExpr CExpr = C(i);
+  IndexExpr precomputedExpr = (BExpr) * (CExpr);
+  A() = precomputedExpr;
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar B_new("B_new", Type(Float64, {(size_t)N}), taco::dense);
+  TensorVar C_new("C_new", Type(Float64, {(size_t)N}), taco::dense);
+  TensorVar precomputed("precomputed", Type(Float64, {(size_t)N}), taco::dense);
+
+  stmt = stmt.bound(i, i_bounded, (size_t)N, BoundType::MaxExact)
+    .split(i_bounded, i0, i1, 32);
+  stmt = stmt.precompute(precomputedExpr, i0, i0, precomputed);
+
+  stmt = stmt.precompute(BExpr, i1, i1, B_new)
+    .precompute(CExpr, i1, i1, C_new);
+
+
+  stmt = stmt.concretize();
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected");
+  expected() = B(i) * C(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
 }
