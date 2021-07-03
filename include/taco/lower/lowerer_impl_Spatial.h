@@ -62,7 +62,8 @@ protected:
   ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord) override;
 
   /// Returns the segment of IR that generates the bitvectors from the FIFO crd arrays
-  ir::Stmt generateIteratorBitVectors(IndexStmt statement, MergePoint point, std::map<Iterator, ir::Expr>& varMap);
+  ir::Stmt generateIteratorBitVectors(IndexStmt statement, ir::Expr coordinate, IndexVar coordinateVar,
+                                      MergePoint point,  std::map<Iterator, ir::Expr>& bvRawMap, std::map<Iterator, ir::Expr>& bvMap);
 
   /// Loads the crd arrays from DRAM into FIFOs
   ir::Stmt loadDRAMtoFIFO(IndexStmt statement, MergePoint point, std::map<Iterator, ir::Expr>& varMap);
@@ -83,6 +84,7 @@ protected:
   ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> iterators, std::vector<Iterator> rangers,
                                        std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar) override;
 
+  ir::Stmt generateGlobalEnvironmentVars();
 
     private:
   class Visitor;
@@ -94,6 +96,8 @@ protected:
   int markAssignsAtomicDepth = 0;
 
   std::map<TensorVar, ir::Expr> sparseDRAMAccessMap;
+
+
 };
 
 

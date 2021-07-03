@@ -130,6 +130,9 @@ public:
   /// coordinates appended to a level belonging to the same subtensor.
   ir::Expr getBeginVar() const;
 
+  /// Returns the variable that indicates the occupancy (start bound - end bound) for positions
+  /// of coordinates appended to a level belonging to the same subtensor;
+  ir::Expr getOccupancyVar() const;
 
   ModeFunction coordBounds(const ir::Expr& parentPos) const;
     /// Return code for level functions that implement coordinate value iteration.

@@ -78,7 +78,9 @@ enum class IRNodeType {
   TypeCase,     // Spatial Only
   ForScan,      // Spatial Only
   ReduceScan,   // Spatial Only
-  RMW           // Spatial Only
+  RMW,          // Spatial Only
+  FuncEnv,      // Spatial Only
+  AccelEnv      // Spatial Only
 };
 
 enum class TensorProperty {
@@ -960,6 +962,22 @@ struct CallStmt : public StmtNode<CallStmt> {
   static Stmt make(Expr call);
 
   static const IRNodeType _type_info = IRNodeType::CallStmt;
+};
+
+/** Top-level function environment for codegen */
+struct FuncEnv : public StmtNode<FuncEnv> {
+  Stmt env;
+
+  static Stmt make(Stmt env);
+  static const IRNodeType _type_info = IRNodeType::FuncEnv;
+};
+
+/** Accel-level function environment for codegen */
+struct AccelEnv : public StmtNode<AccelEnv> {
+  Stmt aenv;
+
+  static Stmt make(Stmt aenv);
+  static const IRNodeType _type_info = IRNodeType::AccelEnv;
 };
 
 /// SPATIAL ONLY END

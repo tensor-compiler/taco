@@ -30,6 +30,7 @@ struct Iterator::Content {
   ir::Expr validVar;
   ir::Expr beginVar;
   ir::Expr baseVar;
+  ir::Expr occupancyVar;
 
   // AccessWindow represents a window (or slice) into a tensor mode, given by
   // the expressions representing an upper and lower bound. An iterator
@@ -91,6 +92,7 @@ Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
   content->posVar   = Var::make(name,            Int());
   content->endVar   = Var::make("p" + modeName + "_end",   Int());
   content->beginVar = Var::make("p" + modeName + "_begin", Int());
+  content->occupancyVar = Var::make("p" + modeName + "_occupancy", Int());
 
   content->coordVar = Var::make(name, Int());
   content->segendVar = Var::make(modeName + "_segend", Int());
@@ -170,6 +172,11 @@ Expr Iterator::getValidVar() const {
 Expr Iterator::getBeginVar() const {
   taco_iassert(defined());
   return content->beginVar;
+}
+
+Expr Iterator::getOccupancyVar() const {
+  taco_iassert(defined());
+  return content->occupancyVar;
 }
 
 bool Iterator::isDimensionIterator() const {

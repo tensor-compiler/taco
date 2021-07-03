@@ -513,6 +513,9 @@ protected:
   /// Map from indexvars to their variable names
   std::map<IndexVar, ir::Expr> indexVarToExprMap;
 
+  /// Map from indexvars to their max bits variable
+  std::map<IndexVar, ir::Expr> indexVartoBitVarMap;
+
   /// Tensor and mode iterators to iterate over in the lowered code
   Iterators iterators;
 

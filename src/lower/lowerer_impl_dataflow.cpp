@@ -272,14 +272,21 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   // TODO: make a temporary variable for storing postion accumulations into
   //       for each appender in iterators
 
+  cout << "GENERATE INDEXVARMAP" << endl;
   for (const IndexVar& indexVar : provGraph.getAllIndexVars()) {
     if (iterators.modeIterators().count(indexVar)) {
+      cout << indexVar << iterators.modeIterators()[indexVar].getIteratorVar();
       indexVarToExprMap.insert({indexVar, iterators.modeIterators()[indexVar].getIteratorVar()});
     }
     else {
       indexVarToExprMap.insert({indexVar, Var::make(indexVar.getName(), Int())});
     }
   }
+
+  for (const IndexVar& indexVar : provGraph.getAllIndexVars()) {
+    indexVartoBitVarMap.insert({indexVar, Var::make(indexVar.getName() + "_max_bits", Int())});
+  }
+
 
   vector<Access> inputAccesses, resultAccesses;
   set<Access> reducedAccesses;

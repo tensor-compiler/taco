@@ -155,12 +155,8 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
               auto tempVals = ir::Var::make(op->tensorVar.getName() + "_vals_raw", vals.type());
               auto tempValsDecl = ir::VarDecl::make(tempVals, ir::Load::make(vals, loc, var.getMemoryLocation()));
               hoistedStmts.push_back(tempValsDecl);
+              sparseDRAMAccessMap.insert({var, tempVals});
 
-              auto cleanedVals = ir::Var::make(op->tensorVar.getName() + "_vals_clean", vals.type());
-              sparseDRAMAccessMap[var] = cleanedVals;
-              auto mux = ir::Ternary::make(ir::Gte::make(loc, ir::Literal::zero(vals.type())), tempVals, ir::Literal::zero(vals.type()));
-              auto cleanedValsDecl = ir::VarDecl::make(cleanedVals, mux);
-              hoistedStmts.push_back(cleanedValsDecl);
             }
           })
     );
@@ -279,7 +275,8 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
     Stmt memoryTransfer = loadDRAMtoFIFO(statement, rootPoint, varMap);
 
     // 2) generate BitVectors from FIFO to another FIFO
-    Stmt genBitVectors = generateIteratorBitVectors(statement, rootPoint, varMap);
+    map<Iterator, ir::Expr> bvMap;
+    Stmt genBitVectors = generateIteratorBitVectors(statement, coordinate, coordinateVar, rootPoint, varMap, bvMap);
 
     // 3) Calculate pos arrays using scanner
     // An iteration lattice point represents a union when it contains more than 2 iterators and
@@ -290,7 +287,8 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
     Stmt appendPositions = generateIteratorAppendPositions(statement, coordinate, coordinateVar, rootPoint, appenders, varMap, isUnion);
 
     // 4) Calculate add
-    Stmt computeLoop = generateIteratorComputeLoop(statement, coordinate, coordinateVar, rootPoint, lattice, varMap,reducedAccesses, isUnion);
+    Stmt computeLoop = generateIteratorComputeLoop(statement, coordinate, coordinateVar, rootPoint, lattice, bvMap,
+                                                   reducedAccesses, isUnion);
 
     return Block::blanks(iteratorVarInits, memoryTransfer, genBitVectors, appendPositions, computeLoop);
   }
@@ -719,13 +717,18 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     auto uncompressedCrd = ir::Var::make(coordinate.as<Var>()->name + "_uncomp", coordinate.as<Var>()->type);
     auto compressedCrd = ir::Var::make(coordinate.as<Var>()->name + "_comp", coordinate.as<Var>()->type);
 
+    taco_iassert(indexVartoBitVarMap.find(coordinateVar) != indexVartoBitVarMap.end()) << "Iterator not found in bit "
+                                                                                          "variable map defined by global "
+                                                                                          "metadata environment";
+    auto bitLen = ir::Mul::make(ir::Literal::make(32), indexVartoBitVarMap.at(coordinateVar));
+
     Expr scan = Expr();
     Expr typeCase = Expr();
     if (point.iterators().size() == 1) {
       auto iterator = point.iterators()[0];
       // TODO: fix bitcnt and par factor later
       scan = ir::Scan::make(ir::Literal::make(1, iterator.getIteratorVar().type()),
-                            ir::Literal::make(512, iterator.getIteratorVar().type()),
+                            bitLen,
                             varMap[iterator], Expr(), isUnion, false);
 
 
@@ -734,9 +737,9 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       auto iterator1 = point.iterators()[0];
       auto iterator2 = point.iterators()[1];
       // TODO: fix bitcnt and par factor later
-      scan = ir::Scan::make(1, 512, varMap[iterator1], varMap[iterator2], isUnion, false);
+      scan = ir::Scan::make(1, bitLen, varMap[iterator1], varMap[iterator2], isUnion, false);
 
-      typeCase = ir::TypeCase::make({uncompressedCrd, iterator1.getIteratorVar(), compressedCrd, iterator2.getIteratorVar()});
+      typeCase = ir::TypeCase::make({uncompressedCrd, iterator1.getCoordVar(), compressedCrd, iterator2.getCoordVar()});
     }
 
     vector<Stmt> iterVars;
@@ -757,7 +760,10 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     }
 
     for (auto& iterator : point.iterators()) {
-      Stmt iterDecl = ir::VarDecl::make(iterator.getIteratorVar(), ir::Add::make(iterator.getBeginVar(), iterator.getIteratorVar()));
+      auto ternary = ir::Ternary::make(ir::Gte::make(iterator.getCoordVar(), ir::Literal::zero(Int())),
+                                       ir::Add::make(iterator.getBeginVar(), iterator.getCoordVar()),
+                                       ir::Literal::zero(Int()));
+      Stmt iterDecl = ir::VarDecl::make(iterator.getIteratorVar(), ternary);
       iterVars.push_back(iterDecl);
     }
 
@@ -778,12 +784,17 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     auto uncompressedCrd = ir::Var::make(coordinate.as<Var>()->name + "_uncomp", coordinate.as<Var>()->type);
     auto compressedCrd = ir::Var::make(coordinate.as<Var>()->name + "_comp", coordinate.as<Var>()->type);
 
+    taco_iassert(indexVartoBitVarMap.find(coordinateVar) != indexVartoBitVarMap.end()) << "Iterator not found in bit "
+                                                                                          "variable map defined by global "
+                                                                                          "metadata environment";
+    auto bitLen = ir::Mul::make(ir::Literal::make(32), indexVartoBitVarMap.at(coordinateVar));
+
     Expr scan = Expr();
     Expr typeCase = Expr();
     if (point.iterators().size() == 1) {
       auto iterator = point.iterators()[0];
       // TODO: fix bitcnt and par factor later
-      scan = ir::Scan::make(ir::Literal::make(1, iterator.getIteratorVar().type()), ir::Literal::make(512, iterator.getIteratorVar().type()),
+      scan = ir::Scan::make(1, bitLen,
                             varMap[iterator], Expr(), isUnion, true);
 
 
@@ -792,7 +803,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       auto iterator1 = point.iterators()[0];
       auto iterator2 = point.iterators()[1];
       // TODO: fix bitcnt and par factor later
-      scan = ir::Scan::make(1, 512, varMap[iterator1], varMap[iterator2], isUnion, true);
+      scan = ir::Scan::make(1, bitLen, varMap[iterator1], varMap[iterator2], isUnion, true);
 
       typeCase = ir::TypeCase::make({uncompressedCrd, iterator1.getCoordVar(), compressedCrd, iterator2.getCoordVar()});
     }
@@ -839,38 +850,71 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     }
     Stmt appendPosition = result.empty() ? Stmt() : Block::make(result);
 
-    return Block::make(regDecl, reduction, appendPosition);
+    return Block::blanks(Block::make(regDecl, reduction), appendPosition);
   }
 
-  Stmt LowererImplSpatial::generateIteratorBitVectors(IndexStmt statement, MergePoint point, map<Iterator, ir::Expr>& varMap) {
+  Stmt LowererImplSpatial::generateIteratorBitVectors(IndexStmt statement, ir::Expr coordinate, IndexVar coordinateVar,
+                                                      MergePoint point, map<Iterator, ir::Expr>& bvRawMap, map<Iterator, ir::Expr>& bvMap) {
+
+    taco_iassert(indexVartoBitVarMap.find(coordinateVar) != indexVartoBitVarMap.end()) << "Iterator not found in bit "
+                                                                                          "variable map defined by global "
+                                                                                          "metadata environment";
+    auto bitLen = ir::Mul::make(ir::Literal::make(32), indexVartoBitVarMap.at(coordinateVar));
+
     vector<ir::Stmt> stmts;
+    vector<ir::Stmt> deepFIFOCopyDecls;
     for (auto& iterator : point.iterators()) {
       auto crd = iterator.getMode().getModePack().getArray(1);
       auto parentPos = iterator.getParent().getPosVar();
-      vector<ir::Expr> bounds = {iterator.getIteratorVar(), iterator.getEndVar()};
+      vector<ir::Expr> bounds = {iterator.getBeginVar(), iterator.getEndVar()};
       // auto bounds = iterator.posBounds(parentPos);
 
-      taco_iassert(varMap.find(iterator) != varMap.end()) << "Iterator (" << iterator << ") cannot be found in the variable map";
-      auto fifo = varMap[iterator];
+      taco_iassert(bvRawMap.find(iterator) != bvRawMap.end()) << "Iterator (" << iterator << ") cannot be found in the variable map";
+      auto fifo = bvRawMap[iterator];
 
       // FIXME: var isn't a pointer but can only allocate pointer type
       Expr var = ir::Var::make(iterator.getTensor().as<Var>()->name + "_bvRaw",
                                iterator.getTensor().as<Var>()->type, true, false, false,
                                MemoryLocation::SpatialFIFO);
-      varMap[iterator] = var;
-
+      bvRawMap.insert({iterator, var});
       // FIXME: do not hardcode size of 16. Also fix this so that the memDecl is a size and not the RHS
       Stmt allocate = ir::Allocate::make(var, ir::Literal::make(16), false, false,
                                          false, MemoryLocation::SpatialFIFO);
       stmts.push_back(allocate);
 
+      auto varDeep = ir::Var::make(iterator.getTensor().as<Var>()->name + "_bv",
+                                   iterator.getTensor().as<Var>()->type, true, false, false,
+                                   MemoryLocation::SpatialFIFO);
+      bvMap.insert({iterator, varDeep});
+      allocate = ir::Allocate::make(varDeep, ir::Literal::make(4096), false, false,
+                                    false, MemoryLocation::SpatialFIFO);
+      stmts.push_back(allocate);
+
+
       // FIXME: do not hardcode out_bitcnt
-      auto genBitVector = ir::GenBitVector::make(ir::Literal::zero(var.type()), ir::Literal::make(512),
-                                                 ir::Sub::make(bounds[1], bounds[0]), fifo, var);
+      auto genBitVector = ir::GenBitVector::make(ir::Literal::zero(var.type()), bitLen,
+                                                 iterator.getOccupancyVar(), fifo, var);
 
       stmts.push_back(genBitVector);
+
+
+
+      auto fifoCopy = ir::Store::make(varDeep, ir::Literal::zero(Int64),
+                                      ir::Load::make(var, ir::Literal::zero(Int()), MemoryLocation::SpatialFIFO),
+                                      MemoryLocation::SpatialFIFO, MemoryLocation::SpatialFIFO);
+
+      deepFIFOCopyDecls.push_back(fifoCopy);
     }
-    return  Block::make(stmts);
+
+    Stmt deepFIFOCopyBody = Block::make(deepFIFOCopyDecls);
+
+    taco_iassert(indexVartoBitVarMap.find(coordinateVar) != indexVartoBitVarMap.end()) << "Cannot find indexVar in metadata "
+                                                                              "environment map for the "
+                                                                              "\"Tn_dimension_max_bits\" variable";
+    auto stop = indexVartoBitVarMap[coordinateVar];
+    Stmt deepFIFOCopyLoop = ir::For::make(ir::Var::make("bv_temp", Int64), ir::Literal::zero(Int64), stop, ir::Literal::make(1), deepFIFOCopyBody);
+
+    return  Block::blanks(Block::make(stmts), deepFIFOCopyLoop);
   }
 
   // FIXME: only do this if the iterator TensorVar is stored in DRAM base don tensorVar memoryLocation
@@ -879,7 +923,8 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     for (auto& iterator : point.iterators()) {
       auto crd = iterator.getMode().getModePack().getArray(1);
       auto parentPos = iterator.getParent().getPosVar();
-      auto bounds = iterator.posBounds(parentPos);
+      vector<ir::Expr> bounds = {iterator.getBeginVar(), iterator.getEndVar()};
+
 
       // FIXME: var isn't a pointer but can only allocate pointer type
       Expr var = ir::Var::make(iterator.getTensor().as<Var>()->name + "_fifo",
@@ -892,7 +937,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
                                          false, MemoryLocation::SpatialFIFO);
       stmts.push_back(allocate);
 
-      auto storeEnd = ir::Sub::make(bounds[1], bounds[0]);
+      auto storeEnd = iterator.getOccupancyVar();
       auto data = ir::LoadBulk::make(crd, bounds[0], bounds[1]);
       Stmt store = ir::StoreBulk::make(var, ir::Literal::zero(bounds[0].type()), storeEnd, data,
                                        MemoryLocation::SpatialFIFO, MemoryLocation::SpatialDRAM);
@@ -1013,6 +1058,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
         }
 
         result.push_back(VarDecl::make(endVar, bounds[1]));
+        result.push_back(VarDecl::make(iterator.getOccupancyVar(), ir::Sub::make(endVar, beginVar)));
       } else {
         taco_iassert(iterator.isOrdered() && iterator.getParent().isOrdered());
         taco_iassert(iterator.isCompact() && iterator.getParent().isCompact());
@@ -1025,6 +1071,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
         result.push_back(VarDecl::make(beginVar, startBounds[0]));
         result.push_back(endBounds.compute());
         result.push_back(VarDecl::make(endVar, endBounds[1]));
+        result.push_back(VarDecl::make(iterator.getOccupancyVar(), ir::Sub::make(endVar, beginVar)));
       }
     }
     else if (iterator.hasCoordIter()) {
@@ -1035,6 +1082,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       result.push_back(bounds.compute());
       result.push_back(VarDecl::make(beginVar, bounds[0]));
       result.push_back(VarDecl::make(endVar, bounds[1]));
+      result.push_back(VarDecl::make(iterator.getOccupancyVar(), ir::Sub::make(endVar, beginVar)));
     }
     else if (iterator.isDimensionIterator()) {
       // A dimension
@@ -1070,4 +1118,26 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     }
     return result.empty() ? Stmt() : Block::make(result);
   }
+
+  Stmt LowererImplSpatial::generateGlobalEnvironmentVars() {
+    // FIXME: currently hardcoded
+    auto innerParVar = ir::Var::make("ip", Int());
+    auto innerPar = ir::VarDecl::make(innerParVar, 16);
+
+    auto scanParVar = ir::Var::make("sp", Int());
+    auto scanPar = ir::VarDecl::make(innerParVar, 16);
+
+    auto bodyParVar = ir::Var::make("sp", Int());
+    auto bodyPar = ir::VarDecl::make(bodyParVar, 1);
+
+    auto maxNNZVar = ir::Var::make("nnz_max", Int());
+    auto maxNNZVal = ir::Mul::make(128,ir::Mul::make(1024,1024));
+    auto maxNNZ = ir::VarDecl::make(innerParVar, maxNNZVal);
+
+    auto maxDimVar =  ir::Var::make("dimension_max", Int());
+    auto maxDim = ir::VarDecl::make(innerParVar, 65536);
+
+    return Stmt();
+  }
+
 } // namespace taco
