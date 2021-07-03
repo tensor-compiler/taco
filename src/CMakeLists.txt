@@ -23,12 +23,8 @@ target_link_libraries(taco
 target_compile_definitions(taco
   PRIVATE
     "$<IF:$<TARGET_EXISTS:OpenMP::OpenMP_CXX>,USE_OPENMP,>"
+    $<$<PLATFORM_ID:Linux>:dl>
 )
 
 install(TARGETS taco DESTINATION lib)
 
-if (LINUX)
-  target_link_libraries(taco PRIVATE ${TACO_LIBRARIES} dl)
-else()
-  target_link_libraries(taco PRIVATE ${TACO_LIBRARIES})
-endif()
