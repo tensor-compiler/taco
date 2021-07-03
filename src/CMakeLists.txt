@@ -16,6 +16,15 @@ if (CUDA)
   include_directories(${CUDA_INCLUDE_DIRS})
   target_link_libraries(taco PUBLIC ${CUDA_LIBRARIES})
 endif (CUDA)
+target_link_libraries(taco
+  PRIVATE
+    $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+)
+target_compile_definitions(taco
+  PRIVATE
+    "$<IF:$<TARGET_EXISTS:OpenMP::OpenMP_CXX>,USE_OPENMP,>"
+)
+
 install(TARGETS taco DESTINATION lib)
 
 if (LINUX)

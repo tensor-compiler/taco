@@ -11,10 +11,8 @@ project(taco
 )
 option(CUDA "Build for NVIDIA GPU (CUDA must be preinstalled)" OFF)
 option(PYTHON "Build TACO for python environment" OFF)
-option(OPENMP "Build with OpenMP execution support" OFF)
 option(COVERAGE "Build with code coverage analysis" OFF)
 set(TACO_FEATURE_CUDA 0)
-set(TACO_FEATURE_OPENMP 0)
 set(TACO_FEATURE_PYTHON 0)
 if(CUDA)
   message("-- Searching for CUDA Installation")
@@ -22,12 +20,6 @@ if(CUDA)
   add_definitions(-DCUDA_BUILT)
   set(TACO_FEATURE_CUDA 1)
 endif(CUDA)
-if(OPENMP)
-  message("-- Will use OpenMP for parallel execution")
-  add_definitions(-DUSE_OPENMP)
-  set(TACO_FEATURE_OPENMP 1)
-endif(OPENMP)
-
 if(PYTHON)
   message("-- Will build Python extension")
   add_definitions(-DPYTHON)
@@ -87,9 +79,28 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 set(OPTIMIZE "-O3" CACHE STRING "Optimization level")
 set(C_CXX_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wmissing-declarations -Woverloaded-virtual -pedantic-errors -Wno-deprecated")
-if(OPENMP)
-  set(C_CXX_FLAGS "-fopenmp ${C_CXX_FLAGS}")
-endif(OPENMP)
+
+# Determine whether openmp parallelism should be used.
+if(NOT DEFINED OPENMP OR OPENMP)
+  find_package(OpenMP COMPONENTS CXX)
+  # By default OPENMP will be set based on whether omp is found.
+  if(OpenMP_FOUND)
+    set(OPENMP ON)
+    set(TACO_FEATURE_OPENMP 1)
+  else()
+    set(OPENMP OFF)
+    set(TACO_FEATURE_OPENMP 0)
+  endif()
+endif()
+# Fail if OPENMP has been explicitly set and OMP was not found
+if(OPENMP AND NOT OpenMP_FOUND)
+  message(FATAL_ERROR "
+  OMP was not found. There are various solutions: do not set OPENMP=ON, add
+  your compiler's lib directory to LDFLAGS, check that you have libomp or
+  similar appropriate library installed."
+  )
+endif()
+
 
 if(COVERAGE)
   find_program(PATH_TO_GCOVR gcovr REQUIRED)
