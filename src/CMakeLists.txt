@@ -9,13 +9,21 @@ endforeach()
 set(TACO_HEADERS ${TACO_HEADERS} ../include/taco/ir_tags.h)
 set(TACO_SOURCES ${TACO_SOURCES} ir_tags.cpp)
 
-add_definitions(${TACO_DEFINITIONS})
-include_directories(${TACO_SRC_DIR})
 add_library(taco ${TACO_LIBRARY_TYPE} ${TACO_HEADERS} ${TACO_SOURCES})
 if (CUDA)
   include_directories(${CUDA_INCLUDE_DIRS})
   target_link_libraries(taco PUBLIC ${CUDA_LIBRARIES})
 endif (CUDA)
+target_include_directories(taco
+  PUBLIC
+    ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/include/taco
+    ${CMAKE_BINARY_DIR}
+  PRIVATE
+    ${PROJECT_SOURCE_DIR}/src
+
+
+)
 target_link_libraries(taco
   PRIVATE
     $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
