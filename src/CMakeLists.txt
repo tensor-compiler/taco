@@ -1,11 +1,3 @@
-if (TACO_SHARED_LIBRARY)
-  set(TACO_LIBRARY_TYPE SHARED)
-  message("-- Shared library")
-else()
-  set(TACO_LIBRARY_TYPE STATIC)
-  message("-- Static library")
-endif()
-
 set(TACO_SRC_DIRS . parser index_notation lower ir codegen storage error util)
 
 foreach(dir ${TACO_SRC_DIRS})

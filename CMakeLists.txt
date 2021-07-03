@@ -74,7 +74,10 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_MACOSX_RPATH 1)
 endif()
 
+# Keep TACO_SHARED_LIBRARY for backwards compatibility
 option(TACO_SHARED_LIBRARY "Build as a shared library" ON)
+# Use cmake internal variables to drive shared/static build
+set(BUILD_SHARED_LIBS ON)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
