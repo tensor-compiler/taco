@@ -12,7 +12,7 @@
 #include "taco/ir/simplify.h"
 #include "taco/lower/iterator.h"
 #include "taco/lower/merge_lattice.h"
-#include "mode_access.h"
+#include "taco/lower/mode_access.h"
 #include "taco/util/collections.h"
 #include "taco/ir/workspace_rewriter.h"
 

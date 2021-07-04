@@ -17,7 +17,7 @@
 #include "taco/lower/lowerer_impl.h"
 #include "taco/lower/lowerer_impl_imperative.h"
 #include "taco/lower/iterator.h"
-#include "mode_access.h"
+#include "taco/lower/mode_access.h"
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"

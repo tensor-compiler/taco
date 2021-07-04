@@ -2,7 +2,7 @@
 
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
-#include "mode_access.h"
+#include "taco/lower/mode_access.h"
 #include "taco/ir/ir.h"
 #include "taco/storage/storage.h"
 #include "taco/storage/array.h"

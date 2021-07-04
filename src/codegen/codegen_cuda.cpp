@@ -6,7 +6,7 @@
 
 #include "taco/ir/ir_visitor.h"
 #include "taco/ir/ir_rewriter.h"
-#include "codegen_cuda.h"
+#include "codegen/codegen_cuda.h"
 #include "taco/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"

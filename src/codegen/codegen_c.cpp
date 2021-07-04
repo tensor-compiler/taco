@@ -6,7 +6,7 @@
 #include <taco.h>
 
 #include "taco/ir/ir_visitor.h"
-#include "codegen_c.h"
+#include "codegen/codegen_c.h"
 #include "taco/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"

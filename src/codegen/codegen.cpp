@@ -1,7 +1,7 @@
-#include "codegen.h"
+#include "codegen/codegen.h"
 #include "taco/cuda.h"
-#include "codegen_cuda.h"
-#include "codegen_c.h"
+#include "codegen/codegen_cuda.h"
+#include "codegen/codegen_c.h"
 #include <algorithm>
 #include <unordered_set>
 
