@@ -34,5 +34,9 @@ target_compile_definitions(taco
     $<$<PLATFORM_ID:Linux>:dl>
 )
 
+# add alias for namespaced target to allow downstreams to use targets provided
+# from a pre-existing installation or by the current cmake system at configure
+# time.
+add_library(taco::taco ALIAS taco)
 install(TARGETS taco DESTINATION lib)
 

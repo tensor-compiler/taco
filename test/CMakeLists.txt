@@ -2,6 +2,7 @@ file(GLOB GTEST_SOURCE gtest/gtest-all.cc)
 file(GLOB GTEST_HEADER gtest/gtest.h)
 include_directories(${TACO_TEST_DIR} ${TACO_SRC_DIR})
 add_library(taco-gtest ${GTEST_HEADER} ${GTEST_SOURCE})
+target_include_directories(taco-gtest PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-declarations -DTACO_TEST_DIR=\"${TACO_TEST_DIR}\"")
 
 file(GLOB TEST_HEADERS *.h)
