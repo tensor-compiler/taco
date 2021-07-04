@@ -2,7 +2,7 @@ set(TACO_SRC_DIRS . parser index_notation lower ir codegen storage error util)
 
 foreach(dir ${TACO_SRC_DIRS})
   file(GLOB TACO_HEADERS ${TACO_HEADERS} ${dir}/*.h)
-  file(GLOB TACO_HEADERS ${TACO_HEADERS} ${TACO_INCLUDE_DIR}/taco/${dir}/*.h)
+  file(GLOB TACO_HEADERS ${TACO_HEADERS} ${PROJECT_SOURCE_DIR}/include/taco/${dir}/*.h)
   file(GLOB TACO_SOURCES ${TACO_SOURCES} ${dir}/*.cpp)
 endforeach()
 

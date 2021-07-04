@@ -115,13 +115,6 @@ set(C_CXX_FLAGS "${C_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${C_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${C_CXX_FLAGS} -std=c++14")
 
-set(TACO_PROJECT_DIR ${CMAKE_CURRENT_LIST_DIR})
-
-set(TACO_SRC_DIR     ${TACO_PROJECT_DIR}/src)
-set(TACO_TEST_DIR    ${TACO_PROJECT_DIR}/test)
-set(TACO_TOOLS_DIR   ${TACO_PROJECT_DIR}/tools)
-set(TACO_INCLUDE_DIR ${TACO_PROJECT_DIR}/include)
-
 enable_testing()
 
 set(TACO_LIBRARY_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
@@ -135,7 +128,7 @@ add_subdirectory(apps)
 string(REPLACE " -Wmissing-declarations" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 find_package(Git QUIET)
-if(GIT_FOUND AND EXISTS "${TACO_PROJECT_DIR}/.git")
+if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
   # Update submodules as needed
   option(GIT_SUBMODULE "Check submodules during build" ON)
   if(GIT_SUBMODULE)
@@ -163,7 +156,7 @@ else()
   set(TACO_GIT_SHORTHASH "")
 endif()
 
-if(NOT EXISTS "${TACO_PROJECT_DIR}/python_bindings/pybind11/CMakeLists.txt")
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/python_bindings/pybind11/CMakeLists.txt")
   message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif()
 

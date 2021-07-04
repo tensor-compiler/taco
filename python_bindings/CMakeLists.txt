@@ -3,7 +3,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto -fvisibility=hidden -Wno-gnu-zero-
 add_subdirectory(pybind11)
 
 include_directories(${PYTHON_INCLUDE_DIRS})
-include_directories(${TACO_PROJECT_DIR}/python_bindings/include)
+include_directories(python_bindings/include)
 if(CUDA)
   include_directories(${CUDA_INCLUDE_DIRS})
 endif(CUDA)

@@ -1,4 +1,4 @@
-file(GLOB TOOL_SOURCES "${TACO_TOOLS_DIR}/*.cpp")
+file(GLOB TOOL_SOURCES "*.cpp")
 
 foreach(TOOL_SOURCE ${TOOL_SOURCES})
   get_filename_component(TOOL ${TOOL_SOURCE} NAME_WE)
