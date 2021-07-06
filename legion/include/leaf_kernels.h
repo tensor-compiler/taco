@@ -1,10 +1,12 @@
 #ifndef TACO_LG_LEAF_KERNELS_H
 #define TACO_LG_LEAF_KERNELS_H
 
+#include <algorithm>
 #include <stdint.h>
 #include <stddef.h>
 #include <iostream>
 #include <cstdlib>
+#include <cassert>
 #include "cblas.h"
 
 // An argument pack for MTTKRP.
@@ -39,16 +41,16 @@ void mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, const 
   // Allocate an intermediate result T(i, j, l).
   double* inter = (double*)malloc(B1_dimension * C1_dimension * D2_dimension * sizeof(T));
   #pragma omp parallel for schedule(static)
-  for (int32_t i = 0; i < B1_dimension; i++) {
-    for (int32_t j = 0; j < C1_dimension; j++) {
-      for (int32_t k = 0; k < D1_dimension; k++) {
-        inter[(i * C1_dimension + j) * D2_dimension + k] = 0.0;
+  for (size_t i = 0; i < B1_dimension; i++) {
+    for (size_t j = 0; j < C1_dimension; j++) {
+      for (size_t l = 0; l < D2_dimension; l++) {
+        inter[(i * C1_dimension + j) * D2_dimension + l] = 0.0;
       }
     }
   }
 
   // Perform T(i, j, l) = B(i, j, k) * D(k, l) as a series of GEMM calls.
-  for (int i = 0; i < B1_dimension; i++) {
+  for (size_t i = 0; i < B1_dimension; i++) {
     cblas_dgemm(
       CblasRowMajor,
       CblasNoTrans,
@@ -58,7 +60,7 @@ void mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, const 
       D1_dimension,
       1.0,
       B_vals + (ldB1 * i),
-      ldB2,
+      ldB3,
       D_vals,
       ldD,
       1.0,
