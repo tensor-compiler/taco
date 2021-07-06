@@ -473,24 +473,39 @@ TEST(distributed, cannonMM) {
 
 TEST(distributed, cuda_cannonMM) {
   int dim = 10;
-  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense});
-  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense});
-  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense});
 
   // Place each tensor onto a processor grid.
   auto gx = ir::Var::make("gridX", Int32, false, false, true);
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
+  auto partGrid = Grid(ir::Mul::make(gx, 2), ir::Mul::make(gy, 2));
   auto placement = GridPlacement({0, 1});
-  auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
-  // Place the matrices in blocks on each node. It's possible that the matrices themselves are
-  // too large for a single GPU, so keep them in CPU memory.
-  auto placeA = a.partition(grid).place(grid, placement);
-  auto placeB = b.partition(grid).place(grid, placement);
-  auto placeC = c.partition(grid).place(grid, placement);
-  auto placeALowered = lower(placeA, "placeLegionA", false, true);
-  auto placeBLowered = lower(placeB, "placeLegionB", false, true);
-  auto placeCLowered = lower(placeC, "placeLegionC", false, true);
+
+  auto gpuGrid = Grid(2, 2);
+  std::vector<TensorDistribution> dist{
+    TensorDistribution{
+      grid,
+      grid,
+      GridPlacement({0, 1}),
+      ParallelUnit::DistributedNode,
+    },
+    TensorDistribution{
+      gpuGrid,
+      gpuGrid,
+      GridPlacement({0, 1}),
+      ParallelUnit::DistributedGPU,
+    },
+  };
+
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, dist);
+
+  auto nodePart = lower(a.partitionStmt(grid), "partitionLegionNode", false, true);
+  auto partitionLowered = lower(a.partitionStmt(partGrid), "partitionLegion", false, true);
+  auto placeALowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
 
   IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko"), kos("kos");
   IndexVar iln("iln"), ill("ill"), jln("jln"), jll("jll"), kii("kii"), kio("kio"), kios("kios");
@@ -499,13 +514,14 @@ TEST(distributed, cuda_cannonMM) {
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
       // Schedule for each node.
-      .distribute({i, j}, {in, jn}, {il, jl}, a(i, j), taco::ParallelUnit::DistributedNode)
+      .distribute({i, j}, {in, jn}, {il, jl}, grid, taco::ParallelUnit::DistributedNode)
       .divide(k, ko, ki, gx)
       .reorder({ko, il, jl})
       .stagger(ko, {in, jn}, kos)
+      .communicate(a(i, j), in)
       .communicate(b(i, k), kos)
       .communicate(c(k, j), kos)
-          // Schedule for each GPU within a node.
+      // Schedule for each GPU within a node.
       .distribute({il, jl}, {iln, jln}, {ill, jll}, Grid(2, 2), taco::ParallelUnit::DistributedGPU)
       .divide(ki, kio, kii, 2)
       .reorder({kio, ill, jll})
@@ -516,6 +532,7 @@ TEST(distributed, cuda_cannonMM) {
       .swapLeafKernel(ill, gemm)
       ;
   auto lowered = lower(stmt, "computeLegion", false, true);
+  // auto all = ir::Block::make({nodePart, partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
   auto all = ir::Block::make({partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
   ofstream f("../legion/cannonMM/taco-generated.cu");
   auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
