@@ -174,6 +174,70 @@ TEST(distributed, summaMM) {
   }
 }
 
+TEST(distributed, cuda_summaMM) {
+  int dim = 10;
+
+  // Place each tensor onto a processor grid.
+  auto gx = ir::Var::make("gridX", Int32, false, false, true);
+  auto gy = ir::Var::make("gridY", Int32, false, false, true);
+  auto grid = Grid(gx, gy);
+  auto partGrid = Grid(ir::Mul::make(gx, 2), ir::Mul::make(gy, 2));
+  auto placement = GridPlacement({0, 1});
+
+  auto gpuGrid = Grid(2, 2);
+  std::vector<TensorDistribution> dist{
+      TensorDistribution{
+          grid,
+          grid,
+          GridPlacement({0, 1}),
+          ParallelUnit::DistributedNode,
+      },
+      TensorDistribution{
+          gpuGrid,
+          gpuGrid,
+          GridPlacement({0, 1}),
+          ParallelUnit::DistributedGPU,
+      },
+  };
+
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, dist);
+
+  auto nodePart = lower(a.partitionStmt(grid), "partitionLegionNode", false, true);
+  auto partitionLowered = lower(a.partitionStmt(partGrid), "partitionLegion", false, true);
+  auto placeALowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
+  IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko"), kos("kos");
+  IndexVar iln("iln"), ill("ill"), jln("jln"), jll("jll"), kii("kii"), kio("kio"), kios("kios");
+  std::shared_ptr<LeafCallInterface> gemm = std::make_shared<CuGEMM>();
+  a(i, j) = b(i, k) * c(k, j);
+  auto stmt = a.getAssignment().concretize();
+  stmt = stmt
+      // Schedule for each node.
+      .distribute({i, j}, {in, jn}, {il, jl}, a(i, j))
+      .divide(k, ko, ki, gx)
+      .reorder({ko, il, jl})
+      .communicate(b(i, k), ko)
+      .communicate(c(k, j), ko)
+      // Schedule for each GPU within a node.
+      .distribute({il, jl}, {iln, jln}, {ill, jll}, Grid(2, 2), taco::ParallelUnit::DistributedGPU)
+      .divide(ki, kio, kii, 2)
+      .reorder({kio, ill, jll})
+      .communicate(b(i, k), kio)
+      .communicate(c(k, j), kio)
+      .communicate(a(i, j), jln)
+      .swapLeafKernel(ill, gemm)
+      ;
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto all = ir::Block::make({partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
+  ofstream f("../legion/summaMM/taco-generated.cu");
+  auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  f.close();
+}
+
 TEST(distributed, singlemttkrp) {
   int dim = 1000;
   Tensor<double> A("A", {dim, dim}, Dense);
@@ -532,7 +596,6 @@ TEST(distributed, cuda_cannonMM) {
       .swapLeafKernel(ill, gemm)
       ;
   auto lowered = lower(stmt, "computeLegion", false, true);
-  // auto all = ir::Block::make({nodePart, partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
   auto all = ir::Block::make({partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
   ofstream f("../legion/cannonMM/taco-generated.cu");
   auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
