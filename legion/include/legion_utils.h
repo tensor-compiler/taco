@@ -31,8 +31,10 @@ void benchmark(Legion::Context ctx, Legion::Runtime* runtime, std::function<void
 // Variant of benchmark that collects the runtime into a vector.
 void benchmark(Legion::Context ctx, Legion::Runtime* runtime, std::vector<size_t>& times, std::function<void(void)> f);
 
-// Utility function to get the number of flops performed by a GEMM operation.
+// Utility function to get the number of flops performed by various
+// tensor and matrix operations.
 size_t getGEMMFLOPCount(size_t M, size_t N, size_t K);
+size_t getTTMCFLOPCount(size_t I, size_t J, size_t K, size_t L);
 
 // Utility function to do the unit conversions for GFLOPS.
 double getGFLOPS(size_t flopCount, size_t ms);

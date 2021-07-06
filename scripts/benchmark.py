@@ -71,6 +71,21 @@ class DMMBench:
     def getCommand(self, procs):
         pass
 
+# Inheritable class for TTMC benchmarks.
+class TTMCBench:
+    def __init__(self, initialProblemSize):
+        self.initialProblemSize = initialProblemSize
+
+    def problemSize(self, procs):
+        # Weak scaling problem size. Keep the memory used per
+        # node the same.
+        size = int(self.initialProblemSize * pow(procs, 1.0 / 3.0))
+        size -= (size % 2)
+        return size
+
+    def getCommand(self, procs):
+        pass
+
 class CannonBench(DMMBench):
     def getgx(self, procs):
         # Asserting that we're running on powers of 2 here.
@@ -201,6 +216,11 @@ class CTFBench(DMMBench):
         return envs + header + \
                [os.path.join(ctfDir, 'bin/matmul'), '-m', psize, '-n', psize, '-k', psize, '-niter', '10', '-sp_A', '1', '-sp_B', '1', '-sp_C', '1', '-test', '0', '--procs_per_node', '4']
 
+class LgTTMCBench(TTMCBench):
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        return lassenHeader(procs) + ['bin/ttmc', '-n', psize, '-pieces', str(procs * 2)] + lgCPUArgs()
+
 def executeCmd(cmd):
     cmdStr = " ".join(cmd)
     print("Executing command: {}".format(cmdStr))
@@ -212,9 +232,24 @@ def executeCmd(cmd):
         print("Failed with exception: {}".format(str(e)))
 
 def main():
+    benches = [
+        # GEMM benchmarks.
+        "cannon",
+        "cannon-gpu",
+        "johnson",
+        "cosma",
+        "cosma-gpu",
+        "summa",
+        "scalapack",
+        "legate",
+        "legate-gpu",
+        "ctf",
+        # Higher order tensor benchmarks.
+        "ttmc",
+    ]
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on")
-    parser.add_argument("--bench", choices=["cannon", "cannon-gpu", "johnson", "cosma", "cosma-gpu", "summa", "scalapack", "legate", "legate-gpu", "ctf"], type=str)
+    parser.add_argument("--bench", choices=, type=str)
     parser.add_argument("--size", type=int, help="initial size for benchmarks")
     parser.add_argument("--gpus", type=int, help="number of GPUs for GPU benchmarks")
     args = parser.parse_args()
@@ -239,6 +274,8 @@ def main():
         bench = LegateGPUBench(args.size, args.gpus)
     elif args.bench == "ctf":
         bench = CTFBench(args.size)
+    elif args.bench == "ttmc":
+        bench = LgTTMCBench(args.size)
     else:
         assert(False)
     for p in args.procs:

@@ -43,6 +43,10 @@ size_t getGEMMFLOPCount(size_t M, size_t N, size_t K) {
   return M * N * (2 * K - 1);
 }
 
+size_t getTTMCFLOPCount(size_t I, size_t J, size_t K, size_t L) {
+  return I * getGEMMFLOPCount(J, K, L);
+}
+
 double getGFLOPS(size_t flopCount, size_t ms) {
   double s = double(ms) / 1e3;
   double GFLOP = double(flopCount) / 1e9;
