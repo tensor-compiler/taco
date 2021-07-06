@@ -13,7 +13,7 @@ LogicalPartition partition3Tensor(Context ctx, Runtime* runtime, LogicalRegion A
 LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion A, int32_t pieces);
 LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion B, int32_t pieces);
 LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t pieces);
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalPartition aPartition);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, int32_t pieces);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   auto args = runtime->get_input_args();
@@ -60,11 +60,11 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   for (int i = 0; i < 10; i++) {
     tacoFill<valType>(ctx, runtime, A, aPart, 0);
 
-    auto part = placeLegionA(ctx, runtime, A, pieces);
+    placeLegionA(ctx, runtime, A, pieces);
     placeLegionB(ctx, runtime, B, pieces);
     placeLegionC(ctx, runtime, C, pieces);
 
-    benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, part); });
+    benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, pieces); });
   }
 
   tacoValidate<valType>(ctx, runtime, A, aPart, valType(n));
