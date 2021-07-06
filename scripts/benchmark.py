@@ -16,12 +16,14 @@ def lgCPUArgs():
 def lgGPUArgs(gpus):
     return [
       '-ll:ocpu', '1',
-      '-ll:othr', '16',
-      '-ll:csize', '50000',
-      '-ll:util', '4',
+      '-ll:othr', '10',
+      '-ll:csize', '150000',
+      '-ll:util', '1',
       '-dm:replicate', '1',
       '-ll:gpu', str(gpus),
       '-ll:fsize', '15000',
+      '-ll:bgwork', '12',
+      '-ll:bgnumapin', '1',
     ]
 
 def lassenHeader(procs):
@@ -60,8 +62,9 @@ class DMMBench:
         self.initialProblemSize = initialProblemSize
 
     def problemSize(self, procs):
-        # Weak scaling problem size.
-        size = int(self.initialProblemSize * pow(procs, 1.0 / 3.0))
+        # Weak scaling problem size. Keep the memory used per
+        # node the same.
+        size = int(self.initialProblemSize * pow(procs, 1.0 / 2.0))
         size -= (size % 2)
         return size
 
@@ -110,7 +113,7 @@ class CannonGPUBench(CannonBench):
         gy = self.getgx(procs)
         return lassenHeader(procs) + \
                ['bin/cannonMM-cuda', '-n', str(psize), '-gx', str(procs // gy), '-gy', str(gy), \
-                '-dm:exact_region', '-tm:fill_cpu', '-tm:validate_cpu', '-tm:untrack_valid_regions'] + \
+                '-dm:exact_region', '-tm:untrack_valid_regions'] + \
                lgGPUArgs(self.gpus)
 
 class JohnsonBench(DMMBench):
@@ -125,26 +128,36 @@ class JohnsonBench(DMMBench):
 class COSMABench(DMMBench):
     def getCommand(self, procs):
         psize = str(self.problemSize(procs))
-        # TODO (rohany): Make the number of OMP threads configurable.
         envs = ['env', 'COSMA_OVERLAP_COMM_AND_COMP=ON']
         cosmaDir = os.getenv('COSMA_DIR')
-        header = ['jsrun', '-b', 'rs', '-c', '20', '-r', '2', '-n', str(2 * procs)]
+        header = ['jsrun', '-b', 'rs', '-c', '1', '-r', '40', '-n', str(40 * procs)]
         assert(cosmaDir is not None)
         return envs + header + \
-               [os.path.join(cosmaDir, 'build/miniapp/cosma_miniapp'), '-r', '10', '-m', psize, '-n', psize, '-k', psize]
+               [os.path.join(cosmaDir, 'build/miniapp/cosma_miniapp'), '-r', '10', '-m', psize, '-n', psize, '-k', psize, '--procs_per_node', '40']
+
+class COSMAGPUBench(DMMBench):
+    def __init__(self, initialProblemSize, gpus):
+        super().__init__(initialProblemSize)
+        self.gpus = gpus
+
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        cosmaDir = os.getenv('COSMA_DIR')
+        header = ['jsrun', '-b', 'rs', '-c', str(40 // self.gpus), '-r', str(self.gpus), '-n', str(self.gpus * procs), '-g', '1']
+        assert(cosmaDir is not None)
+        return header + \
+               [os.path.join(cosmaDir, 'build/miniapp/cosma_miniapp'), '-r', '10', '-m', psize, '-n', psize, '-k', psize, '--procs_per_node', str(self.gpus)]
 
 class SCALAPACKBench(SUMMABench):
     def getCommand(self, procs):
         psize = str(self.problemSize(procs))
-        # TODO (rohany): Make the number of OMP threads configurable.
-        envs = ['env', 'OMP_NUM_THREADS=20']
         gx = self.getgx(procs)
         cosmaDir = os.getenv('COSMA_SCALAPACK_DIR')
-        assert(cosmaDir is not None)
-        return envs + lassenHeader(procs) + \
+        header = ['jsrun', '-b', 'rs', '-c', '10', '-r', '4', '-n', str(4 * procs)]
+        return header + \
                [os.path.join(cosmaDir, 'build/miniapp/pxgemm_miniapp'), '-r', '10', '--algorithm', 'scalapack', '-n', psize,
-                '-m', psize, '-k', psize, '--block_a', '1024,1024', '--block_b', '1024,1024', '--block_c', '1024,1024',
-                '-p', '{},{}'.format(gx, procs // gx)]
+                '-m', psize, '-k', psize, '--block_a', '2048,2048', '--block_b', '2048,2048', '--block_c', '2048,2048',
+                '-p', '{},{}'.format(2 * gx, 2 * procs // gx), '--procs_per_node', '4']
 
 class LegateBench(DMMBench):
     def getCommand(self, procs):
@@ -184,9 +197,9 @@ class CTFBench(DMMBench):
         ctfDir = os.getenv('CTF_DIR')
         assert(ctfDir is not None)
         envs = ['env', 'LD_LIBRARY_PATH=LD_LIBRARY_PATH:{}'.format(openblasLib)]
-        header = ['jsrun', '-b', 'rs', '-c', '20', '-r', '2', '-n', str(2 * procs)]
+        header = ['jsrun', '-b', 'rs', '-c', '10', '-r', '4', '-n', str(4 * procs)]
         return envs + header + \
-               [os.path.join(ctfDir, 'bin/matmul'), '-m', psize, '-n', psize, '-k', psize, '-niter', '10', '-sp_A', '1', '-sp_B', '1', '-sp_C', '1', '-test', '0']
+               [os.path.join(ctfDir, 'bin/matmul'), '-m', psize, '-n', psize, '-k', psize, '-niter', '10', '-sp_A', '1', '-sp_B', '1', '-sp_C', '1', '-test', '0', '--procs_per_node', '4']
 
 def executeCmd(cmd):
     cmdStr = " ".join(cmd)
@@ -201,7 +214,7 @@ def executeCmd(cmd):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on")
-    parser.add_argument("--bench", choices=["cannon", "cannon-gpu", "johnson", "cosma", "summa", "scalapack", "legate", "legate-gpu", "ctf"], type=str)
+    parser.add_argument("--bench", choices=["cannon", "cannon-gpu", "johnson", "cosma", "cosma-gpu", "summa", "scalapack", "legate", "legate-gpu", "ctf"], type=str)
     parser.add_argument("--size", type=int, help="initial size for benchmarks")
     parser.add_argument("--gpus", type=int, help="number of GPUs for GPU benchmarks")
     args = parser.parse_args()
@@ -216,6 +229,8 @@ def main():
         bench = SUMMABench(args.size)
     elif args.bench == "cosma":
         bench = COSMABench(args.size)
+    elif args.bench == "cosma-gpu":
+        bench = COSMAGPUBench(args.size, args.gpus)
     elif args.bench == "scalapack":
         bench = SCALAPACKBench(args.size)
     elif args.bench == "legate":
