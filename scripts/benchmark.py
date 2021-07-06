@@ -116,6 +116,18 @@ class SUMMABench(DMMBench):
                ['bin/summaMM', '-n', str(psize), '-gx', str(gx), '-gy', str(procs // gx)] + \
                lgCPUArgs()
 
+class SUMMAGPUBench(SUMMABench):
+    def __init__(self, initialProblemSize, gpus):
+        super().__init__(initialProblemSize)
+        self.gpus = gpus
+
+    def getCommand(self, procs):
+        psize = self.problemSize(procs)
+        gx = self.getgx(procs)
+        return lassenHeader(procs) + \
+               ['bin/summaMM-cuda', '-n', str(psize), '-gx', str(gx), '-gy', str(procs // gx)] + \
+               lgGPUArgs(self.gpus)
+
 class CannonGPUBench(CannonBench):
     def __init__(self, initialProblemSize, gpus):
         super().__init__(initialProblemSize)
@@ -240,6 +252,7 @@ def main():
         "cosma",
         "cosma-gpu",
         "summa",
+        "summa-gpu",
         "scalapack",
         "legate",
         "legate-gpu",
@@ -262,6 +275,8 @@ def main():
         bench = JohnsonBench(args.size)
     elif args.bench == "summa":
         bench = SUMMABench(args.size)
+    elif args.bench == "summa-gpu":
+        bench = SUMMAGPUBench(args.size, args.gpus)
     elif args.bench == "cosma":
         bench = COSMABench(args.size)
     elif args.bench == "cosma-gpu":

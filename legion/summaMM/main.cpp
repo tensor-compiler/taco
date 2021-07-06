@@ -49,6 +49,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     return;
   }
 
+  initCuBLAS(ctx, runtime);
+
   auto fspace = runtime->create_field_space(ctx);
   allocate_tensor_fields<valType>(ctx, runtime, fspace);
   auto ispace = runtime->create_index_space(ctx, Rect<2>({0, 0}, {n - 1, n - 1}));
