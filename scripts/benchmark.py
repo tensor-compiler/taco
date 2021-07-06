@@ -249,7 +249,7 @@ def main():
     ]
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on")
-    parser.add_argument("--bench", choices=, type=str)
+    parser.add_argument("--bench", choices=benches, type=str)
     parser.add_argument("--size", type=int, help="initial size for benchmarks")
     parser.add_argument("--gpus", type=int, help="number of GPUs for GPU benchmarks")
     args = parser.parse_args()
