@@ -1,0 +1,378 @@
+/g/g15/yadav2/.bashrc: line 1: module: command not found
+/g/g15/yadav2/.bashrc: line 2: module: command not found
+/g/g15/yadav2/.bashrc: line 5: module: command not found
+Executing command: env LD_LIBRARY_PATH=LD_LIBRARY_PATH:/g/g15/yadav2/taco/legion/OpenBLAS/install/lib/ jsrun -b rs -c 10 -r 4 -n 4 /g/g15/yadav2/ctf/bin/matmul -m 8192 -n 8192 -k 8192 -niter 10 -sp_A 1 -sp_B 1 -sp_C 1 -test 0 --procs_per_node 4
+Multiplying A (8192*8192 sym 0 sp 1.000000) and B (8192*8192 sym 0 sp 1.000000) into C (8192*8192 sym 0 sp 1.000000) 
+Starting 10 benchmarking iterations of matrix multiplication with specified attributes...
+iterations completed, did 10995116277760 flops.
+All iterations times: 1.826203 1.844178 1.847022 1.857363 1.857393 1.848613 1.849171 1.854754 1.844709 1.850664 
+A (8192*8192 sym 0 sp 1.000000), B (8192*8192 sym 0 sp 1.000000), C (8192*8192 sym 0 sp 1.000000) Min time = 1.826203, Avg time = 1.848007, Med time = 1.849171, Max time = 1.857393
+On 1 nodes achieved GFLOPS per node: 594.935253.
+
+
+Executing command: env LD_LIBRARY_PATH=LD_LIBRARY_PATH:/g/g15/yadav2/taco/legion/OpenBLAS/install/lib/ jsrun -b rs -c 10 -r 4 -n 8 /g/g15/yadav2/ctf/bin/matmul -m 11584 -n 11584 -k 11584 -niter 10 -sp_A 1 -sp_B 1 -sp_C 1 -test 0 --procs_per_node 4
+Multiplying A (11584*11584 sym 0 sp 1.000000) and B (11584*11584 sym 0 sp 1.000000) into C (11584*11584 sym 0 sp 1.000000) 
+Starting 10 benchmarking iterations of matrix multiplication with specified attributes...
+iterations completed, did 31088920494080 flops.
+All iterations times: 2.847084 2.903328 2.925706 2.936825 2.943000 2.937482 2.940570 2.948047 2.950937 2.933826 
+A (11584*11584 sym 0 sp 1.000000), B (11584*11584 sym 0 sp 1.000000), C (11584*11584 sym 0 sp 1.000000) Min time = 2.847084, Avg time = 2.926680, Med time = 2.937482, Max time = 2.950937
+On 2 nodes achieved GFLOPS per node: 531.106482.
+
+
+Executing command: env LD_LIBRARY_PATH=LD_LIBRARY_PATH:/g/g15/yadav2/taco/legion/OpenBLAS/install/lib/ jsrun -b rs -c 10 -r 4 -n 16 /g/g15/yadav2/ctf/bin/matmul -m 16384 -n 16384 -k 16384 -niter 10 -sp_A 1 -sp_B 1 -sp_C 1 -test 0 --procs_per_node 4
+Multiplying A (16384*16384 sym 0 sp 1.000000) and B (16384*16384 sym 0 sp 1.000000) into C (16384*16384 sym 0 sp 1.000000) 
+Starting 10 benchmarking iterations of matrix multiplication with specified attributes...
+iterations completed, did 87960930222080 flops.
+All iterations times: 3.756712 3.796762 3.788090 3.753854 3.801983 3.796439 3.786460 3.801689 3.773980 3.783137 
+A (16384*16384 sym 0 sp 1.000000), B (16384*16384 sym 0 sp 1.000000), C (16384*16384 sym 0 sp 1.000000) Min time = 3.753854, Avg time = 3.783911, Med time = 3.788090, Max time = 3.801983
+On 4 nodes achieved GFLOPS per node: 581.133226.
+
+
+Executing command: env LD_LIBRARY_PATH=LD_LIBRARY_PATH:/g/g15/yadav2/taco/legion/OpenBLAS/install/lib/ jsrun -b rs -c 10 -r 4 -n 32 /g/g15/yadav2/ctf/bin/matmul -m 23170 -n 23170 -k 23170 -niter 10 -sp_A 1 -sp_B 1 -sp_C 1 -test 0 --procs_per_node 4
+Multiplying A (23170*23170 sym 0 sp 1.000000) and B (23170*23170 sym 0 sp 1.000000) into C (23170*23170 sym 0 sp 1.000000) 
+Starting 10 benchmarking iterations of matrix multiplication with specified attributes...
+iterations completed, did 248775780260000 flops.
+All iterations times: 6.446575 6.481941 6.463467 6.531170 6.563770 6.538658 6.542726 6.525823 6.484652 6.501163 
+A (23170*23170 sym 0 sp 1.000000), B (23170*23170 sym 0 sp 1.000000), C (23170*23170 sym 0 sp 1.000000) Min time = 6.446575, Avg time = 6.507994, Med time = 6.525823, Max time = 6.563770
+On 8 nodes achieved GFLOPS per node: 477.816960.
+
+
+Executing command: env LD_LIBRARY_PATH=LD_LIBRARY_PATH:/g/g15/yadav2/taco/legion/OpenBLAS/install/lib/ jsrun -b rs -c 10 -r 4 -n 64 /g/g15/yadav2/ctf/bin/matmul -m 32768 -n 32768 -k 32768 -niter 10 -sp_A 1 -sp_B 1 -sp_C 1 -test 0 --procs_per_node 4
+Multiplying A (32768*32768 sym 0 sp 1.000000) and B (32768*32768 sym 0 sp 1.000000) into C (32768*32768 sym 0 sp 1.000000) 
+Starting 10 benchmarking iterations of matrix multiplication with specified attributes...
+iterations completed, did 703687441776640 flops.
+All iterations times: 7.917746 7.857636 7.830242 7.841200 7.844274 7.822219 7.825975 7.832434 7.833102 7.793228 
+A (32768*32768 sym 0 sp 1.000000), B (32768*32768 sym 0 sp 1.000000), C (32768*32768 sym 0 sp 1.000000) Min time = 7.793228, Avg time = 7.839806, Med time = 7.833102, Max time = 7.917746
+On 16 nodes achieved GFLOPS per node: 560.980659.
+
+
+Executing command: env LD_LIBRARY_PATH=LD_LIBRARY_PATH:/g/g15/yadav2/taco/legion/OpenBLAS/install/lib/ jsrun -b rs -c 10 -r 4 -n 128 /g/g15/yadav2/ctf/bin/matmul -m 46340 -n 46340 -k 46340 -niter 10 -sp_A 1 -sp_B 1 -sp_C 1 -test 0 --procs_per_node 4
+Multiplying A (46340*46340 sym 0 sp 1.000000) and B (46340*46340 sym 0 sp 1.000000) into C (46340*46340 sym 0 sp 1.000000) 
+Starting 10 benchmarking iterations of matrix multiplication with specified attributes...
+iterations completed, did 1990206242080000 flops.
+All iterations times: 13.640563 13.601832 13.620729 13.653359 13.619680 13.616808 13.685416 13.565848 13.613984 13.580662 
+A (46340*46340 sym 0 sp 1.000000), B (46340*46340 sym 0 sp 1.000000), C (46340*46340 sym 0 sp 1.000000) Min time = 13.565848, Avg time = 13.619888, Med time = 13.619680, Max time = 13.685416
+On 32 nodes achieved GFLOPS per node: 456.635719.
+
+
+Executing command: env LD_LIBRARY_PATH=LD_LIBRARY_PATH:/g/g15/yadav2/taco/legion/OpenBLAS/install/lib/ jsrun -b rs -c 10 -r 4 -n 256 /g/g15/yadav2/ctf/bin/matmul -m 65536 -n 65536 -k 65536 -niter 10 -sp_A 1 -sp_B 1 -sp_C 1 -test 0 --procs_per_node 4
+Multiplying A (65536*65536 sym 0 sp 1.000000) and B (65536*65536 sym 0 sp 1.000000) into C (65536*65536 sym 0 sp 1.000000) 
+Starting 10 benchmarking iterations of matrix multiplication with specified attributes...
+iterations completed, did 5629499534213120 flops.
+All iterations times: 15.674594 15.917720 15.787426 15.836985 15.849372 15.788631 15.769914 15.799652 15.755787 15.791421 
+A (65536*65536 sym 0 sp 1.000000), B (65536*65536 sym 0 sp 1.000000), C (65536*65536 sym 0 sp 1.000000) Min time = 15.674594, Avg time = 15.797150, Med time = 15.791421, Max time = 15.917720
+On 64 nodes achieved GFLOPS per node: 556.810930.
+
+
+Executing command: env LD_LIBRARY_PATH=LD_LIBRARY_PATH:/g/g15/yadav2/taco/legion/OpenBLAS/install/lib/ jsrun -b rs -c 10 -r 4 -n 512 /g/g15/yadav2/ctf/bin/matmul -m 92680 -n 92680 -k 92680 -niter 10 -sp_A 1 -sp_B 1 -sp_C 1 -test 0 --procs_per_node 4
+Multiplying A (92680*92680 sym 0 sp 1.000000) and B (92680*92680 sym 0 sp 1.000000) into C (92680*92680 sym 0 sp 1.000000) 
+Starting 10 benchmarking iterations of matrix multiplication with specified attributes...
+iterations completed, did 15921649936640000 flops.
+All iterations times: 31.266126 31.229255 30.942716 31.176212 31.021578 31.297450 31.243156 30.925638 31.155284 31.043236 
+A (92680*92680 sym 0 sp 1.000000), B (92680*92680 sym 0 sp 1.000000), C (92680*92680 sym 0 sp 1.000000) Min time = 30.925638, Avg time = 31.130065, Med time = 31.176212, Max time = 31.297450
+On 128 nodes achieved GFLOPS per node: 399.572627.
+
+
+Executing command: env LD_LIBRARY_PATH=LD_LIBRARY_PATH:/g/g15/yadav2/taco/legion/OpenBLAS/install/lib/ jsrun -b rs -c 10 -r 4 -n 1024 /g/g15/yadav2/ctf/bin/matmul -m 131072 -n 131072 -k 131072 -niter 10 -sp_A 1 -sp_B 1 -sp_C 1 -test 0 --procs_per_node 4
+Multiplying A (131072*131072 sym 0 sp 1.000000) and B (131072*131072 sym 0 sp 1.000000) into C (131072*131072 sym 0 sp 1.000000) 
+Starting 10 benchmarking iterations of matrix multiplication with specified attributes...
+iterations completed, did 45035996273704960 flops.
+All iterations times: 34.402379 33.933064 34.469422 34.904071 35.079429 34.977019 35.095188 35.022330 35.092766 35.057965 
+A (131072*131072 sym 0 sp 1.000000), B (131072*131072 sym 0 sp 1.000000), C (131072*131072 sym 0 sp 1.000000) Min time = 33.933064, Avg time = 34.803363, Med time = 35.022330, Max time = 35.095188
+On 256 nodes achieved GFLOPS per node: 505.471805.
+
+
+logout
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@lassen710>
+Subject: Job 2668088: <python3 ../scripts/benchmark.py --bench ctf --size 8192 --procs 1 2 4 8 16 32 64 128 256> in cluster <lassen> Done
+
+Job <python3 ../scripts/benchmark.py --bench ctf --size 8192 --procs 1 2 4 8 16 32 64 128 256> was submitted from host <lassen709> by user <yadav2> in cluster <lassen> at Fri Jul  2 19:26:38 2021
+Job was executed on host(s) <1*lassen710>, in queue <pbatch>, as user <yadav2> in cluster <lassen> at Sat Jul  3 12:14:08 2021
+                            <40*lassen736>
+                            <40*lassen580>
+                            <40*lassen407>
+                            <40*lassen737>
+                            <40*lassen581>
+                            <40*lassen408>
+                            <40*lassen738>
+                            <40*lassen582>
+                            <40*lassen409>
+                            <40*lassen80>
+                            <40*lassen81>
+                            <40*lassen82>
+                            <40*lassen83>
+                            <40*lassen84>
+                            <40*lassen85>
+                            <40*lassen86>
+                            <40*lassen87>
+                            <40*lassen88>
+                            <40*lassen89>
+                            <40*lassen410>
+                            <40*lassen411>
+                            <40*lassen412>
+                            <40*lassen413>
+                            <40*lassen414>
+                            <40*lassen591>
+                            <40*lassen592>
+                            <40*lassen90>
+                            <40*lassen91>
+                            <40*lassen92>
+                            <40*lassen93>
+                            <40*lassen94>
+                            <40*lassen752>
+                            <40*lassen753>
+                            <40*lassen754>
+                            <40*lassen755>
+                            <40*lassen100>
+                            <40*lassen101>
+                            <40*lassen102>
+                            <40*lassen774>
+                            <40*lassen775>
+                            <40*lassen776>
+                            <40*lassen777>
+                            <40*lassen778>
+                            <40*lassen779>
+                            <40*lassen600>
+                            <40*lassen601>
+                            <40*lassen602>
+                            <40*lassen603>
+                            <40*lassen604>
+                            <40*lassen605>
+                            <40*lassen606>
+                            <40*lassen451>
+                            <40*lassen607>
+                            <40*lassen452>
+                            <40*lassen608>
+                            <40*lassen781>
+                            <40*lassen453>
+                            <40*lassen609>
+                            <40*lassen782>
+                            <40*lassen454>
+                            <40*lassen783>
+                            <40*lassen455>
+                            <40*lassen784>
+                            <40*lassen456>
+                            <40*lassen785>
+                            <40*lassen457>
+                            <40*lassen786>
+                            <40*lassen458>
+                            <40*lassen459>
+                            <40*lassen610>
+                            <40*lassen611>
+                            <40*lassen613>
+                            <40*lassen614>
+                            <40*lassen615>
+                            <40*lassen460>
+                            <40*lassen616>
+                            <40*lassen461>
+                            <40*lassen617>
+                            <40*lassen462>
+                            <40*lassen618>
+                            <40*lassen463>
+                            <40*lassen619>
+                            <40*lassen792>
+                            <40*lassen464>
+                            <40*lassen793>
+                            <40*lassen465>
+                            <40*lassen794>
+                            <40*lassen466>
+                            <40*lassen795>
+                            <40*lassen467>
+                            <40*lassen796>
+                            <40*lassen468>
+                            <40*lassen797>
+                            <40*lassen798>
+                            <40*lassen799>
+                            <40*lassen620>
+                            <40*lassen621>
+                            <40*lassen622>
+                            <40*lassen623>
+                            <40*lassen624>
+                            <40*lassen145>
+                            <40*lassen146>
+                            <40*lassen147>
+                            <40*lassen148>
+                            <40*lassen149>
+                            <40*lassen479>
+                            <40*lassen150>
+                            <40*lassen151>
+                            <40*lassen480>
+                            <40*lassen152>
+                            <40*lassen153>
+                            <40*lassen154>
+                            <40*lassen155>
+                            <40*lassen156>
+                            <40*lassen157>
+                            <40*lassen486>
+                            <40*lassen158>
+                            <40*lassen487>
+                            <40*lassen159>
+                            <40*lassen488>
+                            <40*lassen489>
+                            <40*lassen160>
+                            <40*lassen490>
+                            <40*lassen491>
+                            <40*lassen492>
+                            <40*lassen163>
+                            <40*lassen493>
+                            <40*lassen164>
+                            <40*lassen494>
+                            <40*lassen165>
+                            <40*lassen495>
+                            <40*lassen166>
+                            <40*lassen496>
+                            <40*lassen167>
+                            <40*lassen497>
+                            <40*lassen168>
+                            <40*lassen498>
+                            <40*lassen169>
+                            <40*lassen800>
+                            <40*lassen803>
+                            <40*lassen804>
+                            <40*lassen805>
+                            <40*lassen321>
+                            <40*lassen327>
+                            <40*lassen171>
+                            <40*lassen657>
+                            <40*lassen328>
+                            <40*lassen172>
+                            <40*lassen658>
+                            <40*lassen329>
+                            <40*lassen173>
+                            <40*lassen174>
+                            <40*lassen175>
+                            <40*lassen176>
+                            <40*lassen177>
+                            <40*lassen178>
+                            <40*lassen179>
+                            <40*lassen810>
+                            <40*lassen811>
+                            <40*lassen812>
+                            <40*lassen813>
+                            <40*lassen814>
+                            <40*lassen815>
+                            <40*lassen330>
+                            <40*lassen816>
+                            <40*lassen660>
+                            <40*lassen331>
+                            <40*lassen332>
+                            <40*lassen333>
+                            <40*lassen819>
+                            <40*lassen663>
+                            <40*lassen334>
+                            <40*lassen664>
+                            <40*lassen335>
+                            <40*lassen336>
+                            <40*lassen337>
+                            <40*lassen181>
+                            <40*lassen182>
+                            <40*lassen668>
+                            <40*lassen183>
+                            <40*lassen669>
+                            <40*lassen184>
+                            <40*lassen185>
+                            <40*lassen186>
+                            <40*lassen187>
+                            <40*lassen188>
+                            <40*lassen189>
+                            <40*lassen343>
+                            <40*lassen344>
+                            <40*lassen345>
+                            <40*lassen346>
+                            <40*lassen190>
+                            <40*lassen347>
+                            <40*lassen191>
+                            <40*lassen348>
+                            <40*lassen192>
+                            <40*lassen349>
+                            <40*lassen195>
+                            <40*lassen350>
+                            <40*lassen404>
+                            <40*lassen732>
+                            <40*lassen402>
+                            <40*lassen510>
+                            <40*lassen731>
+                            <40*lassen511>
+                            <40*lassen401>
+                            <40*lassen512>
+                            <40*lassen730>
+                            <40*lassen513>
+                            <40*lassen514>
+                            <40*lassen515>
+                            <40*lassen516>
+                            <40*lassen360>
+                            <40*lassen517>
+                            <40*lassen361>
+                            <40*lassen518>
+                            <40*lassen362>
+                            <40*lassen519>
+                            <40*lassen363>
+                            <40*lassen364>
+                            <40*lassen365>
+                            <40*lassen366>
+                            <40*lassen367>
+                            <40*lassen368>
+                            <40*lassen369>
+                            <40*lassen400>
+                            <40*lassen79>
+                            <40*lassen78>
+                            <40*lassen77>
+                            <40*lassen76>
+                            <40*lassen75>
+                            <40*lassen74>
+                            <40*lassen73>
+                            <40*lassen72>
+                            <40*lassen520>
+                            <40*lassen521>
+                            <40*lassen522>
+                            <40*lassen370>
+                            <40*lassen371>
+                            <40*lassen372>
+                            <40*lassen377>
+                            <40*lassen378>
+                            <40*lassen379>
+                            <40*lassen535>
+                            <40*lassen536>
+                            <40*lassen380>
+                            <40*lassen537>
+                            <40*lassen538>
+                            <40*lassen382>
+                            <40*lassen37>
+                            <40*lassen38>
+                            <40*lassen39>
+                            <40*lassen540>
+                            <40*lassen541>
+                            <40*lassen543>
+                            <40*lassen397>
+</g/g15/yadav2> was used as the home directory.
+</g/g15/yadav2/taco/build> was used as the working directory.
+Started at Sat Jul  3 12:14:08 2021
+Terminated at Sat Jul  3 12:35:01 2021
+Results reported at Sat Jul  3 12:35:01 2021
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+python3 ../scripts/benchmark.py --bench ctf --size 8192 --procs 1 2 4 8 16 32 64 128 256
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   3.00 sec.
+    Max Memory :                                 108 MB
+    Average Memory :                             83.33 MB
+    Total Requested Memory :                     -
+    Delta Memory :                               -
+    Max Swap :                                   1438 MB
+    Max Processes :                              7
+    Max Threads :                                31
+    Run time :                                   1253 sec.
+    Turnaround time :                            61703 sec.
+
+The output (if any) is above this job summary.
+

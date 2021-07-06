@@ -1,0 +1,801 @@
+/g/g15/yadav2/.bashrc: line 1: module: command not found
+/g/g15/yadav2/.bashrc: line 2: module: command not found
+/g/g15/yadav2/.bashrc: line 5: module: command not found
+Executing command: jsrun -b rs -c 10 -r 4 -n 4 /g/g15/yadav2/cosma-scalapack/build/miniapp/pxgemm_miniapp -r 10 --algorithm scalapack -n 8192 -m 8192 -k 8192 --block_a 2048,2048 --block_b 2048,2048 --block_c 2048,2048 -p 2,2 --procs_per_node 4
+Running PDGEMM on the following problem:
+=============================
+      GLOBAL MAT. SIZES
+=============================
+A = 8192 x 8192
+B = 8192 x 8192
+C = 8192 x 8192
+=============================
+        SUBMATRICES
+=============================
+(ia, ja) = (1, 1)
+(ib, jb) = (1, 1)
+(ic, jc) = (1, 1)
+=============================
+      SUBMATRIX SIZES
+=============================
+m = 8192
+n = 8192
+k = 8192
+=============================
+      ADDITIONAL OPTIONS
+=============================
+alpha = 1
+beta = 0
+trans_a = N
+trans_b = N
+=============================
+         PROC GRID
+=============================
+grid = 2 x 2
+grid order = R
+=============================
+         PROC SRCS
+=============================
+P_SRC(A) = (0, 0)
+P_SRC(B) = (0, 0)
+P_SRC(C) = (0, 0)
+=============================
+          BLOCK SIZES
+=============================
+Blocks(A) = (2048, 2048)
+Blocks(B) = (2048, 2048)
+Blocks(C) = (2048, 2048)
+=============================
+          LEADING DIMS
+=============================
+lld_a = 4096
+lld_b = 4096
+lld_c = 4096
+=============================
+
+SCALAPACK TIMES [ms] = 2219 2209 2207 2200 2191 2188 2185 2184 2183 2182 
+On 1 nodes achieved GFLOPS per node: 501.114184.
+
+
+Executing command: jsrun -b rs -c 10 -r 4 -n 8 /g/g15/yadav2/cosma-scalapack/build/miniapp/pxgemm_miniapp -r 10 --algorithm scalapack -n 11584 -m 11584 -k 11584 --block_a 2048,2048 --block_b 2048,2048 --block_c 2048,2048 -p 2,4 --procs_per_node 4
+Running PDGEMM on the following problem:
+=============================
+      GLOBAL MAT. SIZES
+=============================
+A = 11584 x 11584
+B = 11584 x 11584
+C = 11584 x 11584
+=============================
+        SUBMATRICES
+=============================
+(ia, ja) = (1, 1)
+(ib, jb) = (1, 1)
+(ic, jc) = (1, 1)
+=============================
+      SUBMATRIX SIZES
+=============================
+m = 11584
+n = 11584
+k = 11584
+=============================
+      ADDITIONAL OPTIONS
+=============================
+alpha = 1
+beta = 0
+trans_a = N
+trans_b = N
+=============================
+         PROC GRID
+=============================
+grid = 2 x 4
+grid order = R
+=============================
+         PROC SRCS
+=============================
+P_SRC(A) = (0, 0)
+P_SRC(B) = (0, 0)
+P_SRC(C) = (0, 0)
+=============================
+          BLOCK SIZES
+=============================
+Blocks(A) = (2048, 2048)
+Blocks(B) = (2048, 2048)
+Blocks(C) = (2048, 2048)
+=============================
+          LEADING DIMS
+=============================
+lld_a = 6144
+lld_b = 6144
+lld_c = 6144
+=============================
+
+SCALAPACK TIMES [ms] = 4252 4235 4231 4231 4228 4227 4227 4224 4223 4223 
+On 2 nodes achieved GFLOPS per node: 367.465468.
+
+
+Executing command: jsrun -b rs -c 10 -r 4 -n 16 /g/g15/yadav2/cosma-scalapack/build/miniapp/pxgemm_miniapp -r 10 --algorithm scalapack -n 16384 -m 16384 -k 16384 --block_a 2048,2048 --block_b 2048,2048 --block_c 2048,2048 -p 4,4 --procs_per_node 4
+Running PDGEMM on the following problem:
+=============================
+      GLOBAL MAT. SIZES
+=============================
+A = 16384 x 16384
+B = 16384 x 16384
+C = 16384 x 16384
+=============================
+        SUBMATRICES
+=============================
+(ia, ja) = (1, 1)
+(ib, jb) = (1, 1)
+(ic, jc) = (1, 1)
+=============================
+      SUBMATRIX SIZES
+=============================
+m = 16384
+n = 16384
+k = 16384
+=============================
+      ADDITIONAL OPTIONS
+=============================
+alpha = 1
+beta = 0
+trans_a = N
+trans_b = N
+=============================
+         PROC GRID
+=============================
+grid = 4 x 4
+grid order = R
+=============================
+         PROC SRCS
+=============================
+P_SRC(A) = (0, 0)
+P_SRC(B) = (0, 0)
+P_SRC(C) = (0, 0)
+=============================
+          BLOCK SIZES
+=============================
+Blocks(A) = (2048, 2048)
+Blocks(B) = (2048, 2048)
+Blocks(C) = (2048, 2048)
+=============================
+          LEADING DIMS
+=============================
+lld_a = 4096
+lld_b = 4096
+lld_c = 4096
+=============================
+
+SCALAPACK TIMES [ms] = 4469 4465 4433 4429 4429 4425 4419 4416 4409 4408 
+On 4 nodes achieved GFLOPS per node: 496.378363.
+
+
+Executing command: jsrun -b rs -c 10 -r 4 -n 32 /g/g15/yadav2/cosma-scalapack/build/miniapp/pxgemm_miniapp -r 10 --algorithm scalapack -n 23170 -m 23170 -k 23170 --block_a 2048,2048 --block_b 2048,2048 --block_c 2048,2048 -p 4,8 --procs_per_node 4
+Running PDGEMM on the following problem:
+=============================
+      GLOBAL MAT. SIZES
+=============================
+A = 23170 x 23170
+B = 23170 x 23170
+C = 23170 x 23170
+=============================
+        SUBMATRICES
+=============================
+(ia, ja) = (1, 1)
+(ib, jb) = (1, 1)
+(ic, jc) = (1, 1)
+=============================
+      SUBMATRIX SIZES
+=============================
+m = 23170
+n = 23170
+k = 23170
+=============================
+      ADDITIONAL OPTIONS
+=============================
+alpha = 1
+beta = 0
+trans_a = N
+trans_b = N
+=============================
+         PROC GRID
+=============================
+grid = 4 x 8
+grid order = R
+=============================
+         PROC SRCS
+=============================
+P_SRC(A) = (0, 0)
+P_SRC(B) = (0, 0)
+P_SRC(C) = (0, 0)
+=============================
+          BLOCK SIZES
+=============================
+Blocks(A) = (2048, 2048)
+Blocks(B) = (2048, 2048)
+Blocks(C) = (2048, 2048)
+=============================
+          LEADING DIMS
+=============================
+lld_a = 6144
+lld_b = 6144
+lld_c = 6144
+=============================
+
+SCALAPACK TIMES [ms] = 8905 8895 8890 8888 8888 8887 8882 8878 8876 8871 
+On 8 nodes achieved GFLOPS per node: 349.947124.
+
+
+Executing command: jsrun -b rs -c 10 -r 4 -n 64 /g/g15/yadav2/cosma-scalapack/build/miniapp/pxgemm_miniapp -r 10 --algorithm scalapack -n 32768 -m 32768 -k 32768 --block_a 2048,2048 --block_b 2048,2048 --block_c 2048,2048 -p 8,8 --procs_per_node 4
+Running PDGEMM on the following problem:
+=============================
+      GLOBAL MAT. SIZES
+=============================
+A = 32768 x 32768
+B = 32768 x 32768
+C = 32768 x 32768
+=============================
+        SUBMATRICES
+=============================
+(ia, ja) = (1, 1)
+(ib, jb) = (1, 1)
+(ic, jc) = (1, 1)
+=============================
+      SUBMATRIX SIZES
+=============================
+m = 32768
+n = 32768
+k = 32768
+=============================
+      ADDITIONAL OPTIONS
+=============================
+alpha = 1
+beta = 0
+trans_a = N
+trans_b = N
+=============================
+         PROC GRID
+=============================
+grid = 8 x 8
+grid order = R
+=============================
+         PROC SRCS
+=============================
+P_SRC(A) = (0, 0)
+P_SRC(B) = (0, 0)
+P_SRC(C) = (0, 0)
+=============================
+          BLOCK SIZES
+=============================
+Blocks(A) = (2048, 2048)
+Blocks(B) = (2048, 2048)
+Blocks(C) = (2048, 2048)
+=============================
+          LEADING DIMS
+=============================
+lld_a = 4096
+lld_b = 4096
+lld_c = 4096
+=============================
+
+SCALAPACK TIMES [ms] = 8988 8923 8921 8919 8914 8888 8880 8876 8866 8851 
+On 16 nodes achieved GFLOPS per node: 494.043968.
+
+
+Executing command: jsrun -b rs -c 10 -r 4 -n 128 /g/g15/yadav2/cosma-scalapack/build/miniapp/pxgemm_miniapp -r 10 --algorithm scalapack -n 46340 -m 46340 -k 46340 --block_a 2048,2048 --block_b 2048,2048 --block_c 2048,2048 -p 8,16 --procs_per_node 4
+Running PDGEMM on the following problem:
+=============================
+      GLOBAL MAT. SIZES
+=============================
+A = 46340 x 46340
+B = 46340 x 46340
+C = 46340 x 46340
+=============================
+        SUBMATRICES
+=============================
+(ia, ja) = (1, 1)
+(ib, jb) = (1, 1)
+(ic, jc) = (1, 1)
+=============================
+      SUBMATRIX SIZES
+=============================
+m = 46340
+n = 46340
+k = 46340
+=============================
+      ADDITIONAL OPTIONS
+=============================
+alpha = 1
+beta = 0
+trans_a = N
+trans_b = N
+=============================
+         PROC GRID
+=============================
+grid = 8 x 16
+grid order = R
+=============================
+         PROC SRCS
+=============================
+P_SRC(A) = (0, 0)
+P_SRC(B) = (0, 0)
+P_SRC(C) = (0, 0)
+=============================
+          BLOCK SIZES
+=============================
+Blocks(A) = (2048, 2048)
+Blocks(B) = (2048, 2048)
+Blocks(C) = (2048, 2048)
+=============================
+          LEADING DIMS
+=============================
+lld_a = 6144
+lld_b = 6144
+lld_c = 6144
+=============================
+
+SCALAPACK TIMES [ms] = 18140 18062 18058 18029 18018 18012 17998 17991 17984 17975 
+On 32 nodes achieved GFLOPS per node: 345.019827.
+
+
+Executing command: jsrun -b rs -c 10 -r 4 -n 256 /g/g15/yadav2/cosma-scalapack/build/miniapp/pxgemm_miniapp -r 10 --algorithm scalapack -n 65536 -m 65536 -k 65536 --block_a 2048,2048 --block_b 2048,2048 --block_c 2048,2048 -p 16,16 --procs_per_node 4
+Running PDGEMM on the following problem:
+=============================
+      GLOBAL MAT. SIZES
+=============================
+A = 65536 x 65536
+B = 65536 x 65536
+C = 65536 x 65536
+=============================
+        SUBMATRICES
+=============================
+(ia, ja) = (1, 1)
+(ib, jb) = (1, 1)
+(ic, jc) = (1, 1)
+=============================
+      SUBMATRIX SIZES
+=============================
+m = 65536
+n = 65536
+k = 65536
+=============================
+      ADDITIONAL OPTIONS
+=============================
+alpha = 1
+beta = 0
+trans_a = N
+trans_b = N
+=============================
+         PROC GRID
+=============================
+grid = 16 x 16
+grid order = R
+=============================
+         PROC SRCS
+=============================
+P_SRC(A) = (0, 0)
+P_SRC(B) = (0, 0)
+P_SRC(C) = (0, 0)
+=============================
+          BLOCK SIZES
+=============================
+Blocks(A) = (2048, 2048)
+Blocks(B) = (2048, 2048)
+Blocks(C) = (2048, 2048)
+=============================
+          LEADING DIMS
+=============================
+lld_a = 4096
+lld_b = 4096
+lld_c = 4096
+=============================
+
+SCALAPACK TIMES [ms] = 18264 18148 18143 18123 18122 18115 18069 18039 18030 17978 
+On 64 nodes achieved GFLOPS per node: 485.887749.
+
+
+Executing command: jsrun -b rs -c 10 -r 4 -n 512 /g/g15/yadav2/cosma-scalapack/build/miniapp/pxgemm_miniapp -r 10 --algorithm scalapack -n 92680 -m 92680 -k 92680 --block_a 2048,2048 --block_b 2048,2048 --block_c 2048,2048 -p 16,32 --procs_per_node 4
+Running PDGEMM on the following problem:
+=============================
+      GLOBAL MAT. SIZES
+=============================
+A = 92680 x 92680
+B = 92680 x 92680
+C = 92680 x 92680
+=============================
+        SUBMATRICES
+=============================
+(ia, ja) = (1, 1)
+(ib, jb) = (1, 1)
+(ic, jc) = (1, 1)
+=============================
+      SUBMATRIX SIZES
+=============================
+m = 92680
+n = 92680
+k = 92680
+=============================
+      ADDITIONAL OPTIONS
+=============================
+alpha = 1
+beta = 0
+trans_a = N
+trans_b = N
+=============================
+         PROC GRID
+=============================
+grid = 16 x 32
+grid order = R
+=============================
+         PROC SRCS
+=============================
+P_SRC(A) = (0, 0)
+P_SRC(B) = (0, 0)
+P_SRC(C) = (0, 0)
+=============================
+          BLOCK SIZES
+=============================
+Blocks(A) = (2048, 2048)
+Blocks(B) = (2048, 2048)
+Blocks(C) = (2048, 2048)
+=============================
+          LEADING DIMS
+=============================
+lld_a = 6144
+lld_b = 6144
+lld_c = 6144
+=============================
+
+SCALAPACK TIMES [ms] = 36510 36403 36387 36372 36322 36318 36301 36298 36288 36276 
+On 128 nodes achieved GFLOPS per node: 342.221419.
+
+
+Executing command: jsrun -b rs -c 10 -r 4 -n 1024 /g/g15/yadav2/cosma-scalapack/build/miniapp/pxgemm_miniapp -r 10 --algorithm scalapack -n 131072 -m 131072 -k 131072 --block_a 2048,2048 --block_b 2048,2048 --block_c 2048,2048 -p 32,32 --procs_per_node 4
+Running PDGEMM on the following problem:
+=============================
+      GLOBAL MAT. SIZES
+=============================
+A = 131072 x 131072
+B = 131072 x 131072
+C = 131072 x 131072
+=============================
+        SUBMATRICES
+=============================
+(ia, ja) = (1, 1)
+(ib, jb) = (1, 1)
+(ic, jc) = (1, 1)
+=============================
+      SUBMATRIX SIZES
+=============================
+m = 131072
+n = 131072
+k = 131072
+=============================
+      ADDITIONAL OPTIONS
+=============================
+alpha = 1
+beta = 0
+trans_a = N
+trans_b = N
+=============================
+         PROC GRID
+=============================
+grid = 32 x 32
+grid order = R
+=============================
+         PROC SRCS
+=============================
+P_SRC(A) = (0, 0)
+P_SRC(B) = (0, 0)
+P_SRC(C) = (0, 0)
+=============================
+          BLOCK SIZES
+=============================
+Blocks(A) = (2048, 2048)
+Blocks(B) = (2048, 2048)
+Blocks(C) = (2048, 2048)
+=============================
+          LEADING DIMS
+=============================
+lld_a = 4096
+lld_b = 4096
+lld_c = 4096
+=============================
+
+SCALAPACK TIMES [ms] = 37106 36983 36760 36755 36738 36702 36676 36628 36598 36593 
+On 256 nodes achieved GFLOPS per node: 478.658040.
+
+
+logout
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@lassen710>
+Subject: Job 2664335: <python3 ../scripts/benchmark.py --bench scalapack --size 8192 --procs 1 2 4 8 16 32 64 128 256> in cluster <lassen> Done
+
+Job <python3 ../scripts/benchmark.py --bench scalapack --size 8192 --procs 1 2 4 8 16 32 64 128 256> was submitted from host <lassen708> by user <yadav2> in cluster <lassen> at Fri Jul  2 10:34:36 2021
+Job was executed on host(s) <1*lassen710>, in queue <pbatch>, as user <yadav2> in cluster <lassen> at Fri Jul  2 12:34:54 2021
+                            <40*lassen405>
+                            <40*lassen735>
+                            <40*lassen406>
+                            <40*lassen736>
+                            <40*lassen407>
+                            <40*lassen737>
+                            <40*lassen408>
+                            <40*lassen738>
+                            <40*lassen582>
+                            <40*lassen409>
+                            <40*lassen589>
+                            <40*lassen80>
+                            <40*lassen81>
+                            <40*lassen82>
+                            <40*lassen83>
+                            <40*lassen84>
+                            <40*lassen85>
+                            <40*lassen86>
+                            <40*lassen88>
+                            <40*lassen89>
+                            <40*lassen411>
+                            <40*lassen412>
+                            <40*lassen413>
+                            <40*lassen414>
+                            <40*lassen415>
+                            <40*lassen416>
+                            <40*lassen417>
+                            <40*lassen418>
+                            <40*lassen419>
+                            <40*lassen593>
+                            <40*lassen594>
+                            <40*lassen595>
+                            <40*lassen596>
+                            <40*lassen597>
+                            <40*lassen598>
+                            <40*lassen599>
+                            <40*lassen90>
+                            <40*lassen91>
+                            <40*lassen92>
+                            <40*lassen93>
+                            <40*lassen94>
+                            <40*lassen95>
+                            <40*lassen96>
+                            <40*lassen97>
+                            <40*lassen98>
+                            <40*lassen99>
+                            <40*lassen420>
+                            <40*lassen421>
+                            <40*lassen750>
+                            <40*lassen422>
+                            <40*lassen751>
+                            <40*lassen423>
+                            <40*lassen424>
+                            <40*lassen753>
+                            <40*lassen425>
+                            <40*lassen754>
+                            <40*lassen426>
+                            <40*lassen755>
+                            <40*lassen427>
+                            <40*lassen271>
+                            <40*lassen756>
+                            <40*lassen428>
+                            <40*lassen272>
+                            <40*lassen757>
+                            <40*lassen429>
+                            <40*lassen273>
+                            <40*lassen758>
+                            <40*lassen759>
+                            <40*lassen275>
+                            <40*lassen276>
+                            <40*lassen277>
+                            <40*lassen278>
+                            <40*lassen279>
+                            <40*lassen100>
+                            <40*lassen430>
+                            <40*lassen101>
+                            <40*lassen431>
+                            <40*lassen102>
+                            <40*lassen760>
+                            <40*lassen432>
+                            <40*lassen103>
+                            <40*lassen761>
+                            <40*lassen433>
+                            <40*lassen104>
+                            <40*lassen762>
+                            <40*lassen434>
+                            <40*lassen105>
+                            <40*lassen763>
+                            <40*lassen435>
+                            <40*lassen106>
+                            <40*lassen764>
+                            <40*lassen280>
+                            <40*lassen436>
+                            <40*lassen107>
+                            <40*lassen765>
+                            <40*lassen281>
+                            <40*lassen437>
+                            <40*lassen108>
+                            <40*lassen766>
+                            <40*lassen282>
+                            <40*lassen438>
+                            <40*lassen767>
+                            <40*lassen283>
+                            <40*lassen439>
+                            <40*lassen768>
+                            <40*lassen284>
+                            <40*lassen769>
+                            <40*lassen285>
+                            <40*lassen286>
+                            <40*lassen287>
+                            <40*lassen288>
+                            <40*lassen289>
+                            <40*lassen440>
+                            <40*lassen441>
+                            <40*lassen770>
+                            <40*lassen442>
+                            <40*lassen771>
+                            <40*lassen443>
+                            <40*lassen444>
+                            <40*lassen774>
+                            <40*lassen290>
+                            <40*lassen446>
+                            <40*lassen775>
+                            <40*lassen291>
+                            <40*lassen447>
+                            <40*lassen776>
+                            <40*lassen292>
+                            <40*lassen448>
+                            <40*lassen777>
+                            <40*lassen293>
+                            <40*lassen449>
+                            <40*lassen778>
+                            <40*lassen294>
+                            <40*lassen779>
+                            <40*lassen295>
+                            <40*lassen296>
+                            <40*lassen297>
+                            <40*lassen298>
+                            <40*lassen299>
+                            <40*lassen600>
+                            <40*lassen601>
+                            <40*lassen602>
+                            <40*lassen603>
+                            <40*lassen604>
+                            <40*lassen605>
+                            <40*lassen450>
+                            <40*lassen606>
+                            <40*lassen451>
+                            <40*lassen607>
+                            <40*lassen452>
+                            <40*lassen608>
+                            <40*lassen781>
+                            <40*lassen453>
+                            <40*lassen609>
+                            <40*lassen782>
+                            <40*lassen454>
+                            <40*lassen783>
+                            <40*lassen455>
+                            <40*lassen784>
+                            <40*lassen127>
+                            <40*lassen456>
+                            <40*lassen785>
+                            <40*lassen128>
+                            <40*lassen457>
+                            <40*lassen786>
+                            <40*lassen129>
+                            <40*lassen458>
+                            <40*lassen787>
+                            <40*lassen459>
+                            <40*lassen788>
+                            <40*lassen789>
+                            <40*lassen610>
+                            <40*lassen611>
+                            <40*lassen612>
+                            <40*lassen613>
+                            <40*lassen614>
+                            <40*lassen615>
+                            <40*lassen131>
+                            <40*lassen460>
+                            <40*lassen616>
+                            <40*lassen461>
+                            <40*lassen617>
+                            <40*lassen790>
+                            <40*lassen462>
+                            <40*lassen618>
+                            <40*lassen791>
+                            <40*lassen463>
+                            <40*lassen619>
+                            <40*lassen792>
+                            <40*lassen464>
+                            <40*lassen793>
+                            <40*lassen465>
+                            <40*lassen794>
+                            <40*lassen466>
+                            <40*lassen795>
+                            <40*lassen467>
+                            <40*lassen796>
+                            <40*lassen468>
+                            <40*lassen797>
+                            <40*lassen798>
+                            <40*lassen799>
+                            <40*lassen620>
+                            <40*lassen621>
+                            <40*lassen622>
+                            <40*lassen623>
+                            <40*lassen624>
+                            <40*lassen625>
+                            <40*lassen626>
+                            <40*lassen627>
+                            <40*lassen628>
+                            <40*lassen144>
+                            <40*lassen145>
+                            <40*lassen301>
+                            <40*lassen630>
+                            <40*lassen302>
+                            <40*lassen631>
+                            <40*lassen303>
+                            <40*lassen632>
+                            <40*lassen304>
+                            <40*lassen633>
+                            <40*lassen305>
+                            <40*lassen634>
+                            <40*lassen150>
+                            <40*lassen306>
+                            <40*lassen635>
+                            <40*lassen151>
+                            <40*lassen307>
+                            <40*lassen308>
+                            <40*lassen481>
+                            <40*lassen638>
+                            <40*lassen484>
+                            <40*lassen487>
+                            <40*lassen488>
+                            <40*lassen640>
+                            <40*lassen311>
+                            <40*lassen312>
+                            <40*lassen645>
+                            <40*lassen316>
+                            <40*lassen162>
+                            <40*lassen492>
+                            <40*lassen649>
+                            <40*lassen493>
+                            <40*lassen164>
+                            <40*lassen494>
+                            <40*lassen165>
+                            <40*lassen495>
+                            <40*lassen166>
+                            <40*lassen496>
+                            <40*lassen167>
+                            <40*lassen168>
+                            <40*lassen800>
+                            <40*lassen803>
+                            <40*lassen804>
+                            <40*lassen805>
+                            <40*lassen320>
+                            <40*lassen650>
+</g/g15/yadav2> was used as the home directory.
+</g/g15/yadav2/taco/build> was used as the working directory.
+Started at Fri Jul  2 12:34:54 2021
+Terminated at Fri Jul  2 13:03:12 2021
+Results reported at Fri Jul  2 13:03:12 2021
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+python3 ../scripts/benchmark.py --bench scalapack --size 8192 --procs 1 2 4 8 16 32 64 128 256
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   2.00 sec.
+    Max Memory :                                 90 MB
+    Average Memory :                             81.44 MB
+    Total Requested Memory :                     -
+    Delta Memory :                               -
+    Max Swap :                                   1438 MB
+    Max Processes :                              4
+    Max Threads :                                27
+    Run time :                                   1698 sec.
+    Turnaround time :                            8916 sec.
+
+The output (if any) is above this job summary.
+
