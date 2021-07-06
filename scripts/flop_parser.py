@@ -11,6 +11,6 @@ def parseGFLOPS(fname):
         data.append((nodes, gflops))
   data.sort(key=lambda x: x[0])
   for d in data:
-    print("{},{}".format(d[0], d[1]))
+    print("{} {}".format(d[0], d[1]))
 
 parseGFLOPS(sys.argv[1])
