@@ -1180,15 +1180,15 @@ int main(int argc, char* argv[]) {
 
   IndexStmt stmt =
       makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
-  cout << "----Stmt Creation-----" << endl;
-  cout << stmt << endl;
+  //cout << "----Stmt Creation-----" << endl;
+  //cout << stmt << endl;
   stmt = reorderLoopsTopologically(stmt);
   stmt = insertTemporaries(stmt);
-  cout << "----After Insert Temporaries-----" << endl;
-  cout << stmt << endl;
+  //cout << "----After Insert Temporaries-----" << endl;
+  //cout << stmt << endl;
   stmt = parallelizeOuterLoop(stmt);
-  cout << "----After Par Outer-----" << endl;
-  cout << stmt << endl;
+  //cout << "----After Par Outer-----" << endl;
+  //cout << stmt << endl;
   if (setSchedule) {
     cuda |= setSchedulingCommands(scheduleCommands, parser, stmt);
   }
@@ -1213,8 +1213,8 @@ int main(int argc, char* argv[]) {
     set_Spatial_dimension(spatialDefaultDimension);
 
   stmt = scalarPromote(stmt);
-  cout << "----After Scalar Promote-----" << endl;
-  cout << stmt << endl;
+  //cout << "----After Scalar Promote-----" << endl;
+  //cout << stmt << endl;
   if (printConcrete) {
     cout << stmt << endl;
   }
@@ -1301,8 +1301,8 @@ int main(int argc, char* argv[]) {
     }
   }
   else {
-    cout << "----Index Notation Stmt----" << endl;
-    cout << stmt;
+    //cout << "----Index Notation Stmt----" << endl;
+    //cout << stmt;
     if (spatial) {
 
       compute = lower(stmt, "Compute",  computeWithAssemble, true);

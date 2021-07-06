@@ -1235,9 +1235,7 @@ TEST(spatial, sparse_csf_3D_INNERPROD) {
   a() = B(i, j, k) * C(i, j, k);
 
   IndexStmt stmt = a.getAssignment().concretize();
-  stmt = stmt.parallelize(i, ParallelUnit::Spatial,OutputRaceStrategy::SpatialReduction)
-    .parallelize(j, ParallelUnit::Spatial,OutputRaceStrategy::SpatialReduction)
-    .parallelize(k, ParallelUnit::Spatial,OutputRaceStrategy::SpatialReduction);
+  stmt = stmt.parallelize(k, ParallelUnit::Spatial,OutputRaceStrategy::SpatialReduction);
 
   cout << "----------------Post-Schedule Stmt-----------------" << endl;
   cout << stmt << endl;

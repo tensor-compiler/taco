@@ -65,6 +65,8 @@ struct GenBitVector;
 struct Scan;
 struct TypeCase;
 struct RMW;
+struct FuncEnv;
+struct AccelEnv;
 
 /// Extend this class to visit every node in the IR.
 class IRVisitorStrict {
@@ -132,6 +134,8 @@ public:
   virtual void visit(const Scan*) = 0;
   virtual void visit(const TypeCase*) = 0;
   virtual void visit(const RMW*) = 0;
+  virtual void visit(const FuncEnv*) = 0;
+  virtual void visit(const AccelEnv*) = 0;
 };
 
 
@@ -202,7 +206,8 @@ public:
   virtual void visit(const TypeCase*);
   virtual void visit(const RMW*);
   virtual void visit(const CallStmt* op);
-
+  virtual void visit(const FuncEnv*);
+  virtual void visit(const AccelEnv*);
 };
 
 }}

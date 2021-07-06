@@ -17,7 +17,11 @@ extern const char *ParallelUnit_NAMES[];
 
 /// 
 enum class MemoryLocation {
-  Default, GPUSharedMemory, SpatialDRAM, SpatialSRAM, SpatialReg, SpatialSparseSRAM, SpatialFIFO, SpatialSparseDRAM, SpatialArgIn, SpatialArgOut
+  Default, GPUSharedMemory,
+  SpatialDRAM, SpatialSparseDRAM,
+  SpatialSRAM, SpatialSparseSRAM, SpatialSparseParSRAM,
+  SpatialFIFO,
+  SpatialReg, SpatialArgIn, SpatialArgOut
 };
 
 extern const char *MemoryLocation_NAMES[];

@@ -363,7 +363,7 @@ string CodeGen::printDecls(map<Expr, string, ExprCompare> varMap,
   for (auto prop: sortedProps) {
     bool isOutputProp = (find(outputs.begin(), outputs.end(),
                               prop->tensor) != outputs.end());
-    
+
     auto var = prop->tensor.as<Var>();
     if (var->is_parameter) {
       if (isOutputProp) {

@@ -468,6 +468,12 @@ protected:
 
   ParallelUnit getAtomicParallelUnit() const;
 
+  virtual ir::Stmt generateGlobalEnvironmentVars();
+  virtual ir::Stmt generateAccelEnvironmentVars();
+  virtual ir::Stmt addAccelEnvironmentVars();
+  std::map<std::string, ir::Expr> funcEnvMap;
+
+
 protected:
   bool assemble;
   bool compute;
@@ -512,9 +518,6 @@ protected:
 
   /// Map from indexvars to their variable names
   std::map<IndexVar, ir::Expr> indexVarToExprMap;
-
-  /// Map from indexvars to their max bits variable
-  std::map<IndexVar, ir::Expr> indexVartoBitVarMap;
 
   /// Tensor and mode iterators to iterate over in the lowered code
   Iterators iterators;

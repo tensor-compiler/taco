@@ -182,6 +182,7 @@ void IRVisitor::visit(const For* op) {
   op->start.accept(this);
   op->end.accept(this);
   op->increment.accept(this);
+  op->numChunks.accept(this);
   op->contents.accept(this);
 }
 
@@ -200,7 +201,12 @@ void IRVisitor::visit(const Scope* op) {
 }
 
 void IRVisitor::visit(const Function* op) {
-  op->body.accept(this);
+  if (op->funcEnv.defined())
+    op->funcEnv.accept(this);
+  if (op->accelEnv.defined())
+    op->accelEnv.accept(this);
+
+    op->body.accept(this);
 }
 
 void IRVisitor::visit(const VarDecl* op) {
@@ -339,6 +345,14 @@ void IRVisitor::visit(const RMW* op) {
   op->data.accept(this);
   if (op->barrier.defined())
     op->barrier.accept(this);
+}
+
+void IRVisitor::visit(const FuncEnv* op) {
+  op->env.accept(this);
+}
+
+void IRVisitor::visit(const AccelEnv* op) {
+  op->aenv.accept(this);
 }
 
 /// SPATIAL ONLY END

@@ -85,6 +85,9 @@ protected:
   virtual void visit(const Scan* op);
   virtual void visit(const TypeCase*);
   virtual void visit(const RMW*);
+  virtual void visit(const FuncEnv*);
+  virtual void visit(const AccelEnv*);
+
 };
 
 }}

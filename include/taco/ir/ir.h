@@ -642,11 +642,15 @@ struct For : public StmtNode<For> {
   int vec_width;  // vectorization width
   ParallelUnit parallel_unit;
   size_t unrollFactor;
-  size_t numChunks;
+  Expr numChunks = 1;
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
                    Stmt contents, LoopKind kind=LoopKind::Serial,
                    ParallelUnit parallel_unit=ParallelUnit::NotParallel, size_t unrollFactor=0, int vec_width=0, size_t numChunks=1);
+
+  static Stmt make(Expr var, Expr start, Expr end, Expr increment, Expr numChunks,
+                   Stmt contents, LoopKind kind=LoopKind::Serial,
+                   ParallelUnit parallel_unit=ParallelUnit::NotParallel, size_t unrollFactor=0, int vec_width=0);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };
@@ -672,11 +676,20 @@ struct Function : public StmtNode<Function> {
   Stmt body;
   std::vector<Expr> inputs;
   std::vector<Expr> outputs;
-  
+
+  // Needed for spatial metadata environments
+  Stmt funcEnv;
+  Stmt accelEnv;
+
   static Stmt make(std::string name,
                    std::vector<Expr> outputs, std::vector<Expr> inputs,
                    Stmt body);
-  
+
+  static Stmt make(std::string name,
+                   std::vector<Expr> outputs, std::vector<Expr> inputs,
+                   Stmt funcEnv, Stmt accelEnv,
+                   Stmt body);
+
   std::pair<std::vector<Datatype>,Datatype> getReturnType() const;
   
   static const IRNodeType _type_info = IRNodeType::Function;

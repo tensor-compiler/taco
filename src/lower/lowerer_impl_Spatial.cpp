@@ -293,122 +293,6 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
     return Block::blanks(iteratorVarInits, memoryTransfer, genBitVectors, appendPositions, computeLoop);
   }
 
-  Stmt LowererImplSpatial::lowerMergePoint(MergeLattice pointLattice,
-                                    ir::Expr coordinate, IndexVar coordinateVar, IndexStmt statement,
-                                    const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared)
-  {
-    MergePoint point = pointLattice.points().front();
-
-    vector<Iterator> iterators = point.iterators();
-    vector<Iterator> mergers = point.mergers();
-    vector<Iterator> rangers = point.rangers();
-    vector<Iterator> locators = point.locators();
-
-    taco_iassert(iterators.size() > 0);
-    taco_iassert(mergers.size() > 0);
-    taco_iassert(rangers.size() > 0);
-
-    // Load coordinates from position iterators
-    Stmt loadPosIterCoordinates = codeToLoadCoordinatesFromPosIterators(iterators, !resolvedCoordDeclared);
-
-    // Merge iterator coordinate variables
-    Stmt resolvedCoordinate = resolveCoordinate(mergers, coordinate, !resolvedCoordDeclared);
-
-    // Locate positions
-    Stmt loadLocatorPosVars = declLocatePosVars(locators);
-
-    // Deduplication loops
-    auto dupIters = filter(iterators, [](Iterator it){return !it.isUnique() &&
-                                                             it.hasPosIter();});
-    bool alwaysReduce = (mergers.size() == 1 && mergers[0].hasPosIter());
-    Stmt deduplicationLoops = reduceDuplicateCoordinates(coordinate, dupIters,
-                                                         alwaysReduce);
-
-    // One case for each child lattice point lp
-    Stmt caseStmts = lowerMergeCases(coordinate, coordinateVar, statement, pointLattice,
-                                     reducedAccesses);
-
-    // Increment iterator position variables
-    Stmt incIteratorVarStmts = codeToIncIteratorVars(coordinate, coordinateVar, iterators, mergers);
-
-    /// While loop over rangers
-    return While::make(checkThatNoneAreExhausted(rangers),
-                       Block::make(loadPosIterCoordinates,
-                                   resolvedCoordinate,
-                                   loadLocatorPosVars,
-                                   deduplicationLoops,
-                                   caseStmts,
-                                   incIteratorVarStmts));
-  }
-
-  static pair<vector<Iterator>, vector<Iterator>>
-  splitAppenderAndInserters(const vector<Iterator>& results) {
-    vector<Iterator> appenders;
-    vector<Iterator> inserters;
-
-    // TODO: Choose insert when the current forall is nested inside a reduction
-    for (auto& result : results) {
-      taco_iassert(result.hasAppend() || result.hasInsert())
-              << "Results must support append or insert";
-
-      if (result.hasAppend()) {
-        appenders.push_back(result);
-      }
-      else {
-        taco_iassert(result.hasInsert());
-        inserters.push_back(result);
-      }
-    }
-
-    return {appenders, inserters};
-  }
-
-  Stmt LowererImplSpatial::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
-                                    MergeLattice lattice,
-                                    const std::set<Access>& reducedAccesses)
-  {
-    vector<Stmt> result;
-
-    vector<Iterator> appenders;
-    vector<Iterator> inserters;
-    tie(appenders, inserters) = splitAppenderAndInserters(lattice.results());
-
-    // Just one iterator so no conditionals
-    if (lattice.iterators().size() == 1) {
-      Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
-                                  appenders, reducedAccesses);
-      result.push_back(body);
-    }
-    else {
-      vector<pair<Expr,Stmt>> cases;
-      for (MergePoint point : lattice.points()) {
-
-        // Construct case expression
-        vector<Expr> coordComparisons;
-        for (Iterator iterator : point.rangers()) {
-          if (!(getProvGraph().isCoordVariable(iterator.getIndexVar()) && getProvGraph().isDerivedFrom(iterator.getIndexVar(), coordinateVar))) {
-            coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
-          }
-        }
-
-        // Construct case body
-        IndexStmt zeroedStmt = zero(stmt, getExhaustedAccesses(point, lattice));
-        Stmt body = lowerForallBody(coordinate, zeroedStmt, {},
-                                    inserters, appenders, reducedAccesses);
-        if (coordComparisons.empty()) {
-          Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
-                                      appenders, reducedAccesses);
-          result.push_back(body);
-          break;
-        }
-        cases.push_back({taco::ir::conjunction(coordComparisons), body});
-      }
-      result.push_back(Case::make(cases, lattice.exact()));
-    }
-
-    return Block::make(result);
-  }
-
 Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
                                                vector<Iterator> locators,
                                                vector<Iterator> inserters,
@@ -722,12 +606,14 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
                                                                                           "metadata environment";
     auto bitLen = ir::Mul::make(ir::Literal::make(32), indexVartoBitVarMap.at(coordinateVar));
 
+    taco_iassert(funcEnvMap.find("sp") != funcEnvMap.end()) << "Scanner Par is not in global function environment";
+
     Expr scan = Expr();
     Expr typeCase = Expr();
     if (point.iterators().size() == 1) {
       auto iterator = point.iterators()[0];
       // TODO: fix bitcnt and par factor later
-      scan = ir::Scan::make(ir::Literal::make(1, iterator.getIteratorVar().type()),
+      scan = ir::Scan::make(funcEnvMap.at("sp"),
                             bitLen,
                             varMap[iterator], Expr(), isUnion, false);
 
@@ -737,7 +623,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       auto iterator1 = point.iterators()[0];
       auto iterator2 = point.iterators()[1];
       // TODO: fix bitcnt and par factor later
-      scan = ir::Scan::make(1, bitLen, varMap[iterator1], varMap[iterator2], isUnion, false);
+      scan = ir::Scan::make(funcEnvMap.at("sp"), bitLen, varMap[iterator1], varMap[iterator2], isUnion, false);
 
       typeCase = ir::TypeCase::make({uncompressedCrd, iterator1.getCoordVar(), compressedCrd, iterator2.getCoordVar()});
     }
@@ -834,7 +720,9 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
         return appender.getPosVar();
       }(appender);
       // FIXME: need to initialize posAccumulationVar
-      Expr posAccumulationVar = ir::Var::make(pos.as<Var>()->name + "_acc", pos.as<Var>()->type);;
+      Expr posAccumulationVar = ir::Var::make(pos.as<Var>()->name + "_acc", pos.as<Var>()->type, true);
+      posAccumulationVars.push_back(posAccumulationVar);
+
       Expr posNext = ir::Var::make(pos.as<Var>()->name + "_next", pos.as<Var>()->type);
       Stmt posNextDecl = ir::VarDecl::make(posNext, ir::RMW::make(posAccumulationVar, 0, reg, Expr(), SpatialRMWoperators::Add, SpatialMemOrdering::Ordered));
       result.push_back(posNextDecl);
@@ -876,7 +764,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       Expr var = ir::Var::make(iterator.getTensor().as<Var>()->name + "_bvRaw",
                                iterator.getTensor().as<Var>()->type, true, false, false,
                                MemoryLocation::SpatialFIFO);
-      bvRawMap.insert({iterator, var});
+      bvRawMap[iterator] = var;
       // FIXME: do not hardcode size of 16. Also fix this so that the memDecl is a size and not the RHS
       Stmt allocate = ir::Allocate::make(var, ir::Literal::make(16), false, false,
                                          false, MemoryLocation::SpatialFIFO);
@@ -1119,25 +1007,82 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     return result.empty() ? Stmt() : Block::make(result);
   }
 
+  // Need to pass in TensorVar list of all taco_tensor_t's to create A_nnz, B_nnz, etc.
   Stmt LowererImplSpatial::generateGlobalEnvironmentVars() {
     // FIXME: currently hardcoded
     auto innerParVar = ir::Var::make("ip", Int());
     auto innerPar = ir::VarDecl::make(innerParVar, 16);
+    funcEnvMap.insert({"ip", innerParVar});
 
     auto scanParVar = ir::Var::make("sp", Int());
-    auto scanPar = ir::VarDecl::make(innerParVar, 16);
+    auto scanPar = ir::VarDecl::make(scanParVar, 16);
+    funcEnvMap.insert({"sp", scanParVar});
 
-    auto bodyParVar = ir::Var::make("sp", Int());
+    auto bodyParVar = ir::Var::make("bp", Int());
     auto bodyPar = ir::VarDecl::make(bodyParVar, 1);
+    funcEnvMap.insert({"bp", bodyParVar});
 
     auto maxNNZVar = ir::Var::make("nnz_max", Int());
     auto maxNNZVal = ir::Mul::make(128,ir::Mul::make(1024,1024));
-    auto maxNNZ = ir::VarDecl::make(innerParVar, maxNNZVal);
+    auto maxNNZ = ir::VarDecl::make(maxNNZVar, maxNNZVal);
+    funcEnvMap.insert({"nnz_max", maxNNZVar});
 
     auto maxDimVar =  ir::Var::make("dimension_max", Int());
-    auto maxDim = ir::VarDecl::make(innerParVar, 65536);
+    auto maxDim = ir::VarDecl::make(maxDimVar, 65536);
+    funcEnvMap.insert({"dimension_max", maxDimVar});
 
-    return Stmt();
+    vector<Stmt> maxVars;
+    for (const IndexVar& indexVar : provGraph.getAllIndexVars()) {
+      auto ivarMax = ir::Var::make(indexVar.getName() + "_max", Int(), true, false, false, MemoryLocation::SpatialArgIn);
+      indexVartoMaxVar.insert({indexVar, ivarMax});
+      auto allocate = ir::Allocate::make(ivarMax, 1, false, Expr(), false, MemoryLocation::SpatialArgIn);
+      maxVars.push_back(allocate);
+    }
+    return (Block::blanks(FuncEnv::make(Block::make(innerPar, scanPar, bodyPar, maxNNZ, maxDim)), Block::make(maxVars)));
   }
 
+  Stmt LowererImplSpatial::generateAccelEnvironmentVars() {
+
+    vector<Stmt> bitVars;
+    for (const IndexVar& indexVar : provGraph.getAllIndexVars()) {
+      auto maxBitsVar = ir::Var::make(indexVar.getName() + "_max_bits", Int());
+      indexVartoBitVarMap.insert({indexVar, maxBitsVar});
+
+      taco_iassert(indexVartoMaxVar.find(indexVar) != indexVartoMaxVar.end()) << "The index variable max bits var (i_max_bits) "
+                                                                                 "cannot be defined since the index variable max var "
+                                                                                 "(i_max) is not defined";
+      auto eq = ir::Mul::make(16, ir::Div::make(ir::Add::make(indexVartoMaxVar.at(indexVar), 511), 512));
+      auto maxBits = ir::VarDecl::make(maxBitsVar, eq);
+      bitVars.push_back(maxBits);
+    }
+
+
+
+    return Block::blanks(Block::make(bitVars));
+  }
+
+  Stmt LowererImplSpatial::addAccelEnvironmentVars() {
+    return codeToInitializePosAccumulators();
+  }
+
+  Stmt LowererImplSpatial::codeToInitializePosAccumulators() {
+    taco_iassert(funcEnvMap.count("ip") > 0) << "Cannot find the inner-parallelization factor "
+                                                "variable 'ip' in the function environment map";
+    taco_iassert(funcEnvMap.count("bp") > 0) << "Cannot find the body-parallelization variable "
+                                                "variable 'bp' in the function environment map";
+    vector<Stmt> resultStmts;
+    for (auto& posAccVar : posAccumulationVars) {
+      auto allocPosAccVar = ir::Allocate::make(posAccVar, funcEnvMap.at("ip"), false, Expr(), false, MemoryLocation::SpatialSparseSRAM);
+      resultStmts.push_back(allocPosAccVar);
+
+      auto innerLoopIdxVar = ir::Var::make("j_temp", Int());
+      Stmt innerLoopBody = ir::CallStmt::make(ir::RMW::make(posAccVar, innerLoopIdxVar, 0, Expr(), SpatialRMWoperators::Write, SpatialMemOrdering::Ordered));
+      auto innerLoop = ir::For::make(innerLoopIdxVar, 0, funcEnvMap.at("bp"), 1, funcEnvMap.at("bp"), innerLoopBody);
+      auto outerLoopIdxVar = ir::Var::make("i_temp", Int());
+      auto outerLoop = ir::For::make(outerLoopIdxVar, 0, funcEnvMap.at("ip"), 1, funcEnvMap.at("ip"),  innerLoop);
+      resultStmts.push_back(outerLoop);
+    }
+
+    return Block::make(resultStmts);
+  }
 } // namespace taco

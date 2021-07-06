@@ -65,6 +65,7 @@ protected:
   bool emittingCoroutine;
 
   class FindVars;
+  class FindEnvVars;
 
   std::string printFuncName(const Function *func, 
           std::map<Expr, std::string, ExprCompare> inputMap={}, 

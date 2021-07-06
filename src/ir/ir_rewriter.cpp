@@ -318,14 +318,16 @@ void IRRewriter::visit(const For* op) {
   Expr start     = rewrite(op->start);
   Expr end       = rewrite(op->end);
   Expr increment = rewrite(op->increment);
+  Expr numChunks = rewrite(op->numChunks);
   Stmt contents  = rewrite(op->contents);
+
   if (var == op->var && start == op->start && end == op->end &&
-      increment == op->increment && contents == op->contents) {
+      increment == op->increment && contents == op->contents && numChunks == op->numChunks) {
     stmt = op;
   }
   else {
-    stmt = For::make(var, start, end, increment, contents, op->kind,
-                     op->parallel_unit, op->unrollFactor, op->vec_width, op->numChunks);
+    stmt = For::make(var, start, end, increment, numChunks, contents, op->kind,
+                     op->parallel_unit, op->unrollFactor, op->vec_width);
   }
 }
 
@@ -714,6 +716,26 @@ void IRRewriter::visit(const RMW* op) {
     expr = op;
   } else {
     expr = ir::RMW::make(arr, addr, data, barrier, op->op, op->ordering);
+  }
+}
+
+void IRRewriter::visit(const FuncEnv* op) {
+  Stmt env      = rewrite(op->env);
+
+  if (env == op->env ) {
+    stmt = op;
+  } else {
+    stmt = ir::FuncEnv::make(env);
+  }
+}
+
+void IRRewriter::visit(const AccelEnv* op) {
+  Stmt aenv      = rewrite(op->aenv);
+
+  if (aenv == op->aenv ) {
+    stmt = op;
+  } else {
+    stmt = ir::FuncEnv::make(aenv);
   }
 }
 /// SPATIAL ONLY END

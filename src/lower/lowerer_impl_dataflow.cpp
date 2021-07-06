@@ -272,10 +272,8 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   // TODO: make a temporary variable for storing postion accumulations into
   //       for each appender in iterators
 
-  cout << "GENERATE INDEXVARMAP" << endl;
   for (const IndexVar& indexVar : provGraph.getAllIndexVars()) {
     if (iterators.modeIterators().count(indexVar)) {
-      cout << indexVar << iterators.modeIterators()[indexVar].getIteratorVar();
       indexVarToExprMap.insert({indexVar, iterators.modeIterators()[indexVar].getIteratorVar()});
     }
     else {
@@ -283,10 +281,8 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
     }
   }
 
-  for (const IndexVar& indexVar : provGraph.getAllIndexVars()) {
-    indexVartoBitVarMap.insert({indexVar, Var::make(indexVar.getName() + "_max_bits", Int())});
-  }
-
+  Stmt funcEnv = generateGlobalEnvironmentVars();
+  Stmt accelEnv = generateAccelEnvironmentVars();
 
   vector<Access> inputAccesses, resultAccesses;
   set<Access> reducedAccesses;
@@ -464,8 +460,10 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
     }
   }
 
+  accelEnv = Block::blanks(accelEnv, addAccelEnvironmentVars());
   // Create function
   return Function::make(name, resultsIR, argumentsIR,
+                        funcEnv, accelEnv,
                         Block::blanks(Block::make(header),
                                       initializeResults,
                                       body,
@@ -473,6 +471,17 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
                                       Block::make(footer)));
 }
 
+ir::Stmt LowererImplDataflow::generateGlobalEnvironmentVars() {
+  return Stmt();
+}
+
+ir::Stmt LowererImplDataflow::generateAccelEnvironmentVars() {
+  return Stmt();
+}
+
+ir::Stmt LowererImplDataflow::addAccelEnvironmentVars() {
+  return Stmt();
+}
 
 Stmt LowererImplDataflow::lowerAssignment(Assignment assignment)
 {

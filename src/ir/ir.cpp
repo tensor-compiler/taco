@@ -702,6 +702,22 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
   loop->unrollFactor = unrollFactor;
   loop->vec_width = vec_width;
   loop->parallel_unit = parallel_unit;
+  loop->numChunks = int(numChunks);
+  return loop;
+}
+
+Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Expr numChunks, Stmt body,
+               LoopKind kind, ParallelUnit parallel_unit, size_t unrollFactor, int vec_width) {
+  For *loop = new For;
+  loop->var = var;
+  loop->start = start;
+  loop->end = end;
+  loop->increment = increment;
+  loop->contents = Scope::make(body);
+  loop->kind = kind;
+  loop->unrollFactor = unrollFactor;
+  loop->vec_width = vec_width;
+  loop->parallel_unit = parallel_unit;
   loop->numChunks = numChunks;
   return loop;
 }
@@ -726,6 +742,21 @@ Stmt Function::make(std::string name,
   func->body = Scope::make(body);
   func->inputs = inputs;
   func->outputs = outputs;
+  return func;
+}
+
+// Function
+Stmt Function::make(std::string name,
+                    std::vector<Expr> outputs, std::vector<Expr> inputs,
+                    Stmt funcEnv, Stmt accelEnv,
+                    Stmt body) {
+  Function *func = new Function;
+  func->name = name;
+  func->body = Scope::make(body);
+  func->inputs = inputs;
+  func->outputs = outputs;
+  func->funcEnv = funcEnv;
+  func->accelEnv = accelEnv;
   return func;
 }
 
@@ -1163,6 +1194,18 @@ Stmt CallStmt::make(Expr call) {
   return callStmt;
 }
 
+Stmt FuncEnv::make(Stmt env) {
+  FuncEnv *funcEnv = new FuncEnv;
+  funcEnv->env = env;
+  return funcEnv;
+}
+
+Stmt AccelEnv::make(Stmt aenv) {
+  AccelEnv *accelEnv = new AccelEnv;
+  accelEnv->aenv = aenv;
+  return accelEnv;
+}
+
 /// SPATIAL ONLY END
   
 // visitor methods
@@ -1287,7 +1330,10 @@ template<> void ExprNode<TypeCase>::accept(IRVisitorStrict *v)
     const { v->visit((const TypeCase*)this); }
 template<> void ExprNode<RMW>::accept(IRVisitorStrict *v)
     const { v->visit((const RMW*)this); }
-
+template<> void StmtNode<FuncEnv>::accept(IRVisitorStrict *v)
+    const { v->visit((const FuncEnv*)this); }
+template<> void StmtNode<AccelEnv>::accept(IRVisitorStrict *v)
+    const { v->visit((const AccelEnv*)this); }
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {

@@ -36,14 +36,6 @@ protected:
                                       IndexStmt statement,
                                       const std::set<Access>& reducedAccesses) override;
 
-  ir::Stmt lowerMergePoint(MergeLattice pointLattice,
-                                           ir::Expr coordinate, IndexVar coordinateVar, IndexStmt statement,
-                                           const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared) override;
-
-  ir::Stmt lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
-                                           MergeLattice lattice,
-                                           const std::set<Access>& reducedAccesses) override;
-
   ir::Stmt lowerForallDimension(Forall forall,
                                         std::vector<Iterator> locaters,
                                         std::vector<Iterator> inserters,
@@ -84,7 +76,10 @@ protected:
   ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> iterators, std::vector<Iterator> rangers,
                                        std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar) override;
 
-  ir::Stmt generateGlobalEnvironmentVars();
+  ir::Stmt generateGlobalEnvironmentVars() override;
+  ir::Stmt generateAccelEnvironmentVars() override;
+  ir::Stmt addAccelEnvironmentVars() override;
+  ir::Stmt codeToInitializePosAccumulators();
 
     private:
   class Visitor;
@@ -97,7 +92,12 @@ protected:
 
   std::map<TensorVar, ir::Expr> sparseDRAMAccessMap;
 
+  std::map<IndexVar, ir::Expr> indexVartoMaxVar;
 
+  /// Map from indexvars to their max bits variable
+  std::map<IndexVar, ir::Expr> indexVartoBitVarMap;
+
+  std::vector<ir::Expr> posAccumulationVars;
 };
 
 

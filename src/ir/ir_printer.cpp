@@ -44,6 +44,20 @@ void IRPrinter::setColor(bool color) {
   this->color = color;
 }
 
+void IRPrinter::printEnv(Stmt stmt, std::map<Expr, std::string, ExprCompare>& varMap, bool simplifyEnv) {
+  if (isa<Scope>(stmt)) {
+    stmt = to<Scope>(stmt)->scopedStmt;
+  }
+  if (simplifyEnv) {
+    Stmt oldStmt;
+    do {
+      oldStmt = stmt;
+      stmt = ir::simplifyEnv(stmt, varMap);
+    } while (stmt != oldStmt);
+  }
+  stmt.accept(this);
+}
+
 void IRPrinter::print(Stmt stmt) {
   if (isa<Scope>(stmt)) {
     stmt = to<Scope>(stmt)->scopedStmt;
@@ -470,6 +484,16 @@ void IRPrinter::visit(const Function* op) {
   acceptJoin(this, stream, op->inputs, ", Tensor ");
   stream << ") {" << endl;
 
+  if (op->funcEnv.defined()) {
+    doIndent();
+    op->funcEnv.accept(this);
+  }
+
+  if (op->accelEnv.defined()) {
+    doIndent();
+    op->accelEnv.accept(this);
+  }
+
   resetNameCounters();
   op->body.accept(this);
 
@@ -832,6 +856,14 @@ void IRPrinter::visit(const RMW* op) {
   if (op->barrier.defined())
     op->barrier.accept(this);
   stream << "))";
+}
+
+void IRPrinter::visit(const FuncEnv* op) {
+  op->env.accept(this);
+}
+
+void IRPrinter::visit(const AccelEnv* op) {
+  op->aenv.accept(this);
 }
 
 /// SPATIAL ONLY END

@@ -728,4 +728,26 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
   return simplifiedStmt;
 }
 
+ir::Stmt simplifyEnv(const ir::Stmt& stmt,  std::map<Expr, std::string, ExprCompare>& varMap) {
+  struct RemoveRedundantStmts : public IRRewriter {
+    std::map<Expr, std::string, ExprCompare> varMap;
+
+    using IRRewriter::visit;
+
+    RemoveRedundantStmts( std::map<Expr, std::string, ExprCompare>& varMap) :
+      varMap(varMap) {}
+
+    void visit(const VarDecl* decl) {
+      if (isa<ir::Call>(decl->rhs)) { // don't remove function calls that might have side effects
+        stmt = decl;
+        return;
+      }
+      stmt = (varMap.find(decl->var) != varMap.end())  ? decl : Block::make();
+    }
+  };
+
+  auto simplifiedStmt = RemoveRedundantStmts(varMap).rewrite(stmt);
+  return simplifiedStmt;
+}
+
 }}

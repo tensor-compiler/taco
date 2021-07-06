@@ -9,6 +9,7 @@
 #include "taco/lower/merge_lattice.h"
 #include "taco/lower/mode.h"
 #include "taco/lower/mode_format_impl.h"
+#include "taco/spatial.h"
 
 #include <iostream>
 #include <algorithm>
@@ -763,7 +764,11 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
         // Precondition 2: No coiteration of modes (i.e., merge lattice has 
         //                 only one iterator)
-        if (lattice.iterators().size() != 1) {
+        if (lattice.iterators().size() != 1 && parallelize.getParallelUnit() != ParallelUnit::Spatial) {
+          cout << i << endl;
+          for (auto& iterator : lattice.iterators()) {
+            cout << iterator << endl;
+          }
           reason = "Precondition failed: The loop must not merge tensor "
                    "dimensions, that is, it must be a for loop;";
           return;

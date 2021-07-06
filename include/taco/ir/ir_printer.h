@@ -21,6 +21,7 @@ public:
   void setColor(bool color);
 
   void print(Stmt);
+  void printEnv(Stmt, std::map<Expr, std::string, ExprCompare>& varMap, bool simplifyEnv=false);
 
 protected:
   virtual void visit(const Literal*);
@@ -85,6 +86,8 @@ protected:
   virtual void visit(const Scan*);
   virtual void visit(const TypeCase*);
   virtual void visit(const RMW*);
+  virtual void visit(const FuncEnv*);
+  virtual void visit(const AccelEnv*);
 
   std::ostream &stream;
   int indent;
