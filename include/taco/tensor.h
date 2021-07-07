@@ -589,6 +589,7 @@ public:
   /// Create a tensor with the given name, dimensions and format
   Tensor(std::string name, std::vector<int> dimensions, Format format);
 
+  Tensor(std::string name, std::vector<int> dimensions, Format format, TensorDistribution distribution);
   Tensor(std::string name, std::vector<int> dimensions, Format format,
          std::vector<TensorDistribution> distribution);
 
@@ -1099,6 +1100,10 @@ template <typename CType>
 Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions, Format format)
     : TensorBase(name, type<CType>(), dimensions, format) {}
 
+template <typename CType>
+Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions, Format format,
+                      TensorDistribution distribution)
+    : TensorBase(name, type<CType>(), dimensions, format, std::vector<TensorDistribution>{distribution}) {}
 
 template <typename CType>
 Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions, Format format,

@@ -186,18 +186,8 @@ TEST(distributed, cuda_summaMM) {
 
   auto gpuGrid = Grid(2, 2);
   std::vector<TensorDistribution> dist{
-      TensorDistribution{
-          grid,
-          grid,
-          GridPlacement({0, 1}),
-          ParallelUnit::DistributedNode,
-      },
-      TensorDistribution{
-          gpuGrid,
-          gpuGrid,
-          GridPlacement({0, 1}),
-          ParallelUnit::DistributedGPU,
-      },
+    TensorDistribution(grid),
+    TensorDistribution(gpuGrid, taco::ParallelUnit::DistributedGPU),
   };
 
   Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, dist);
@@ -269,43 +259,27 @@ TEST(distributed, mttkrp) {
   auto grid3 = Grid(gx, gy, gz);
 
   // Partition and place the 3-tensor onto a 3-d grid.
-  std::vector<TensorDistribution> BDist{
-    TensorDistribution{
-      grid3,
-      grid3,
-      GridPlacement({0, 1, 2}),
-      ParallelUnit::DistributedNode,
-    }
-  };
+  TensorDistribution BDist(grid3);
   // Partition the matrices in a single dimension, and place them along different
   // edges of the processor grid.
-  std::vector<TensorDistribution> ADist{
-    TensorDistribution{
-      Grid(gx),
-      grid3,
-      // We want this along the edge that the `i` dimension of B is partitioned along.
-      GridPlacement({0, Face(0), Face(0)}),
-      ParallelUnit::DistributedNode,
-    }
-  };
-  std::vector<TensorDistribution> CDist{
-    TensorDistribution{
-      Grid(gy),
-      grid3,
-      // We want this along the edge that the `j` dimension of B is partitioned along.
-      GridPlacement({Face(0), 0, Face(0)}),
-      ParallelUnit::DistributedNode,
-    }
-  };
-  std::vector<TensorDistribution> DDist{
-    TensorDistribution{
-      Grid(gz),
-      grid3,
-      // We want this along the edge that the `j` dimension of B is partitioned along.
-      GridPlacement({Face(0), Face(0), 0}),
-      ParallelUnit::DistributedNode,
-    }
-  };
+  TensorDistribution ADist(
+    Grid(gx),
+    grid3,
+    // We want this along the edge that the `i` dimension of B is partitioned along.
+    GridPlacement({0, Face(0), Face(0)})
+  );
+  TensorDistribution CDist(
+    Grid(gy),
+    grid3,
+    // We want this along the edge that the `j` dimension of B is partitioned along.
+    GridPlacement({Face(0), 0, Face(0)})
+  );
+  TensorDistribution DDist(
+    Grid(gz),
+    grid3,
+    // We want this along the edge that the `j` dimension of B is partitioned along.
+    GridPlacement({Face(0), Face(0), 0})
+  );
 
   Tensor<double> A("A", {dim, dim}, {Dense, Dense}, ADist);
   Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, BDist);
@@ -363,24 +337,13 @@ TEST(distributed, ttv) {
   auto gx = ir::Var::make("gridX", Int32, false, false, true);
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
-  auto placement = GridPlacement({0, 1});
-  std::vector<TensorDistribution> distribution{
-    TensorDistribution{
-      grid,
-      grid,
-      placement,
-      ParallelUnit::DistributedNode,
-    }
-  };
+  TensorDistribution distribution(grid);
   // Prereplicate C onto all of the nodes.
-  std::vector<TensorDistribution> cDistribution{
-      TensorDistribution{
-          Grid(),
-          grid,
-          GridPlacement({Replicate(), Replicate()}),
-          ParallelUnit::DistributedNode,
-      }
-  };
+  TensorDistribution cDistribution(
+    Grid(),
+    grid,
+    GridPlacement({Replicate(), Replicate()})
+  );
   Tensor<double> A("A", {dim, dim}, {Dense, Dense}, distribution);
   Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, distribution);
   Tensor<double> C("C", {dim}, {Dense}, cDistribution);
@@ -422,22 +385,12 @@ TEST(distributed, ttmc) {
   int dim = 1000;
   auto pieces = ir::Var::make("pieces", Int32, false, false, true);
   auto grid = Grid(pieces);
-  std::vector<TensorDistribution> dist{
-    TensorDistribution{
-      grid,
-      grid,
-      GridPlacement({0}),
-      ParallelUnit::DistributedNode,
-    }
-  };
-  std::vector<TensorDistribution> repl{
-    TensorDistribution{
-      Grid(),
-      grid,
-      GridPlacement({Replicate()}),
-      ParallelUnit::DistributedNode,
-    }
-  };
+  TensorDistribution dist(grid);
+  TensorDistribution repl(
+    Grid(),
+    grid,
+    GridPlacement({Replicate()})
+  );
 
   Tensor<double> A("A", {dim, dim, dim}, {Dense, Dense, Dense}, dist);
   Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, dist);
@@ -482,15 +435,7 @@ TEST(distributed, cannonMM) {
   auto grid = Grid(gx, gy);
   auto placement = GridPlacement({0, 1});
 
-  std::vector<TensorDistribution> distribution{
-    TensorDistribution{
-      grid,
-      grid,
-      placement,
-      ParallelUnit::DistributedNode,
-    }
-  };
-
+  TensorDistribution distribution(grid);
   Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, distribution);
   Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, distribution);
   Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, distribution);
@@ -547,18 +492,8 @@ TEST(distributed, cuda_cannonMM) {
 
   auto gpuGrid = Grid(2, 2);
   std::vector<TensorDistribution> dist{
-    TensorDistribution{
-      grid,
-      grid,
-      GridPlacement({0, 1}),
-      ParallelUnit::DistributedNode,
-    },
-    TensorDistribution{
-      gpuGrid,
-      gpuGrid,
-      GridPlacement({0, 1}),
-      ParallelUnit::DistributedGPU,
-    },
+    TensorDistribution(grid, ParallelUnit::DistributedNode),
+    TensorDistribution(gpuGrid, ParallelUnit::DistributedGPU),
   };
 
   Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, dist);
@@ -660,18 +595,12 @@ TEST(distributed, cuda_johnsonMM) {
   auto cube = Grid(gdim, gdim, gdim);
   auto gpuDim = ir::Var::make("gpuDim", Int32, false, false, true);
   auto gpuGrid = Grid(gpuDim, gpuDim);
-  TensorDistribution gpuDist{
-    gpuGrid,
-    gpuGrid,
-    GridPlacement({0, 1}),
-    ParallelUnit::DistributedGPU,
-  };
+  TensorDistribution gpuDist(gpuGrid, taco::ParallelUnit::DistributedGPU);
   std::vector<TensorDistribution> aDist{
     TensorDistribution{
       grid,
       cube,
       GridPlacement({0, 1, Face(0)}),
-      ParallelUnit::DistributedNode,
     },
     gpuDist,
   };
@@ -680,7 +609,6 @@ TEST(distributed, cuda_johnsonMM) {
       grid,
       cube,
       GridPlacement({0, Face(0), 1}),
-      ParallelUnit::DistributedNode,
     },
     gpuDist,
   };
@@ -689,7 +617,6 @@ TEST(distributed, cuda_johnsonMM) {
       grid,
       cube,
       GridPlacement({Face(0), 0, 1}),
-      ParallelUnit::DistributedNode,
     },
     gpuDist,
   };

@@ -94,7 +94,28 @@ struct TensorDistribution {
   Grid placementGrid;
   GridPlacement placement;
   ParallelUnit parUnit;
+
+  // Simple use case constructor that partitions and places a tensor onto an
+  // n-dimensional grid.
+  explicit TensorDistribution(Grid g, ParallelUnit pu = ParallelUnit::DistributedNode) :
+    partitionGrid(g), placementGrid(g), parUnit(pu) {
+    // Construct a default placement object.
+    std::vector<GridPlacement::AxisMatch> placements(g.getDim());
+    for (int i = 0; i < g.getDim(); i++) {
+      placements[i] = i;
+    }
+    this->placement = GridPlacement(placements);
+  }
+
+  // Full constructor that defines all needed fields.
+  TensorDistribution(Grid partitionGrid, Grid placementGrid, GridPlacement placement, ParallelUnit pu = ParallelUnit::DistributedNode) :
+    partitionGrid(partitionGrid), placementGrid(placementGrid), placement(placement), parUnit(pu) {}
 };
+
+// class Distribution {
+// public:
+//   // Standard constructor
+// };
 
 // Transfer represents requesting a portion of data.
 // TODO (rohany): It seems like we're doing all equality on tensorvars, rather than the access.
