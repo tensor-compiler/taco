@@ -64,9 +64,9 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   std::vector<size_t> times;
   // Run the benchmark several times.
   for (int i = 0; i < 10; i++) {
-    tacoFill<valType>(ctx, runtime, A, aPart,0);
-    tacoFill<valType>(ctx, runtime, B, bPart,1);
-    tacoFill<valType>(ctx, runtime, C, cPart,1);
+    tacoFill<valType>(ctx, runtime, A, aPart, 0);
+    tacoFill<valType>(ctx, runtime, B, bPart, 1);
+    tacoFill<valType>(ctx, runtime, C, cPart, 1);
 
     // Place the tensors.
     auto part = placeLegionA(ctx, runtime, A, gx, gy);
