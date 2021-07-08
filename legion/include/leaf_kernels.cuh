@@ -29,9 +29,6 @@ void fillInter(size_t B1_dimension, size_t C1_dimension, size_t D2_dimension, T*
   if (j >= inter2_dimension)
     return;
 
-  int32_t iinter = 0 * inter1_dimension + i;
-  int32_t jinter = iinter * inter2_dimension + j;
-  int32_t jinter = iinter * inter2_dimension + j;
   for (int32_t l = 0; l < inter3_dimension; l++) {
     int32_t linter = jinter * inter3_dimension + l;
     inter[linter] = 0;
@@ -41,10 +38,7 @@ void fillInter(size_t B1_dimension, size_t C1_dimension, size_t D2_dimension, T*
 template<typename T>
 __global__
 void contractInter(MTTKRPPack pack, T* A, const T* C, const T* inter){
-  int A1_dimension = pack.iDim;
-  int A2_dimension = pack.lDim;
   int C1_dimension = pack.jDim;
-  int C2_dimension = pack.lDim;
   int inter1_dimension = pack.iDim;
   int inter2_dimension = pack.jDim;
   int inter3_dimension = pack.lDim;
@@ -68,10 +62,7 @@ void contractInter(MTTKRPPack pack, T* A, const T* C, const T* inter){
   if (j >= C1_dimension)
     return;
 
-  int32_t iA = i;
-  int32_t jinter = iinter * inter2_dimension + j;
-  int32_t jC = j;
-  for (int32_t l = 0; l < C2_dimension; l++) {
+  for (int32_t l = 0; l < pack.lDim; l++) {
     int32_t lA = iA * pack.ldA + l;
     int32_t linter = jinter * inter3_dimension + l;
     int32_t lC = jC * pack.ldC + l;
@@ -103,7 +94,7 @@ void cu_mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, con
   double* inter;
   // TODO (rohany): Add an error check.
   cudaMalloc(&inter, B1_dimension * C1_dimension * D2_dimension * sizeof(T));
-  fillInter<<<(B1_dimension * C1_dimension + 255) / 256, 256, 0, taskStream>>>(B1_dimension, C1_dimension, D2_dimension, inter);
+  fillInter<T><<<(B1_dimension * C1_dimension + 255) / 256, 256, 0, taskStream>>>(B1_dimension, C1_dimension, D2_dimension, inter);
 
   // Perform T(i, j, l) = B(i, j, k) * D(k, l) as a series of GEMM calls.
   for (size_t i = 0; i < B1_dimension; i++) {
@@ -126,7 +117,7 @@ void cu_mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, con
   }
 
   // Perform the next reduction A(i, l) = T(i, j, l) * D(j, l).
-  contractInter<<<(B1_dimension * C1_dimension + 255) / 256, 256, 0, taskStream>>>(pack, A, C, inter);
+  contractInter<T><<<(B1_dimension * C1_dimension + 255) / 256, 256, 0, taskStream>>>(pack, A_vals, C_vals, inter);
 
   // Clean up after ourselves.
   // TODO (rohany): Add an error check.
