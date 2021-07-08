@@ -48,7 +48,7 @@ size_t getTTMCFLOPCount(size_t I, size_t J, size_t K, size_t L) {
 }
 
 size_t getMTTKRPFLOPCount(size_t I, size_t J, size_t K, size_t L) {
-  return 3 * I * J * K * L;
+  return I * getGEMMFLOPCount(J, K, L) + 2 * (I * J * L);
 }
 
 double getGFLOPS(size_t flopCount, size_t ms) {
