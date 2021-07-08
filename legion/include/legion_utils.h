@@ -35,6 +35,7 @@ void benchmark(Legion::Context ctx, Legion::Runtime* runtime, std::vector<size_t
 // tensor and matrix operations.
 size_t getGEMMFLOPCount(size_t M, size_t N, size_t K);
 size_t getTTMCFLOPCount(size_t I, size_t J, size_t K, size_t L);
+size_t getMTTKRPFLOPCount(size_t I, size_t J, size_t K, size_t L);
 
 // Utility function to do the unit conversions for GFLOPS.
 double getGFLOPS(size_t flopCount, size_t ms);
