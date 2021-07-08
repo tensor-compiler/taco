@@ -23,9 +23,15 @@ if (TACO_USE_LOGGING_MAPPER)
     add_definitions(-DTACO_USE_LOGGING_MAPPER)
 endif()
 
+
 # We're targeting GPUs with at least -sm_60 capability. We need this so that
 # we can use the atomicAdd() function in leaf kernels.
-set(CUDA_NVCC_FLAGS -gencode arch=compute_60,code=sm_60)
+# On Lassen, we need to target -sm_70.
+if (DEFINED ENV{LLNL_COMPUTE_NODES})
+  set(CUDA_NVCC_FLAGS -gencode arch=compute_70,code=sm_70)
+else()
+  set(CUDA_NVCC_FLAGS -gencode arch=compute_60,code=sm_60)
+endif()
 
 function(add_app_folder folder)
     file(GLOB SOURCES "${folder}/main.cpp" "${folder}/taco-generated.cpp" ${LG_SOURCES})
