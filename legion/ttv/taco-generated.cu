@@ -5,8 +5,8 @@
 #define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))
 using namespace Legion;
 typedef FieldAccessor<READ_ONLY,double,1,coord_t,Realm::AffineAccessor<double,1,coord_t>> AccessorROdouble1;
-typedef FieldAccessor<READ_WRITE,double,2,coord_t,Realm::AffineAccessor<double,2,coord_t>> AccessorRWdouble2;
 typedef FieldAccessor<READ_ONLY,double,3,coord_t,Realm::AffineAccessor<double,3,coord_t>> AccessorROdouble3;
+typedef FieldAccessor<READ_WRITE,double,2,coord_t,Realm::AffineAccessor<double,2,coord_t>> AccessorRWdouble2;
 
 struct task_1Args {
   int32_t gridX;
@@ -233,13 +233,14 @@ LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, in
 __global__
 void task_4DeviceKernel0(int64_t BPartitionBounds0hi, int64_t BPartitionBounds0lo, int64_t BPartitionBounds1hi, int64_t BPartitionBounds1lo, int32_t in, int32_t jn, AccessorRWdouble2 A_vals, AccessorROdouble3 B_vals, AccessorROdouble1 C_vals, int32_t B1_dimension, int32_t B2_dimension, int32_t C1_dimension, int32_t distFused) {
 
-  int32_t io = blockIdx.x;
+  int32_t io = blockIdx.x + (0 / 64);
   int32_t ii = (threadIdx.x % (64));
   if (threadIdx.x >= 64) {
     return;
   }
 
-  int32_t il = io * 64 + ii;
+  int32_t f = io * 64 + ii;
+  int32_t il = f / ((BPartitionBounds1hi - BPartitionBounds1lo) + 1);
   int32_t i = il + BPartitionBounds0lo;
   if (i >= B1_dimension)
     return;
@@ -247,21 +248,20 @@ void task_4DeviceKernel0(int64_t BPartitionBounds0hi, int64_t BPartitionBounds0l
   if (i >= (in + 1) * ((BPartitionBounds0hi - BPartitionBounds0lo) + 1))
     return;
 
-  for (int32_t jl = 0; jl < ((BPartitionBounds1hi - BPartitionBounds1lo) + 1); jl++) {
-    int32_t j = jl + BPartitionBounds1lo;
-    int32_t jB = i * B2_dimension + j;
-    Point<2> A_access_point = Point<2>(i, j);
-    if (j >= B2_dimension)
-      break;
+  int32_t jl = f % ((BPartitionBounds1hi - BPartitionBounds1lo) + 1);
+  int32_t j = jl + BPartitionBounds1lo;
+  int32_t jB = i * B2_dimension + j;
+  Point<2> A_access_point = Point<2>(i, j);
+  if (j >= B2_dimension)
+    return;
 
-    if (j >= (jn + 1) * ((BPartitionBounds1hi - BPartitionBounds1lo) + 1))
-      break;
+  if (j >= (jn + 1) * ((BPartitionBounds1hi - BPartitionBounds1lo) + 1))
+    return;
 
-    for (int32_t k = 0; k < C1_dimension; k++) {
-      Point<3> B_access_point = Point<3>(i, j, k);
-      Point<1> C_access_point = Point<1>(k);
-      A_vals[A_access_point] = A_vals[A_access_point] + B_vals[B_access_point] * C_vals[C_access_point];
-    }
+  for (int32_t k = 0; k < C1_dimension; k++) {
+    Point<3> B_access_point = Point<3>(i, j, k);
+    Point<1> C_access_point = Point<1>(k);
+    A_vals[A_access_point] = A_vals[A_access_point] + B_vals[B_access_point] * C_vals[C_access_point];
   }
 }
 
@@ -288,7 +288,7 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int64_t BPartitionBounds0hi = BPartitionBounds.hi()[0];
   int64_t BPartitionBounds1lo = BPartitionBounds.lo()[1];
   int64_t BPartitionBounds1hi = BPartitionBounds.hi()[1];
-  task_4DeviceKernel0<<<((((BPartitionBounds0hi - BPartitionBounds0lo) + 1) + 63) / 64), 64>>>(BPartitionBounds0hi, BPartitionBounds0lo, BPartitionBounds1hi, BPartitionBounds1lo, in, jn, A_vals, B_vals, C_vals, B1_dimension, B2_dimension, C1_dimension, distFused);
+  task_4DeviceKernel0<<<((((BPartitionBounds0hi - BPartitionBounds0lo) + 1) * ((BPartitionBounds1hi - BPartitionBounds1lo) + 1) + 63) / 64 - 0 / 64), 64>>>(BPartitionBounds0hi, BPartitionBounds0lo, BPartitionBounds1hi, BPartitionBounds1lo, in, jn, A_vals, B_vals, C_vals, B1_dimension, B2_dimension, C1_dimension, distFused);
 }
 
 void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalPartition BPartition) {
@@ -352,19 +352,19 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion
 void registerTacoTasks() {
   {
     TaskVariantRegistrar registrar(taskID(1), "task_1");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_1>(registrar, "task_1");
   }
   {
     TaskVariantRegistrar registrar(taskID(2), "task_2");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_2>(registrar, "task_2");
   }
   {
     TaskVariantRegistrar registrar(taskID(3), "task_3");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_3>(registrar, "task_3");
   }

@@ -389,12 +389,13 @@ TEST(distributed, cuda_ttv) {
   auto gx = ir::Var::make("gridX", Int32, false, false, true);
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
-  TensorDistribution distribution(grid);
+  TensorDistribution distribution(grid, taco::ParallelUnit::DistributedGPU);
   // Prereplicate C onto all of the nodes.
   TensorDistribution cDistribution(
       Grid(),
       grid,
-      GridPlacement({Replicate(), Replicate()})
+      GridPlacement({Replicate(), Replicate()}),
+      taco::ParallelUnit::DistributedGPU
   );
   Tensor<double> A("A", {dim, dim}, {Dense, Dense}, distribution);
   Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, distribution);
@@ -415,11 +416,8 @@ TEST(distributed, cuda_ttv) {
       .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k), taco::ParallelUnit::DistributedGPU)
       .communicate(A(i, j), jn)
       .communicate(C(k), jn)
-      // TODO (rohany): Maybe fuse the i and j loops and parallelize? I don't know if
-      //  bounds inference can handle that.
-      // .fuse(il, jl, f)
-      // .split(f, io, ii, 64)
-      .split(il, io, ii, 64)
+      .fuse(il, jl, f)
+      .split(f, io, ii, 64)
       .parallelize(io, taco::ParallelUnit::GPUBlock, taco::OutputRaceStrategy::NoRaces)
       .parallelize(ii, taco::ParallelUnit::GPUThread, taco::OutputRaceStrategy::NoRaces)
       ;
@@ -428,6 +426,13 @@ TEST(distributed, cuda_ttv) {
   auto all = ir::Block::make({partitionA, partitionB, placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
+  // Also write it into a file.
+  {
+    ofstream f("../legion/ttv/taco-generated.cu");
+    auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
 }
 
 TEST(distributed, ttmc) {
