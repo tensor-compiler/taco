@@ -23,6 +23,10 @@ if (TACO_USE_LOGGING_MAPPER)
     add_definitions(-DTACO_USE_LOGGING_MAPPER)
 endif()
 
+# We're targeting GPUs with at least -sm_60 capability. We need this so that
+# we can use the atomicAdd() function in leaf kernels.
+set(CUDA_NVCC_FLAGS -gencode arch=compute_60,code=sm_60)
+
 function(add_app_folder folder)
     file(GLOB SOURCES "${folder}/main.cpp" "${folder}/taco-generated.cpp" ${LG_SOURCES})
     add_executable("${folder}" ${SOURCES})
@@ -35,6 +39,9 @@ function(add_app_folder folder)
         if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${folder}/taco-generated.cu")
             cuda_add_executable("${folder}-cuda" "${folder}/main.cpp" "${folder}/taco-generated.cu" ${LG_SOURCES} ${LG_CU_SOURCES})
             target_link_libraries("${folder}-cuda" Legion::Legion cublas -fopenmp)
+	    # set_property(TARGET "${folder}-cuda" PROPERTY CUDA_ARCHITECTURES 60)
+	    # target_compile_options("${folder}-cuda" PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_60>)
+	    # target_compile_options("${folder}-cuda" PUBLIC -gencode arch=compute_50,code=sm_50)
             if (OPENMP)
                 target_link_libraries("${folder}-cuda" -fopenmp)
                 target_compile_options("${folder}-cuda" PUBLIC -fopenmp)
