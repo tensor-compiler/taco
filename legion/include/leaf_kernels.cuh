@@ -4,36 +4,7 @@
 #include "leaf_kernels.h"
 #include "cudalibs.h"
 #include "cublas_v2.h"
-
-template <typename T>
-__global__
-void fillInter(size_t B1_dimension, size_t C1_dimension, size_t D2_dimension, T* inter){
-  size_t inter1_dimension = B1_dimension;
-  size_t inter2_dimension = C1_dimension;
-  size_t inter3_dimension = D2_dimension;
-
-  int32_t io = blockIdx.x;
-  int32_t ii = (threadIdx.x % (256));
-  if (threadIdx.x >= 256) {
-    return;
-  }
-
-  int32_t f = (io * 256 + ii);
-  int32_t i = f / (inter2_dimension);
-  int32_t iinter = 0 * inter1_dimension + i;
-  if (i >= inter1_dimension)
-    return;
-
-  int32_t j = f % (inter2_dimension);
-  int32_t jinter = iinter * inter2_dimension + j;
-  if (j >= inter2_dimension)
-    return;
-
-  for (int32_t l = 0; l < inter3_dimension; l++) {
-    int32_t linter = jinter * inter3_dimension + l;
-    inter[linter] = 0;
-  }
-}
+#include "legion.h"
 
 template<typename T>
 __global__
@@ -91,10 +62,9 @@ void cu_mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, con
   CHECK_CUBLAS(cublasSetStream(handle, taskStream));
 
   // Allocate an intermediate result T(i, j, l).
-  double* inter;
-  // TODO (rohany): Add an error check.
-  cudaMalloc(&inter, B1_dimension * C1_dimension * D2_dimension * sizeof(T));
-  fillInter<T><<<(B1_dimension * C1_dimension + 255) / 256, 256, 0, taskStream>>>(B1_dimension, C1_dimension, D2_dimension, inter);
+  T initVal = 0;
+  Legion::DeferredBuffer<T, 1> buf(Legion::Memory::Kind::GPU_FB_MEM, Legion::DomainT<1>(Legion::Rect<1>(0, B1_dimension * C1_dimension * D2_dimension - 1)), &initVal);
+  T* inter = buf.ptr(0);
 
   // Perform T(i, j, l) = B(i, j, k) * D(k, l) as a series of GEMM calls.
   for (size_t i = 0; i < B1_dimension; i++) {
@@ -118,10 +88,6 @@ void cu_mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, con
 
   // Perform the next reduction A(i, l) = T(i, j, l) * D(j, l).
   contractInter<T><<<(B1_dimension * C1_dimension + 255) / 256, 256, 0, taskStream>>>(pack, A_vals, C_vals, inter);
-
-  // Clean up after ourselves.
-  // TODO (rohany): Add an error check.
-  cudaFree(inter);
 }
 
 #endif // TACO_LG_CU_LEAF_KERNELS_H
