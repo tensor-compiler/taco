@@ -329,6 +329,90 @@ TEST(distributed, mttkrp) {
   }
 }
 
+TEST(distributed, cuda_mttkrp) {
+  int dim = 1000;
+
+  // Implementing the algorithm from https://par.nsf.gov/servlets/purl/10078535.
+  auto gx = ir::Var::make("gridX", Int32, false, false, true);
+  auto gy = ir::Var::make("gridY", Int32, false, false, true);
+  auto gz = ir::Var::make("gridZ", Int32, false, false, true);
+  auto grid3 = Grid(gx, gy, gz);
+
+  // Partition and place the 3-tensor onto a 3-d grid.
+  TensorDistribution BDist(grid3, taco::ParallelUnit::DistributedGPU);
+  // Partition the matrices in a single dimension, and place them along different
+  // edges of the processor grid.
+  TensorDistribution ADist(
+      Grid(gx),
+      grid3,
+      // We want this along the edge that the `i` dimension of B is partitioned along.
+      GridPlacement({0, Face(0), Face(0)}),
+      taco::ParallelUnit::DistributedGPU
+  );
+  TensorDistribution CDist(
+      Grid(gy),
+      grid3,
+      // We want this along the edge that the `j` dimension of B is partitioned along.
+      GridPlacement({Face(0), 0, Face(0)}),
+      taco::ParallelUnit::DistributedGPU
+  );
+  TensorDistribution DDist(
+      Grid(gz),
+      grid3,
+      // We want this along the edge that the `j` dimension of B is partitioned along.
+      GridPlacement({Face(0), Face(0), 0}),
+      taco::ParallelUnit::DistributedGPU
+  );
+
+  Tensor<double> A("A", {dim, dim}, {Dense, Dense}, ADist);
+  Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, BDist);
+  Tensor<double> C("C", {dim, dim}, {Dense, Dense}, CDist);
+  Tensor<double> D("D", {dim, dim}, {Dense, Dense}, DDist);
+
+  std::shared_ptr<LeafCallInterface> mttkrp = std::make_shared<CuMTTKRP>();
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  IndexVar in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
+  IndexVar ii("ii"), io("io");
+  A(i, l) = B(i, j, k) * C(j, l) * D(k, l);
+  // Since heirarchical reductions don't work yet, we'll start with a flat implementation.
+  auto stmt = A.getAssignment().concretize()
+      .reorder({i, j, k, l})
+      .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, B(i, j, k), taco::ParallelUnit::DistributedGPU)
+      .reorder({il, jl, kl, l})
+      .communicate(A(i, l), kn)
+      .communicate(C(j, l), kn)
+      .communicate(D(k, l), kn)
+      .swapLeafKernel(il, mttkrp)
+  ;
+
+  // Generate partitioning statements for each tensor.
+  auto partitionA = lower(A.partitionStmt(Grid(gx)), "partitionLegionA", false, true);
+  auto partitionB = lower(B.partitionStmt(grid3), "partitionLegionB", false, true);
+  auto partitionC = lower(C.partitionStmt(Grid(gy)), "partitionLegionC", false, true);
+  auto partitionD = lower(D.partitionStmt(Grid(gz)), "partitionLegionD", false, true);
+
+  // Placement statements for each tensor.
+  auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
+  auto placeDLowered = lower(D.getPlacementStatement(), "placeLegionD", false, true);
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto all = ir::Block::make({
+                                 partitionA, partitionB, partitionC, partitionD,
+                                 placeALowered, placeBLowered, placeCLowered, placeDLowered,
+                                 lowered
+                             });
+  auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  // Also write it into a file.
+  {
+    ofstream f("../legion/mttkrp/taco-generated.cu");
+    auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+}
+
 TEST(distributed, ttv) {
   int dim = 1000;
 

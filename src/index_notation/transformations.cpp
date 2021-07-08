@@ -1671,7 +1671,7 @@ ir::Stmt MTTKRP::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<T
   results.push_back(ir::Assign::make(ir::FieldAccess::make(pack, "ldB3", false, Auto), ldB3));
 
   std::stringstream funcName;
-  funcName << "mttkrp<" << type.getDataType() << ">";
+  funcName << this->funcName << "<" << type.getDataType() << ">";
 
   results.push_back(ir::SideEffect::make(ir::Call::make(
       funcName.str(),

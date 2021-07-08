@@ -126,6 +126,14 @@ public:
 protected:
   struct Content;
   std::shared_ptr<Content> content;
+  std::string funcName = "mttkrp";
+};
+
+class CuMTTKRP : public MTTKRP {
+public:
+  CuMTTKRP() {
+    this->funcName = "cu_mttkrp";
+  }
 };
 
 class TTMC : public LeafCallInterface {

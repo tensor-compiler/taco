@@ -69,7 +69,7 @@ void mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, const 
     );
   }
 
-  // Perform the next reduction A(i, l) = T(i, j, l) * D(j, l).
+  // Perform the next reduction A(i, l) = T(i, j, l) * C(j, l).
   #pragma omp parallel for schedule(static)
   for (int32_t i = 0; i < B1_dimension; i++) {
     for (int32_t j = 0; j < C1_dimension; j++) {
@@ -81,7 +81,10 @@ void mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, const 
         A_vals[lA] = A_vals[lA] + inter[lB] * C_vals[lC];
       }
     }
-  }  
+  }
+
+  // Clean up after ourselves.
+  free(inter);
   
 
   // Old fused code.
