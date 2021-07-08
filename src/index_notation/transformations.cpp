@@ -1831,6 +1831,120 @@ void TTMC::print(std::ostream &os) const {
   os << "TTMC";
 }
 
+// CuTTMC's replace valid statement is nearly identical to the normal TTMC,
+// except that we make CuBLAS calls instead of BLAS calls.
+ir::Stmt CuTTMC::replaceValidStmt(IndexStmt stmt, ProvenanceGraph pg, std::map<TensorVar, ir::Expr> tensorVars,
+                                  bool inReduction, std::vector<IndexVar> definedVarOrder,
+                                  std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
+                                  std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators) const {
+  auto A = tensorVars[this->content->A];
+  auto B = tensorVars[this->content->B];
+  auto C = tensorVars[this->content->C];
+
+  std::vector<ir::Stmt> results;
+  auto ctx = ir::Symbol::make("ctx");
+  auto noTrans = ir::Symbol::make("CUBLAS_OP_N");
+
+  auto aIndexSpace = ir::GetProperty::make(A, ir::TensorProperty::IndexSpace);
+  auto bIndexSpace = ir::GetProperty::make(B, ir::TensorProperty::IndexSpace);
+  auto cIndexSpace = ir::GetProperty::make(C, ir::TensorProperty::IndexSpace);
+
+  // Unpack domains for each variable.
+  auto aDomain = ir::Var::make("aDomain", Auto);
+  auto bDomain = ir::Var::make("bDomain", Auto);
+  auto cDomain = ir::Var::make("cDomain", Auto);
+  results.push_back(ir::VarDecl::make(aDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, aIndexSpace}, Auto)));
+  results.push_back(ir::VarDecl::make(bDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, bIndexSpace}, Auto)));
+  results.push_back(ir::VarDecl::make(cDomain, ir::Call::make("runtime->get_index_space_domain", {ctx, cIndexSpace}, Auto)));
+
+  // Break out if any domains are empty.
+  auto bVolZero = ir::Eq::make(ir::MethodCall::make(bDomain, "get_volume", {}, false, Auto), 0);
+  auto cVolZero = ir::Eq::make(ir::MethodCall::make(cDomain, "get_volume", {}, false, Auto), 0);
+  auto guard = ir::Or::make(bVolZero, cVolZero);
+  results.push_back(ir::IfThenElse::make(guard, ir::Return::make(ir::Expr())));
+
+  auto aAccess = ir::GetProperty::make(A, ir::TensorProperty::ValuesWriteAccessor, this->content->A.getOrder());
+  if (inReduction) {
+    aAccess = ir::GetProperty::make(A, ir::TensorProperty::ValuesReductionAccessor, this->content->A.getOrder());
+  }
+  auto bAccess = ir::GetProperty::make(B, ir::TensorProperty::ValuesReadAccessor, this->content->B.getOrder());
+  auto cAccess = ir::GetProperty::make(C, ir::TensorProperty::ValuesReadAccessor, this->content->C.getOrder());
+  auto type = Type(this->content->A.getType().getDataType());
+
+  auto addr = [](ir::Expr e) {
+    return ir::Call::make("&", {e}, Auto);
+  };
+  auto check = [](ir::Expr e) {
+    return ir::Call::make("CHECK_CUBLAS", {e}, Auto);
+  };
+
+  // Add the CuBLAS utility functions to the results.
+  auto alpha = ir::Var::make("alpha", Float64);
+  results.push_back(ir::VarDecl::make(alpha, ir::Literal::make((double)1, Float64)));
+  auto handleTy = Datatype("cublasHandle_t");
+  auto streamTy = Datatype("cudaStream_t");
+  // Get the CuBLAS handle.
+  auto handle = ir::Var::make("handle", handleTy);
+  results.push_back(ir::VarDecl::make(handle, ir::Call::make("getCuBLAS", {}, handleTy)));
+  // Create a CUDA stream to launch the kernel on.
+  auto stream = ir::Var::make("taskStream", streamTy);
+  results.push_back(ir::VarDecl::make(stream, ir::makeConstructor(streamTy, {})));
+  results.push_back(ir::SideEffect::make(ir::Call::make("cudaStreamCreate", {addr(stream)}, Auto)));
+  // Attach the handle to the stream.
+  results.push_back(ir::SideEffect::make(check(ir::Call::make("cublasSetStream", {handle, stream}, Auto))));
+
+  // We'll call BLAS DGEMM in a loop.
+  std::vector<ir::Stmt> loopStmts;
+  auto loopVar = ir::Var::make("loopIdx", Int32);
+
+  auto getBounds = [] (ir::Expr e, std::string func) {
+    return ir::MethodCall::make(e, func, {}, false, Int64);
+  };
+
+  auto getLD = [&] (ir::Expr e, int idx) {
+    return ir::Div::make(
+        ir::Load::make(ir::FieldAccess::make(ir::FieldAccess::make(e, "accessor", false, Auto), "strides", false, Int64), idx),
+        ir::Sizeof::make(type)
+    );
+  };
+
+  auto getBasePtr = [&] (ir::Expr e, ir::Expr domain) {
+    auto ptr = ir::MethodCall::make(e, "ptr", {getBounds(domain, "lo")}, false /* deref */, Int64);
+    auto offset = ir::Mul::make(getLD(e, 0), loopVar);
+    return ir::Add::make(ptr, offset);
+  };
+
+  // CuBLAS doesn't support row-major matrices. So, we can trick it by reversing
+  // the order of the matrices in the call, and telling CuBLAS that the matrices
+  // are in column-major format.
+  std::vector<ir::Expr> args {
+      handle,
+      noTrans,
+      noTrans,
+      ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(cDomain, "hi"), 1), ir::Load::make(getBounds(cDomain, "lo"), 1))),
+      ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(bDomain, "hi"), 1), ir::Load::make(getBounds(bDomain, "lo"), 1))),
+      ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(cDomain, "hi"), 0), ir::Load::make(getBounds(cDomain, "lo"), 0))),
+      1.f,
+      ir::MethodCall::make(cAccess, "ptr", {getBounds(cDomain, "lo")}, false /* deref */, Auto),
+      getLD(cAccess, 0),
+      getBasePtr(bAccess, bDomain),
+      getLD(bAccess, 1),
+      1.f,
+      getBasePtr(aAccess, aDomain),
+      getLD(aAccess, 1),
+  };
+  loopStmts.push_back(ir::SideEffect::make(check(ir::Call::make("cublasDgemm", args, Auto))));
+
+  // The loop bounds are from 0 to aBounds.hi()[0] - aBounds.lo()[0].
+  auto bounds = ir::Add::make(1, ir::Sub::make(ir::Load::make(getBounds(aDomain, "hi"), 0), ir::Load::make(getBounds(aDomain, "lo"), 0)));
+  results.push_back(ir::For::make(loopVar, 0, bounds, 1, ir::Block::make(loopStmts)));
+  return ir::Block::make(results);
+}
+
+void CuTTMC::print(std::ostream &os) const {
+  os << "CuTTMC";
+}
+
 // Autoscheduling functions
 
 IndexStmt parallelizeOuterLoop(IndexStmt stmt) {

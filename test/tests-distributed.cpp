@@ -481,6 +481,52 @@ TEST(distributed, ttmc) {
   }
 }
 
+TEST(distributed, cuda_ttmc) {
+  int dim = 1000;
+  auto pieces = ir::Var::make("pieces", Int32, false, false, true);
+  auto grid = Grid(pieces);
+  TensorDistribution dist(grid, taco::ParallelUnit::DistributedGPU);
+  TensorDistribution repl(
+      Grid(),
+      grid,
+      GridPlacement({Replicate()}),
+      taco::ParallelUnit::DistributedGPU
+  );
+
+  Tensor<double> A("A", {dim, dim, dim}, {Dense, Dense, Dense}, dist);
+  Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, dist);
+  Tensor<double> C("C", {dim, dim}, {Dense, Dense}, repl);
+
+  IndexVar i("i"), j("j"), k("k"), l("l"), m("m");
+  IndexVar in("in"), il("il");
+  IndexVar ii("ii"), io("io"), ji("ji"), jo("jo"), li("li"), lo("lo"), lii("lii"), lio("lio");
+
+  std::shared_ptr<LeafCallInterface> ttmc = std::make_shared<CuTTMC>();
+  A(i, j, l) = B(i, j, k) * C(k, l);
+  auto stmt = A.getAssignment().concretize()
+      .distribute({i}, {in}, {il}, grid, taco::ParallelUnit::DistributedGPU)
+      .communicate(A(i, j, l), in)
+      .communicate(B(i, j, k), in)
+      .communicate(C(k, l), in)
+      .swapLeafKernel(il, ttmc)
+      ;
+  auto partition3tensor = lower(A.partitionStmt(grid), "partition3Tensor", false, true);
+  auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto all = ir::Block::make({partition3tensor, placeALowered, placeBLowered, placeCLowered, lowered});
+  auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  // Also write it into a file.
+  {
+    ofstream f("../legion/ttmc/taco-generated.cu");
+    auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+}
+
 TEST(distributed, cannonMM) {
   int dim = 10;
   // Place each tensor onto a processor grid.
