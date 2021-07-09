@@ -32,4 +32,9 @@ GridPlacement::AxisMatch Replicate() {
   return GridPlacement::AxisMatch::makeReplicated();
 }
 
+
+PlacementGrid::Axis operator|(ir::Expr e, GridPlacement::AxisMatch axis) {
+  return PlacementGrid::Axis(e, axis);
+}
+
 }

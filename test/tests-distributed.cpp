@@ -121,26 +121,24 @@ TEST(distributed, basicComputeOnto) {
 
 TEST(distributed, summaMM) {
   int dim = 10;
-  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense});
-  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense});
-  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense});
+  // Place each tensor onto a processor grid.
+  auto gx = ir::Var::make("gridX", Int32, false, false, true);
+  auto gy = ir::Var::make("gridY", Int32, false, false, true);
+  auto grid = Grid(gx, gy);
+  auto dist = TensorDistribution(grid);
+
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, dist);
 
   IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko");
   IndexVar iln("iln"), ill("ill");
   a(i, j) = b(i, k) * c(k, j);
 
-  // Place each tensor onto a processor grid.
-  auto gx = ir::Var::make("gridX", Int32, false, false, true);
-  auto gy = ir::Var::make("gridY", Int32, false, false, true);
-  auto grid = Grid(gx, gy);
   auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
-  auto placement = GridPlacement({0, 1});
-  auto placeA = a.partition(grid).place(grid, placement);
-  auto placeB = b.partition(grid).place(grid, placement);
-  auto placeC = c.partition(grid).place(grid, placement);
-  auto placeALowered = lower(placeA, "placeLegionA", false, true);
-  auto placeBLowered = lower(placeB, "placeLegionB", false, true);
-  auto placeCLowered = lower(placeC, "placeLegionC", false, true);
+  auto placeALowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
 
   std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
   auto stmt = a.getAssignment().concretize();
@@ -182,7 +180,6 @@ TEST(distributed, cuda_summaMM) {
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
   auto partGrid = Grid(ir::Mul::make(gx, 2), ir::Mul::make(gy, 2));
-  auto placement = GridPlacement({0, 1});
 
   auto gpuGrid = Grid(2, 2);
   std::vector<TensorDistribution> dist{
@@ -249,6 +246,32 @@ TEST(distributed, singlemttkrp) {
   std::cout << A.getSource() << std::endl;
 }
 
+TEST(distributed, cudaKernels) {
+  int dim = 1000;
+  Tensor<double> A("A", {dim, dim}, Dense);
+  Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense});
+  Tensor<double> C("C", {dim, dim}, Dense);
+  Tensor<double> D("D", {dim, dim}, Dense);
+
+  Tensor<double> inter("inter", {dim, dim, dim}, {Dense, Dense, Dense});
+  IndexVar i("i"), j("j"), k("k"), l("l"), f("f");
+  IndexVar io("io"), ii("ii"), it("it"), iw("iw");
+//  inter(i, j, l) = IndexExpr(0);
+  A(i, l) = inter(i, j, l) * C(j, l);
+  auto stmt = A.getAssignment().concretize()
+                   .reorder({i, j, l})
+                   .fuse(i, j, f)
+                   .split(f, io, ii, 256)
+//                   .split(ii, iw, it, 8)
+                   .parallelize(io, taco::ParallelUnit::GPUBlock, taco::OutputRaceStrategy::NoRaces)
+//                   .parallelize(iw, taco::ParallelUnit::GPUWarp, taco::OutputRaceStrategy::ParallelReduction)
+                   .parallelize(ii, taco::ParallelUnit::GPUThread, taco::OutputRaceStrategy::Atomics)
+                   ;
+  auto lowered = lower(stmt, "compute", false, true);
+  auto codegen = std::make_shared<ir::CodeGen_CUDA>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(lowered);
+}
+
 TEST(distributed, mttkrp) {
   int dim = 1000;
 
@@ -262,24 +285,12 @@ TEST(distributed, mttkrp) {
   TensorDistribution BDist(grid3);
   // Partition the matrices in a single dimension, and place them along different
   // edges of the processor grid.
-  TensorDistribution ADist(
-    Grid(gx),
-    grid3,
-    // We want this along the edge that the `i` dimension of B is partitioned along.
-    GridPlacement({0, Face(0), Face(0)})
-  );
-  TensorDistribution CDist(
-    Grid(gy),
-    grid3,
-    // We want this along the edge that the `j` dimension of B is partitioned along.
-    GridPlacement({Face(0), 0, Face(0)})
-  );
-  TensorDistribution DDist(
-    Grid(gz),
-    grid3,
-    // We want this along the edge that the `j` dimension of B is partitioned along.
-    GridPlacement({Face(0), Face(0), 0})
-  );
+  // We want A along the edge that the `i` dimension of B is partitioned along.
+  TensorDistributionV2 ADist(PlacementGrid(gx, gy | Face(0), gz | Face(0)));
+  // We want C along the edge that the `j` dimension of B is partitioned along.
+  TensorDistributionV2 CDist(PlacementGrid(gx | Face(0), gy, gz | Face(0)));
+  // We want D along the edge that the `k` dimension of B is partitioned along.
+  TensorDistributionV2 DDist(PlacementGrid(gx | Face(0), gy | Face(0), gz));
 
   Tensor<double> A("A", {dim, dim}, {Dense, Dense}, ADist);
   Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, BDist);
@@ -342,27 +353,12 @@ TEST(distributed, cuda_mttkrp) {
   TensorDistribution BDist(grid3, taco::ParallelUnit::DistributedGPU);
   // Partition the matrices in a single dimension, and place them along different
   // edges of the processor grid.
-  TensorDistribution ADist(
-      Grid(gx),
-      grid3,
-      // We want this along the edge that the `i` dimension of B is partitioned along.
-      GridPlacement({0, Face(0), Face(0)}),
-      taco::ParallelUnit::DistributedGPU
-  );
-  TensorDistribution CDist(
-      Grid(gy),
-      grid3,
-      // We want this along the edge that the `j` dimension of B is partitioned along.
-      GridPlacement({Face(0), 0, Face(0)}),
-      taco::ParallelUnit::DistributedGPU
-  );
-  TensorDistribution DDist(
-      Grid(gz),
-      grid3,
-      // We want this along the edge that the `j` dimension of B is partitioned along.
-      GridPlacement({Face(0), Face(0), 0}),
-      taco::ParallelUnit::DistributedGPU
-  );
+  // We want A along the edge that the `i` dimension of B is partitioned along.
+  TensorDistributionV2 ADist(PlacementGrid(gx, gy | Face(0), gz | Face(0)), ParallelUnit::DistributedGPU);
+  // We want C along the edge that the `j` dimension of B is partitioned along.
+  TensorDistributionV2 CDist(PlacementGrid(gx | Face(0), gy, gz | Face(0)), ParallelUnit::DistributedGPU);
+  // We want D along the edge that the `k` dimension of B is partitioned along.
+  TensorDistributionV2 DDist(PlacementGrid(gx | Face(0), gy | Face(0), gz), ParallelUnit::DistributedGPU);
 
   Tensor<double> A("A", {dim, dim}, {Dense, Dense}, ADist);
   Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, BDist);
@@ -374,7 +370,7 @@ TEST(distributed, cuda_mttkrp) {
   IndexVar in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
   IndexVar ii("ii"), io("io");
   A(i, l) = B(i, j, k) * C(j, l) * D(k, l);
-  // Since heirarchical reductions don't work yet, we'll start with a flat implementation.
+  // Since hierarchical reductions don't work yet, we'll start with a flat implementation.
   auto stmt = A.getAssignment().concretize()
       .reorder({i, j, k, l})
       .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, B(i, j, k), taco::ParallelUnit::DistributedGPU)
@@ -422,12 +418,8 @@ TEST(distributed, ttv) {
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
   TensorDistribution distribution(grid);
-  // Prereplicate C onto all of the nodes.
-  TensorDistribution cDistribution(
-    Grid(),
-    grid,
-    GridPlacement({Replicate(), Replicate()})
-  );
+  // Pre-replicate C onto all of the nodes.
+  TensorDistributionV2 cDistribution(PlacementGrid(gx | Replicate(), gy | Replicate()));
   Tensor<double> A("A", {dim, dim}, {Dense, Dense}, distribution);
   Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, distribution);
   Tensor<double> C("C", {dim}, {Dense}, cDistribution);
@@ -444,7 +436,10 @@ TEST(distributed, ttv) {
   IndexVar ii("ii"), io("io");
   A(i, j) = B(i, j, k) * C(k);
   auto stmt = A.getAssignment().concretize()
-               .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k))
+               // TODO (rohany): We could do distributeOnto here once the bug regarding bounds checks
+               //  for it is fixed.
+               // .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k))
+               .distribute({i, j}, {in, jn}, {il, jl}, grid)
                .communicate(A(i, j), jn)
                .communicate(C(k), jn)
                .reorder({il, jl, k})
@@ -474,13 +469,8 @@ TEST(distributed, cuda_ttv) {
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
   TensorDistribution distribution(grid, taco::ParallelUnit::DistributedGPU);
-  // Prereplicate C onto all of the nodes.
-  TensorDistribution cDistribution(
-      Grid(),
-      grid,
-      GridPlacement({Replicate(), Replicate()}),
-      taco::ParallelUnit::DistributedGPU
-  );
+  // Pre-replicate C onto all of the nodes.
+  TensorDistributionV2 cDistribution(PlacementGrid(gx | Replicate(), gy | Replicate()), taco::ParallelUnit::DistributedGPU);
   Tensor<double> A("A", {dim, dim}, {Dense, Dense}, distribution);
   Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, distribution);
   Tensor<double> C("C", {dim}, {Dense}, cDistribution);
@@ -528,11 +518,7 @@ TEST(distributed, ttmc) {
   auto pieces = ir::Var::make("pieces", Int32, false, false, true);
   auto grid = Grid(pieces);
   TensorDistribution dist(grid);
-  TensorDistribution repl(
-    Grid(),
-    grid,
-    GridPlacement({Replicate()})
-  );
+  TensorDistributionV2 repl(PlacementGrid(pieces | Replicate()));
 
   Tensor<double> A("A", {dim, dim, dim}, {Dense, Dense, Dense}, dist);
   Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, dist);
@@ -574,12 +560,7 @@ TEST(distributed, cuda_ttmc) {
   auto pieces = ir::Var::make("pieces", Int32, false, false, true);
   auto grid = Grid(pieces);
   TensorDistribution dist(grid, taco::ParallelUnit::DistributedGPU);
-  TensorDistribution repl(
-      Grid(),
-      grid,
-      GridPlacement({Replicate()}),
-      taco::ParallelUnit::DistributedGPU
-  );
+  TensorDistributionV2 repl(PlacementGrid(pieces | Replicate()), taco::ParallelUnit::DistributedGPU);
 
   Tensor<double> A("A", {dim, dim, dim}, {Dense, Dense, Dense}, dist);
   Tensor<double> B("B", {dim, dim, dim}, {Dense, Dense, Dense}, dist);
@@ -621,7 +602,6 @@ TEST(distributed, cannonMM) {
   auto gx = ir::Var::make("gridX", Int32, false, false, true);
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
-  auto placement = GridPlacement({0, 1});
 
   TensorDistribution distribution(grid);
   Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, distribution);
@@ -676,7 +656,6 @@ TEST(distributed, cuda_cannonMM) {
   auto gy = ir::Var::make("gridY", Int32, false, false, true);
   auto grid = Grid(gx, gy);
   auto partGrid = Grid(ir::Mul::make(gx, 2), ir::Mul::make(gy, 2));
-  auto placement = GridPlacement({0, 1});
 
   auto gpuGrid = Grid(2, 2);
   std::vector<TensorDistribution> dist{
@@ -728,21 +707,23 @@ TEST(distributed, cuda_cannonMM) {
 
 TEST(distributed, johnsonMM) {
   int dim = 10;
-  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense});
-  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense});
-  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense});
-
-  // Each tensor lives on a different face of the processor cube.
   auto gdim = ir::Var::make("gridDim", Int32, false, false, true);
   auto grid = Grid(gdim, gdim);
   auto cube = Grid(gdim, gdim, gdim);
+
+  auto aDist = TensorDistributionV2(PlacementGrid(gdim, gdim, gdim | Face(0)));
+  auto bDist = TensorDistributionV2(PlacementGrid(gdim, gdim | Face(0), gdim));
+  auto cDist = TensorDistributionV2(PlacementGrid(gdim | Face(0), gdim, gdim));
+
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, aDist);
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, bDist);
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, cDist);
+
+  // Each tensor lives on a different face of the processor cube.
   auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
-  auto placeA = a.partition(grid).place(cube, GridPlacement({0, 1, Face(0)}));
-  auto placeB = b.partition(grid).place(cube, GridPlacement({0, Face(0), 1}));
-  auto placeC = c.partition(grid).place(cube, GridPlacement({Face(0), 0, 1}));
-  auto placeALowered = lower(placeA, "placeLegionA", false, true);
-  auto placeBLowered = lower(placeB, "placeLegionB", false, true);
-  auto placeCLowered = lower(placeC, "placeLegionC", false, true);
+  auto placeALowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
 
   IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
   IndexVar iln("iln"), ill("ill");
@@ -785,27 +766,15 @@ TEST(distributed, cuda_johnsonMM) {
   auto gpuGrid = Grid(gpuDim, gpuDim);
   TensorDistribution gpuDist(gpuGrid, taco::ParallelUnit::DistributedGPU);
   std::vector<TensorDistribution> aDist{
-    TensorDistribution{
-      grid,
-      cube,
-      GridPlacement({0, 1, Face(0)}),
-    },
+    TensorDistributionV2(PlacementGrid(gdim, gdim, gdim | Face(0))),
     gpuDist,
   };
   std::vector<TensorDistribution> bDist{
-    TensorDistribution{
-      grid,
-      cube,
-      GridPlacement({0, Face(0), 1}),
-    },
+    TensorDistributionV2(PlacementGrid(gdim, gdim | Face(0), gdim)),
     gpuDist,
   };
   std::vector<TensorDistribution> cDist{
-    TensorDistribution{
-      grid,
-      cube,
-      GridPlacement({Face(0), 0, 1}),
-    },
+    TensorDistributionV2(PlacementGrid(gdim | Face(0), gdim, gdim)),
     gpuDist,
   };
   Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, aDist);
