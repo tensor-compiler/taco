@@ -486,7 +486,6 @@ TEST(distributed, cuda_ttv) {
   auto stmt = A.getAssignment().concretize()
       .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k), taco::ParallelUnit::DistributedGPU)
       .communicate(A(i, j), jn)
-      .communicate(B(i, j, k), jn)
       .communicate(C(k), jn)
       .fuse(il, jl, f)
       .split(f, io, ii, 64)
