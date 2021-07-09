@@ -436,10 +436,7 @@ TEST(distributed, ttv) {
   IndexVar ii("ii"), io("io");
   A(i, j) = B(i, j, k) * C(k);
   auto stmt = A.getAssignment().concretize()
-               // TODO (rohany): We could do distributeOnto here once the bug regarding bounds checks
-               //  for it is fixed.
-               // .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k))
-               .distribute({i, j}, {in, jn}, {il, jl}, grid)
+               .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k))
                .communicate(A(i, j), jn)
                .communicate(C(k), jn)
                .reorder({il, jl, k})
@@ -487,10 +484,7 @@ TEST(distributed, cuda_ttv) {
   IndexVar ii("ii"), io("io"), f("f");
   A(i, j) = B(i, j, k) * C(k);
   auto stmt = A.getAssignment().concretize()
-      // TODO (rohany): We could do distributeOnto here once the bug regarding bounds checks
-      //  for it is fixed.
-      // .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k), taco::ParallelUnit::DistributedGPU)
-      .distribute({i, j}, {in, jn}, {il, jl}, grid, taco::ParallelUnit::DistributedGPU)
+      .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k), taco::ParallelUnit::DistributedGPU)
       .communicate(A(i, j), jn)
       .communicate(B(i, j, k), jn)
       .communicate(C(k), jn)

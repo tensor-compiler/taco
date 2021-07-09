@@ -175,6 +175,7 @@ struct DivideOntoPartition : public IndexVarRelNode {
   std::vector<IndexVar> getParents() const; // parentVar
   std::vector<IndexVar> getChildren() const; // outerVar, innerVar
   std::vector<IndexVar> getIrregulars() const; // innerVar
+  std::vector<ir::Expr> getPartitionBounds(const ProvenanceGraph& pg) const;
 
   int getAccessIdx() const;
 
@@ -483,6 +484,10 @@ public:
   /// isDivided returns whether or not the target IndexVar was divided through
   /// a `.divide` scheduling operation.
   bool isDivided(IndexVar indexVar) const;
+  /// isDividedOntoPartition is the same as isDivided but for a
+  /// `.divideOntoPartition` operation. If the returned boolean is true,
+  /// then the upper bound variable of the partition is returned as well.
+  std::pair<bool, ir::Expr> isDividedOntoPartition(IndexVar indexVar) const;
   std::vector<IndexVar> getMultiFusedParents(IndexVar indexVar) const;
   std::pair<bool, IndexVar> getStaggeredVar(IndexVar indexVar) const;
 

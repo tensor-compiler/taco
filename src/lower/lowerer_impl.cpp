@@ -1110,7 +1110,6 @@ Stmt LowererImpl::lowerForall(Forall forall)
     // 3. Without an extra guard, the second chunk of 3 in the first group of 5
     // may attempt to perform an iteration for the second group of 5, which is
     // incorrect.
-    // TODO (rohany): Also add a case here for when it's a DivideOntoPartition.
     if (this->provGraph.isDivided(varToRecover)) {
       // Collect the children iteration variables.
       auto children = this->provGraph.getChildren(varToRecover);
@@ -1124,6 +1123,16 @@ Stmt LowererImpl::lowerForall(Forall forall)
       // For a variable f divided into into f1 and f2, the guard ensures that
       // for iteration f, f should be within f1 * dimLen and (f1 + 1) * dimLen.
       auto guard = ir::Gte::make(this->indexVarToExprMap[varToRecover], ir::Mul::make(ir::Add::make(this->indexVarToExprMap[outer], 1), dimLen));
+      recoverySteps.push_back(IfThenElse::make(guard, ir::Continue::make()));
+    }
+    // If this is divided onto a partition, ensure that we don't go past the
+    // initial bounds of the partition.
+    auto dividedOntoPartition = this->provGraph.isDividedOntoPartition(varToRecover);
+    if (dividedOntoPartition.first) {
+      // Collect the children iteration variables.
+      auto bound = dividedOntoPartition.second;
+      // The variable shouldn't go past the upper bounds of the partition.
+      auto guard = ir::Gt::make(this->indexVarToExprMap[varToRecover], bound);
       recoverySteps.push_back(IfThenElse::make(guard, ir::Continue::make()));
     }
   }

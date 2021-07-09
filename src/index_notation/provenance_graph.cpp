@@ -499,6 +499,11 @@ std::vector<ir::Expr> DivideOntoPartition::computeRelativeBound(std::set<IndexVa
   }
 }
 
+std::vector<ir::Expr> DivideOntoPartition::getPartitionBounds(const ProvenanceGraph &pg) const {
+  auto bounds = pg.getPartitionBounds().at(this->getTensorVar()).at(this->getAccessIdx());
+  return {bounds.first, bounds.second};
+}
+
 std::vector<ir::Expr> DivideOntoPartition::deriveIterBounds(IndexVar indexVar,
                                                             std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
                                                             std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
@@ -513,9 +518,9 @@ std::vector<ir::Expr> DivideOntoPartition::deriveIterBounds(IndexVar indexVar,
     return {lo, ir::Add::make(hi, 1)};
   } else if (indexVar == this->content->innerVar) {
     // Use the appropriate bounds available on the partition to get the bounds.
-    auto bounds = provGraph.getPartitionBounds().at(this->getTensorVar()).at(this->getAccessIdx());
-    auto lo = bounds.first;
-    auto hi = bounds.second;
+    auto bounds = this->getPartitionBounds(provGraph);
+    auto lo = bounds[0];
+    auto hi = bounds[1];
     // We keep the iteration of the variables from between [0, n), as this is an implicit
     // assumption of the rest of the provenance graph machinery. So, this variable ranges
     // from the lower bound of the parent to lower bound + (hi - lo + 1), since hi is inclusive.
@@ -1689,11 +1694,25 @@ bool ProvenanceGraph::isDivided(IndexVar indexVar) const {
   auto children = this->getChildren(indexVar);
   if (children.size() > 0) {
     auto rel = this->childRelMap.at(indexVar);
-    if (rel.getRelType() == DIVIDE || rel.getRelType() == DIVIDE_ONTO_PARTITION) {
+    if (rel.getRelType() == DIVIDE) {
       return true;
     }
   }
   return false;
+}
+
+std::pair<bool, ir::Expr> ProvenanceGraph::isDividedOntoPartition(IndexVar indexVar) const {
+  // See if the indexVar has any children. If so, look at the relation that
+  // created the parent-child relationship. If it is a divide, return true.
+  auto children = this->getChildren(indexVar);
+  if (children.size() > 0) {
+    auto rel = this->childRelMap.at(indexVar);
+    if (rel.getRelType() == DIVIDE_ONTO_PARTITION) {
+      auto bounds = rel.getNode<DivideOntoPartition>()->getPartitionBounds(*this);
+      return {true, bounds[1]};
+    }
+  }
+  return {false, ir::Expr()};
 }
 
 // TODO (rohany): Copied.
