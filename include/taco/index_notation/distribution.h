@@ -78,15 +78,108 @@ public:
       a.kind = Replicated;
       return a;
     }
+
+    friend std::ostream& operator<<(std::ostream& o, const AxisMatch& m) {
+      switch (m.kind) {
+        case Axis: { return o << "Axis(" << m.axis << ")"; }
+        case Face: { return o << "Face(" << m.face << ")"; }
+        case Replicated: { return o << "Replicate()"; }
+        default: taco_iassert(false);
+      }
+      return o;
+    }
   };
 
   GridPlacement(std::vector<AxisMatch> axes) : axes(axes) {}
+
+  friend std::ostream& operator<<(std::ostream& o, const GridPlacement& gp) {
+    return o << util::join(gp.axes);
+  }
 
   std::vector<AxisMatch> axes;
 };
 
 GridPlacement::AxisMatch Face(int face);
 GridPlacement::AxisMatch Replicate();
+
+struct PlacementGrid {
+  struct Axis {
+    ir::Expr dimension;
+
+    bool axisSet = false;
+    GridPlacement::AxisMatch axis;
+
+    Axis(ir::Expr dimension) : dimension(dimension) {}
+    Axis(ir::Expr dimension, GridPlacement::AxisMatch axis) : dimension(dimension), axisSet(true), axis(axis) {}
+  };
+
+  template <typename... Args>
+  PlacementGrid(Args... args) : PlacementGrid(std::vector<Axis>{args...}) {}
+
+  PlacementGrid(std::vector<Axis> axes) {
+    std::vector<ir::Expr> dims;
+    std::vector<GridPlacement::AxisMatch> axisMatches;
+    // If all of the axes values are unset or not Axis(n), then we can assume
+    // the default case.
+    bool unset = true;
+    for (auto& axis : axes) {
+      if (axis.axisSet && axis.axis.kind == GridPlacement::AxisMatch::Axis) {
+        unset = false;
+      }
+    }
+    // If all of the axes are unset, manually add the implied axes. Otherwise,
+    // assert that all of the axes are set.
+    if (unset) {
+      int counter = 0;
+      for (size_t i = 0; i < axes.size(); i++) {
+        if (!axes[i].axisSet) {
+          axes[i].axis = GridPlacement::AxisMatch(counter);
+          axes[i].axisSet = true;
+          counter++;
+        }
+      }
+    } else {
+      for (auto& axis : axes) {
+        taco_uassert(axis.axisSet);
+      }
+    }
+
+    for (auto& axis : axes) {
+      dims.push_back(axis.dimension);
+      axisMatches.push_back(axis.axis);
+    }
+
+    this->grid = Grid(dims);
+    this->placement = GridPlacement(axisMatches);
+  }
+
+  friend std::ostream& operator<<(std::ostream& o, const PlacementGrid& pg) {
+    return o << pg.grid << " <-> " << pg.placement << std::endl;
+  }
+
+  Grid getPartitionGrid() {
+    std::vector<ir::Expr> dims;
+    for (auto& axis : this->placement.axes) {
+      if (axis.kind == GridPlacement::AxisMatch::Axis) {
+        dims.push_back(this->grid.getDimSize(axis.axis));
+      }
+    }
+    return Grid(dims);
+  }
+
+  Grid grid;
+  GridPlacement placement;
+};
+
+PlacementGrid::Axis operator|(ir::Expr e, GridPlacement::AxisMatch axis);
+
+struct TensorDistributionV2 {
+  PlacementGrid pg;
+  ParallelUnit parUnit;
+
+  TensorDistributionV2(PlacementGrid pg, ParallelUnit parUnit = ParallelUnit::DistributedNode)
+    : pg(pg), parUnit(parUnit) {}
+};
 
 // Struct that represents a level of distribution for a tensor.
 struct TensorDistribution {
@@ -98,7 +191,7 @@ struct TensorDistribution {
   // Simple use case constructor that partitions and places a tensor onto an
   // n-dimensional grid.
   explicit TensorDistribution(Grid g, ParallelUnit pu = ParallelUnit::DistributedNode) :
-    partitionGrid(g), placementGrid(g), parUnit(pu) {
+      partitionGrid(g), placementGrid(g), parUnit(pu) {
     // Construct a default placement object.
     std::vector<GridPlacement::AxisMatch> placements(g.getDim());
     for (int i = 0; i < g.getDim(); i++) {
@@ -109,13 +202,11 @@ struct TensorDistribution {
 
   // Full constructor that defines all needed fields.
   TensorDistribution(Grid partitionGrid, Grid placementGrid, GridPlacement placement, ParallelUnit pu = ParallelUnit::DistributedNode) :
-    partitionGrid(partitionGrid), placementGrid(placementGrid), placement(placement), parUnit(pu) {}
-};
+      partitionGrid(partitionGrid), placementGrid(placementGrid), placement(placement), parUnit(pu) {}
 
-// class Distribution {
-// public:
-//   // Standard constructor
-// };
+  TensorDistribution(TensorDistributionV2 v2) :
+    partitionGrid(v2.pg.getPartitionGrid()), placementGrid(v2.pg.grid), placement(v2.pg.placement), parUnit(v2.parUnit) {}
+};
 
 // Transfer represents requesting a portion of data.
 // TODO (rohany): It seems like we're doing all equality on tensorvars, rather than the access.
