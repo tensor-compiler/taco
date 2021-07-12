@@ -8,7 +8,9 @@ def lgCPUArgs():
       '-ll:ocpu', '2',
       '-ll:othr', '18',
       '-ll:onuma', '1',
-      '-ll:csize', '50000',
+      '-ll:csize', '5000',
+      '-ll:nsize', '75000',
+      '-ll:ncsize', '0',
       '-ll:util', '2',
       '-dm:replicate', '1',
     ]
@@ -86,6 +88,28 @@ class TTMCBench:
     def getCommand(self, procs):
         pass
 
+# Inheritable class for TTV benchmarks.
+class TTVBench:
+    def __init__(self, initialProblemSize):
+        self.initialProblemSize = initialProblemSize
+
+    def getgx(self, procs):
+        # Asserting that we're running on powers of 2 here.
+        ns = nearestSquare(procs)
+        if ns ** 2 == procs:
+            return ns
+        return nearestSquare(procs / 2)
+
+    def problemSize(self, procs):
+        # Weak scaling problem size. Keep the memory used per
+        # node the same.
+        size = int(self.initialProblemSize * pow(procs, 1.0 / 3.0))
+        size -= (size % 2)
+        return size
+
+    def getCommand(self, procs):
+        pass
+
 class CannonBench(DMMBench):
     def getgx(self, procs):
         # Asserting that we're running on powers of 2 here.
@@ -125,7 +149,7 @@ class SUMMAGPUBench(SUMMABench):
         psize = self.problemSize(procs)
         gx = self.getgx(procs)
         return lassenHeader(procs) + \
-               ['bin/summaMM-cuda', '-n', str(psize), '-gx', str(gx), '-gy', str(procs // gx)] + \
+               ['bin/summaMM-cuda', '-n', str(psize), '-gx', str(gx), '-gy', str(procs // gx), '-dm:exact_region', '-tm:untrack_valid_regions'] + \
                lgGPUArgs(self.gpus)
 
 class CannonGPUBench(CannonBench):
@@ -195,7 +219,7 @@ class LegateBench(DMMBench):
         assert(legateNumpyDir is not None)
         return [
             os.path.join(legateDir, 'bin/legate'), os.path.join(legateNumpyDir, 'examples/gemm.py'), '-n', psize, '-p', '64', '-i', '10', '--num_nodes', str(procs),
-            '--omps', '2', '--ompthreads', '18', '--nodes', str(procs), '--numamem', '30000', '--eager-alloc-percentage', '1',
+            '--omps', '2', '--ompthreads', '18', '--nodes', str(procs), '--numamem', '30000', '--eager-alloc-percentage', '1', '--cpus', '1', '--sysmem', '10000',
             '--launcher', 'jsrun', '--cores-per-node', '40', '--verbose',
         ]
 
@@ -233,6 +257,15 @@ class LgTTMCBench(TTMCBench):
         psize = str(self.problemSize(procs))
         return lassenHeader(procs) + ['bin/ttmc', '-n', psize, '-pieces', str(procs * 2)] + lgCPUArgs()
 
+class LgTTVBench(TTVBench):
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        gx = self.getgx(procs)
+        return lassenHeader(procs) + [
+            # Do gx * 2 to account for multiple OMP procs per node.
+            'bin/ttv', '-n', psize, '-gx', str(2 * gx), '-gy', str(procs // gx), '-tm:numa_aware_alloc'
+        ] + lgCPUArgs()
+
 def executeCmd(cmd):
     cmdStr = " ".join(cmd)
     print("Executing command: {}".format(cmdStr))
@@ -259,6 +292,7 @@ def main():
         "ctf",
         # Higher order tensor benchmarks.
         "ttmc",
+        "ttv",
     ]
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on")
@@ -291,6 +325,8 @@ def main():
         bench = CTFBench(args.size)
     elif args.bench == "ttmc":
         bench = LgTTMCBench(args.size)
+    elif args.bench == "ttv":
+        bench = LgTTVBench(args.size)
     else:
         assert(False)
     for p in args.procs:
