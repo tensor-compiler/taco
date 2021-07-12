@@ -53,6 +53,11 @@ public:
                   const SliceTaskInput &input,
                   SliceTaskOutput &output) override;
 
+  Legion::Memory default_policy_select_target_memory(Legion::Mapping::MapperContext ctx,
+                                                     Legion::Processor target_proc,
+                                                     const Legion::RegionRequirement &req,
+                                                     Legion::MemoryConstraint mc = Legion::MemoryConstraint());
+
   template<int DIM>
   void decompose_points(const Legion::DomainT<DIM, Legion::coord_t> &point_space,
                         std::vector<int>& gridDims,
@@ -110,6 +115,10 @@ private:
   // Denotes whether read-only valid regions of leaf tasks should be marked
   // eagerly for collection.
   bool untrackValidRegions = false;
+  // Denotes whether to perform region allocations in each numa node.
+  bool numaAwareAllocs = false;
+  // A map from OpenMP processor to the NUMA region local to that OpenMP processor.
+  std::map<Legion::Processor, Legion::Memory> numaDomains;
 
   // TODO (rohany): It may end up being necessary that we need to explicitly map
   //  regions for placement tasks. If so, Manolis says the following approach
