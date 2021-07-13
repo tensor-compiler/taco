@@ -1472,13 +1472,23 @@ void CodeGen_CUDA::visit(const Store* op) {
         taco_iassert(to<Load>(add->a)->arr == op->arr && to<Load>(add->a)->loc == op->loc);
         if (deviceFunctionLoopDepth == 0 || op->atomic_parallel_unit == ParallelUnit::GPUWarp) {
           // use atomicAddWarp
+          // doIndent();
+          // stream << "atomicAddWarp<" << printCUDAType(add->b.type(), false) << ">(";
+          // op->arr.accept(this);
+          // stream << ", ";
+          // op->loc.accept(this);
+          // stream << ", ";
+          // add->b.accept(this);
+          // stream << ");" << endl;
+          // We implement a slightly different atomicAddWarp for the Legion backend.
           doIndent();
-          stream << "atomicAddWarp<" << printCUDAType(add->b.type(), false) << ">(";
-          op->arr.accept(this);
-          stream << ", ";
-          op->loc.accept(this);
-          stream << ", ";
+          stream << "atomicAddWarp(__activemask(), ";
           add->b.accept(this);
+          stream << ", &";
+          op->arr.accept(this);
+          stream << "[";
+          op->loc.accept(this);
+          stream << "]";
           stream << ");" << endl;
         }
         else {

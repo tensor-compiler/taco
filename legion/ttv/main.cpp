@@ -21,6 +21,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   int n = -1;
   int gx = -1;
   int gy = -1;
+  bool validate = false;
   // Parse input args.
   for (int i = 1; i < args.argc; i++) {
     if (strcmp(args.argv[i], "-n") == 0) {
@@ -33,6 +34,10 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     }
     if (strcmp(args.argv[i], "-gy") == 0) {
       gy = atoi(args.argv[++i]);
+      continue;
+    }
+    if (strcmp(args.argv[i], "-validate") == 0) {
+      validate = true;
       continue;
     }
   }
@@ -48,8 +53,6 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     std::cout << "Please provide a grid y size with -gy." << std::endl;
     return;
   }
-
-  initCuBLAS(ctx, runtime);
 
   auto fspace = runtime->create_field_space(ctx);
   allocate_tensor_fields<valType>(ctx, runtime, fspace);
@@ -67,20 +70,35 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
 
   // We don't need to fill the large tensor in the loop.
   tacoFill<valType>(ctx, runtime, B, bPart, 1);
-  tacoFill<valType>(ctx, runtime, C, 1);
+  runtime->fill_field(ctx, C, C, FID_VAL, valType(1));
+
+  std::vector<size_t> times;
   for (int i = 0; i < 10; i++) {
     tacoFill<valType>(ctx, runtime, A, aPart, 0);
 
     // Place the tensors.
     placeLegionA(ctx, runtime, A, gx, gy);
     auto part = placeLegionB(ctx, runtime, B, gx, gy);
-    placeLegionC(ctx, runtime, C, gx, gy);
+    // placeLegionC(ctx, runtime, C, gx, gy);
 
     // Compute.
-    benchmark(ctx, runtime, [&]() { computeLegion(ctx, runtime, A, B, C, part); });
+    benchmark(ctx, runtime, times, [&]() { computeLegion(ctx, runtime, A, B, C, part); });
   }
 
-  tacoValidate<valType>(ctx, runtime, A, aPart, valType(n));
+  // Calculate the total bandwidth.
+  size_t elems = [](size_t n) { return n * n + n * n * n + n; }(n);
+  size_t bytes = elems * sizeof(valType);
+  double gbytes = double(bytes) / 1e9;
+  auto avgTimeS = double(average(times)) / 1e3;
+  double bw = gbytes / (avgTimeS);
+  auto nodes = runtime->select_tunable_value(ctx, Mapping::DefaultMapper::DEFAULT_TUNABLE_NODE_COUNT).get<size_t>();
+  LEGION_PRINT_ONCE(runtime, ctx, stdout, "On %ld nodes achieved GB/s BW per node: %lf.\n", nodes, bw / double(nodes));
+
+  // For some reason that I can't figure out right now, shutdown hangs after validation on
+  // certain problem sizes...
+  if (validate) {
+    tacoValidate<valType>(ctx, runtime, A, aPart, valType(n));
+  }
 }
 
 TACO_MAIN(valType)

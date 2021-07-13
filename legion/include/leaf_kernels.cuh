@@ -90,4 +90,16 @@ void cu_mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, con
   contractInter<T><<<(B1_dimension * C1_dimension + 255) / 256, 256, 0, taskStream>>>(pack, A_vals, C_vals, inter);
 }
 
+// Small kernel to do a warp level reduction.
+template<typename T>
+__inline__ __device__
+void atomicAddWarp(unsigned mask, T val, T* output) {
+  for (int offset = warpSize/2; offset > 0; offset /= 2)  {
+    val += __shfl_down_sync(mask, val, offset);
+  }
+  if (threadIdx.x % warpSize == 0) {
+    atomicAdd(output, val);
+  }
+}
+
 #endif // TACO_LG_CU_LEAF_KERNELS_H

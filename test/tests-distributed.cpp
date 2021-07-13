@@ -481,16 +481,17 @@ TEST(distributed, cuda_ttv) {
 
   IndexVar i("i"), j("j"), k("k"), l("l");
   IndexVar in("in"), il("il"), jn("jn"), jl("jl");
-  IndexVar ii("ii"), io("io"), f("f");
+  IndexVar ii("ii"), io("io"), f("f"), f2("f2");
   A(i, j) = B(i, j, k) * C(k);
   auto stmt = A.getAssignment().concretize()
       .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k), taco::ParallelUnit::DistributedGPU)
       .communicate(A(i, j), jn)
       .communicate(C(k), jn)
       .fuse(il, jl, f)
-      .split(f, io, ii, 64)
+      .fuse(f, k, f2)
+      .split(f2, io, ii, 64)
       .parallelize(io, taco::ParallelUnit::GPUBlock, taco::OutputRaceStrategy::NoRaces)
-      .parallelize(ii, taco::ParallelUnit::GPUThread, taco::OutputRaceStrategy::NoRaces)
+      .parallelize(ii, taco::ParallelUnit::GPUThread, taco::OutputRaceStrategy::Atomics)
       ;
 
   auto lowered = lower(stmt, "computeLegion", false, true);
