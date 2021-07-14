@@ -90,14 +90,34 @@ void cu_mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, con
   contractInter<T><<<(B1_dimension * C1_dimension + 255) / 256, 256, 0, taskStream>>>(pack, A_vals, C_vals, inter);
 }
 
-// Small kernel to do a warp level reduction.
-template<typename T>
-__inline__ __device__
-void atomicAddWarp(unsigned mask, T val, T* output) {
-  for (int offset = warpSize/2; offset > 0; offset /= 2)  {
-    val += __shfl_down_sync(mask, val, offset);
+template<typename T, int DIM>
+__device__ __inline__
+size_t flattenPoint(T accessor, Legion::Point<DIM> point) {
+  size_t base = 0;
+  for (int i = 0; i < DIM; i++) {
+    base += accessor.accessor.strides[i] * point[i];
   }
-  if (threadIdx.x % warpSize == 0) {
+  return base;
+}
+
+// This atomicAddWarp kernel ensures that the warp level reduction only
+// happens if all threads in the warp are indeed writing to the same
+// output location.
+template<typename T>
+__device__ inline void atomicAddWarp(T *output, int index, T val)
+{
+  int leader_index = __shfl_sync(__activemask(), index, 0);
+  int mask = __ballot_sync(__activemask(), leader_index == index);
+  if(mask == __activemask()) {
+    val += __shfl_down_sync(__activemask(), val, 16);
+    val += __shfl_down_sync(__activemask(), val, 8);
+    val += __shfl_down_sync(__activemask(), val, 4);
+    val += __shfl_down_sync(__activemask(), val, 2);
+    val += __shfl_down_sync(__activemask(), val, 1);
+    if(threadIdx.x % 32 == 0) {
+      atomicAdd(output, val);
+    }
+  } else {
     atomicAdd(output, val);
   }
 }

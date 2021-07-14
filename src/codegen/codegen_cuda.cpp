@@ -1480,15 +1480,21 @@ void CodeGen_CUDA::visit(const Store* op) {
           // stream << ", ";
           // add->b.accept(this);
           // stream << ");" << endl;
-          // We implement a slightly different atomicAddWarp for the Legion backend.
+          
+          // We implement a slightly different atomicAddWarp for the Legion backend. It does
+          // pretty much the same thing but flattens the Point<DIM> object into an index for
+          // the warp consistency check.
           doIndent();
-          stream << "atomicAddWarp(__activemask(), ";
-          add->b.accept(this);
-          stream << ", &";
+          stream << "atomicAddWarp(&";
           op->arr.accept(this);
           stream << "[";
           op->loc.accept(this);
-          stream << "]";
+          stream << "], flattenPoint(";
+          op->arr.accept(this);
+          stream << ", ";
+          op->loc.accept(this);
+          stream << "), ";
+          add->b.accept(this);
           stream << ");" << endl;
         }
         else {
