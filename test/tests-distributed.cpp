@@ -619,6 +619,7 @@ TEST(distributed, cannonMM) {
       .divide(k, ko, ki, gx)
       .reorder({ko, il, jl})
       .stagger(ko, {in, jn}, kos)
+      .communicate(a(i, j), in)
       .communicate(b(i, k), kos)
       .communicate(c(k, j), kos)
       // Hierarchically parallelize the computation for each NUMA region.

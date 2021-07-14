@@ -1801,10 +1801,27 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       }
     }
 
+    std::set<TensorVar> fullyReplicatedTensors;
+
     // Add a dummy partition object for each transfer.
     for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
       auto& t = forall.getTransfers()[idx];
       auto n = t.getAccess().getTensorVar().getName();
+
+      // If this tensor isn't partitioned by any variables in the current loop,
+      // then the full thing is going to be replicated. In this case, it's better
+      // to pass the region directly to each child task, rather than a full aliasing
+      // partition.
+      bool hasPartitioningVar = false;
+      for (auto ivar : t.getAccess().getIndexVars()) {
+        if (this->anyParentInSet(ivar, this->varsInScope[this->curDistVar])) {
+          hasPartitioningVar = true;
+        }
+      }
+      if (!hasPartitioningVar && !(this->isPlacementCode || this->isPartitionCode)) {
+        fullyReplicatedTensors.insert(t.getAccess().getTensorVar());
+        continue;
+      }
 
       auto tensorDim = t.getAccess().getIndexVars().size();
       auto txPoint = Point(tensorDim);
@@ -1853,6 +1870,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
       auto& t = forall.getTransfers()[idx];
       auto& tv = t.getAccess().getTensorVar();
+      // Skip fully replicated tensors.
+      if (util::contains(fullyReplicatedTensors, tv)) {
+        continue;
+      }
+
       auto coloring = colorings[idx];
       auto part = ir::Var::make(tv.getName() + "Partition", Auto);
       auto partKind = disjointPart;
