@@ -39,6 +39,15 @@ void benchmark(Legion::Context ctx, Legion::Runtime* runtime, std::vector<size_t
   times.push_back(ms);
 }
 
+void benchmarkAsyncCall(Legion::Context ctx, Legion::Runtime* runtime, std::vector<size_t>& times, std::function<void(void)> f) {
+  auto start = runtime->get_current_time(ctx, runtime->issue_execution_fence(ctx));
+  f();
+  auto end = runtime->get_current_time(ctx, runtime->issue_execution_fence(ctx));
+  auto ms = size_t((end.get<double>() - start.get<double>()) * 1e3);
+  LEGION_PRINT_ONCE(runtime, ctx, stdout, "Execution time: %ld ms.\n", ms);
+  times.push_back(ms);
+}
+
 size_t getGEMMFLOPCount(size_t M, size_t N, size_t K) {
   return M * N * (2 * K - 1);
 }
