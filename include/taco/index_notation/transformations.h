@@ -304,6 +304,8 @@ public:
   Distribute(std::vector<IndexVar> original, std::vector<IndexVar> distVars, std::vector<IndexVar> innerVars, Grid& g, ParallelUnit parUnit=ParallelUnit::DistributedNode);
   // For distributing the index space based on a partition of a tensor.
   Distribute(std::vector<IndexVar> original, std::vector<IndexVar> distVars, std::vector<IndexVar> innerVars, Access onto, ParallelUnit parUnit=ParallelUnit::DistributedNode);
+  // For distributing the index space based on several similar a partition of tensors.
+  Distribute(std::vector<IndexVar> original, std::vector<IndexVar> distVars, std::vector<IndexVar> innerVars, std::vector<Access> onto, ParallelUnit parUnit=ParallelUnit::DistributedNode);
 
   IndexStmt apply(IndexStmt stmt, std::string* reason) const;
   void print(std::ostream& os) const;

@@ -530,8 +530,11 @@ private:
   std::map<IndexVar, std::set<IndexVar>> varsInScope;
   int distLoopDepth = 0;
 
-  ir::Expr computingOnPartition;
-  TensorVar computingOnTensorVar;
+  // We support distributing onto multiple partitions at the same time, as long
+  // as they are on the same grids and index variables. This just allows us to
+  // re-use as many partitions as possible, if necessary.
+  std::map<TensorVar, ir::Expr> computingOnPartition;
+  std::vector<TensorVar> computingOnTensorVar;
 
   bool performingLegionReduction = false;
 

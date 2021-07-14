@@ -232,8 +232,8 @@ void IndexNotationPrinter::visit(const ForallNode* op) {
   if (op->transfers.size() != 0) {
     os << ", transfers: " << util::join(op->transfers);
   }
-  if (op->computingOn.defined()) {
-    os << ", computing on: " << op->computingOn;
+  if (!op->computingOn.empty()) {
+    os << ", computing on: " << util::join(op->computingOn);
   }
   os << ")";
 }
