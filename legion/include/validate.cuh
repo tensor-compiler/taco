@@ -26,7 +26,9 @@ void tacoValidateGPU(const Legion::Task* task, Legion::PhysicalRegion r, Legion:
   Pitches<DIM - 1> pitches;
   auto volume = pitches.flatten(rect);
   auto blocks = (volume + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
-  tacoValidateGPUKernel<DIM, T><<<blocks, THREADS_PER_BLOCK>>>(ar, *(T*)(task->args), pitches, rect.lo, volume);
+  if (blocks != 0) {
+    tacoValidateGPUKernel<DIM, T><<<blocks, THREADS_PER_BLOCK>>>(ar, *(T*)(task->args), pitches, rect.lo, volume);
+  }
 }
 
 template<typename T>
