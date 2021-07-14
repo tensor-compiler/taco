@@ -9,6 +9,11 @@ def parseGFLOPS(fname):
         nodes = int(words[1])
         gflops = float(words[7])
         data.append((nodes, gflops))
+      if 'achieved GB/s BW per node:' in line:
+        words = line.strip('\n').strip('.').split(' ')
+        nodes = int(words[1])
+        gflops = float(words[8])
+        data.append((nodes, gflops))
   data.sort(key=lambda x: x[0])
   for d in data:
     print("{} {}".format(d[0], d[1]))
