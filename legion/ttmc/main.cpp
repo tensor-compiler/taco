@@ -57,7 +57,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto bPart = partition3Tensor(ctx, runtime, B, pieces);
 
   tacoFill<valType>(ctx, runtime, B, bPart, 1);
-  tacoFill<valType>(ctx, runtime, C, 1);
+  runtime->fill_field(ctx, C, C, FID_VAL, valType(1));
 
   std::vector<size_t> times;
   for (int i = 0; i < 10; i++) {
@@ -65,7 +65,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
 
     placeLegionA(ctx, runtime, A, pieces);
     placeLegionB(ctx, runtime, B, pieces);
-    placeLegionC(ctx, runtime, C, pieces);
+    // For replicated tensors, we don't bother placing it.
 
     benchmark(ctx, runtime, times, [&]() { computeLegion(ctx, runtime, A, B, C, pieces); });
   }
