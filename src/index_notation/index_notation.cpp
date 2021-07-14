@@ -1601,6 +1601,10 @@ IndexStmt IndexStmt::distribute(std::vector<IndexVar> original, std::vector<Inde
 }
 
 IndexStmt IndexStmt::distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, Access onto, ParallelUnit parUnit) {
+  return this->distribute(original, outerVars, innerVars, std::vector<Access>{onto}, parUnit);
+}
+
+IndexStmt IndexStmt::distribute(std::vector<IndexVar> original, std::vector<IndexVar> outerVars, std::vector<IndexVar> innerVars, std::vector<Access> onto, ParallelUnit parUnit) {
   string reason;
   auto transformed = Distribute(original, outerVars, innerVars, onto, parUnit).apply(*this, &reason);
   if (!transformed.defined()) {
@@ -1938,10 +1942,10 @@ Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt)
-    : Forall(indexVar, stmt, ParallelUnit::NotParallel, OutputRaceStrategy::IgnoreRaces, {}, TensorVar(), false) {
+    : Forall(indexVar, stmt, ParallelUnit::NotParallel, OutputRaceStrategy::IgnoreRaces, {}, {}, false) {
 }
 
-Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, std::vector<Transfer> transfers, TensorVar computingOn, size_t unrollFactor)
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, std::vector<Transfer> transfers, std::vector<TensorVar> computingOn, size_t unrollFactor)
         : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, transfers, computingOn, unrollFactor)) {
 }
 
@@ -1973,7 +1977,7 @@ const Transfers& Forall::getTransfers() const {
   return getNode(*this)->transfers;
 }
 
-const TensorVar Forall::getComputingOn() const {
+const std::vector<TensorVar>& Forall::getComputingOn() const {
   return getNode(*this)->computingOn;
 }
 
@@ -1981,7 +1985,7 @@ Forall forall(IndexVar i, IndexStmt stmt) {
   return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, Transfers transfers, TensorVar computingOn, size_t unrollFactor) {
+Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, Transfers transfers, std::vector<TensorVar> computingOn, size_t unrollFactor) {
   return Forall(i, stmt, parallel_unit, output_race_strategy, transfers, computingOn, unrollFactor);
 }
 

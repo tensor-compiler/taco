@@ -56,7 +56,7 @@ public:
   Legion::Memory default_policy_select_target_memory(Legion::Mapping::MapperContext ctx,
                                                      Legion::Processor target_proc,
                                                      const Legion::RegionRequirement &req,
-                                                     Legion::MemoryConstraint mc = Legion::MemoryConstraint());
+                                                     Legion::MemoryConstraint mc = Legion::MemoryConstraint()) override;
 
   template<int DIM>
   void decompose_points(const Legion::DomainT<DIM, Legion::coord_t> &point_space,

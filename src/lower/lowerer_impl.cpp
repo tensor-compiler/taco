@@ -374,17 +374,17 @@ LowererImpl::lower(IndexStmt stmt, string name,
     }
   }
 
-  // If we're computing on a partition, then make a variable for the partition, and add
-  // it to the function inputs.
-  TensorVar computingOn;
+  // If we're computing on a partition, then make variables for the partitions, and add
+  // them to the function inputs.
+  std::vector<TensorVar> computingOn;
   match(stmt, function<void(const ForallNode*)>([&](const ForallNode* node) {
-    if (node->computingOn.defined()) {
+    if (!node->computingOn.empty()) {
       computingOn = node->computingOn;
     }
   }));
-  if (computingOn.defined()) {
-    this->computingOnPartition = ir::Var::make(computingOn.getName() + "Partition", LogicalPartition);
-    argumentsIR.push_back(this->computingOnPartition);
+  for (auto var : computingOn) {
+    this->computingOnPartition[var] = ir::Var::make(var.getName() + "Partition", LogicalPartition);
+    argumentsIR.push_back(this->computingOnPartition[var]);
   }
 
   // If there are distributed loops, and no transfers present for an access, then that
@@ -396,14 +396,13 @@ LowererImpl::lower(IndexStmt stmt, string name,
   }));
   if (foundDistributed) {
     // Collect all transfers in the index stmt.
-//    Transfers transfers;
     std::vector<TensorVar> transfers;
     match(stmt, function<void(const ForallNode*)>([&](const ForallNode* node) {
       for (auto& t : node->transfers) {
         transfers.push_back(t.getAccess().getTensorVar());
       }
-      if (node->computingOn.defined()) {
-        transfers.push_back(node->computingOn);
+      for (auto var : node->computingOn) {
+        transfers.push_back(var);
       }
     }));
 
@@ -607,8 +606,8 @@ LowererImpl::lower(IndexStmt stmt, string name,
         for (auto& t : node->transfers) {
           this->requestedTensorVars.insert(t.getAccess().getTensorVar());
         }
-        if (node->computingOn.defined()) {
-          this->requestedTensorVars.insert(node->computingOn);
+        for (auto var : node->computingOn) {
+          this->requestedTensorVars.insert(var);
         }
       }
 
@@ -1595,7 +1594,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   // TODO (rohany): Need some sort of stack mechanism to pop off the computing on
   //  var once (if) we support nested distributions.
-  if (forall.getComputingOn().defined()) {
+  if (!forall.getComputingOn().empty()) {
     this->computingOnTensorVar = forall.getComputingOn();
   }
   if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction && forall.isDistributed()) {
@@ -1694,11 +1693,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
     // We need to emit accessing the partition for any child task that uses the partition.
     // TODO (rohany): A hack that doesn't scale to nested distributions.
-    if (forall.getComputingOn().defined()) {
+    for (auto var : forall.getComputingOn()) {
       // Add a declaration of all the needed partition bounds variables.
-      auto tensorIspace = ir::GetProperty::make(this->tensorVars[this->computingOnTensorVar], TensorProperty::IndexSpace);
+      auto tensorIspace = ir::GetProperty::make(this->tensorVars[var], TensorProperty::IndexSpace);
       auto bounds = ir::Call::make("runtime->get_index_space_domain", {ctx, tensorIspace}, Auto);
-      auto boundsVar = ir::Var::make(forall.getComputingOn().getName() + "PartitionBounds", Auto);
+      auto boundsVar = ir::Var::make(var.getName() + "PartitionBounds", Auto);
       std::vector<ir::Stmt> declareBlock;
       declareBlock.push_back(ir::VarDecl::make(boundsVar, bounds));
       for (auto tvItr : this->provGraph.getPartitionBounds()) {
@@ -1713,11 +1712,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     }
 
     auto domain = ir::Var::make("domain", dimT);
-    if (forall.getComputingOn().defined()) {
+    if (!forall.getComputingOn().empty()) {
       // If we're computing on a tensor, then use the domain of the partition as the
       // launch domain for the task launch.
       // TODO (rohany): Might need a wrapper method call on computingOnVar.
-      auto getDomain = ir::Call::make("runtime->get_index_partition_color_space", {ctx, ir::Call::make("get_index_partition", {this->computingOnPartition}, Auto)}, Auto);
+      auto getDomain = ir::Call::make("runtime->get_index_partition_color_space", {ctx, ir::Call::make("get_index_partition", {this->computingOnPartition[*forall.getComputingOn().begin()]}, Auto)}, Auto);
       transfers.push_back(ir::VarDecl::make(domain, getDomain));
     } else {
       auto varIspace = ir::Var::make(forall.getIndexVar().getName() + "IndexSpace", Auto);
@@ -1782,11 +1781,12 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     }
 
     // If operating on a partition, we need to get the bounds of the partition at each index point.
-    if (forall.getComputingOn().defined()) {
+    if (!forall.getComputingOn().empty()) {
       auto point = ir::Var::make("domPoint", Datatype("DomainPoint"));
       partStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, Auto)));
-      auto partVar = ir::Var::make(forall.getComputingOn().getName() + "PartitionBounds", Auto);
-      auto subreg = ir::Call::make("runtime->get_logical_subregion_by_color", {ctx, this->computingOnPartition, point}, Auto);
+      auto part = *forall.getComputingOn().begin();
+      auto partVar = ir::Var::make(part.getName() + "PartitionBounds", Auto);
+      auto subreg = ir::Call::make("runtime->get_logical_subregion_by_color", {ctx, this->computingOnPartition[part], point}, Auto);
       auto subregispace = ir::MethodCall::make(subreg, "get_index_space", {}, false, Auto);
       auto bounds = ir::Call::make("runtime->get_index_space_domain", {subregispace}, Auto);
       partStmts.push_back(ir::VarDecl::make(partVar, bounds));
@@ -2011,9 +2011,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
               priv.second,
               getLogicalRegion(tvIR),
           };
-        } else if (forall.getComputingOn().defined() && forall.getComputingOn() == tv) {
+        } else if (util::contains(forall.getComputingOn(), tv)) {
           regionReqArgs = {
-              this->computingOnPartition,
+              this->computingOnPartition[tv],
               0,
               priv.first,
               priv.second,

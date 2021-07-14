@@ -690,9 +690,6 @@ std::ostream& operator<<(std::ostream& os, const Parallelize& parallelize) {
 // Distribution transformation related code.
 
 struct Distribute::Content {
-  Content() {}
-  Content(Access onto) : onto(onto) {}
-
   std::vector<IndexVar> original;
   std::vector<IndexVar> distVars;
   std::vector<IndexVar> innerVars;
@@ -700,7 +697,7 @@ struct Distribute::Content {
   ParallelUnit parUnit;
   // Only one of onto and grid is set.
   Grid grid;
-  Access onto;
+  std::vector<Access> onto;
 };
 
 Distribute::Distribute() : content(nullptr) {}
@@ -717,13 +714,17 @@ Distribute::Distribute(std::vector<IndexVar> original, std::vector<IndexVar> dis
 }
 
 Distribute::Distribute(std::vector<IndexVar> original, std::vector<IndexVar> distVars, std::vector<IndexVar> innerVars,
-                       Access onto, ParallelUnit parUnit) : content(new Content(onto)) {
+                       Access onto, ParallelUnit parUnit) : Distribute(original, distVars, innerVars, std::vector<Access>{onto}, parUnit) {}
+
+Distribute::Distribute(std::vector<IndexVar> original, std::vector<IndexVar> distVars, std::vector<IndexVar> innerVars,
+                       std::vector<Access> onto, ParallelUnit parUnit) : content(new Content) {
   // TODO (rohany): Should assert many things here: g.dims == original.size(),
   //  all index var vectors have the same size etc.
   this->content->original = original;
   this->content->distVars = distVars;
   this->content->innerVars = innerVars;
   this->content->parUnit = parUnit;
+  this->content->onto = onto;
 }
 
 IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
@@ -764,10 +765,11 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
                          this->content->grid.getDimSize(i));
     }
   } else {
-    taco_iassert(this->content->onto.defined());
+    taco_iassert(!this->content->onto.empty());
+    auto& part = *this->content->onto.begin();
     for (size_t i = 0; i < this->content->original.size(); i++) {
-      taco_iassert(this->content->original[i] == this->content->onto.getIndexVars()[i]);
-      auto rel = IndexVarRel(new DivideOntoPartition(this->content->original[i], this->content->distVars[i], this->content->innerVars[i], this->content->onto, i));
+      taco_iassert(this->content->original[i] == part.getIndexVars()[i]);
+      auto rel = IndexVarRel(new DivideOntoPartition(this->content->original[i], this->content->distVars[i], this->content->innerVars[i], part, i));
       stmt = Transformation(AddSuchThatPredicates({rel})).apply(stmt, reason);
       if (!stmt.defined()) {
         taco_uerror << reason;
@@ -826,13 +828,15 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
     }
     std::set<IndexVar> distVars;
     IndexVar distFused;
-    TensorVar computingOn;
+    std::vector<TensorVar> computingOn;
     OutputRaceStrategy raceStrategy;
     ParallelUnit parUnit;
   };
   DistributedForallMarker m; m.distFused = distFused; m.raceStrategy = raceStrategy; m.parUnit = this->content->parUnit;
-  if (this->content->onto.defined()) {
-    m.computingOn = this->content->onto.getTensorVar();
+  if (!this->content->onto.empty()) {
+    for (auto a : this->content->onto) {
+      m.computingOn.push_back(a.getTensorVar());
+    }
   }
   m.distVars.insert(this->content->distVars.begin(), this->content->distVars.end());
   stmt = m.rewrite(stmt);

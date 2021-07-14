@@ -436,8 +436,7 @@ TEST(distributed, ttv) {
   IndexVar ii("ii"), io("io");
   A(i, j) = B(i, j, k) * C(k);
   auto stmt = A.getAssignment().concretize()
-               .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k))
-               .communicate(A(i, j), jn)
+               .distribute({i, j}, {in, jn}, {il, jl}, std::vector<Access>{B(i, j, k), A(i, j)})
                .communicate(C(k), jn)
                .reorder({il, jl, k})
                .split(il, ii, io, 4)
@@ -484,8 +483,7 @@ TEST(distributed, cuda_ttv) {
   IndexVar ii("ii"), io("io"), f("f"), f2("f2");
   A(i, j) = B(i, j, k) * C(k);
   auto stmt = A.getAssignment().concretize()
-      .distribute({i, j}, {in, jn}, {il, jl}, B(i, j, k), taco::ParallelUnit::DistributedGPU)
-      .communicate(A(i, j), jn)
+      .distribute({i, j}, {in, jn}, {il, jl}, std::vector<Access>{B(i, j, k), A(i, j)}, taco::ParallelUnit::DistributedGPU)
       .communicate(C(k), jn)
       .fuse(il, jl, f)
       .fuse(f, k, f2)

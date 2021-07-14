@@ -305,7 +305,7 @@ struct YieldNode : public IndexStmtNode {
 };
 
 struct ForallNode : public IndexStmtNode {
-  ForallNode(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy  output_race_strategy, std::vector<Transfer> transfers, TensorVar computingOn, size_t unrollFactor = 0)
+  ForallNode(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy  output_race_strategy, std::vector<Transfer> transfers, std::vector<TensorVar> computingOn, size_t unrollFactor = 0)
       : indexVar(indexVar), stmt(stmt), parallel_unit(parallel_unit), output_race_strategy(output_race_strategy), unrollFactor(unrollFactor), transfers(transfers),  computingOn(computingOn) {}
 
   void accept(IndexStmtVisitorStrict* v) const {
@@ -320,7 +320,7 @@ struct ForallNode : public IndexStmtNode {
 
   // All of the transfer objects queued up at this level.
   std::vector<Transfer> transfers;
-  TensorVar computingOn;
+  std::vector<TensorVar> computingOn;
 };
 
 struct WhereNode : public IndexStmtNode {
