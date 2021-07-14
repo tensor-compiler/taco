@@ -613,7 +613,9 @@ TEST(distributed, cannonMM) {
   a(i, j) = b(i, k) * c(k, j);
   auto stmt = a.getAssignment().concretize();
   stmt = stmt
-      .distribute({i, j}, {in, jn}, {il, jl}, a(i, j))
+      // Make sure that this distribute call lines up with how the distribution
+      // is done for the CUDA version of this function.
+      .distribute({i, j}, {in, jn}, {il, jl}, grid)
       .divide(k, ko, ki, gx)
       .reorder({ko, il, jl})
       .stagger(ko, {in, jn}, kos)
