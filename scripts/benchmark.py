@@ -257,6 +257,27 @@ class LgTTMCBench(TTMCBench):
         psize = str(self.problemSize(procs))
         return lassenHeader(procs) + ['bin/ttmc', '-n', psize, '-pieces', str(procs * 2)] + lgCPUArgs()
 
+class LgTTMCGPUBench(TTMCBench):
+    def __init__(self, initialProblemSize, gpus):
+        super().__init__(initialProblemSize)
+        self.gpus = gpus
+
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        return lassenHeader(procs) + ['bin/ttmc-cuda', '-n', psize, '-pieces', str(procs * self.gpus)] + lgGPUArgs(self.gpus)
+
+class CTFTTMCBench(TTMCBench):
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        openblasLib = os.getenv('OPENBLAS_LIB_DIR')
+        assert(openblasLib is not None)
+        ctfDir = os.getenv('CTF_DIR')
+        assert(ctfDir is not None)
+        envs = ['env', 'LD_LIBRARY_PATH=LD_LIBRARY_PATH:{}'.format(openblasLib)]
+        header = ['jsrun', '-b', 'rs', '-c', '10', '-r', '4', '-n', str(4 * procs)]
+        return envs + header + \
+               [os.path.join(ctfDir, 'bin/ttmc'), '-n', psize, '-procsPerNode', '4']
+
 class LgTTVBench(TTVBench):
     def getCommand(self, procs):
         psize = str(self.problemSize(procs))
@@ -265,6 +286,29 @@ class LgTTVBench(TTVBench):
             # Do gx * 2 to account for multiple OMP procs per node.
             'bin/ttv', '-n', psize, '-gx', str(2 * gx), '-gy', str(procs // gx), '-tm:numa_aware_alloc'
         ] + lgCPUArgs()
+
+class LgTTVGPUBench(TTVBench):
+    def __init__(self, initialProblemSize, gpus):
+        super().__init__(initialProblemSize)
+        self.gpus = gpus
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        gx = self.getgx(procs)
+        return lassenHeader(procs) + [
+            'bin/ttv-cuda', '-n', psize, '-gx', str(2 * gx), '-gy', str(2 * procs // gx),
+        ] + lgGPUArgs(self.gpus)
+
+class CTFTTVBench(TTVBench):
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        openblasLib = os.getenv('OPENBLAS_LIB_DIR')
+        assert(openblasLib is not None)
+        ctfDir = os.getenv('CTF_DIR')
+        assert(ctfDir is not None)
+        envs = ['env', 'LD_LIBRARY_PATH=LD_LIBRARY_PATH:{}'.format(openblasLib)]
+        header = ['jsrun', '-b', 'rs', '-c', '10', '-r', '4', '-n', str(4 * procs)]
+        return envs + header + \
+               [os.path.join(ctfDir, 'bin/ttv'), '-n', psize, '-procsPerNode', '4']
 
 def executeCmd(cmd):
     cmdStr = " ".join(cmd)
@@ -292,13 +336,17 @@ def main():
         "ctf",
         # Higher order tensor benchmarks.
         "ttmc",
+        "ttmc-gpu",
+        "ctf-ttmc",
         "ttv",
+        "ttv-gpu",
+        "ctf-ttv",
     ]
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on")
     parser.add_argument("--bench", choices=benches, type=str)
     parser.add_argument("--size", type=int, help="initial size for benchmarks")
-    parser.add_argument("--gpus", type=int, help="number of GPUs for GPU benchmarks")
+    parser.add_argument("--gpus", type=int, help="number of GPUs for GPU benchmarks", default=4)
     args = parser.parse_args()
 
     if args.bench == "cannon":
@@ -325,8 +373,16 @@ def main():
         bench = CTFBench(args.size)
     elif args.bench == "ttmc":
         bench = LgTTMCBench(args.size)
+    elif args.bench == "ttmc-gpu":
+        bench = LgTTMCGPUBench(args.size, args.gpus)
+    elif args.bench == "ctf-ttmc":
+        bench = CTFTTMCBench(args.size)
     elif args.bench == "ttv":
         bench = LgTTVBench(args.size)
+    elif args.bench == "ttv-gpu":
+        bench = LgTTVGPUBench(args.size, args.gpus)
+    elif args.bench == "ctf-ttv":
+        bench = CTFTTVBench(args.size)
     else:
         assert(False)
     for p in args.procs:
