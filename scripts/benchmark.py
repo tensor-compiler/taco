@@ -321,68 +321,80 @@ def executeCmd(cmd):
         print("Failed with exception: {}".format(str(e)))
 
 def main():
-    benches = [
+    # Default problem sizes.
+    dmm = 8192
+    dmmgpu = 20000
+    ttmc = 1024
+    ttmcgpu = 1500
+    ttv = 2000
+    ttvgpu = 1750
+
+    benches = {
         # GEMM benchmarks.
-        "cannon",
-        "cannon-gpu",
-        "johnson",
-        "cosma",
-        "cosma-gpu",
-        "summa",
-        "summa-gpu",
-        "scalapack",
-        "legate",
-        "legate-gpu",
-        "ctf",
+        "cannon": dmm,
+        "cannon-gpu": dmmgpu,
+        "johnson": dmm,
+        "cosma": dmm,
+        "cosma-gpu": dmmgpu,
+        "summa": dmm,
+        "summa-gpu": dmmgpu,
+        "scalapack": dmm,
+        "legate": dmm,
+        "legate-gpu": dmmgpu,
+        "ctf": dmm,
         # Higher order tensor benchmarks.
-        "ttmc",
-        "ttmc-gpu",
-        "ctf-ttmc",
-        "ttv",
-        "ttv-gpu",
-        "ctf-ttv",
-    ]
+        "ttmc": ttmc,
+        "ttmc-gpu": ttmcgpu,
+        "ctf-ttmc": ttmc,
+        "ttv": ttv,
+        "ttv-gpu": ttvgpu,
+        "ctf-ttv": ttv,
+    }
     parser = argparse.ArgumentParser()
-    parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on")
-    parser.add_argument("--bench", choices=benches, type=str)
+    parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on", default=[1])
+    parser.add_argument("--bench", choices=benches.keys(), type=str)
     parser.add_argument("--size", type=int, help="initial size for benchmarks")
     parser.add_argument("--gpus", type=int, help="number of GPUs for GPU benchmarks", default=4)
     args = parser.parse_args()
 
+    size = args.size
+    if size is None:
+      size = benches[args.bench]
+
     if args.bench == "cannon":
-        bench = CannonBench(args.size)
+        bench = CannonBench(size)
     elif args.bench == "cannon-gpu":
-        bench = CannonGPUBench(args.size, args.gpus)
+        bench = CannonGPUBench(size, args.gpus)
     elif args.bench == "johnson":
-        bench = JohnsonBench(args.size)
+        bench = JohnsonBench(size)
     elif args.bench == "summa":
-        bench = SUMMABench(args.size)
+        bench = SUMMABench(size)
     elif args.bench == "summa-gpu":
-        bench = SUMMAGPUBench(args.size, args.gpus)
+        bench = SUMMAGPUBench(size, args.gpus)
     elif args.bench == "cosma":
-        bench = COSMABench(args.size)
+        bench = COSMABench(size)
     elif args.bench == "cosma-gpu":
-        bench = COSMAGPUBench(args.size, args.gpus)
+        bench = COSMAGPUBench(size, args.gpus)
     elif args.bench == "scalapack":
-        bench = SCALAPACKBench(args.size)
+        bench = SCALAPACKBench(size)
     elif args.bench == "legate":
-        bench = LegateBench(args.size)
+        bench = LegateBench(size)
     elif args.bench == "legate-gpu":
-        bench = LegateGPUBench(args.size, args.gpus)
+        bench = LegateGPUBench(size, args.gpus)
     elif args.bench == "ctf":
-        bench = CTFBench(args.size)
+        bench = CTFBench(size)
     elif args.bench == "ttmc":
-        bench = LgTTMCBench(args.size)
+        bench = LgTTMCBench(size)
     elif args.bench == "ttmc-gpu":
-        bench = LgTTMCGPUBench(args.size, args.gpus)
+        bench = LgTTMCGPUBench(size, args.gpus)
     elif args.bench == "ctf-ttmc":
-        bench = CTFTTMCBench(args.size)
+        bench = CTFTTMCBench(size)
     elif args.bench == "ttv":
-        bench = LgTTVBench(args.size)
+        bench = LgTTVBench(size)
     elif args.bench == "ttv-gpu":
-        bench = LgTTVGPUBench(args.size, args.gpus)
+        bench = LgTTVGPUBench(size, args.gpus)
     elif args.bench == "ctf-ttv":
-        bench = CTFTTVBench(args.size)
+        bench = CTFTTVBench(size)
     else:
         assert(False)
     for p in args.procs:
