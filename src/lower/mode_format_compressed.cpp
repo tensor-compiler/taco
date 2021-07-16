@@ -101,7 +101,11 @@ ModeFunction CompressedModeFormat::posIterAccess(ir::Expr pos,
 
   Expr idxArray = getCoordArray(mode.getModePack());
   Expr stride = (int)mode.getModePack().getNumModes();
-  Expr idx = Load::make(idxArray, ir::Mul::make(pos, stride));
+  Expr idx = Expr();
+  if (should_use_Spatial_codegen())
+    idx = Load::make(idxArray, ir::Mul::make(pos, stride), mode.getMemoryLocation());
+  else
+    idx = Load::make(idxArray, ir::Mul::make(pos, stride));
   return ModeFunction(Stmt(), {idx, true});
 }
 

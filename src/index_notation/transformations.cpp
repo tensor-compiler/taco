@@ -419,11 +419,6 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
         // Build consumer by replacing with temporary (in replacedStmt)
         IndexStmt replacedStmt = replace(s, {{e, ws(i_vars)}});
         if (replacedStmt != s) {
-          cout << endl;
-          cout << "Precompute forall: " << foralli << endl;
-          cout << "Stmt" << s << endl;
-          cout << "Replaced Stmt" << replacedStmt << endl;
-          cout << endl;
           // Then modify the replacedStmt to have the correct foralls
           // by concretizing the consumer assignment
 
@@ -765,10 +760,6 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
         // Precondition 2: No coiteration of modes (i.e., merge lattice has 
         //                 only one iterator)
         if (lattice.iterators().size() != 1 && parallelize.getParallelUnit() != ParallelUnit::Spatial) {
-          cout << i << endl;
-          for (auto& iterator : lattice.iterators()) {
-            cout << iterator << endl;
-          }
           reason = "Precondition failed: The loop must not merge tensor "
                    "dimensions, that is, it must be a for loop;";
           return;
@@ -840,7 +831,8 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           );
           taco_iassert(!precomputeAssignments.empty());
 
-          IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
+          IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(),
+                                              parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor(), foralli.getNumChunks());
           for (auto assignment : precomputeAssignments) {
             // Construct temporary of correct type and size of outer loop
             TensorVar w(string("w_") + ParallelUnit_NAMES[(int) parallelize.getParallelUnit()], Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense, MemoryLocation::Default);
@@ -849,7 +841,8 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
             IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, w(i)}})).rewrite(precomputed_stmt);
             taco_iassert(isa<Forall>(producer));
             Forall producer_forall = to<Forall>(producer);
-            producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
+            producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(),
+                              parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor(), foralli.getNumChunks());
 
             // build consumer that writes from temporary to output, mark consumer as parallel reduction
             ParallelUnit reductionUnit = ParallelUnit::CPUThreadGroupReduction;
@@ -861,7 +854,8 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
                 reductionUnit = ParallelUnit::GPUBlockReduction;
               }
             }
-            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), reductionUnit, OutputRaceStrategy::ParallelReduction);
+            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), reductionUnit,
+                                        OutputRaceStrategy::ParallelReduction);
             precomputed_stmt = where(consumer, producer);
           }
           stmt = precomputed_stmt;
@@ -875,12 +869,12 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
                                          false, true);
           stmt = forall(i, body, parallelize.getParallelUnit(), 
                         parallelize.getOutputRaceStrategy(), 
-                        foralli.getUnrollFactor());
+                        foralli.getUnrollFactor(), parallelize.getNumChunks());
           return;
         }
 
-
-        stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor(), parallelize.getNumChunks());
+        stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(),
+                      foralli.getUnrollFactor(), parallelize.getNumChunks());
         return;
       }
 
@@ -1722,7 +1716,7 @@ IndexStmt scalarPromote(IndexStmt stmt, ProvenanceGraph provGraph,
       }
 
       stmt = forall(i, body, foralli.getParallelUnit(),
-                    foralli.getOutputRaceStrategy(), foralli.getUnrollFactor());
+                    foralli.getOutputRaceStrategy(), foralli.getUnrollFactor(), foralli.getNumChunks());
       for (const auto& consumer : consumers) {
         stmt = where(consumer, stmt);
       }

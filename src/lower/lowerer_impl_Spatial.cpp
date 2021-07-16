@@ -175,7 +175,7 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
     }
 
     return getIterators(access).back().isUnique()
-           ? Load::make(getValuesArray(var), generateValueLocExpr(access))
+           ? Load::make(getValuesArray(var), generateValueLocExpr(access), var.getMemoryLocation())
            : getReducedValueVar(access);
   }
 
@@ -432,7 +432,8 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     if (getProvGraph().isCoordVariable(forall.getIndexVar())) {
       Expr coordinateArray = iterator.posAccess(iterator.getPosVar(),
                                                 coordinates(iterator)).getResults()[0];
-      declareCoordinate = VarDecl::make(coordinate, coordinateArray);
+      declareCoordinate = VarDecl::make(coordinate, coordinateArray, iterator.getMode().getMemoryLocation());
+
     }
     if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
       markAssignsAtomicDepth++;
@@ -1031,6 +1032,10 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     auto maxDim = ir::VarDecl::make(maxDimVar, 65536);
     funcEnvMap.insert({"dimension_max", maxDimVar});
 
+    auto maxNNZAccelVar =  ir::Var::make("nnz_accel_max", Int());
+    auto maxNNZAccel = ir::VarDecl::make(maxNNZAccelVar, 65536);
+    funcEnvMap.insert({"nnz_accel_max", maxNNZAccelVar});
+
     vector<Stmt> maxVars;
     for (const IndexVar& indexVar : provGraph.getAllIndexVars()) {
       auto ivarMax = ir::Var::make(indexVar.getName() + "_max", Int(), true, false, false, MemoryLocation::SpatialArgIn);
@@ -1038,7 +1043,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       auto allocate = ir::Allocate::make(ivarMax, 1, false, Expr(), false, MemoryLocation::SpatialArgIn);
       maxVars.push_back(allocate);
     }
-    return (Block::blanks(FuncEnv::make(Block::make(innerPar, scanPar, bodyPar, maxNNZ, maxDim)), Block::make(maxVars)));
+    return (Block::blanks(FuncEnv::make(Block::make(innerPar, scanPar, bodyPar, maxNNZ, maxNNZAccel, maxDim)), Block::make(maxVars)));
   }
 
   Stmt LowererImplSpatial::generateAccelEnvironmentVars() {

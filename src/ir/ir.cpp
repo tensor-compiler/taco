@@ -1011,7 +1011,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
       gp->name = tensorVar->name + "_vals_size";
       break;
   }
-  
+
   return gp;
 }
 

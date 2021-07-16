@@ -42,7 +42,7 @@ protected:
   std::string printContextDeclAndInit(std::map<Expr, std::string, ExprCompare> varMap,
                                           std::vector<Expr> localVars, int labels,
                                           std::string funcName);
-  std::string printDecls(std::map<Expr, std::string, ExprCompare> varMap,
+  virtual std::string printDecls(std::map<Expr, std::string, ExprCompare> varMap,
                          std::vector<Expr> inputs, std::vector<Expr> outputs);
   std::string printPack(std::map<std::tuple<Expr, TensorProperty, int, int>,
           std::string> outputProperties, std::vector<Expr> outputs);
@@ -53,6 +53,8 @@ protected:
           std::map<Expr, std::string, ExprCompare> inputMap={}, 
           std::map<Expr, std::string, ExprCompare> outputMap={});
 
+ std::string printTensorProperty(std::string varname, const GetProperty* op, bool is_ptr);
+
   void resetUniqueNameCounters();
   std::string genUniqueName(std::string name);
   void doIndentStream(std::stringstream &stream);
@@ -61,7 +63,6 @@ protected:
 private:
   virtual std::string restrictKeyword() const { return ""; }
 
-  std::string printTensorProperty(std::string varname, const GetProperty* op, bool is_ptr);
   virtual std::string unpackTensorProperty(std::string varname, const GetProperty* op,
                               bool is_output_prop);
   std::string packTensorProperty(std::string varname, Expr tnsr, TensorProperty property,

@@ -3018,7 +3018,7 @@ Stmt LowererImplDataflow::declLocatePosVars(vector<Iterator> locators) {
         ModeFunction locate = locateIterator.locate(coords);
         taco_iassert(isValue(locate.getResults()[1], true));
         Stmt declarePosVar = VarDecl::make(locateIterator.getPosVar(),
-                                           locate.getResults()[0]);
+                                           locate.getResults()[0], locateIterator.getMode().getMemoryLocation());
 
         result.push_back(declarePosVar);
 

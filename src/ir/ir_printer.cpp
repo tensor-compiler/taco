@@ -485,13 +485,15 @@ void IRPrinter::visit(const Function* op) {
   stream << ") {" << endl;
 
   if (op->funcEnv.defined()) {
-    doIndent();
+    indent++;
     op->funcEnv.accept(this);
+    indent--;
   }
 
   if (op->accelEnv.defined()) {
-    doIndent();
+    indent++;
     op->accelEnv.accept(this);
+    indent--;
   }
 
   resetNameCounters();

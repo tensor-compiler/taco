@@ -35,7 +35,6 @@ Stmt CompressedModeFormatSpatial::getAppendEdges(Expr pPrev, Expr pBegin, Expr p
   Expr posArray = getPosArray(mode.getModePack());
   ModeFormat parentModeType = mode.getParentModeType();
   Expr edges = pEnd;
-  cout << "GetAppendEdges Spatial: " << edges << endl;
   //Expr edges = (!parentModeType.defined() || parentModeType.hasAppend())
   //             ? pEnd : ir::Sub::make(pEnd, pBegin);
   return Store::make(posArray, ir::Add::make(pPrev, 1), edges, MemoryLocation::SpatialSparseDRAM, MemoryLocation::SpatialReg);

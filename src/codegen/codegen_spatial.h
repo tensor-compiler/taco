@@ -71,8 +71,12 @@ protected:
           std::map<Expr, std::string, ExprCompare> inputMap={}, 
           std::map<Expr, std::string, ExprCompare> outputMap={});
 
-private:
+protected:
   std::string restrictKeyword() const { return "restrict"; }
+
+  std::string printDecls(std::map<Expr, std::string, ExprCompare> varMap,
+                         std::vector<Expr> inputs, std::vector<Expr> outputs);
+
   std::string printDeclsAccel(std::map<Expr, std::string, ExprCompare> varMap,
                          std::vector<Expr> inputs, std::vector<Expr> outputs);
 
