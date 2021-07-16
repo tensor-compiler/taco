@@ -3,10 +3,10 @@ import subprocess
 import os
 
 # Arguments specialized to lassen.
-def lgCPUArgs():
-    return [
+def lgCPUArgs(othrs=18):
+    args = [
       '-ll:ocpu', '2',
-      '-ll:othr', '18',
+      '-ll:othr', str(othrs),
       '-ll:onuma', '1',
       '-ll:csize', '5000',
       '-ll:nsize', '75000',
@@ -14,6 +14,9 @@ def lgCPUArgs():
       '-ll:util', '2',
       '-dm:replicate', '1',
     ]
+    if (othrs != 18):
+        args += ['-ll:ht_sharing', '0']
+    return args
 
 def lgGPUArgs(gpus):
     return [
@@ -285,7 +288,7 @@ class LgTTVBench(TTVBench):
         return lassenHeader(procs) + [
             # Do gx * 2 to account for multiple OMP procs per node.
             'bin/ttv', '-n', psize, '-gx', str(2 * gx), '-gy', str(procs // gx), '-tm:numa_aware_alloc'
-        ] + lgCPUArgs()
+        ] + lgCPUArgs(othrs=76) # Run with more openmp threads than normal to make use of SMT.
 
 class LgTTVGPUBench(TTVBench):
     def __init__(self, initialProblemSize, gpus):
