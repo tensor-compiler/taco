@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import subprocess
 import os
@@ -78,6 +80,21 @@ class DMMBench:
 
 # Inheritable class for TTMC benchmarks.
 class TTMCBench:
+    def __init__(self, initialProblemSize):
+        self.initialProblemSize = initialProblemSize
+
+    def problemSize(self, procs):
+        # Weak scaling problem size. Keep the memory used per
+        # node the same.
+        size = int(self.initialProblemSize * pow(procs, 1.0 / 3.0))
+        size -= (size % 2)
+        return size
+
+    def getCommand(self, procs):
+        pass
+
+# Inheritable class for MTTKRP benchmarks.
+class MTTKRPBench:
     def __init__(self, initialProblemSize):
         self.initialProblemSize = initialProblemSize
 
@@ -281,6 +298,18 @@ class CTFTTMCBench(TTMCBench):
         return envs + header + \
                [os.path.join(ctfDir, 'bin/ttmc'), '-n', psize, '-procsPerNode', '4']
 
+class CTFMTTKRPBench(TTMCBench):
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        openblasLib = os.getenv('OPENBLAS_LIB_DIR')
+        assert(openblasLib is not None)
+        ctfDir = os.getenv('CTF_DIR')
+        assert(ctfDir is not None)
+        envs = ['env', 'LD_LIBRARY_PATH=LD_LIBRARY_PATH:{}'.format(openblasLib)]
+        header = ['jsrun', '-b', 'rs', '-c', '10', '-r', '4', '-n', str(4 * procs)]
+        return envs + header + \
+               [os.path.join(ctfDir, 'bin/mymttkrp'), '-n', psize, '-procsPerNode', '4']
+
 class LgTTVBench(TTVBench):
     def getCommand(self, procs):
         psize = str(self.problemSize(procs))
@@ -331,6 +360,7 @@ def main():
     ttmcgpu = 1500
     ttv = 2000
     ttvgpu = 1750
+    mttkrp = 768
 
     benches = {
         # GEMM benchmarks.
@@ -352,6 +382,7 @@ def main():
         "ttv": ttv,
         "ttv-gpu": ttvgpu,
         "ctf-ttv": ttv,
+        "ctf-mttkrp": mttkrp,
     }
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on", default=[1])
@@ -398,6 +429,8 @@ def main():
         bench = LgTTVGPUBench(size, args.gpus)
     elif args.bench == "ctf-ttv":
         bench = CTFTTVBench(size)
+    elif args.bench == "ctf-mttkrp":
+        bench = CTFMTTKRPBench(size)
     else:
         assert(False)
     for p in args.procs:
