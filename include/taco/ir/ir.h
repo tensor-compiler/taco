@@ -504,7 +504,7 @@ struct Load : public ExprNode<Load> {
   Expr loc;
   MemoryLocation mem_loc;
 
-  static Expr make(Expr arr);
+  static Expr make(Expr arr, MemoryLocation mem_loc = MemoryLocation::Default);
   static Expr make(Expr arr, Expr loc, MemoryLocation mem_loc = MemoryLocation::Default);
 
   static const IRNodeType _type_info = IRNodeType::Load;
@@ -846,9 +846,12 @@ struct StoreBulk : public StmtNode<StoreBulk> {
   MemoryLocation rhs_mem_loc;
   MemoryLocation lhs_mem_loc;
 
+  static Stmt make(Expr arr, Expr data, MemoryLocation lhs_mem_loc = MemoryLocation::Default, MemoryLocation rhs_mem_loc = MemoryLocation::Default,
+                   bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
   static Stmt make(Expr arr, Expr locStart, Expr locEnd, Expr data, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
   static Stmt make(Expr arr, Expr locStart, Expr locEnd, Expr data, MemoryLocation lhs_mem_loc = MemoryLocation::Default, MemoryLocation rhs_mem_loc = MemoryLocation::Default,
                    bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
+
 
   static const IRNodeType _type_info = IRNodeType::Store;
 };

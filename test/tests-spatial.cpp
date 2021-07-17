@@ -926,7 +926,7 @@ TEST(spatial, sparse_csf_3D_plus2) {
   set_Spatial_codegen_enabled(false);
 }
 
-TEST(spatial, sparse_dense_residual) {
+TEST(spatial, csr_residual) {
   set_Spatial_codegen_enabled(false);
 
   Tensor<int> y("y", {16}, {Dense}, taco::MemoryLocation::SpatialFIFO);
@@ -962,7 +962,7 @@ TEST(spatial, sparse_dense_residual) {
   cout << "----------------SPATIAL LLIR-----------------" << endl;
   set_Spatial_codegen_enabled(true);
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt computes = lower(stmt, "compute",  false, true);
+  ir::Stmt computes = lower(stmt, "Residual",  false, true);
   irp.print(computes);
 
   cout << "----------------SPATIAL CODEGEN-----------------" << endl;
@@ -1056,7 +1056,7 @@ TEST(spatial, sparse_dcsr_SDDMM) {
   set_Spatial_codegen_enabled(false);
 }
 
-TEST(spatial, sparse_MATTRANSMUL) {
+TEST(spatial, csr_mattransmul) {
   set_Spatial_codegen_enabled(false);
   int N = 16;
   Tensor<int> y("y", {N}, dense, taco::MemoryLocation::SpatialFIFO);
@@ -1095,7 +1095,7 @@ TEST(spatial, sparse_MATTRANSMUL) {
   cout << "----------------SPATIAL LLIR-----------------" << endl;
   set_Spatial_codegen_enabled(true);
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt computes = lower(stmt, "compute",  false, true);
+  ir::Stmt computes = lower(stmt, "MatTransMul",  false, true);
   irp.print(computes);
 
   cout << "----------------SPATIAL CODEGEN-----------------" << endl;

@@ -537,10 +537,15 @@ void IRRewriter::visit(const Sort* op) {
 
 void IRRewriter::visit(const StoreBulk* op) {
   Expr arr      = rewrite(op->arr);
-  Expr locStart = rewrite(op->locStart);
-  Expr locEnd   = rewrite(op->locEnd);
+  Expr locStart = Expr();
+  Expr locEnd = Expr();
+  if (op->locStart.defined() && op->locEnd.defined()) {
+    locStart = rewrite(op->locStart);
+    locEnd = rewrite(op->locEnd);
+  }
   Expr data     = rewrite(op->data);
-  if (arr == op->arr && locStart == op->locStart && locEnd == op->locEnd && data == op->data) {
+  if (arr == op->arr && (!op->locStart.defined() || (op->locStart.defined() && locStart == op->locStart)) &&
+    (!op->locEnd.defined() || op->locEnd.defined() && locEnd == op->locEnd && data == op->data)) {
     stmt = op;
   }
   else {

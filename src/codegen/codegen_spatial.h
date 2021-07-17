@@ -64,6 +64,9 @@ protected:
   int labelCount;
   bool emittingCoroutine;
 
+  // TODO: Currently this type is hardcoded
+  Datatype tensorTypes = Datatype::Int32;
+
   class FindVars;
   class FindEnvVars;
 
@@ -100,6 +103,8 @@ protected:
           std::string> outputProperties, std::vector<Expr> outputs);
   std::string outputTensorProperty(std::string varname, Expr tnsr, TensorProperty property,
                             int mode, int index);
+
+  std::string printSpatialType(Datatype type, bool is_ptr);
 };
 } // namespace ir
 } // namespace taco

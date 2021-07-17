@@ -500,8 +500,8 @@ Expr Call::make(const std::string& func, const std::vector<Expr>& args,
 }
 
 // Load
-Expr Load::make(Expr arr) {
-  return Load::make(arr, Literal::make((int64_t)0));
+Expr Load::make(Expr arr, MemoryLocation mem_loc) {
+  return Load::make(arr, Literal::make((int64_t)0), mem_loc);
 }
 
 Expr Load::make(Expr arr, Expr loc, MemoryLocation mem_loc) {
@@ -1035,6 +1035,18 @@ Stmt StoreBulk::make(Expr arr, Expr locStart, Expr locEnd, Expr data, MemoryLoca
   store->arr = arr;
   store->locStart = locStart;
   store->locEnd = locEnd;
+  store->data = data;
+  store->use_atomics = use_atomics;
+  store->atomic_parallel_unit = atomic_parallel_unit;
+  store->lhs_mem_loc = lhs_mem_loc;
+  store->rhs_mem_loc = rhs_mem_loc;
+  return store;
+}
+
+Stmt StoreBulk::make(Expr arr, Expr data, MemoryLocation lhs_mem_loc, MemoryLocation rhs_mem_loc,
+                     bool use_atomics, ParallelUnit atomic_parallel_unit) {
+  StoreBulk *store = new StoreBulk;
+  store->arr = arr;
   store->data = data;
   store->use_atomics = use_atomics;
   store->atomic_parallel_unit = atomic_parallel_unit;

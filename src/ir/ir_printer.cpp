@@ -649,12 +649,15 @@ void IRPrinter::visit(const Sort* op) {
 void IRPrinter::visit(const StoreBulk* op) {
   doIndent();
   op->arr.accept(this);
-  stream << "[";
   parentPrecedence = Precedence::TOP;
-  op->locStart.accept(this);
-  stream << ":";
-  op->locEnd.accept(this);
-  stream << "] = ";
+  if (op->locStart.defined() && op->locEnd.defined()) {
+    stream << "[";
+    op->locStart.accept(this);
+    stream << ":";
+    op->locEnd.accept(this);
+    stream << "]";
+  }
+  stream << " = ";
   parentPrecedence = Precedence::TOP;
   op->data.accept(this);
   stream << ";";

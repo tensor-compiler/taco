@@ -98,6 +98,8 @@ protected:
   std::map<IndexVar, ir::Expr> indexVartoBitVarMap;
 
   std::vector<ir::Expr> posAccumulationVars;
+
+  std::map<ir::Expr, std::vector<ir::Expr>> coordinateScanVarsMap;
 };
 
 

@@ -268,8 +268,10 @@ void IRVisitor::visit(const LoadBulk* op) {
 
 void IRVisitor::visit(const StoreBulk* op) {
   op->arr.accept(this);
-  op->locStart.accept(this);
-  op->locEnd.accept(this);
+  if (op->locStart.defined() && op->locEnd.defined()) {
+    op->locStart.accept(this);
+    op->locEnd.accept(this);
+  }
   op->data.accept(this);
 }
 

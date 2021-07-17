@@ -612,21 +612,27 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     Expr scan = Expr();
     Expr typeCase = Expr();
     if (point.iterators().size() == 1) {
-      auto iterator = point.iterators()[0];
+      auto iteratorVar = varMap[point.iterators()[0]];
+      auto load =  ir::Load::make(iteratorVar, iteratorVar.as<Var>()->memoryLocation);
       // TODO: fix bitcnt and par factor later
       scan = ir::Scan::make(funcEnvMap.at("sp"),
                             bitLen,
-                            varMap[iterator], Expr(), isUnion, false);
+                            load, Expr(), isUnion, false);
 
 
       typeCase = ir::TypeCase::make({uncompressedCrd, compressedCrd});
     } else {
       auto iterator1 = point.iterators()[0];
       auto iterator2 = point.iterators()[1];
+      auto iteratorVar1 = varMap[iterator1];
+      auto iteratorVar2 = varMap[iterator2];
       // TODO: fix bitcnt and par factor later
-      scan = ir::Scan::make(funcEnvMap.at("sp"), bitLen, varMap[iterator1], varMap[iterator2], isUnion, false);
+      auto load1 = ir::Load::make(iteratorVar1, iteratorVar2.as<Var>()->memoryLocation);
+      auto load2 = ir::Load::make(iteratorVar2, iteratorVar2.as<Var>()->memoryLocation);
+      scan = ir::Scan::make(funcEnvMap.at("sp"), bitLen, load1, load2, isUnion, false);
 
       typeCase = ir::TypeCase::make({uncompressedCrd, iterator1.getCoordVar(), compressedCrd, iterator2.getCoordVar()});
+      coordinateScanVarsMap[coordinate] = {uncompressedCrd, iterator1.getCoordVar(), compressedCrd, iterator2.getCoordVar()};
     }
 
     vector<Stmt> iterVars;
@@ -679,18 +685,23 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     Expr scan = Expr();
     Expr typeCase = Expr();
     if (point.iterators().size() == 1) {
-      auto iterator = point.iterators()[0];
+      auto iteratorVar = varMap[point.iterators()[0]];
+      auto load =  ir::Load::make(iteratorVar, iteratorVar.as<Var>()->memoryLocation);
       // TODO: fix bitcnt and par factor later
       scan = ir::Scan::make(1, bitLen,
-                            varMap[iterator], Expr(), isUnion, true);
+                            load, Expr(), isUnion, true);
 
 
       typeCase = ir::TypeCase::make({uncompressedCrd, compressedCrd});
     } else {
       auto iterator1 = point.iterators()[0];
       auto iterator2 = point.iterators()[1];
+      auto iteratorVar1 = varMap[iterator1];
+      auto iteratorVar2 = varMap[iterator2];
       // TODO: fix bitcnt and par factor later
-      scan = ir::Scan::make(1, bitLen, varMap[iterator1], varMap[iterator2], isUnion, true);
+      auto load1 = ir::Load::make(iteratorVar1, iteratorVar2.as<Var>()->memoryLocation);
+      auto load2 = ir::Load::make(iteratorVar2, iteratorVar2.as<Var>()->memoryLocation);
+      scan = ir::Scan::make(funcEnvMap.at("sp"), bitLen, load1, load2, isUnion, true);
 
       typeCase = ir::TypeCase::make({uncompressedCrd, iterator1.getCoordVar(), compressedCrd, iterator2.getCoordVar()});
     }
@@ -763,7 +774,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
 
       // FIXME: var isn't a pointer but can only allocate pointer type
       Expr var = ir::Var::make(iterator.getTensor().as<Var>()->name + "_bvRaw",
-                               iterator.getTensor().as<Var>()->type, true, false, false,
+                               Datatype::UInt32, true, false, false,
                                MemoryLocation::SpatialFIFO);
       bvRawMap[iterator] = var;
       // FIXME: do not hardcode size of 16. Also fix this so that the memDecl is a size and not the RHS
@@ -772,7 +783,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       stmts.push_back(allocate);
 
       auto varDeep = ir::Var::make(iterator.getTensor().as<Var>()->name + "_bv",
-                                   iterator.getTensor().as<Var>()->type, true, false, false,
+                                   Datatype::UInt32, true, false, false,
                                    MemoryLocation::SpatialFIFO);
       bvMap.insert({iterator, varDeep});
       allocate = ir::Allocate::make(varDeep, ir::Literal::make(4096), false, false,
@@ -801,7 +812,8 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
                                                                               "environment map for the "
                                                                               "\"Tn_dimension_max_bits\" variable";
     auto stop = indexVartoBitVarMap[coordinateVar];
-    Stmt deepFIFOCopyLoop = ir::For::make(ir::Var::make("bv_temp", Int64), ir::Literal::zero(Int64), stop, ir::Literal::make(1), deepFIFOCopyBody);
+    Stmt deepFIFOCopyLoop = ir::For::make(ir::Var::make("bv_temp", Int64), ir::Literal::zero(Int64), stop, ir::Literal::make(1),
+                                          funcEnvMap.at("ip"), deepFIFOCopyBody);
 
     return  Block::blanks(Block::make(stmts), deepFIFOCopyLoop);
   }
@@ -828,7 +840,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
 
       auto storeEnd = iterator.getOccupancyVar();
       auto data = ir::LoadBulk::make(crd, bounds[0], bounds[1]);
-      Stmt store = ir::StoreBulk::make(var, ir::Literal::zero(bounds[0].type()), storeEnd, data,
+      Stmt store = ir::StoreBulk::make(var, data,
                                        MemoryLocation::SpatialFIFO, MemoryLocation::SpatialDRAM);
 
       stmts.push_back(store);
@@ -862,8 +874,13 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
 
       vector<Stmt> appendStmts;
 
-      //if (generateAssembleCode()) {
-      appendStmts.push_back(appender.getAppendCoord(pos, coord));
+      if (coordinateScanVarsMap.count(coord)) {
+        appendStmts.push_back(appender.getAppendCoord(pos, coordinateScanVarsMap.at(coord)[0]));
+      }
+      else {
+        appendStmts.push_back(appender.getAppendCoord(pos, coord));
+      }
+
       while (!appender.isRoot() && appender.isBranchless()) {
         // Need to append result coordinate to parent level as well if child
         // level is branchless (so child coordinates will have unique parents).
@@ -875,7 +892,12 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
                                              << "duplicate coordinates to level, but level is declared unique";
 
           Expr coord = getCoordinateVar(appender);
-          appendStmts.push_back(appender.getAppendCoord(pos, coord));
+          if (coordinateScanVarsMap.count(coord)) {
+            appendStmts.push_back(appender.getAppendCoord(pos, coordinateScanVarsMap.at(coord)[0]));
+          }
+          else {
+            appendStmts.push_back(appender.getAppendCoord(pos, coord));
+          }
         }
       }
 
@@ -1082,9 +1104,9 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
 
       auto innerLoopIdxVar = ir::Var::make("j_temp", Int());
       Stmt innerLoopBody = ir::CallStmt::make(ir::RMW::make(posAccVar, innerLoopIdxVar, 0, Expr(), SpatialRMWoperators::Write, SpatialMemOrdering::Ordered));
-      auto innerLoop = ir::For::make(innerLoopIdxVar, 0, funcEnvMap.at("bp"), 1, funcEnvMap.at("bp"), innerLoopBody);
+      auto innerLoop = ir::For::make(innerLoopIdxVar, 0, funcEnvMap.at("ip"), 1, funcEnvMap.at("ip"), innerLoopBody);
       auto outerLoopIdxVar = ir::Var::make("i_temp", Int());
-      auto outerLoop = ir::For::make(outerLoopIdxVar, 0, funcEnvMap.at("ip"), 1, funcEnvMap.at("ip"),  innerLoop);
+      auto outerLoop = ir::For::make(outerLoopIdxVar, 0, funcEnvMap.at("bp"), 1, funcEnvMap.at("bp"),  innerLoop);
       resultStmts.push_back(outerLoop);
     }
 
