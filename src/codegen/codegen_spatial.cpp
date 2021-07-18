@@ -1087,7 +1087,7 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
       case MemoryLocation::SpatialSparseDRAM:
         // nm == 1 means it's the crd array
         memLoc = (is_output_prop) ? "SparseDRAM" : (nm == 1) ? "" : "SRAM";
-        useBP = nm != 0;
+        useBP = !is_output_prop && nm != 0;
         break;
       case MemoryLocation::SpatialSparseSRAM:
         // nm == 1 means it's the crd array
@@ -1180,7 +1180,8 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
         loc = "ArgIn";
     }
 
-    string dramVar = (op->index == 1 && tensor->memoryLocation == MemoryLocation::SpatialSparseDRAM) ? "" : "_dram";
+    // FIXME: should detect for tensor contraction
+    string dramVar = (!is_output_prop && op->index == 1 && tensor->memoryLocation == MemoryLocation::SpatialSparseDRAM) ? "" : "_dram";
     ret << "val " << varname << dramVar << " = ";
     ret << loc << "[T](nnz_max)\n";
   }
@@ -1415,7 +1416,7 @@ string CodeGen_Spatial::outputInitMemArgs(string varname, const GetProperty* op,
     ret << varname;
   }
   else if (op->property == TensorProperty::Indices) {
-    if (op->index == 1 && tensor->memoryLocation == MemoryLocation::SpatialSparseDRAM)
+    if (!is_output_prop && op->index == 1 && tensor->memoryLocation == MemoryLocation::SpatialSparseDRAM)
       ret << varname;
     else
       ret << varname << "_dram";
