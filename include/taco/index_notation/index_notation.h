@@ -642,6 +642,10 @@ public:
   /// that the racing reduction must be over the index variable being parallelized.
   IndexStmt parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, int numChunks=0) const;
 
+  /// Needed for users to be able to set hardware metadata
+  IndexStmt environment(std::string varname, size_t value = 0) const;
+
+
   /// pos and coord create
   /// new index variables in their respective iteration spaces.
   /// pos requires a tensor access expression as input, that
@@ -1029,6 +1033,20 @@ std::ostream& operator<<(std::ostream&, const IndexVar&);
 std::ostream& operator<<(std::ostream&, const WindowedIndexVar&);
 std::ostream& operator<<(std::ostream&, const IndexSetVar&);
 
+/// Environment variables used for hardware metadata
+class EnvVar {
+public:
+  EnvVar() = default;
+  EnvVar(std::string varname, size_t value = 0);
+  std::string getName() const;
+  size_t getValue() const;
+
+protected:
+  std::string name;
+  size_t value;
+};
+std::ostream& operator<<(std::ostream&, const EnvVar&);
+
 /// A suchthat statement provides a set of IndexVarRel that constrain
 /// the iteration space for the child concrete index notation
 class SuchThat : public IndexStmt {
@@ -1036,9 +1054,11 @@ public:
   SuchThat() = default;
   SuchThat(const SuchThatNode*);
   SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
+  SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::vector<EnvVar> environment);
 
   IndexStmt getStmt() const;
   std::vector<IndexVarRel> getPredicate() const;
+  std::vector<EnvVar> getEnvironment() const;
 
   typedef SuchThatNode Node;
 };

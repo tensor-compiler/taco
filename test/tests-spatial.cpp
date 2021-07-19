@@ -767,6 +767,49 @@ TEST(spatial, sparse_csr_spMV_default) {
   set_Spatial_codegen_enabled(false);
 }
 
+TEST(spatial, sparse_csr_spMV_op) {
+  set_Spatial_codegen_enabled(false);
+  int N = 32;
+  Tensor<int> a("a", {N}, {Dense}, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> B("B", {N, N}, CSR, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> c("c", {N}, {Dense}, taco::MemoryLocation::SpatialSparseSRAM);
+
+  for (int i = 0; i < N; i++) {
+    if (i % 4 == 0)
+      c.insert({i}, (int) i);
+    B.insert({i, i}, (int) i);
+  }
+
+  IndexVar i("i"), j("j"), f("f"), fp("fp");
+  IndexVar ib("ib"), jb("jb");
+  a(i) = B(i, j) * c(j);
+
+  IndexStmt stmt = a.getAssignment().concretize();
+  stmt = stmt.parallelize(j, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 16);
+  stmt = scalarPromote(stmt);
+  stmt = stmt.environment("bp", 2);
+
+  cout << "----------------Post-Schedule Stmt-----------------" << endl;
+  cout << stmt << endl;
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+
+  cout << "----------------CPU LLIR-----------------" << endl;
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  irp.print(compute);
+  cout << endl;
+
+  cout << "----------------SPATIAL LLIR-----------------" << endl;
+  set_Spatial_codegen_enabled(true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt computes = lower(stmt, "SpMV_OP",  false, true);
+  irp.print(computes);
+
+  cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  codegen->compile(computes, false);
+  set_Spatial_codegen_enabled(false);
+}
+
 TEST(spatial, sparse_dense_plus2) {
   set_Spatial_codegen_enabled(true);
 

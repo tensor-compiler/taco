@@ -259,6 +259,13 @@ void IndexNotationPrinter::visit(const SuchThatNode* op) {
       os << " and ";
     }
   }
+  os << "| ";
+  for (auto iter = op->environment.begin(); iter != op->environment.end(); ++iter) {
+    os << *iter;
+    if (iter + 1 != op->environment.end()) {
+      os << " and ";
+    }
+  }
   os << ")";
 }
 

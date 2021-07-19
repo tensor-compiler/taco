@@ -345,6 +345,8 @@ struct MultiNode : public IndexStmtNode {
 
 struct SuchThatNode : public IndexStmtNode {
   SuchThatNode(IndexStmt stmt, std::vector<IndexVarRel> predicate) : stmt(stmt), predicate(predicate) {}
+  SuchThatNode(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::vector<EnvVar> environment) :
+    stmt(stmt), predicate(predicate), environment(environment) {}
 
   void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
@@ -352,6 +354,7 @@ struct SuchThatNode : public IndexStmtNode {
 
   IndexStmt stmt;
   std::vector<IndexVarRel> predicate;
+  std::vector<EnvVar> environment;
 };
 
 struct SequenceNode : public IndexStmtNode {

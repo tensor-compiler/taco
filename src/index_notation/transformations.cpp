@@ -43,6 +43,10 @@ Transformation::Transformation(AddSuchThatPredicates addsuchthatpredicates)
         : transformation(new AddSuchThatPredicates(addsuchthatpredicates)) {
 }
 
+Transformation::Transformation(AddSuchThatEnvVars addSuchThatEnvVars)
+  : transformation(new AddSuchThatEnvVars(addSuchThatEnvVars)) {
+}
+
 IndexStmt Transformation::apply(IndexStmt stmt, string* reason) const {
   return transformation->apply(stmt, reason);
 }
@@ -639,6 +643,54 @@ void AddSuchThatPredicates::print(std::ostream& os) const {
 
 std::ostream& operator<<(std::ostream& os, const AddSuchThatPredicates& addSuchThatPredicates) {
   addSuchThatPredicates.print(os);
+  return os;
+}
+
+
+// class AddSuchThatEnvVars
+struct AddSuchThatEnvVars::Content {
+  std::vector<EnvVar> envVars;
+};
+
+AddSuchThatEnvVars::AddSuchThatEnvVars() : content(nullptr) {
+}
+
+AddSuchThatEnvVars::AddSuchThatEnvVars(std::vector<EnvVar> envVars) : content(new Content) {
+  taco_iassert(!envVars.empty());
+  content->envVars = envVars;
+}
+
+std::vector<EnvVar> AddSuchThatEnvVars::getEnvironmentVars() const {
+  return content->envVars;
+}
+
+IndexStmt AddSuchThatEnvVars::apply(IndexStmt stmt, string* reason) const {
+  INIT_REASON(reason);
+
+  string r;
+  if (!isConcreteNotation(stmt, &r)) {
+    *reason = "The index statement is not valid concrete index notation: " + r;
+    return IndexStmt();
+  }
+
+  if (isa<SuchThat>(stmt)) {
+    SuchThat suchThat = to<SuchThat>(stmt);
+    vector<EnvVar> environment = suchThat.getEnvironment();
+    vector<EnvVar> envVars = getEnvironmentVars();
+    environment.insert(environment.end(), envVars.begin(), envVars.end());
+    return SuchThat(suchThat.getStmt(), suchThat.getPredicate(), environment);
+  }
+  else{
+    return SuchThat(stmt, {}, content->envVars);
+  }
+}
+
+void AddSuchThatEnvVars::print(std::ostream& os) const {
+  os << "addSuchThatEnvVars(" << util::join(getEnvironmentVars()) << ")";
+}
+
+std::ostream& operator<<(std::ostream& os, const AddSuchThatEnvVars& addSuchThatEnvVars) {
+  addSuchThatEnvVars.print(os);
   return os;
 }
 

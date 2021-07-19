@@ -19,6 +19,7 @@ class Reorder;
 class Precompute;
 class ForAllReplace;
 class AddSuchThatPredicates;
+class AddSuchThatEnvVars;
 class Parallelize;
 class TopoReorder;
 class SetAssembleStrategy;
@@ -36,6 +37,7 @@ public:
   Transformation(TopoReorder);
   Transformation(AddSuchThatPredicates);
   Transformation(SetAssembleStrategy);
+  Transformation(AddSuchThatEnvVars);
 
   IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 
@@ -158,6 +160,25 @@ private:
 
 std::ostream& operator<<(std::ostream&, const AddSuchThatPredicates&);
 
+/// Adds a SuchThat node if it does not exist and adds the given IndexVarRels
+class AddSuchThatEnvVars : public TransformationInterface {
+public:
+  AddSuchThatEnvVars();
+
+  AddSuchThatEnvVars(std::vector<EnvVar> envVars);
+
+  std::vector<EnvVar> getEnvironmentVars() const;
+
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
+
+  void print(std::ostream &os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+std::ostream& operator<<(std::ostream&, const AddSuchThatEnvVars&);
 
 /// The parallelize optimization tags a Forall as parallelized
 /// after checking for preconditions

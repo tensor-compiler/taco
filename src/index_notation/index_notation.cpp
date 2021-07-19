@@ -1585,6 +1585,27 @@ IndexStmt IndexStmt::parallelize(IndexVar i, ParallelUnit parallel_unit, OutputR
   return transformed;
 }
 
+// class EnvVar
+EnvVar::EnvVar(const string varname, const size_t value) : name(varname), value(value) {
+}
+
+string EnvVar::getName() const {
+  return this->name;
+}
+
+size_t EnvVar::getValue() const {
+  return this->value;
+}
+
+IndexStmt IndexStmt::environment(string varname, size_t value) const {
+  string reason;
+  IndexStmt transformed = AddSuchThatEnvVars({EnvVar(varname, value)}).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
 IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
   // check access is contained in stmt
   bool foundAccess = false;
@@ -1985,12 +2006,20 @@ SuchThat::SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate)
         : SuchThat(new SuchThatNode(stmt, predicate)) {
 }
 
+SuchThat::SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::vector<EnvVar> environment)
+  : SuchThat(new SuchThatNode(stmt, predicate, environment)) {
+}
+
 IndexStmt SuchThat::getStmt() const {
   return getNode(*this)->stmt;
 }
 
 std::vector<IndexVarRel> SuchThat::getPredicate() const {
   return getNode(*this)->predicate;
+}
+
+std::vector<EnvVar> SuchThat::getEnvironment() const {
+  return getNode(*this)->environment;
 }
 
 SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate) {
@@ -2059,6 +2088,10 @@ std::ostream& operator<<(std::ostream& os, const WindowedIndexVar& var) {
 
 std::ostream& operator<<(std::ostream& os, const IndexSetVar& var) {
   return os << var.getIndexVar();
+}
+
+std::ostream& operator<<(std::ostream& os, const EnvVar& var) {
+  return os << var.getName() << " = " << var.getValue();
 }
 
 WindowedIndexVar::WindowedIndexVar(IndexVar base, int lo, int hi, int stride) : content( new Content){
