@@ -437,13 +437,16 @@ TEST(distributed, ttv) {
   IndexVar in("in"), il("il"), jn("jn"), jl("jl");
   IndexVar ii("ii"), io("io");
   A(i, j) = B(i, j, k) * C(k);
+  std::shared_ptr<LeafCallInterface> ttv = std::make_shared<TTV>();
   auto stmt = A.getAssignment().concretize()
-               .distribute({i, j}, {in, jn}, {il, jl}, std::vector<Access>{B(i, j, k), A(i, j)})
+               // TODO (rohany): This use of distributing onto C(k) is a hack to workaround a Legion bug.
+               .distribute({i, j}, {in, jn}, {il, jl}, std::vector<Access>{B(i, j, k), A(i, j), C(k)})
                .communicate(C(k), jn)
                .reorder({il, jl, k})
-               .split(il, ii, io, 4)
-               .parallelize(io, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
-               .parallelize(ii, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
+               .swapLeafKernel(il, ttv)
+               // .split(il, ii, io, 4)
+               // .parallelize(io, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
+               // .parallelize(ii, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
                ;
   auto lowered = lower(stmt, "computeLegion", false, true);
   auto all = ir::Block::make({partitionA, partitionB, placeALowered, placeBLowered, placeCLowered, lowered});
@@ -484,14 +487,17 @@ TEST(distributed, cuda_ttv) {
   IndexVar in("in"), il("il"), jn("jn"), jl("jl");
   IndexVar ii("ii"), io("io"), f("f"), f2("f2");
   A(i, j) = B(i, j, k) * C(k);
+  std::shared_ptr<LeafCallInterface> ttv = std::make_shared<CuTTV>();
   auto stmt = A.getAssignment().concretize()
-      .distribute({i, j}, {in, jn}, {il, jl}, std::vector<Access>{B(i, j, k), A(i, j)}, taco::ParallelUnit::DistributedGPU)
+      // TODO (rohany): This use of distributing onto C(k) is a hack to workaround a Legion bug.
+      .distribute({i, j}, {in, jn}, {il, jl}, std::vector<Access>{B(i, j, k), A(i, j), C(k)}, taco::ParallelUnit::DistributedGPU)
       .communicate(C(k), jn)
-      .fuse(il, jl, f)
-      .fuse(f, k, f2)
-      .split(f2, io, ii, 64)
-      .parallelize(io, taco::ParallelUnit::GPUBlock, taco::OutputRaceStrategy::NoRaces)
-      .parallelize(ii, taco::ParallelUnit::GPUThread, taco::OutputRaceStrategy::Atomics)
+      .swapLeafKernel(il, ttv)
+      // .fuse(il, jl, f)
+      // .fuse(f, k, f2)
+      // .split(f2, io, ii, 64)
+      // .parallelize(io, taco::ParallelUnit::GPUBlock, taco::OutputRaceStrategy::NoRaces)
+      // .parallelize(ii, taco::ParallelUnit::GPUThread, taco::OutputRaceStrategy::Atomics)
       ;
 
   auto lowered = lower(stmt, "computeLegion", false, true);

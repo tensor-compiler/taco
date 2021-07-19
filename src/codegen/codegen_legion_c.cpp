@@ -188,7 +188,7 @@ void CodegenLegionC::emitHeaders(std::ostream &o) {
       if (node->func.find("blas") != std::string::npos) {
         this->usesBLAS = true;
       }
-      if (node->func.find("mttkrp") != std::string::npos) {
+      if (node->func.find("mttkrp") != std::string::npos || node->func.find("ttv") != std::string::npos) {
         this->usesLeafKernels = true;
       }
     }
