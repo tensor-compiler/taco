@@ -298,7 +298,7 @@ class CTFTTMCBench(TTMCBench):
         return envs + header + \
                [os.path.join(ctfDir, 'bin/ttmc'), '-n', psize, '-procsPerNode', '4']
 
-class CTFMTTKRPBench(TTMCBench):
+class CTFMTTKRPBench(MTTKRPBench):
     def getCommand(self, procs):
         psize = str(self.problemSize(procs))
         openblasLib = os.getenv('OPENBLAS_LIB_DIR')
@@ -309,6 +309,27 @@ class CTFMTTKRPBench(TTMCBench):
         header = ['jsrun', '-b', 'rs', '-c', '10', '-r', '4', '-n', str(4 * procs)]
         return envs + header + \
                [os.path.join(ctfDir, 'bin/mymttkrp'), '-n', psize, '-procsPerNode', '4']
+
+class LgMTTKRPBench(MTTKRPBench):
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        # Seems like I have to hard code the problem sizes...
+        sizes = {
+          1: (1, 1, 1),
+          2: (2, 1, 1),
+          4: (2, 2, 1),
+          8: (2, 2, 2),
+          16: (4, 2, 2),
+          32: (4, 4, 2),
+          64: (4, 4, 4),
+          128: (8, 4, 4),
+          256: (8, 8, 4),
+        }
+        assert(procs in sizes)
+        x, y, z = sizes[procs]
+        return lassenHeader(procs) + [
+            'bin/mttkrp', '-n', psize, '-gx', str(2 * x), '-gy', str(y), '-gz', str(z), '-tm:numa_aware_alloc',
+        ] + lgCPUArgs()
 
 class LgTTVBench(TTVBench):
     def getCommand(self, procs):
@@ -382,6 +403,7 @@ def main():
         "ttv": ttv,
         "ttv-gpu": ttvgpu,
         "ctf-ttv": ttv,
+        "mttkrp": mttkrp,
         "ctf-mttkrp": mttkrp,
     }
     parser = argparse.ArgumentParser()
@@ -429,6 +451,8 @@ def main():
         bench = LgTTVGPUBench(size, args.gpus)
     elif args.bench == "ctf-ttv":
         bench = CTFTTVBench(size)
+    elif args.bench == "mttkrp":
+        bench = LgMTTKRPBench(size)
     elif args.bench == "ctf-mttkrp":
         bench = CTFMTTKRPBench(size)
     else:
