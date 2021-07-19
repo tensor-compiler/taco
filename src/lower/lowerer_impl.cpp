@@ -321,7 +321,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
       }),
       function<void(const AccessNode*)>([&](const AccessNode* n) {
         auto indexVars = n->indexVars;
-        if (util::contains(indexVars, indexVar)) {
+        if (util::contains(indexVars, indexVar) && !dimension.defined()) {
           int loc = (int)distance(indexVars.begin(),
                                   find(indexVars.begin(),indexVars.end(),
                                        indexVar));
@@ -1693,8 +1693,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
     // We need to emit accessing the partition for any child task that uses the partition.
     // TODO (rohany): A hack that doesn't scale to nested distributions.
-    for (auto var : forall.getComputingOn()) {
+    if (!forall.getComputingOn().empty()) {
       // Add a declaration of all the needed partition bounds variables.
+      auto var = *forall.getComputingOn().begin();
       auto tensorIspace = ir::GetProperty::make(this->tensorVars[var], TensorProperty::IndexSpace);
       auto bounds = ir::Call::make("runtime->get_index_space_domain", {ctx, tensorIspace}, Auto);
       auto boundsVar = ir::Var::make(var.getName() + "PartitionBounds", Auto);
