@@ -18,7 +18,7 @@ target_include_directories(taco
   PUBLIC
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/include/taco
-    ${CMAKE_BINARY_DIR}
+    ${CMAKE_BINARY_DIR}/include
   PRIVATE
     ${PROJECT_SOURCE_DIR}/src
 
