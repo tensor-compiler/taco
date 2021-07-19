@@ -1061,9 +1061,9 @@ TEST(spatial, csr_mattransmul) {
   int N = 16;
   Tensor<int> y("y", {N}, dense, taco::MemoryLocation::SpatialFIFO);
   Tensor<int> A("A", {N, N}, CSC, taco::MemoryLocation::SpatialFIFO);
-  Tensor<int> alpha("alpha");
+  Tensor<int> alpha("alpha", {}, {}, taco::MemoryLocation::SpatialReg);
   Tensor<int> x("x", {N}, dense, taco::MemoryLocation::SpatialFIFO);
-  Tensor<int> beta("beta");
+  Tensor<int> beta("beta", {}, {}, taco::MemoryLocation::SpatialReg);
   Tensor<int> z("z", {N}, dense, taco::MemoryLocation::SpatialFIFO);
 
   for (int i = 0; i < N; i++) {

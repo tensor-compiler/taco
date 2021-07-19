@@ -306,9 +306,15 @@ string CodeGen_Spatial::printFuncName(const Function *func,
   ret << "@spatial abstract class " << func->name << "(" << endl;
 
   // Parameters here
-
   ret << ") extends FluorineApp with " << func->name << "ComputeCheck {" << endl;
-  ret << "  type T = Int" << endl;  // FIXME: make type changeable
+  ret << "  type T = Int\n" << endl;  // FIXME: make type changeable
+  ret << "  // Code used for running multiple datasets\n";
+  ret << "  private val rt = sys.env(\"TACO_TO_SPATIAL_HOME\") + \"/data/mats/\"\n";
+  ret << "  val argList = ListBuffer(\n";
+  ret << "    \"ibm32.mtx\",\n";
+  ret << "    )\n";
+  ret << "  private val absPaths = argList.map(m => rt + m)\n";
+  ret << "  override def runtimeArgs: Args = absPaths.mkString(\" \")\n";
   ret << "\n";
   ret << "def main(args: Array[String]): Unit =" << endl;
   return ret.str();
@@ -997,6 +1003,7 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
       case MemoryLocation::SpatialSRAM:
         memLoc = "SRAM";
         break;
+      case MemoryLocation::SpatialReg:
       case MemoryLocation::SpatialDRAM:
       default:
         break;
@@ -1055,7 +1062,7 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
       }
     }
     ret << endl;
-    return ret.str();
+    return (tensor->memoryLocation == MemoryLocation::SpatialReg) ? "" : ret.str();
   } else if (op->property == TensorProperty::ValuesSize) {
     ret << indentation << "int " << varname << " = " << tensor->name << "->vals_size;\n";
 
@@ -1087,7 +1094,7 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
       case MemoryLocation::SpatialSparseDRAM:
         // nm == 1 means it's the crd array
         memLoc = (is_output_prop) ? "SparseDRAM" : (nm == 1) ? "" : "SRAM";
-        useBP = !is_output_prop && nm != 0;
+        useBP = is_output_prop || nm != 0;
         break;
       case MemoryLocation::SpatialSparseSRAM:
         // nm == 1 means it's the crd array
@@ -1138,19 +1145,23 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
   auto tensor = op->tensor.as<Var>();
   if (op->property == TensorProperty::Values) {
     string loc = "DRAM";
+    bool emitDim = true;
     if (tensor->memoryLocation == MemoryLocation::SpatialSRAM) {
       loc = "SRAM";
-    } else if (tensor->memoryLocation == MemoryLocation::SpatialReg) {
+    } else if (tensor->memoryLocation == MemoryLocation::SpatialArgIn) {
+      emitDim = false;
       if (is_output_prop)
         loc = "ArgOut";
       else
         loc = "ArgIn";
     }
 
-    ret << "val " << varname << "_dram = " << loc << "[T](";
-    if (op->index > 0) {
-      ret << "nnz_max";
-      ret << ")";
+    ret << "val " << varname << "_dram = " << loc << "[T]";
+
+    if (emitDim && op->index == 0) {
+      ret << "(1)";
+    } else if (emitDim) {
+      ret << "(nnz_max)";
     }
     ret << endl;
 
@@ -1208,14 +1219,21 @@ string CodeGen_Spatial::printDecls(map<Expr, string, ExprCompare> varMap,
   for (auto const& p: varMap) {
     if (p.first.as<GetProperty>()) {
       auto getProperty = p.first.as<GetProperty>();
-      sortedProps.push_back(p.first.as<GetProperty>());
+
       if (getProperty->property == TensorProperty::Indices && getProperty->index == 0) {
         const Expr tensor = getProperty->tensor;
         const Expr dimensionProperty = ir::GetProperty::make(tensor,
                                                    TensorProperty::Dimension, getProperty->mode);
-
-        props.push_back(dimensionProperty);
+        if (sortedProps.size() > 0 && sortedProps.back()->name == dimensionProperty.as<GetProperty>()->name){
+          const Expr cscDimProperty = ir::GetProperty::make(tensor,
+                                                               TensorProperty::Dimension, getProperty->mode-1);
+          props.push_back(cscDimProperty);
+        } else {
+          props.push_back(dimensionProperty);
+        }
       }
+
+      sortedProps.push_back(p.first.as<GetProperty>());
     }
   }
 
@@ -1426,8 +1444,12 @@ string CodeGen_Spatial::outputInitMemArgs(string varname, const GetProperty* op,
     ret << ", gold_" << varname << "_dram";
   }
 
-  if (!last)
+  if (!last) {
     ret << ", ";
+  } else {
+    // Used for running multiple datasets in TACO to Spatial apps
+    ret << ", args";
+  }
 
   return ret.str();
   
