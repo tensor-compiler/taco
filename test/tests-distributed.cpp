@@ -448,7 +448,7 @@ TEST(distributed, ttv) {
                // .parallelize(io, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
                // .parallelize(ii, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
                ;
-  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto lowered = lowerNoWait(stmt, "computeLegion");
   auto all = ir::Block::make({partitionA, partitionB, placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
@@ -500,7 +500,7 @@ TEST(distributed, cuda_ttv) {
       // .parallelize(ii, taco::ParallelUnit::GPUThread, taco::OutputRaceStrategy::Atomics)
       ;
 
-  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto lowered = lowerNoWait(stmt, "computeLegion");
   auto all = ir::Block::make({partitionA, partitionB, placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
@@ -531,10 +531,10 @@ TEST(distributed, ttmc) {
   std::shared_ptr<LeafCallInterface> ttmc = std::make_shared<TTMC>();
   A(i, j, l) = B(i, j, k) * C(k, l);
   auto stmt = A.getAssignment().concretize()
-               .distribute({i}, {in}, {il}, grid)
-               .communicate(A(i, j, l), in)
-               .communicate(B(i, j, k), in)
-               .communicate(C(k, l), in)
+               .distribute({i}, {in}, {il}, std::vector<Access>({A(i, j, l), B(i, j, k), C(k, l)}))
+               // .communicate(A(i, j, l), in)
+               // .communicate(B(i, j, k), in)
+               // .communicate(C(k, l), in)
                .swapLeafKernel(il, ttmc)
                ;
 
@@ -573,10 +573,11 @@ TEST(distributed, cuda_ttmc) {
   std::shared_ptr<LeafCallInterface> ttmc = std::make_shared<CuTTMC>();
   A(i, j, l) = B(i, j, k) * C(k, l);
   auto stmt = A.getAssignment().concretize()
-      .distribute({i}, {in}, {il}, grid, taco::ParallelUnit::DistributedGPU)
-      .communicate(A(i, j, l), in)
-      .communicate(B(i, j, k), in)
-      .communicate(C(k, l), in)
+      .distribute({i}, {in}, {il}, std::vector<Access>({A(i, j, l), B(i, j, k), C(k, l)}), taco::ParallelUnit::DistributedGPU)
+      // .distribute({i}, {in}, {il}, grid, taco::ParallelUnit::DistributedGPU)
+      // .communicate(A(i, j, l), in)
+      // .communicate(B(i, j, k), in)
+      // .communicate(C(k, l), in)
       .swapLeafKernel(il, ttmc)
       ;
   auto partition3tensor = lower(A.partitionStmt(grid), "partition3Tensor", false, true);

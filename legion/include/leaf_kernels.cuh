@@ -130,28 +130,28 @@ size_t flattenPoint(T accessor, Legion::Point<DIM> point) {
 template<typename T>
 __global__
 void ttv_kernel(int32_t iDim, int32_t jDim, int32_t kDim, size_t ldA, size_t ldB2, size_t ldB3, T* A_vals, const T* B_vals, const T* C_vals) {
-  int32_t io = blockIdx.x + (0 / 64);
+  int32_t io = blockIdx.x;
   int32_t ii = (threadIdx.x % (64));
   if (threadIdx.x >= 64) {
     return;
   }
 
   int32_t f2 = io * 64 + ii;
-  int32_t f = f2 / B3_dimension;
-  int32_t il = f / iDim;
+  int32_t f = f2 / kDim;
+  int32_t il = f / jDim;
   int32_t i = il;
   if (i >= iDim)
     return;
 
   int32_t jl = f % jDim;
   int32_t j = jl;
-  int32_t jB = i * ldB2 + j;
+  size_t jB = i * ldB2 + j;
   int32_t jA = i * ldA + j;
   if (j >= jDim)
     return;
 
   int32_t k = f2 % kDim;
-  int32_t kB = jB * ldB3 + k;
+  size_t kB = jB * ldB3 + k;
   if (k >= kDim)
     return;
 
@@ -166,7 +166,7 @@ void cu_ttv(TTVPack pack, T* A_vals, const T* B_vals, const T* C_vals) {
   auto ldA = pack.ldA;
   auto ldB2 = pack.ldB2;
   auto ldB3 = pack.ldB3;
-  ttv_kernel<T><<<((iDim * jDim * kDim) + 63) / 64, 64>>>(iDIm, jDim, kDim, ldA, ldB2, ldB3, A_vals, B_vals, C_vals);
+  ttv_kernel<T><<<((iDim * jDim * kDim) + 63) / 64, 64>>>(iDim, jDim, kDim, ldA, ldB2, ldB3, A_vals, B_vals, C_vals);
 }
 
 #endif // TACO_LG_CU_LEAF_KERNELS_H
