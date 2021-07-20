@@ -1474,5 +1474,31 @@ Stmt rewriteStmtRemoveDuplicates(Stmt stmt1, Stmt stmt2) {
   return simplifiedStmt;
 }
 
+std::vector<std::string> getArgInVarnames(Stmt stmt) {
+  struct GetArgInVarnames : IRVisitor {
+    using IRVisitor::visit;
+    std::vector<std::string> varnames;
+    bool isArgIn = false;
+
+    void visit(const Var* var) {
+      if (isArgIn)
+        varnames.push_back(var->name);
+      isArgIn = false;
+    }
+
+    void visit(const Allocate* allocate) {
+      if (allocate->memoryLocation == MemoryLocation::SpatialArgIn)
+        isArgIn = true;
+    }
+
+    std::vector<std::string> getVarNames(Stmt stmt) {
+      stmt.accept(this);
+      return varnames;
+    }
+  };
+  auto visitor = GetArgInVarnames();
+  return visitor.getVarNames(stmt);
+}
+
 } // namespace ir
 } // namespace taco

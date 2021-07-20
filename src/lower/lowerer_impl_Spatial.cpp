@@ -448,9 +448,6 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
 
     body = Block::make(recoveryStmt, body);
 
-    // Code to append positions
-    Stmt posAppend = generateAppendPositions(appenders);
-
     // Code to compute iteration bounds
     Stmt boundsCompute;
     Expr startBound = 0;
@@ -510,6 +507,10 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       boundsDecl = Block::make(boundsDecl, endBoundDecl);
       endBound = endVar;
     }
+
+
+    // Code to append positions
+    Stmt posAppend = generateAppendPositionsForallPos(appenders, endBound);
 
     LoopKind kind = LoopKind::Serial;
     if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
@@ -1065,6 +1066,15 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       auto allocate = ir::Allocate::make(ivarMax, 1, false, Expr(), false, MemoryLocation::SpatialArgIn);
       maxVars.push_back(allocate);
     }
+    std::sort(maxVars.begin(), maxVars.end(),
+              [&](const Stmt a,
+                 const Stmt b) -> bool {
+      // first, use a total order of outputs,inputs
+      auto aVarname = a.as<Allocate>()->var.as<Var>()->name;
+      auto bVarname = b.as<Allocate>()->var.as<Var>()->name;
+      return aVarname < bVarname;
+    });
+
     return (Block::blanks(FuncEnv::make(Block::make(innerPar, scanPar, bodyPar, maxNNZ, maxNNZAccel, maxDim)), Block::make(maxVars)));
   }
 
@@ -1112,4 +1122,46 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
 
     return Block::make(resultStmts);
   }
+
+  Stmt LowererImplSpatial::generateAppendPositions(vector<Iterator> appenders) {
+    vector<Stmt> result;
+    for (Iterator appender : appenders) {
+      if (appender.isBranchless() ||
+          isAssembledByUngroupedInsertion(appender.getTensor())) {
+        continue;
+      }
+
+      Expr pos = [](Iterator appender) {
+        // Get the position variable associated with the appender. If a mode
+        // is above a branchless mode, then the two modes can share the same
+        // position variable.
+        while (!appender.isLeaf() && appender.getChild().isBranchless()) {
+          appender = appender.getChild();
+        }
+        return appender.getPosVar();
+      }(appender);
+      Expr beginPos = appender.getBeginVar();
+      Expr parentPos = appender.getParent().getPosVar();
+      result.push_back(appender.getAppendEdges(parentPos, beginPos, pos));
+    }
+    return result.empty() ? Stmt() : Block::make(result);
+  }
+
+  Stmt LowererImplSpatial::generateAppendPositionsForallPos(vector<Iterator> appenders, Expr pos) {
+    vector<Stmt> result;
+    for (Iterator appender : appenders) {
+      if (appender.isBranchless() ||
+          isAssembledByUngroupedInsertion(appender.getTensor())) {
+        continue;
+      }
+
+      Expr beginPos = appender.getBeginVar();
+      Expr parentPos = appender.getParent().getPosVar();
+      result.push_back(appender.getAppendEdges(parentPos, beginPos, pos));
+    }
+    return result.empty() ? Stmt() : Block::make(result);
+  }
+
+
+
 } // namespace taco

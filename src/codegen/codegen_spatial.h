@@ -105,6 +105,8 @@ protected:
                             int mode, int index);
 
   std::string printSpatialType(Datatype type, bool is_ptr);
+
+  std::string printInitArgs(Stmt stmt);
 };
 } // namespace ir
 } // namespace taco

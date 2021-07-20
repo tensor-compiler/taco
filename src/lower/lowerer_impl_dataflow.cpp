@@ -414,7 +414,8 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
         taco_iassert(!util::contains(scalars, argument));
         taco_iassert(util::contains(tensorVars, argument));
         scalars.insert({argument, tensorVars.at(argument)});
-        header.push_back(defineScalarVariable(argument, false));
+        defineScalarVariableNoCopy(argument, false);
+        //header.push_back(defineScalarVariable(argument, false));
       }
     }
   }
@@ -461,6 +462,7 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   }
 
   accelEnv = Block::blanks(accelEnv, addAccelEnvironmentVars());
+  
   // Create function
   return Function::make(name, resultsIR, argumentsIR,
                         funcEnv, accelEnv,
@@ -2740,9 +2742,9 @@ Stmt LowererImplDataflow::initResultArrays(vector<Access> writes,
       }
 
       // Declare position variable for the last append level
-      if (lastAppendIterator.defined()) {
-        result.push_back(VarDecl::make(lastAppendIterator.getPosVar(), 0));
-      }
+//      if (lastAppendIterator.defined()) {
+//        result.push_back(VarDecl::make(lastAppendIterator.getPosVar(), 0));
+//      }
     }
 
     if (generateComputeCode() && iterators.back().hasInsert() &&
@@ -2810,12 +2812,24 @@ ir::Stmt LowererImplDataflow::finalizeResultArrays(std::vector<Access> writes) {
   return result.empty() ? Stmt() : Block::blanks(result);
 }
 
+void LowererImplDataflow::defineScalarVariableNoCopy(TensorVar var, bool zero) {
+  Datatype type = var.getType().getDataType();
+  Expr gpValueIR = GetProperty::make(tensorVars.at(var),
+                                     TensorProperty::Values);
+  Expr varValueIR = Var::make(var.getName() + "_vals", type, false, false);
+  Expr init = (zero) ? ir::Literal::zero(type)
+                     : Load::make(gpValueIR);
+  tensorVars.find(var)->second = gpValueIR;
+}
+
+
 Stmt LowererImplDataflow::defineScalarVariable(TensorVar var, bool zero) {
   Datatype type = var.getType().getDataType();
-  Expr varValueIR = Var::make(var.getName() + "_val", type, false, false);
+  Expr gpValueIR = GetProperty::make(tensorVars.at(var),
+  TensorProperty::Values);
+  Expr varValueIR = Var::make(var.getName() + "_vals", type, false, false);
   Expr init = (zero) ? ir::Literal::zero(type)
-                     : Load::make(GetProperty::make(tensorVars.at(var),
-                                                    TensorProperty::Values));
+                     : Load::make(gpValueIR);
   tensorVars.find(var)->second = varValueIR;
 
   return VarDecl::make(varValueIR, init, MemoryLocation::SpatialReg);

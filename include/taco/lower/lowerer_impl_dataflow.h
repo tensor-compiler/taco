@@ -330,6 +330,7 @@ protected:
    * Replace scalar tensor pointers with stack scalar for lowering.
    */
   ir::Stmt defineScalarVariable(TensorVar var, bool zero);
+  void defineScalarVariableNoCopy(TensorVar var, bool zero);
 
   ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes,
                             std::vector<Access> reads,
@@ -393,7 +394,7 @@ protected:
   virtual ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
 
   /// Create statements to append positions to result modes.
-  ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
+  virtual ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
 
   /// Create an expression to index into a tensor value array.
   ir::Expr generateValueLocExpr(Access access) const;

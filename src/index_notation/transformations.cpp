@@ -1726,6 +1726,7 @@ IndexStmt scalarPromote(IndexStmt stmt, ProvenanceGraph provGraph,
   };
   FindHoistLevel findHoistLevel(hoistLevel, reduceOp, provGraph, isWholeStmt, 
                                 promoteScalar);
+
   stmt.accept(&findHoistLevel);
   
   struct HoistWrites : public IndexNotationRewriter {

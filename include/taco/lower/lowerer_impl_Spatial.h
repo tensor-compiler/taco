@@ -81,6 +81,9 @@ protected:
   ir::Stmt addAccelEnvironmentVars() override;
   ir::Stmt codeToInitializePosAccumulators();
 
+  ir::Stmt generateAppendPositions(std::vector<Iterator> appenders) override;
+  ir::Stmt generateAppendPositionsForallPos(std::vector<Iterator> appenders, ir::Expr pos);
+
     private:
   class Visitor;
   friend class Visitor;
