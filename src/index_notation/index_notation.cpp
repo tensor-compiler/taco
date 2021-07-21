@@ -1606,6 +1606,10 @@ IndexStmt IndexStmt::environment(string varname, size_t value) const {
   return transformed;
 }
 
+//IndexStmt IndexStmt::communicate(Access access, IndexVar indexVar) const {
+//  struct
+//}
+
 IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
   // check access is contained in stmt
   bool foundAccess = false;

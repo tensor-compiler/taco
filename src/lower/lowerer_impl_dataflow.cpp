@@ -17,6 +17,7 @@
 #include "mode_access.h"
 #include "taco/util/collections.h"
 #include "taco/spatial.h"
+#include "taco/ir/workspace_rewriter.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -438,6 +439,10 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   // Lower the index statement to compute and/or assemble
   Stmt body = lower(stmt);
 
+  // Post-process body to replace workspace/temporary GetProperties with local variables
+  if (generateComputeCode())
+    body = rewriteTemporaryGP(body, temporaries, temporarySizeMap, temporaryArrays);
+
   // Post-process result modes and allocate memory for values if necessary
   Stmt finalizeResults = finalizeResultArrays(resultAccesses);
 
@@ -462,7 +467,7 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   }
 
   accelEnv = Block::blanks(accelEnv, addAccelEnvironmentVars());
-  
+
   // Create function
   return Function::make(name, resultsIR, argumentsIR,
                         funcEnv, accelEnv,
@@ -1885,7 +1890,8 @@ Stmt LowererImplDataflow::lowerForallBody(Expr coordinate, IndexStmt stmt,
 
 Expr LowererImplDataflow::getTemporarySize(Where where) {
   TensorVar temporary = where.getTemporary();
-  Dimension temporarySize = temporary.getType().getShape().getDimension(0);
+  int temporaryOrder = temporary.getType().getShape().getOrder();
+
   Access temporaryAccess = getResultAccesses(where.getProducer()).first[0];
   std::vector<IndexVar> indexVars = temporaryAccess.getIndexVars();
 
@@ -1893,23 +1899,40 @@ Expr LowererImplDataflow::getTemporarySize(Where where) {
     // All index vars underived then use tensor properties to get tensor size
     taco_iassert(util::contains(dimensions, indexVars[0])) << "Missing " << indexVars[0];
     ir::Expr size = dimensions.at(indexVars[0]);
+    vector<ir::Expr> temporarySizeVector = {size};
+
     for(size_t i = 1; i < indexVars.size(); ++i) {
       taco_iassert(util::contains(dimensions, indexVars[i])) << "Missing " << indexVars[i];
-      size = ir::Mul::make(size, dimensions.at(indexVars[i]));
+      auto dimGP = dimensions.at(indexVars[i]);
+      size = ir::Mul::make(size, dimGP);
+      temporarySizeVector.push_back(dimGP);
     }
+    temporarySizeMap[temporary] = temporarySizeVector;
     return size;
   }
 
-  if (temporarySize.isFixed()) {
-    return ir::Literal::make(temporarySize.getSize());
-  }
+  vector<Expr> sizeVector;
+  Expr finalSize;
+  for (int i = 0; i < temporaryOrder; i++) {
+    Dimension temporarySize = temporary.getType().getShape().getDimension(i);
+    Expr size;
+    if (temporarySize.isFixed()) {
+      size = ir::Literal::make(temporarySize.getSize());
 
-  if (temporarySize.isIndexVarSized()) {
-    IndexVar var = temporarySize.getIndexVarSize();
-    vector<Expr> bounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds,
-                                                     indexVarToExprMap, iterators);
-    return ir::Sub::make(bounds[1], bounds[0]);
+    } else if (temporarySize.isIndexVarSized()) {
+      IndexVar var = temporarySize.getIndexVarSize();
+      vector<Expr> bounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds,
+                                                       indexVarToExprMap, iterators);
+      size = ir::Sub::make(bounds[1], bounds[0]);
+    }
+    sizeVector.push_back(size);
+    if (i == 0)
+      finalSize = size;
+    else
+      finalSize = ir::Mul::make(finalSize, size);
   }
+  temporarySizeMap[temporary] = sizeVector;
+  return finalSize;
 
   taco_ierror; // TODO
   return Expr();
@@ -2207,13 +2230,14 @@ Stmt LowererImplDataflow::lowerWhere(Where where) {
 
   // Now that temporary allocations are hoisted, we always need to emit an initialization loop before entering the
   // producer but only if there is no dense acceleration
-  if (util::contains(needCompute, temporary) && !isScalar(temporary.getType()) && !accelerateDenseWorkSpace) {
+  if (temporaryHoisted && util::contains(needCompute, temporary) && !isScalar(temporary.getType()) && !accelerateDenseWorkSpace && !temporaryHoisted) {
     // TODO: We only actually need to do this if:
     //      1) We use the temporary multiple times
     //      2) The PRODUCER RHS is sparse(not full). (Guarantees that old values are overwritten before consuming)
 
     Expr p = Var::make("p" + temporary.getName(), Int());
-    Expr values = ir::Var::make(temporary.getName(),
+    Expr values = (getTemporaryArrays().count(temporary) > 0) ? getTemporaryArrays().at(temporary).values :
+                  ir::Var::make(temporary.getName(),
                                 temporary.getType().getDataType(),
                                 true, false);
     Expr size = getTemporarySize(where);

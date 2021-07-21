@@ -84,6 +84,10 @@ protected:
   ir::Stmt generateAppendPositions(std::vector<Iterator> appenders) override;
   ir::Stmt generateAppendPositionsForallPos(std::vector<Iterator> appenders, ir::Expr pos);
 
+  // TODO: add this to LowererImplImperative too
+  std::vector<ir::Expr> getAllTemporaryModeArrays(Where where);
+
+
     private:
   class Visitor;
   friend class Visitor;

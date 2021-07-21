@@ -7,6 +7,7 @@
 
 namespace taco {
 class TensorVar;
+struct TemporaryArrays;
 
 namespace ir {
 class Stmt;
@@ -14,8 +15,15 @@ class Expr;
 }
 
 /// Rewrite a post-lowered IR statement to take into account multidimensional temporaries. 
-/// Replaces Dimension GetProperty nodes that correspond to temporary workspaces with 
+/// Replaces Dimension and Indices GetProperty nodes that correspond to temporary workspaces with
 /// their corresponding dimension found in the temporarySizeMap. 
+ir::Stmt rewriteTemporaryGP(const ir::Stmt& stmt, std::vector<TensorVar> whereTemps,
+                            std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap,
+                            std::map<TensorVar, TemporaryArrays> temporaryArrays);
+
+/// Rewrite a post-lowered IR statement to take into account multidimensional temporaries.
+/// Replaces Dimension  GetProperty nodes that correspond to temporary workspaces with
+/// their corresponding dimension found in the temporarySizeMap.
 ir::Stmt rewriteTemporaryGP(const ir::Stmt& stmt, std::vector<TensorVar> whereTemps,
                             std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap);
 

@@ -771,7 +771,7 @@ TEST(spatial, sparse_csr_spMV_op) {
   set_Spatial_codegen_enabled(false);
   int N = 32;
   Tensor<int> a("a", {N}, {Dense}, taco::MemoryLocation::SpatialSRAM);
-  Tensor<int> B("B", {N, N}, CSR, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> B("B", {N, N}, CSR, taco::MemoryLocation::SpatialFIFORetimed);
   Tensor<int> c("c", {N}, {Dense}, taco::MemoryLocation::SpatialSparseParSRAM);
 
   for (int i = 0; i < N; i++) {
@@ -788,7 +788,7 @@ TEST(spatial, sparse_csr_spMV_op) {
   stmt = stmt.parallelize(j, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 16);
   stmt = scalarPromote(stmt);
   stmt = stmt.environment("bp", 2);
-  //stmt = stmt.communicate(B(i,j), i);
+  //stmt = stmt.communicate(B(i, j), i);
 
   cout << "----------------Post-Schedule Stmt-----------------" << endl;
   cout << stmt << endl;
@@ -908,7 +908,7 @@ TEST(spatial, sparse_csr_plus3) {
   A(i, j) = B(i, j) + precomputedExpr;
 
   IndexStmt stmt = A.getAssignment().concretize();
-  TensorVar ws("ws", Type(Float64, {16, 16}), {taco::dense, taco::compressed}, MemoryLocation::SpatialSparseSRAM);
+  TensorVar ws("ws", Type(Int(), {16, 16}), {taco::dense, taco::compressed}, MemoryLocation::SpatialSparseSRAM);
   stmt = stmt.precompute(precomputedExpr, {i, j}, {i, j}, ws);
 
   cout << "----------------Post-Schedule Stmt-----------------" << endl;

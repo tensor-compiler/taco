@@ -52,6 +52,7 @@ class Expr;
 
 struct TemporaryArrays {
   ir::Expr values;
+  std::map<std::string, ir::Expr> indices;
 };
 
 class LowererImplDataflow : public LowererImpl {
@@ -474,6 +475,8 @@ protected:
   virtual ir::Stmt addAccelEnvironmentVars();
   std::map<std::string, ir::Expr> funcEnvMap;
 
+  // Map temporary tensorVars to a list of size expressions for each mode
+  std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap;
 
 protected:
   bool assemble;

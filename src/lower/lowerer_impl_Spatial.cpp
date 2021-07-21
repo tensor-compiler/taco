@@ -196,37 +196,60 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
       initializeTemporary = defineScalarVariable(temporary, true);
     } else {
       if (generateComputeCode()) {
-        Expr values = ir::Var::make(temporary.getName(),
-                                    temporary.getType().getDataType(),
-                                    true, false);
-
-        Dimension temporarySize = temporary.getType().getShape().getDimension(0);
-        Expr size;
-        if (temporarySize.isFixed()) {
-          size = ir::Literal::make(temporarySize.getSize());
-        } else if (temporarySize.isIndexVarSized()) {
-          IndexVar var = temporarySize.getIndexVarSize();
-          vector<Expr> bounds = getProvGraph().deriveIterBounds(var, getDefinedIndexVarsOrdered(), getUnderivedBounds(),
-                                                           getIndexVarToExprMap(), getIterators());
-          size = ir::Sub::make(bounds[1], bounds[0]);
-        } else {
-          taco_ierror; // TODO
-        }
-
-        // no decl needed for Spatial memory
-//        Stmt decl = Stmt();
-//        if ((isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) || !should_use_CUDA_codegen()) {
-//          decl = (values, ir::Literal::make(0));
-//        }
-        Stmt allocate = Allocate::make(values, size);
-
-        Expr p = Var::make("p" + temporary.getName(), Int());
-        Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
-        Stmt zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
 
         /// Make a struct object that lowerAssignment and lowerAccess can read
         /// temporary value arrays from.
         TemporaryArrays arrays;
+
+        Expr values = ir::Var::make(temporary.getName(),
+                                    temporary.getType().getDataType(),
+                                    true, false);
+
+        Expr size = getTemporarySize(where);
+
+        // allocate ws values array
+        Stmt allocate = Allocate::make(values, size);
+
+        Expr p = Var::make("p" + temporary.getName(), Int());
+        Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
+        Stmt zeroInitLoop = For::make(p, 0, size, 1,funcEnvMap["ip"], zeroInit, LoopKind::Serial);
+
+        // allocate ws indices and dimension arrays
+        MemoryLocation tempMemLoc = temporary.getMemoryLocation();
+        if (tempMemLoc != MemoryLocation::SpatialDRAM || tempMemLoc != MemoryLocation::SpatialSparseDRAM) {
+
+          vector<Stmt> indArrays;
+          auto temporaryModeArrays = getAllTemporaryModeArrays(where);
+          for (auto &tempArray : temporaryModeArrays) {
+            auto gp = tempArray.as<GetProperty>();
+            MemoryLocation memLoc = MemoryLocation::Default;
+            if (gp->property == TensorProperty::Indices) {
+
+              switch (tempMemLoc) {
+                case MemoryLocation::SpatialFIFO:
+                  memLoc = (gp->index == 0) ? MemoryLocation::SpatialSRAM : MemoryLocation::SpatialFIFO;
+                  break;
+                case MemoryLocation::SpatialSparseSRAM:
+                default:
+                  memLoc = (gp->index == 0) ? MemoryLocation::SpatialSRAM : MemoryLocation::SpatialSparseSRAM;
+                  break;
+              }
+
+              Expr indices = ir::Var::make(gp->name, gp->type, true, false, false, memLoc);
+
+              Expr indSize = (gp->index == 0) ? ir::Add::make(
+                ir::GetProperty::make(gp->tensor, TensorProperty::Dimension, gp->mode - 1), 1)
+                                              : funcEnvMap["nnz_accel_max"];
+              Stmt allocateInd = Allocate::make(indices, indSize, false, Expr(), false, memLoc);
+              indArrays.push_back(allocateInd);
+
+              arrays.indices[gp->name] = indices;
+            }
+          }
+
+          allocate = Block::make(Block::make(indArrays), allocate);
+        }
+
         arrays.values = values;
         this->insertTemporaryArrays(temporary, arrays);
 
@@ -236,6 +259,7 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
           initializeTemporary = Block::make(allocate);
         else
           initializeTemporary = Block::make(allocate, zeroInitLoop);
+
         // Don't zero initialize temporary if there is no reduction across temporary
         if (isa<Forall>(where.getProducer())) {
           Forall forall = to<Forall>(where.getProducer());
@@ -246,6 +270,7 @@ class LowererImplSpatial::Visitor : public IndexNotationVisitorStrict {
 
       }
     }
+
     return {initializeTemporary, freeTemporary};
   }
 
@@ -1162,6 +1187,23 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     return result.empty() ? Stmt() : Block::make(result);
   }
 
+  std::vector<ir::Expr> LowererImplSpatial::getAllTemporaryModeArrays(Where where) {
+    vector<Expr> arrays;
+
+    Access temporaryAccess = getResultAccesses(where.getProducer()).first[0];
+    auto temporaryIterators = getIterators(temporaryAccess);
+    for (auto& iterator : temporaryIterators) {
+      if (iterator.getMode().defined()) {
+        if (iterator.getMode().getModeFormat() == dense) {
+          arrays.push_back(iterator.getMode().getModePack().getArray(0));
+        } else if (iterator.getMode().getModeFormat() == sparse) {
+          arrays.push_back(iterator.getMode().getModePack().getArray(0));
+          arrays.push_back(iterator.getMode().getModePack().getArray(1));
+        }
+      }
+    }
+    return arrays;
+  }
 
 
 } // namespace taco

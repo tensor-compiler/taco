@@ -1257,26 +1257,68 @@ string CodeGen_Spatial::printDecls(map<Expr, string, ExprCompare> varMap,
   vector<const GetProperty*> sortedProps;
   vector<Expr> props;
 
+  // Add properties to sortedProps and keep track of dimension names
+  vector<string> dimPropNames;
   for (auto const& p: varMap) {
     if (p.first.as<GetProperty>()) {
       auto getProperty = p.first.as<GetProperty>();
-
-      if (getProperty->property == TensorProperty::Indices && getProperty->index == 0) {
-        const Expr tensor = getProperty->tensor;
-        const Expr dimensionProperty = ir::GetProperty::make(tensor,
-                                                   TensorProperty::Dimension, getProperty->mode);
-
-        if (!sortedProps.empty() && sortedProps.back()->name == dimensionProperty.as<GetProperty>()->name){
-          const Expr cscDimProperty = ir::GetProperty::make(tensor,
-                                                               TensorProperty::Dimension, getProperty->mode-1);
-          props.push_back(cscDimProperty);
-        } else {
-          props.push_back(dimensionProperty);
-        }
-      }
-
       sortedProps.push_back(p.first.as<GetProperty>());
+      if (getProperty->property == TensorProperty::Dimension)
+        dimPropNames.push_back(getProperty->name);
     }
+  }
+
+  // sort the properties in order to generate them in a canonical order
+  sort(sortedProps.begin(), sortedProps.end(),
+       [&](const GetProperty *a,
+           const GetProperty *b) -> bool {
+         // first, use a total order of outputs,inputs
+         auto a_it = find(outputs.begin(), outputs.end(), a->tensor);
+         auto b_it = find(outputs.begin(), outputs.end(), b->tensor);
+         auto a_pos = distance(outputs.begin(), a_it);
+         auto b_pos = distance(outputs.begin(), b_it);
+         if (a_it == outputs.end())
+           a_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
+                                                  a->tensor));
+         if (b_it == outputs.end())
+           b_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
+                                                  b->tensor));
+
+         // if total order is same, have to do more, otherwise we know
+         // our answer
+         if (a_pos != b_pos)
+           return a_pos < b_pos;
+
+         // if they're different properties, sort by property
+         if (a->property != b->property)
+           return a->property < b->property;
+
+         // now either the mode gives order, or index #
+         if (a->mode != b->mode)
+           return a->mode < b->mode;
+
+         return a->index < b->index;
+       });
+
+  // Add dimensions for position arrays which are not used by the lowerer
+  // This is needed for hardware metadata
+  string prevGpName = "";
+  for (auto const& getProperty: sortedProps) {
+    if (getProperty->property == TensorProperty::Indices && getProperty->index == 0) {
+      const Expr tensor = getProperty->tensor;
+      const Expr dimensionProperty = ir::GetProperty::make(tensor,
+                                                           TensorProperty::Dimension, getProperty->mode);
+
+      if (prevGpName == dimensionProperty.as<GetProperty>()->name) {
+        const Expr cscDimProperty = ir::GetProperty::make(tensor,
+                                                          TensorProperty::Dimension, getProperty->mode - 1);
+        if (std::find(dimPropNames.begin(), dimPropNames.end(), cscDimProperty.as<GetProperty>()->name) == dimPropNames.end())
+          props.push_back(cscDimProperty);
+      } else if (std::find(dimPropNames.begin(), dimPropNames.end(), dimensionProperty.as<GetProperty>()->name) == dimPropNames.end()){
+        props.push_back(dimensionProperty);
+      }
+    }
+    prevGpName = getProperty->name;
   }
 
   for (auto const& prop: props) {
