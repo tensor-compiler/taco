@@ -874,15 +874,15 @@ struct Reduce : public StmtNode<Reduce> {
   Expr increment;
   Stmt contents;
   Expr returnExpr;
+  Expr numChunks = 1;
   bool add;
-  size_t par;
 
-  static Stmt make(Expr var, Expr reg, Expr start, Expr end, Expr increment,
-                   Stmt body, bool add=true, size_t par=1);
+  static Stmt make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Expr numChunks,
+                   Stmt body, bool add=true);
 
-  static Stmt make(Expr var, Expr reg, Expr start, Expr end, Expr increment,
-                   Stmt contents, Expr returnExpr, bool add=true, size_t par=1);
 
+  static Stmt make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Expr numChunks,
+                   Stmt contents, Expr returnExpr, bool add=true);
   static const IRNodeType _type_info = IRNodeType::Reduce;
 };
 

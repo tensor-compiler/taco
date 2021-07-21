@@ -384,7 +384,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       taco_iassert(isa<taco::Add>(forallExpr.getOperator()));
 
       if (forallExpr.getOperator().defined()) {
-        return Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, Scope::make(reductionBody, reductionExpr), true, forall.getNumChunks()));
+        return Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, funcEnvMap.at("ip"), Scope::make(reductionBody, reductionExpr), true));
       }
     }
     if (forallReductions.find(forall) != forallReductions.end() && !provGraph.getParents(forall.getIndexVar()).empty()) {
@@ -410,8 +410,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       vector<IndexVar> children = provGraph.getChildren(parentVar);
 
       if (forallExpr.getOperator().defined()) {
-        return Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, body, true,
-                                                 forall.getNumChunks()));
+        return Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1, funcEnvMap.at("ip"), body, true));
       }
     }
   }
@@ -460,6 +459,12 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       declareCoordinate = VarDecl::make(coordinate, coordinateArray, iterator.getMode().getMemoryLocation());
 
     }
+
+    // Generate correct coordinate appender
+    Stmt appendCoordVar = generateAppendCoordVar(appenders, iterator.getPosVar());
+
+    recoveryStmt = Block::make(appendCoordVar, recoveryStmt);
+
     if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
       markAssignsAtomicDepth++;
     }
@@ -503,6 +508,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
     }
 
     auto loopVar = to<Var>(iterator.getPosVar());
+    Expr posAppendVar = endBound;
     // Spatial needs memory accesses to be described before loop
     Stmt boundsDecl;
     if (!isa<Var>(endBound) && !isa<Var>(startBound)) {
@@ -519,6 +525,8 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       startBound = ir::Literal::zero(startBound.type());
       endBound = lenVar;
 
+      posAppendVar = endVar;
+
     } else if (!isa<Var>(startBound)) {
       //TODO: Remove duplicate code here
       auto startVar = Var::make(loopVar->name + "_start", startBound.type());
@@ -531,11 +539,13 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
       auto endBoundDecl = VarDecl::make(endVar, endBound);
       boundsDecl = Block::make(boundsDecl, endBoundDecl);
       endBound = endVar;
+
+      posAppendVar = endVar;
     }
 
 
     // Code to append positions
-    Stmt posAppend = generateAppendPositionsForallPos(appenders, endBound);
+    Stmt posAppend = generateAppendPositionsForallPos(appenders, posAppendVar);
 
     LoopKind kind = LoopKind::Serial;
     if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
@@ -573,11 +583,15 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
         taco_iassert(isa<taco::Add>(forallExpr.getOperator())) << "Spatial reductions can only handle additions";
 
         if (forallExpr.getOperator().defined()) {
-          return Block::make(boundsCompute, boundsDecl, regDecl, Reduce::make(loopVar, reg, startBound, endBound, 1,
-                                                                              Block::make(declareCoordinate, Scope::make(reductionBody, reductionExpr)), true, forall.getNumChunks()));
+          return Block::make(boundsCompute, boundsDecl, regDecl, Reduce::make(loopVar, reg, startBound, endBound, 1,  funcEnvMap.at("ip"),
+                                                                              Block::make(declareCoordinate,
+                                                                                          Scope::make(reductionBody,
+                                                                                                      reductionExpr)),
+                                                                              true));
         }
       }
-      if (forallReductions.find(forall) != forallReductions.end() && !provGraph.getParents(forall.getIndexVar()).empty()) {
+      //else if (forallReductions.find(forall) != forallReductions.end() && !provGraph.getParents(forall.getIndexVar()).empty()) {
+     else if (forallReductions.find(forall) != forallReductions.end()) {
         Assignment forallExpr = forallReductions.at(forall).second;
 
         Expr reg;
@@ -595,12 +609,12 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
         }
 
         taco_iassert(isa<taco::Add>(forallExpr.getOperator())) << "Spatial reductions can only handle additions";
-        auto parentVar = provGraph.getParents(forall.getIndexVar())[0];
-        vector<IndexVar> children = provGraph.getChildren(parentVar);
+//        auto parentVar = provGraph.getParents(forall.getIndexVar())[0];
+//        vector<IndexVar> children = provGraph.getChildren(parentVar);
 
         if (forallExpr.getOperator().defined()) {
-          return Block::make(boundsCompute, boundsDecl, regDecl, Reduce::make(loopVar, reg, startBound, endBound, 1, Block::make(declareCoordinate, body), true,
-                                                   forall.getNumChunks()));
+          return Block::make(boundsCompute, boundsDecl, regDecl, Reduce::make(loopVar, reg, startBound, endBound,
+                                                                              1, funcEnvMap.at("ip"), Block::make(declareCoordinate, body), true));
         }
       }
     }
@@ -613,6 +627,18 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
                                    ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
                          posAppend);
 
+  }
+
+  Stmt LowererImplSpatial::generateAppendCoordVar(vector<Iterator> appenders, Expr coordinatePosVar) {
+    vector<Stmt> appendStmts;
+    for (auto& appender : appenders) {
+      Expr pos = appender.getPosVar();
+      if (generateComputeCode()) {
+        auto posDecl = VarDecl::make(pos, coordinatePosVar);
+        appendStmts.push_back(posDecl);
+      }
+    }
+    return Block::make(appendStmts);
   }
 
   Stmt LowererImplSpatial::generateIteratorComputeLoop(IndexStmt statement, ir::Expr coordinate, IndexVar coordinateVar, MergePoint point,
@@ -1182,7 +1208,8 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall,
 
       Expr beginPos = appender.getBeginVar();
       Expr parentPos = appender.getParent().getPosVar();
-      result.push_back(appender.getAppendEdges(parentPos, beginPos, pos));
+      auto appendEdges = appender.getAppendEdges(parentPos, beginPos, pos);
+      result.push_back(appendEdges);
     }
     return result.empty() ? Stmt() : Block::make(result);
   }

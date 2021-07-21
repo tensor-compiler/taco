@@ -612,9 +612,9 @@ void CodeGen_Spatial::visit(const Reduce* op) {
   op->end.accept(this);
   stream << keywordString(" by ");
   op->increment.accept(this);
-  if (op->par > 0 && op->par <= 16) {
-    stream << " par " << op->par;
-  }
+  stream << " par ";
+  op->numChunks.accept(this);
+
   stream << ") { ";
   op->var.accept(this);
   stream << " => \n";
@@ -1202,7 +1202,8 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
     if (useDRAM)
       ret << "_dram";
     ret << " = " << loc << "[T]";
-    ret << dim;
+    if (emitDim)
+      ret << dim;
 
     ret << endl;
 

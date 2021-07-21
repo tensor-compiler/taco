@@ -1071,8 +1071,9 @@ Expr LoadBulk::make(Expr arr, Expr locStart, Expr locEnd) {
 
 /// SPATIAL ONLY
 // Reduce loop
-Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Stmt body,
-                bool add, size_t par) {
+
+Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Expr numChunks, Stmt body,
+                bool add) {
   Reduce *loop = new Reduce;
   loop->var = var;
   loop->reg = reg;
@@ -1081,12 +1082,12 @@ Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Stmt
   loop->increment = increment;
   loop->contents = body;
   loop->add = add;
-  loop->par = par;
+  loop->numChunks = numChunks;
   return loop;
 }
 
-Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Stmt body, Expr returnExpr,
-                  bool add, size_t par) {
+Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment,  Expr numChunks, Stmt body, Expr returnExpr,
+                  bool add) {
   Reduce *loop = new Reduce;
   loop->var = var;
   loop->reg = reg;
@@ -1096,7 +1097,7 @@ Stmt Reduce::make(Expr var, Expr reg, Expr start, Expr end, Expr increment, Stmt
   loop->contents = Scope::make(body);
   loop->returnExpr = returnExpr;
   loop->add = add;
-  loop->par = par;
+  loop->numChunks = numChunks;
   return loop;
 }
 

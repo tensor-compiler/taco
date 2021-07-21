@@ -86,7 +86,7 @@ protected:
 
   // TODO: add this to LowererImplImperative too
   std::vector<ir::Expr> getAllTemporaryModeArrays(Where where);
-
+  ir::Stmt generateAppendCoordVar(std::vector<Iterator> appenders, ir::Expr coordinatePosVar);
 
     private:
   class Visitor;

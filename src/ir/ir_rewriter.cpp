@@ -573,16 +573,18 @@ void IRRewriter::visit(const Reduce* op) {
   Expr start     = rewrite(op->start);
   Expr end       = rewrite(op->end);
   Expr increment = rewrite(op->increment);
+  Expr numChunks = rewrite(op->numChunks);
   Stmt contents  = rewrite(op->contents);
   Expr retExpr;
   if (op->returnExpr.defined())
     retExpr   = rewrite(op->returnExpr);
 
   if (var == op->var && reg == op->reg && start == op->start && end == op->end &&
-      increment == op->increment && contents == op->contents && (!op->returnExpr.defined() || retExpr == op->returnExpr)) {
+      increment == op->increment && contents == op->contents && (!op->returnExpr.defined() || retExpr == op->returnExpr)
+      && numChunks == op->numChunks) {
     stmt = op;
   } else {
-    stmt = Reduce::make(var, reg, start, end, increment, contents, retExpr, op->add, op->par);
+    stmt = Reduce::make(var, reg, start, end, increment, numChunks, contents, retExpr, op->add);
   }
 }
 

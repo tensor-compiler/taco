@@ -282,6 +282,7 @@ void IRVisitor::visit(const Reduce* op) {
   op->start.accept(this);
   op->end.accept(this);
   op->increment.accept(this);
+  op->numChunks.accept(this);
   op->contents.accept(this);
   if (op->returnExpr.defined())
     op->returnExpr.accept(this);
