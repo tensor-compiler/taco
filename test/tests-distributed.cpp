@@ -369,15 +369,17 @@ TEST(distributed, cuda_mttkrp) {
   IndexVar i("i"), j("j"), k("k"), l("l");
   IndexVar in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
   IndexVar ii("ii"), io("io");
+  IndexVar lo("lo"), li("li");
   A(i, l) = B(i, j, k) * C(j, l) * D(k, l);
   // Since hierarchical reductions don't work yet, we'll start with a flat implementation.
   auto stmt = A.getAssignment().concretize()
       .reorder({i, j, k, l})
       .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, B(i, j, k), taco::ParallelUnit::DistributedGPU)
-      .reorder({il, jl, kl, l})
-      .communicate(A(i, l), kn)
-      .communicate(C(j, l), kn)
-      .communicate(D(k, l), kn)
+      .divide(l, lo, li, gx)
+      .reorder({lo, il, jl, kl, li})
+      .communicate(A(i, l), lo)
+      .communicate(C(j, l), lo)
+      .communicate(D(k, l), lo)
       .swapLeafKernel(il, mttkrp)
   ;
 

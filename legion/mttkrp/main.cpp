@@ -19,7 +19,11 @@ LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion A, in
 LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion B, int32_t gridX, int32_t gridY, int32_t gridZ);
 LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t gridY, int32_t gridX, int32_t gridZ);
 LogicalPartition placeLegionD(Context ctx, Runtime* runtime, LogicalRegion D, int32_t gridZ, int32_t gridX, int32_t gridY);
+#ifdef TACO_USE_CUDA
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalRegion D, LogicalPartition BPartition, int32_t gx);
+#else
 void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalRegion D, LogicalPartition BPartition);
+#endif
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   auto args = runtime->get_input_args();
@@ -84,7 +88,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto dPart = partitionLegionD(ctx, runtime, D, gz);
 
   std::vector<size_t> times;
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 11; i++) {
     tacoFill<valType>(ctx, runtime, A, aPart, 0);
     tacoFill<valType>(ctx, runtime, B, bPart, 1);
     tacoFill<valType>(ctx, runtime, C, cPart, 1);
@@ -95,11 +99,22 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     placeLegionC(ctx, runtime, C, gx, gy, gz);
     placeLegionD(ctx, runtime, D, gx, gy, gz);
 
-    benchmark(ctx, runtime, times, [&]() { 
+    auto bench = [&]() {
+#ifdef TACO_USE_CUDA
+      computeLegion(ctx, runtime, A, B, C, D, part, gx); 
+#else
       computeLegion(ctx, runtime, A, B, C, D, part); 
+#endif
       // Run the A placement routine again to force a reduction into the right place.
       placeLegionA(ctx, runtime, A, gx, gy, gz);
-    });
+    };
+
+    if (i == 0) {
+      bench();
+      tacoValidate<valType>(ctx, runtime, A, aPart, valType(n * n));
+    } else {
+      benchmark(ctx, runtime, times, bench);
+    }
   }
 
   // Get the GFLOPS per node.
@@ -108,8 +123,6 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto gflops = getGFLOPS(flopCount, avgTime);
   auto nodes = runtime->select_tunable_value(ctx, Mapping::DefaultMapper::DEFAULT_TUNABLE_NODE_COUNT).get<size_t>();
   LEGION_PRINT_ONCE(runtime, ctx, stdout, "On %ld nodes achieved GFLOPS per node: %lf.\n", nodes, gflops / double(nodes));
-
-  tacoValidate<valType>(ctx, runtime, A, aPart, valType(n * n));
 }
 
 TACO_MAIN(valType)

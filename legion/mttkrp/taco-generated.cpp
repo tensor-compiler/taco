@@ -384,8 +384,8 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   auto B_index_space = get_index_space(B);
   auto C_index_space = get_index_space(C);
   auto D_index_space = get_index_space(D);
-  AccessorROdouble2 C_vals(C, FID_VAL);
   AccessorROdouble2 D_vals(D, FID_VAL);
+  AccessorROdouble2 C_vals(C, FID_VAL);
   AccessorROdouble3 B_vals(B, FID_VAL);
   AccessorReducedouble2 A_vals(A, FID_VAL, LEGION_REDOP_SUM_FLOAT64);
 
@@ -408,15 +408,16 @@ void task_5(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   pack.ldA = A_vals.accessor.strides[0] / sizeof(double);
   pack.ldC = C_vals.accessor.strides[0] / sizeof(double);
   pack.ldD = D_vals.accessor.strides[0] / sizeof(double);
-  pack.ldB3 = B_vals.accessor.strides[1] / sizeof(double);
+  pack.ldB1 = B_vals.accessor.strides[0] / sizeof(double);
   pack.ldB2 = (B_vals.accessor.strides[0] / sizeof(double)) / (B_vals.accessor.strides[1] / sizeof(double));
+  pack.ldB3 = B_vals.accessor.strides[1] / sizeof(double);
   mttkrp<double>(pack, A_vals.ptr(aDomain.lo()), B_vals.ptr(bDomain.lo()), C_vals.ptr(cDomain.lo()), D_vals.ptr(dDomain.lo()));
 }
 
 void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalRegion D, LogicalPartition BPartition) {
   auto A_index_space = get_index_space(A);
+  int C2_dimension = runtime->get_index_space_domain(get_index_space(C)).hi()[1] + 1;
   auto C_index_space = get_index_space(C);
-  int D2_dimension = runtime->get_index_space_domain(get_index_space(D)).hi()[1] + 1;
   auto D_index_space = get_index_space(D);
 
   DomainT<3> domain = runtime->get_index_partition_color_space(ctx, get_index_partition(BPartition));
@@ -436,21 +437,21 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion
     int64_t BPartitionBounds2lo = BPartitionBounds.lo()[2];
     int64_t BPartitionBounds2hi = BPartitionBounds.hi()[2];
     Point<2> AStart = Point<2>(BPartitionBounds0lo, 0);
-    Point<2> AEnd = Point<2>(TACO_MIN(((((BPartitionBounds0hi - BPartitionBounds0lo) + 1) - 1) + BPartitionBounds0lo), ADomain.hi()[0]), TACO_MIN(D2_dimension, ADomain.hi()[1]));
+    Point<2> AEnd = Point<2>(TACO_MIN(((((BPartitionBounds0hi - BPartitionBounds0lo) + 1) - 1) + BPartitionBounds0lo), ADomain.hi()[0]), TACO_MIN(C2_dimension, ADomain.hi()[1]));
     Rect<2> ARect = Rect<2>(AStart, AEnd);
     if (!ADomain.contains(ARect.lo) || !ADomain.contains(ARect.hi)) {
       ARect = ARect.make_empty();
     }
     AColoring[(*itr)] = ARect;
     Point<2> CStart = Point<2>(BPartitionBounds1lo, 0);
-    Point<2> CEnd = Point<2>(TACO_MIN(((((BPartitionBounds1hi - BPartitionBounds1lo) + 1) - 1) + BPartitionBounds1lo), CDomain.hi()[0]), TACO_MIN(D2_dimension, CDomain.hi()[1]));
+    Point<2> CEnd = Point<2>(TACO_MIN(((((BPartitionBounds1hi - BPartitionBounds1lo) + 1) - 1) + BPartitionBounds1lo), CDomain.hi()[0]), TACO_MIN(C2_dimension, CDomain.hi()[1]));
     Rect<2> CRect = Rect<2>(CStart, CEnd);
     if (!CDomain.contains(CRect.lo) || !CDomain.contains(CRect.hi)) {
       CRect = CRect.make_empty();
     }
     CColoring[(*itr)] = CRect;
     Point<2> DStart = Point<2>(BPartitionBounds2lo, 0);
-    Point<2> DEnd = Point<2>(TACO_MIN(((((BPartitionBounds2hi - BPartitionBounds2lo) + 1) - 1) + BPartitionBounds2lo), DDomain.hi()[0]), TACO_MIN(D2_dimension, DDomain.hi()[1]));
+    Point<2> DEnd = Point<2>(TACO_MIN(((((BPartitionBounds2hi - BPartitionBounds2lo) + 1) - 1) + BPartitionBounds2lo), DDomain.hi()[0]), TACO_MIN(C2_dimension, DDomain.hi()[1]));
     Rect<2> DRect = Rect<2>(DStart, DEnd);
     if (!DDomain.contains(DRect.lo) || !DDomain.contains(DRect.hi)) {
       DRect = DRect.make_empty();
@@ -486,31 +487,31 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion
 void registerTacoTasks() {
   {
     TaskVariantRegistrar registrar(taskID(1), "task_1");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_1>(registrar, "task_1");
   }
   {
     TaskVariantRegistrar registrar(taskID(2), "task_2");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_2>(registrar, "task_2");
   }
   {
     TaskVariantRegistrar registrar(taskID(3), "task_3");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_3>(registrar, "task_3");
   }
   {
     TaskVariantRegistrar registrar(taskID(4), "task_4");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_4>(registrar, "task_4");
   }
   {
     TaskVariantRegistrar registrar(taskID(5), "task_5");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_5>(registrar, "task_5");
   }

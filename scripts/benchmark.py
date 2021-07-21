@@ -311,10 +311,10 @@ class CTFMTTKRPBench(MTTKRPBench):
                [os.path.join(ctfDir, 'bin/mymttkrp'), '-n', psize, '-procsPerNode', '4']
 
 class LgMTTKRPBench(MTTKRPBench):
-    def getCommand(self, procs):
-        psize = str(self.problemSize(procs))
+    def __init__(self, initialProblemSize):
+        super().__init__(initialProblemSize)
         # Seems like I have to hard code the problem sizes...
-        sizes = {
+        self.sizes = {
           1: (1, 1, 1),
           2: (2, 1, 1),
           4: (2, 2, 1),
@@ -325,11 +325,27 @@ class LgMTTKRPBench(MTTKRPBench):
           128: (8, 4, 4),
           256: (8, 8, 4),
         }
-        assert(procs in sizes)
-        x, y, z = sizes[procs]
+
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        assert(procs in self.sizes)
+        x, y, z = self.sizes[procs]
         return lassenHeader(procs) + [
-            'bin/mttkrp', '-n', psize, '-gx', str(2 * x), '-gy', str(y), '-gz', str(z), '-tm:numa_aware_alloc',
+            'bin/mttkrp', '-n', psize, '-gx', str(2 * x), '-gy', str(y), '-gz', str(z), '-tm:numa_aware_alloc', '-lg:eager_alloc_percentage', '50',
         ] + lgCPUArgs()
+
+class LgGPUMTTKRPBench(LgMTTKRPBench):
+    def __init__(self, initialProblemSize, gpus):
+        super().__init__(initialProblemSize)
+        self.gpus = gpus
+
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        assert(procs in self.sizes)
+        x, y, z = self.sizes[procs]
+        return lassenHeader(procs) + [
+            'bin/mttkrp-cuda', '-n', psize, '-gx', str(2 * x), '-gy', str(2 * y), '-gz', str(z), '-lg:eager_alloc_percentage', '50',
+        ] + lgGPUArgs(self.gpus)
 
 class LgTTVBench(TTVBench):
     def getCommand(self, procs):
@@ -382,6 +398,7 @@ def main():
     ttv = 2000
     ttvgpu = 1750
     mttkrp = 768
+    mttkrpgpu = 1500
 
     benches = {
         # GEMM benchmarks.
@@ -404,6 +421,7 @@ def main():
         "ttv-gpu": ttvgpu,
         "ctf-ttv": ttv,
         "mttkrp": mttkrp,
+        "mttkrp-gpu": mttkrpgpu,
         "ctf-mttkrp": mttkrp,
     }
     parser = argparse.ArgumentParser()
@@ -453,6 +471,8 @@ def main():
         bench = CTFTTVBench(size)
     elif args.bench == "mttkrp":
         bench = LgMTTKRPBench(size)
+    elif args.bench == "mttkrp-gpu":
+        bench = LgGPUMTTKRPBench(size, args.gpus)
     elif args.bench == "ctf-mttkrp":
         bench = CTFMTTKRPBench(size)
     else:

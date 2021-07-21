@@ -55,16 +55,18 @@ void cu_mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, con
   int ldB2 = pack.ldB2;
   int ldB3 = pack.ldB3;
 
+  // Allocate an intermediate result T(i, j, l). Importantly, this call into the runtime must happen before
+  // any CUDA calls. Otherwise, this can lead to a race where the task gets swapped out and the CUDA hijack
+  // gets confused about what stream to send tasks on.
+  T initVal = 0;
+  Legion::DeferredBuffer<T, 1> buf(Legion::Memory::Kind::GPU_FB_MEM, Legion::DomainT<1>(Legion::Rect<1>(0, B1_dimension * C1_dimension * D2_dimension - 1)), &initVal);
+  T* inter = buf.ptr(0);
+
   double alpha = 1.0000000000000000;
   cublasHandle_t handle = getCuBLAS();
   cudaStream_t taskStream = cudaStream_t();
   cudaStreamCreate(&(taskStream));
   CHECK_CUBLAS(cublasSetStream(handle, taskStream));
-
-  // Allocate an intermediate result T(i, j, l).
-  T initVal = 0;
-  Legion::DeferredBuffer<T, 1> buf(Legion::Memory::Kind::GPU_FB_MEM, Legion::DomainT<1>(Legion::Rect<1>(0, B1_dimension * C1_dimension * D2_dimension - 1)), &initVal);
-  T* inter = buf.ptr(0);
 
   // Perform T(i, j, l) = B(i, j, k) * D(k, l) as a series of GEMM calls.
   for (size_t i = 0; i < B1_dimension; i++) {
