@@ -2180,6 +2180,14 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       //  dimensional task launches via index launches.
       auto point = this->indexVarToExprMap[forall.getIndexVar()];
 
+      // If this operation is over reductions, we need to serialize the reductions
+      // some how so they don't all run at the same time.
+      Datatype futureTy("Future");
+      auto future = ir::Var::make("future", futureTy);
+      if (this->performingLegionReduction) {
+        transfers.push_back(ir::VarDecl::make(future, ir::makeConstructor(futureTy, {})));
+      }
+
       // Otherwise, we make a loop that launches the task.
       std::vector<Stmt> taskCallStmts;
       taskCallStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, pointT)));
@@ -2266,9 +2274,21 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
         taskCallStmts.push_back(ir::Assign::make(tag, ir::BitOr::make(tag, untrackValidRegions)));
       }
+      // If the future is valid and we need to serialize our operations, add a dependency on the future.
+      if (this->performingLegionReduction) {
+        taskCallStmts.push_back(ir::IfThenElse::make(
+           ir::MethodCall::make(future, "valid", {}, false, Bool),
+           ir::SideEffect::make(ir::MethodCall::make(launcher, "add_future", {future}, false, Auto))
+        ));
+      }
       // The actual task call.
       auto tcall = ir::Call::make("runtime->execute_task", {ctx, launcher}, Auto);
-      taskCallStmts.push_back(ir::SideEffect::make(tcall));
+      // If we need to keep track of the futures, assign the result of the task call to the future.
+      if (this->performingLegionReduction) {
+        taskCallStmts.push_back(ir::Assign::make(future, tcall));
+      } else {
+        taskCallStmts.push_back(ir::SideEffect::make(tcall));
+      }
 
       auto tcallLoop = ir::For::make(
           domainIter,
