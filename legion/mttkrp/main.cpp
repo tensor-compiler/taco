@@ -95,15 +95,15 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     tacoFill<valType>(ctx, runtime, D, dPart, 1);
 
     placeLegionA(ctx, runtime, A, gx, gy, gz);
-    auto part = placeLegionB(ctx, runtime, B, gx, gy, gz);
+    placeLegionB(ctx, runtime, B, gx, gy, gz);
     placeLegionC(ctx, runtime, C, gx, gy, gz);
     placeLegionD(ctx, runtime, D, gx, gy, gz);
 
     auto bench = [&]() {
 #ifdef TACO_USE_CUDA
-      computeLegion(ctx, runtime, A, B, C, D, part, gx); 
+      computeLegion(ctx, runtime, A, B, C, D, bPart, gx);
 #else
-      computeLegion(ctx, runtime, A, B, C, D, part); 
+      computeLegion(ctx, runtime, A, B, C, D, bPart);
 #endif
       // Run the A placement routine again to force a reduction into the right place.
       placeLegionA(ctx, runtime, A, gx, gy, gz);
@@ -111,7 +111,6 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
 
     if (i == 0) {
       bench();
-      tacoValidate<valType>(ctx, runtime, A, aPart, valType(n * n));
     } else {
       benchmark(ctx, runtime, times, bench);
     }
@@ -123,6 +122,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto gflops = getGFLOPS(flopCount, avgTime);
   auto nodes = runtime->select_tunable_value(ctx, Mapping::DefaultMapper::DEFAULT_TUNABLE_NODE_COUNT).get<size_t>();
   LEGION_PRINT_ONCE(runtime, ctx, stdout, "On %ld nodes achieved GFLOPS per node: %lf.\n", nodes, gflops / double(nodes));
+  tacoValidate<valType>(ctx, runtime, A, aPart, valType(n * n));
 }
 
 TACO_MAIN(valType)
