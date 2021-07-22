@@ -6,6 +6,28 @@
 #include "cublas_v2.h"
 #include "legion.h"
 
+// This atomicAddWarp kernel ensures that the warp level reduction only
+// happens if all threads in the warp are indeed writing to the same
+// output location.
+template<typename T>
+__device__ inline void atomicAddWarp(T *output, int index, T val)
+{
+  int leader_index = __shfl_sync(__activemask(), index, 0);
+  int mask = __ballot_sync(__activemask(), leader_index == index);
+  if(mask == __activemask()) {
+    val += __shfl_down_sync(__activemask(), val, 16);
+    val += __shfl_down_sync(__activemask(), val, 8);
+    val += __shfl_down_sync(__activemask(), val, 4);
+    val += __shfl_down_sync(__activemask(), val, 2);
+    val += __shfl_down_sync(__activemask(), val, 1);
+    if(threadIdx.x % 32 == 0) {
+      atomicAdd(output, val);
+    }
+  } else {
+    atomicAdd(output, val);
+  }
+}
+
 template<typename T>
 __global__
 void contractInter(MTTKRPPack pack, T* A, const T* C, const T* inter){
@@ -20,25 +42,28 @@ void contractInter(MTTKRPPack pack, T* A, const T* C, const T* inter){
     return;
   }
 
-  int32_t f = (io * 256 + ii);
-  int32_t i = f / (C1_dimension);
-  int32_t iinter = 0 * inter1_dimension + i;
+  int32_t f2 = (io * 256 + ii);
+  int32_t f = f2 / (inter2_dimension);
+  int32_t i = f / (inter3_dimension);
+  int32_t iinter = i;
   int32_t iA = i;
   if (i >= inter1_dimension)
     return;
 
-  int32_t j = f % (C1_dimension);
-  int32_t jinter = iinter * inter2_dimension + j;
-  int32_t jC = j;
-  if (j >= C1_dimension)
+  int32_t l = f % (inter3_dimension);
+  int32_t lA = iA * pack.ldA + l;
+  if (l >= inter3_dimension)
     return;
 
-  for (int32_t l = 0; l < pack.lDim; l++) {
-    int32_t lA = iA * pack.ldA + l;
-    int32_t linter = jinter * inter3_dimension + l;
-    int32_t lC = jC * pack.ldC + l;
-    atomicAdd(&A[lA], inter[linter] * C[lC]);
-  }
+  int32_t j = f2 % (inter2_dimension);
+  int32_t jinter = iinter * inter2_dimension + j;
+  int32_t linter = jinter * inter3_dimension + l;
+  int32_t jC = j;
+  int32_t lC = jC * pack.ldC + l;
+  if (j >= inter2_dimension)
+    return;
+
+  atomicAddWarp(&A[lA], lA, inter[linter] * C[lC]);
 }
 
 // CUDA version of mttkrp. All buffers must live on memory accessible by the device.
@@ -55,16 +80,18 @@ void cu_mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, con
   int ldB2 = pack.ldB2;
   int ldB3 = pack.ldB3;
 
+  // Allocate an intermediate result T(i, j, l). Importantly, this call into the runtime must happen before
+  // any CUDA calls. Otherwise, this can lead to a race where the task gets swapped out and the CUDA hijack
+  // gets confused about what stream to send tasks on.
+  T initVal = 0;
+  Legion::DeferredBuffer<T, 1> buf(Legion::Memory::Kind::GPU_FB_MEM, Legion::DomainT<1>(Legion::Rect<1>(0, B1_dimension * C1_dimension * D2_dimension - 1)), &initVal);
+  T* inter = buf.ptr(0);
+
   double alpha = 1.0000000000000000;
   cublasHandle_t handle = getCuBLAS();
   cudaStream_t taskStream = cudaStream_t();
   cudaStreamCreate(&(taskStream));
   CHECK_CUBLAS(cublasSetStream(handle, taskStream));
-
-  // Allocate an intermediate result T(i, j, l).
-  T initVal = 0;
-  Legion::DeferredBuffer<T, 1> buf(Legion::Memory::Kind::GPU_FB_MEM, Legion::DomainT<1>(Legion::Rect<1>(0, B1_dimension * C1_dimension * D2_dimension - 1)), &initVal);
-  T* inter = buf.ptr(0);
 
   // Perform T(i, j, l) = B(i, j, k) * D(k, l) as a series of GEMM calls.
   for (size_t i = 0; i < B1_dimension; i++) {
@@ -87,7 +114,7 @@ void cu_mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, con
   }
 
   // Perform the next reduction A(i, l) = T(i, j, l) * D(j, l).
-  contractInter<T><<<(B1_dimension * C1_dimension + 255) / 256, 256, 0, taskStream>>>(pack, A_vals, C_vals, inter);
+  contractInter<T><<<(B1_dimension * C1_dimension * D2_dimension + 255) / 256, 256, 0, taskStream>>>(pack, A_vals, C_vals, inter);
 }
 
 template<typename T, int DIM>
@@ -98,28 +125,6 @@ size_t flattenPoint(T accessor, Legion::Point<DIM> point) {
     base += accessor.accessor.strides[i] * point[i];
   }
   return base;
-}
-
-// This atomicAddWarp kernel ensures that the warp level reduction only
-// happens if all threads in the warp are indeed writing to the same
-// output location.
-template<typename T>
-__device__ inline void atomicAddWarp(T *output, int index, T val)
-{
-  int leader_index = __shfl_sync(__activemask(), index, 0);
-  int mask = __ballot_sync(__activemask(), leader_index == index);
-  if(mask == __activemask()) {
-    val += __shfl_down_sync(__activemask(), val, 16);
-    val += __shfl_down_sync(__activemask(), val, 8);
-    val += __shfl_down_sync(__activemask(), val, 4);
-    val += __shfl_down_sync(__activemask(), val, 2);
-    val += __shfl_down_sync(__activemask(), val, 1);
-    if(threadIdx.x % 32 == 0) {
-      atomicAdd(output, val);
-    }
-  } else {
-    atomicAdd(output, val);
-  }
 }
 
 #endif // TACO_LG_CU_LEAF_KERNELS_H

@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cassert>
 #include "cblas.h"
+#include "legion.h"
 
 // An argument pack for MTTKRP.
 struct MTTKRPPack {
@@ -39,7 +40,10 @@ void mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, const 
   int ldB3 = pack.ldB3;
 
   // Allocate an intermediate result T(i, j, l).
-  double* inter = (double*)malloc(B1_dimension * C1_dimension * D2_dimension * sizeof(T));
+  Legion::DeferredBuffer<T, 1> buf(Legion::Memory::Kind::SOCKET_MEM, Legion::DomainT<1>(Legion::Rect<1>(0, B1_dimension * C1_dimension * D2_dimension - 1)));
+  T* inter = buf.ptr(0);
+  // Initialize the buffer. TODO (rohany): Once CPU fills are fast enough, use the deferred
+  // buffer initialization rather than this.
   #pragma omp parallel for schedule(static)
   for (size_t i = 0; i < B1_dimension; i++) {
     for (size_t j = 0; j < C1_dimension; j++) {
@@ -76,41 +80,12 @@ void mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, const 
       int32_t jB = i * C1_dimension + j;
       for (int32_t l = 0; l < D2_dimension; l++) {
         int32_t lA = i * ldA + l;
-        int32_t lB = jB * D1_dimension + l;
+        int32_t lB = jB * D2_dimension + l;
         int32_t lC = j * ldC + l;
         A_vals[lA] = A_vals[lA] + inter[lB] * C_vals[lC];
       }
     }
   }
-
-  // Clean up after ourselves.
-  free(inter);
-  
-
-  // Old fused code.
-  // #pragma omp parallel for schedule(static)
-  // for (int32_t io = 0; io < ((B1_dimension + 3) / 4); io++) {
-  //   // #pragma clang loop interleave(enable) vectorize(enable)
-  //   #pragma GCC ivdep
-  //   for (int32_t ii = 0; ii < 4; ii++) {
-  //     int32_t i = io * 4 + ii;
-  //     if (i >= B1_dimension)
-  //       continue;
-
-  //     for (int32_t j = 0; j < C1_dimension; j++) {
-  //       int32_t jB = i * ldB2 + j;
-  //       for (int32_t k = 0; k < D1_dimension; k++) {
-  //         int32_t kB = jB * ldB3 + k;
-  //         for (int32_t l = 0; l < D2_dimension; l++) {
-  //           int32_t lA = i * ldA + l;
-  //           int32_t lC = j * ldC + l;
-  //           int32_t lD = k * ldD + l;
-  //           A_vals[lA] = A_vals[lA] + (B_vals[kB] * C_vals[lC]) * D_vals[lD];
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
 }
 
 #endif // TACO_LG_LEAF_KERNELS_H
