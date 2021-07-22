@@ -2701,8 +2701,8 @@ Assignment makeReductionNotationScheduled(Assignment assignment, ProvenanceGraph
     MakeReductionNotation(const std::vector<IndexVar>& free, ProvenanceGraph provGraph)
       : free(free.begin(), free.end()), provGraph(provGraph){}
 
-    ProvenanceGraph provGraph;
     std::set<IndexVar> free;
+    ProvenanceGraph provGraph; 
     bool onlyOneTerm;
 
     IndexExpr addReductions(IndexExpr expr) {
