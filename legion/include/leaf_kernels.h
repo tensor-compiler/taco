@@ -118,11 +118,11 @@ void ttv(TTVPack pack, T* A_vals, const T* B_vals, const T* C_vals) {
 
       for (int32_t jl = 0; jl < jDim; jl++) {
         int32_t j = jl;
-        int32_t jB = i * ldB2 + j;
+        size_t jB = i * ldB2 + j;
         int32_t jA = i * ldA + j;
 
         for (int32_t k = 0; k < kDim; k++) {
-          int32_t kB = jB * ldB3 + k;
+          size_t kB = jB * ldB3 + k;
           A_vals[jA] = A_vals[jA] + B_vals[kB] * C_vals[k];
         }
       }

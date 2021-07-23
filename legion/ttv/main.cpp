@@ -76,7 +76,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   for (PointInDomainIterator<2> itr(dom); itr(); itr++) {
     int32_t in = (*itr)[0];
     int32_t jn = (*itr)[1];
-    int idx = in * gx + jn;
+    int idx = in * gy + jn;
     auto start = idx * n;
     auto end = (idx + 1) * n - 1;
     cColoring[*itr] = Rect<1>(start, end);
@@ -84,13 +84,16 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto cIndexPart = runtime->create_index_partition(ctx, cISpace, dom, cColoring, LEGION_DISJOINT_COMPLETE_KIND);
   auto cPart = runtime->get_logical_partition(ctx, C, cIndexPart);
 
-  // We don't need to fill the large tensor in the loop.
   tacoFill<valType>(ctx, runtime, A, aPart, 0);
   tacoFill<valType>(ctx, runtime, B, bPart, 1);
   tacoFill<valType>(ctx, runtime, C, cPart, 1);
 
   placeLegionA(ctx, runtime, A, gx, gy);
   placeLegionB(ctx, runtime, B, gx, gy);
+
+  // Run the function once to warm up the runtime system and validate the result.
+  computeLegion(ctx, runtime, A, B, C, bPart, aPart, cPart);
+  tacoValidate<valType>(ctx, runtime, A, aPart, valType(n));
 
   std::vector<size_t> times;
   benchmarkAsyncCall(ctx, runtime, times, [&]() {
@@ -103,11 +106,10 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   size_t elems = [](size_t n) { return n * n + n * n * n + n; }(n);
   size_t bytes = elems * sizeof(valType);
   double gbytes = double(bytes) / 1e9;
-  auto avgTimeS = double(average(times)) / 1e3;
+  auto avgTimeS = (double(times[0]) / 10.f) / 1e3;
   double bw = gbytes / (avgTimeS);
   auto nodes = runtime->select_tunable_value(ctx, Mapping::DefaultMapper::DEFAULT_TUNABLE_NODE_COUNT).get<size_t>();
   LEGION_PRINT_ONCE(runtime, ctx, stdout, "On %ld nodes achieved GB/s BW per node: %lf.\n", nodes, bw / double(nodes));
-  tacoValidate<valType>(ctx, runtime, A, aPart, valType(n * 10));
 }
 
 TACO_MAIN(valType)

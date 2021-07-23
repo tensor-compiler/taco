@@ -98,7 +98,7 @@ void tacoValidate(Legion::Context ctx, Legion::Runtime* runtime, Legion::Logical
   auto domain = runtime->get_index_partition_color_space(ctx, get_index_partition(part));
   Legion::IndexLauncher l(TID_TACO_VALIDATE_TASK, domain, Legion::TaskArgument(&val, sizeof(T)), Legion::ArgumentMap());
   l.add_region_requirement(Legion::RegionRequirement(part, 0, READ_ONLY, EXCLUSIVE, r).add_field(FID_VAL));
-  runtime->execute_index_space(ctx, l);
+  runtime->execute_index_space(ctx, l).wait_all_results();
 }
 
 // TODO (rohany): Do the CUDA version of the validation.

@@ -13,7 +13,8 @@ LogicalPartition partition3Tensor(Context ctx, Runtime* runtime, LogicalRegion A
 LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion A, int32_t pieces);
 LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion B, int32_t pieces);
 LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t pieces);
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, int32_t pieces);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalPartition APartition, LogicalPartition BPartition, LogicalPartition CPartition);
+
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   auto args = runtime->get_input_args();
@@ -47,7 +48,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
 
   auto aISpace = runtime->create_index_space(ctx, Rect<3>({0, 0, 0}, {n - 1, n - 1, n - 1}));
   auto bISpace = runtime->create_index_space(ctx, Rect<3>({0, 0, 0}, {n - 1, n - 1, n - 1}));
-  auto cISpace = runtime->create_index_space(ctx, Rect<2>({0, 0}, {n - 1, n - 1}));
+  // Make C "replicated".
+  auto cISpace = runtime->create_index_space(ctx, Rect<2>({0, 0}, {(pieces * n) - 1, n - 1}));
   auto A = runtime->create_logical_region(ctx, aISpace, fspace); runtime->attach_name(A, "A");
   auto B = runtime->create_logical_region(ctx, bISpace, fspace); runtime->attach_name(B, "B");
   auto C = runtime->create_logical_region(ctx, cISpace, fspace); runtime->attach_name(C, "C");
@@ -56,8 +58,22 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto aPart = partition3Tensor(ctx, runtime, A, pieces);
   auto bPart = partition3Tensor(ctx, runtime, B, pieces);
 
+  // Create a "replicated" partition of C.
+  DomainPointColoring cColoring;
+  Point<1> lowerBound = Point<1>(0);
+  Point<1> upperBound = Point<1>(pieces - 1);
+  DomainT<1> dom(Rect<1>{lowerBound, upperBound});
+  for (PointInDomainIterator<1> itr(dom); itr(); itr++) {
+    int idx = *itr;
+    auto start = Point<2>(idx * n, 0);
+    auto end = Point<2>((idx + 1) * n - 1, n - 1);
+    cColoring[*itr] = Rect<2>(start, end);
+  }
+  auto cIndexPart = runtime->create_index_partition(ctx, cISpace, dom, cColoring, LEGION_DISJOINT_COMPLETE_KIND);
+  auto cPart = runtime->get_logical_partition(ctx, C, cIndexPart);
+
   tacoFill<valType>(ctx, runtime, B, bPart, 1);
-  runtime->fill_field(ctx, C, C, FID_VAL, valType(1));
+  tacoFill<valType>(ctx, runtime, C, cPart, 1);
 
   std::vector<size_t> times;
   for (int i = 0; i < 10; i++) {
@@ -65,9 +81,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
 
     placeLegionA(ctx, runtime, A, pieces);
     placeLegionB(ctx, runtime, B, pieces);
-    // For replicated tensors, we don't bother placing it.
-
-    benchmark(ctx, runtime, times, [&]() { computeLegion(ctx, runtime, A, B, C, pieces); });
+    benchmark(ctx, runtime, times, [&]() { computeLegion(ctx, runtime, A, B, C, aPart, bPart, cPart); });
   }
 
   // Get the GFLOPS per node.
