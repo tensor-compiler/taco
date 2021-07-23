@@ -169,6 +169,38 @@ class CuTTMC : public TTMC {
   void print(std::ostream& os) const;
 };
 
+// We have a separate TTV implementation to work around a Legion performance bug where
+// fully replicated regions have poor performance. Switching to "collective instances"
+// will supposedly fix this problem, but I don't have high hopes that it will be done
+// in the near future.
+class TTV : public LeafCallInterface {
+public:
+  TTV();
+  void canApply(IndexStmt stmt, ProvenanceGraph pg, IndexVar root, std::string* reason = nullptr) const;
+  IndexVar getRootIvar() const;
+  ir::Stmt replaceValidStmt(IndexStmt stmt,
+                            ProvenanceGraph pg,
+                            std::map<TensorVar, ir::Expr> tensorVars,
+                            bool inReduction,
+                            std::vector<IndexVar> definedVarOrder,
+                            std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
+                            std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                            Iterators iterators
+  ) const;
+  void print(std::ostream& os) const;
+protected:
+  struct Content;
+  std::shared_ptr<Content> content;
+  std::string funcName = "ttv";
+};
+
+class CuTTV : public TTV {
+public:
+  CuTTV() {
+    this->funcName = "cu_ttv";
+  }
+};
+
 /// The reorder optimization rewrites an index statement to swap the order of
 /// the `i` and `j` loops.
 /// Can also supply replacePattern and will find nested foralls with this set of indexvar

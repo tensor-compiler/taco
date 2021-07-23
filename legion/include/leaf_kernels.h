@@ -88,4 +88,46 @@ void mttkrp(MTTKRPPack pack, T* A_vals, const T* B_vals, const T* C_vals, const 
   }
 }
 
+struct TTVPack {
+  int32_t iDim;
+  int32_t jDim;
+  int32_t kDim;
+
+  size_t ldA;
+  size_t ldB2;
+  size_t ldB3;
+};
+
+template <typename T>
+void ttv(TTVPack pack, T* A_vals, const T* B_vals, const T* C_vals) {
+  auto iDim = pack.iDim;
+  auto jDim = pack.jDim;
+  auto kDim = pack.kDim;
+  auto ldA = pack.ldA;
+  auto ldB2 = pack.ldB2;
+  auto ldB3 = pack.ldB3;
+
+  #pragma omp parallel for schedule(static)
+  for (int32_t ii = 0; ii < (((iDim) + 3) / 4); ii++) {
+    #pragma clang loop interleave(enable) vectorize(enable)
+    for (int32_t io = 0; io < 4; io++) {
+      int32_t il = ii * 4 + io;
+      int32_t i = il;
+      if (i >= iDim)
+        continue;
+
+      for (int32_t jl = 0; jl < jDim; jl++) {
+        int32_t j = jl;
+        int32_t jB = i * ldB2 + j;
+        int32_t jA = i * ldA + j;
+
+        for (int32_t k = 0; k < kDim; k++) {
+          int32_t kB = jB * ldB3 + k;
+          A_vals[jA] = A_vals[jA] + B_vals[kB] * C_vals[k];
+        }
+      }
+    }
+  }
+}
+
 #endif // TACO_LG_LEAF_KERNELS_H

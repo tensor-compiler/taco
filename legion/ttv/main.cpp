@@ -13,7 +13,7 @@ LogicalPartition partitionLegionB(Context ctx, Runtime* runtime, LogicalRegion B
 LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion A, int32_t gridX, int32_t gridY);
 LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion B, int32_t gridX, int32_t gridY);
 LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t gridX, int32_t gridY);
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalPartition bPartition, LogicalPartition aPartition);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalPartition bPartition, LogicalPartition aPartition, LogicalPartition cPartition);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   // Create the regions.
@@ -59,7 +59,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
 
   auto aISpace = runtime->create_index_space(ctx, Rect<2>({0, 0}, {n - 1, n - 1}));
   auto bISpace = runtime->create_index_space(ctx, Rect<3>({0, 0, 0}, {n - 1, n - 1, n - 1}));
-  auto cISpace = runtime->create_index_space(ctx, Rect<1>({0, n - 1}));
+  // Create a "replicated" version of C.
+  auto cISpace = runtime->create_index_space(ctx, Rect<1>({0, (n * gx * gy) - 1}));
   auto A = runtime->create_logical_region(ctx, aISpace, fspace); runtime->attach_name(A, "A");
   auto B = runtime->create_logical_region(ctx, bISpace, fspace); runtime->attach_name(B, "B");
   auto C = runtime->create_logical_region(ctx, cISpace, fspace); runtime->attach_name(C, "C");
@@ -67,23 +68,36 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   // Create initial partitions.
   auto aPart = partitionLegionA(ctx, runtime, A, gx, gy);
   auto bPart = partitionLegionB(ctx, runtime, B, gx, gy);
+  // Create a "replicated" partition of C.
+  DomainPointColoring cColoring;
+  Point<2> lowerBound = Point<2>(0, 0);
+  Point<2> upperBound = Point<2>((gx - 1), (gy - 1));
+  DomainT<2> dom(Rect<2>{lowerBound, upperBound});
+  for (PointInDomainIterator<2> itr(dom); itr(); itr++) {
+    int32_t in = (*itr)[0];
+    int32_t jn = (*itr)[1];
+    int idx = in * gx + jn;
+    auto start = idx * n;
+    auto end = (idx + 1) * n - 1;
+    cColoring[*itr] = Rect<1>(start, end);
+  }
+  auto cIndexPart = runtime->create_index_partition(ctx, cISpace, dom, cColoring, LEGION_DISJOINT_COMPLETE_KIND);
+  auto cPart = runtime->get_logical_partition(ctx, C, cIndexPart);
 
   // We don't need to fill the large tensor in the loop.
+  tacoFill<valType>(ctx, runtime, A, aPart, 0);
   tacoFill<valType>(ctx, runtime, B, bPart, 1);
-  runtime->fill_field(ctx, C, C, FID_VAL, valType(1));
+  tacoFill<valType>(ctx, runtime, C, cPart, 1);
+
+  placeLegionA(ctx, runtime, A, gx, gy);
+  placeLegionB(ctx, runtime, B, gx, gy);
 
   std::vector<size_t> times;
-  for (int i = 0; i < 10; i++) {
-    tacoFill<valType>(ctx, runtime, A, aPart, 0);
-
-    // Place the tensors.
-    placeLegionA(ctx, runtime, A, gx, gy);
-    placeLegionB(ctx, runtime, B, gx, gy);
-    // placeLegionC(ctx, runtime, C, gx, gy);
-
-    // Compute.
-    benchmark(ctx, runtime, times, [&]() { computeLegion(ctx, runtime, A, B, C, bPart, aPart); });
-  }
+  benchmarkAsyncCall(ctx, runtime, times, [&]() {
+    for (int i = 0; i < 10; i++) {
+      computeLegion(ctx, runtime, A, B, C, bPart, aPart, cPart);
+    }
+  });
 
   // Calculate the total bandwidth.
   size_t elems = [](size_t n) { return n * n + n * n * n + n; }(n);
@@ -93,12 +107,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   double bw = gbytes / (avgTimeS);
   auto nodes = runtime->select_tunable_value(ctx, Mapping::DefaultMapper::DEFAULT_TUNABLE_NODE_COUNT).get<size_t>();
   LEGION_PRINT_ONCE(runtime, ctx, stdout, "On %ld nodes achieved GB/s BW per node: %lf.\n", nodes, bw / double(nodes));
-
-  // For some reason that I can't figure out right now, shutdown hangs after validation on
-  // certain problem sizes...
-  if (validate) {
-    tacoValidate<valType>(ctx, runtime, A, aPart, valType(n));
-  }
+  tacoValidate<valType>(ctx, runtime, A, aPart, valType(n * 10));
 }
 
 TACO_MAIN(valType)
