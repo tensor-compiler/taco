@@ -470,10 +470,11 @@ protected:
 
   ParallelUnit getAtomicParallelUnit() const;
 
-  virtual ir::Stmt generateGlobalEnvironmentVars();
+  virtual ir::Stmt generateGlobalEnvironmentVars(IndexStmt stmt);
   virtual ir::Stmt generateAccelEnvironmentVars();
   virtual ir::Stmt addAccelEnvironmentVars();
   std::map<std::string, ir::Expr> funcEnvMap;
+  std::map<std::string, ir::Expr> envValMap;
 
   // Map temporary tensorVars to a list of size expressions for each mode
   std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap;
@@ -563,6 +564,8 @@ protected:
 
   /// SPATIAL ONLY
   std::map<ir::Expr, int> tensorExprDefinedBound;
+
+  Forall outerForall;
 
   class Visitor;
   friend class Visitor;

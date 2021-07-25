@@ -889,13 +889,15 @@ Stmt Print::make(std::string fmt, std::vector<Expr> params) {
 }
   
 Expr GetProperty::make(Expr tensor, TensorProperty property, int mode,
-                       int index, std::string name) {
+                       int index, std::string name, bool load_local, bool useBP) {
   GetProperty* gp = new GetProperty;
   gp->tensor = tensor;
   gp->property = property;
   gp->mode = mode;
   gp->name = name;
   gp->index = index;
+  gp->load_local = load_local;
+  gp->useBP = useBP;
   
   //TODO: deal with the fact that some of these are pointers
   if (property == TensorProperty::Values)
@@ -1120,8 +1122,9 @@ Stmt ReduceScan::make(Expr caseType, Expr reg, Expr scanner, Stmt contents, Expr
   loop->reg = reg;
   loop->scanner = scanner;
   if (contents.defined())
-    loop->contents = Scope::make(contents);
-  loop->returnExpr = returnExpr;
+    loop->contents = Scope::make(contents, returnExpr);
+  else
+    loop->contents = Scope::make(Block::make(), returnExpr);
   loop->add = add;
   return loop;
 }
@@ -1499,6 +1502,40 @@ std::vector<std::string> getArgInVarnames(Stmt stmt) {
   };
   auto visitor = GetArgInVarnames();
   return visitor.getVarNames(stmt);
+}
+
+ir::Stmt removeEndReduction(Stmt stmt) {
+  struct GetLastAssignment : IRVisitor {
+    using IRVisitor::visit;
+    Stmt assign;
+    void visit(const Assign* op)  {
+      assign = op;
+    }
+
+    ir::Stmt getLastAssignment(ir::Stmt stmt) {
+      stmt.accept(this);
+      return assign;
+    }
+  };
+
+  struct RemoveAssignment : IRRewriter {
+    using IRRewriter::rewrite;
+    Stmt assign;
+
+    RemoveAssignment(Stmt assign) : assign(assign) {}
+
+    void visit(const Assign* op) {
+      if (op == assign) {
+        stmt = Block::make();
+      }  else {
+        stmt = op;
+      }
+    }
+  };
+
+  auto assignToRemove = GetLastAssignment().getLastAssignment(stmt);
+  auto rewrittenStmt = RemoveAssignment(assignToRemove).rewrite(stmt);
+  return rewrittenStmt;
 }
 
 } // namespace ir

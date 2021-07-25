@@ -223,6 +223,8 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   // Create datastructure needed for bulk memory load/store optimization from forall
   bulkMemTransfer = getBulkMemTransfers(stmt);
 
+  outerForall = getOuterLoop(stmt);
+
   // Convert tensor results and arguments IR variables
   map<TensorVar, Expr> resultVars;
   vector<Expr> resultsIR = createVars(results, &resultVars, unpack);
@@ -282,7 +284,7 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
     }
   }
 
-  Stmt funcEnv = generateGlobalEnvironmentVars();
+  Stmt funcEnv = generateGlobalEnvironmentVars(stmt);
   Stmt accelEnv = generateAccelEnvironmentVars();
 
   vector<Access> inputAccesses, resultAccesses;
@@ -440,8 +442,14 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   Stmt body = lower(stmt);
 
   // Post-process body to replace workspace/temporary GetProperties with local variables
-  if (generateComputeCode())
+  if (generateComputeCode()) {
     body = rewriteTemporaryGP(body, temporaries, temporarySizeMap, temporaryArrays);
+
+    map<Expr, TensorVar> flippedTensorVars;
+    for (auto it = tensorVars.begin(); it != tensorVars.end(); ++it)
+      flippedTensorVars[it->second] = it->first;
+    body = addUseBPFlag(body, flippedTensorVars, envValMap);
+  }
 
   // Post-process result modes and allocate memory for values if necessary
   Stmt finalizeResults = finalizeResultArrays(resultAccesses);
@@ -478,7 +486,7 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
                                       Block::make(footer)));
 }
 
-ir::Stmt LowererImplDataflow::generateGlobalEnvironmentVars() {
+ir::Stmt LowererImplDataflow::generateGlobalEnvironmentVars(IndexStmt stmt) {
   return Stmt();
 }
 

@@ -26,15 +26,17 @@ protected:
   /// Lower an access expression.
   ir::Expr lowerAccess(Access access) override;
 
+  ir::Stmt lowerForall(Forall forall) override;
+
   /// Retrieve the values array of the tensor var.
   ir::Expr getValuesArray(TensorVar) const override;
 
   /// Initialize temporary variables
   std::vector<ir::Stmt> codeToInitializeTemporary(Where where) override;
 
-  ir::Stmt lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar,
-                                      IndexStmt statement,
-                                      const std::set<Access>& reducedAccesses) override;
+  ir::Stmt lowerDeclarativeSparse(MergeLattice lattice, IndexVar coordinateVar, Forall forall,
+                             IndexStmt statement,
+                             const std::set<Access>& reducedAccesses) ;
 
   ir::Stmt lowerForallDimension(Forall forall,
                                         std::vector<Iterator> locaters,
@@ -66,7 +68,7 @@ protected:
                                    std::vector<Iterator> appenders, std::map<Iterator, ir::Expr>& varMap, bool isUnion = false);
 
   /// Generate the compute loop that either takes the union or intersection of the multiple sparse iterators.
-  ir::Stmt generateIteratorComputeLoop(IndexStmt statement, ir::Expr coordinate, IndexVar coordinateVar, MergePoint point,
+  ir::Stmt generateIteratorComputeLoop(Forall forall, IndexStmt statement, ir::Expr coordinate, IndexVar coordinateVar, MergePoint point,
                                        MergeLattice lattice, std::map<Iterator, ir::Expr>& varMap, const std::set<Access>& reducedAccesses, bool isUnion);
 
   bool hasSparseDRAMAccesses(IndexExpr expression);
@@ -76,7 +78,7 @@ protected:
   ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> iterators, std::vector<Iterator> rangers,
                                        std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar) override;
 
-  ir::Stmt generateGlobalEnvironmentVars() override;
+  ir::Stmt generateGlobalEnvironmentVars(IndexStmt stmt) override;
   ir::Stmt generateAccelEnvironmentVars() override;
   ir::Stmt addAccelEnvironmentVars() override;
   ir::Stmt codeToInitializePosAccumulators();
@@ -86,7 +88,9 @@ protected:
 
   // TODO: add this to LowererImplImperative too
   std::vector<ir::Expr> getAllTemporaryModeArrays(Where where);
+
   ir::Stmt generateAppendCoordVar(std::vector<Iterator> appenders, ir::Expr coordinatePosVar);
+  ir::Stmt generateOPMemLoads(Forall forall, Iterator iterator, ir::Stmt& forallBodyStmt, ir::Expr startBound, ir::Expr endBound);
 
     private:
   class Visitor;
@@ -107,6 +111,9 @@ protected:
   std::vector<ir::Expr> posAccumulationVars;
 
   std::map<ir::Expr, std::vector<ir::Expr>> coordinateScanVarsMap;
+
+  std::map<ir::Expr, ir::Expr> tensorPropertyVars;
+
 };
 
 

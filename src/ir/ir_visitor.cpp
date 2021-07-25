@@ -198,6 +198,8 @@ void IRVisitor::visit(const Block* op) {
 
 void IRVisitor::visit(const Scope* op) {
   op->scopedStmt.accept(this);
+  if (op->returnExpr.defined())
+    op->returnExpr.accept(this);
 }
 
 void IRVisitor::visit(const Function* op) {

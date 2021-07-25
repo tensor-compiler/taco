@@ -159,7 +159,7 @@ void IndexNotationRewriter::visit(const ForallNode* op) {
     stmt = op;
   }
   else {
-    stmt = new ForallNode(op->indexVar, s, op->parallel_unit, op->output_race_strategy, op->unrollFactor, op->numChunks);
+    stmt = new ForallNode(op->indexVar, s, op->parallel_unit, op->output_race_strategy, op->unrollFactor, op->numChunks, op->accessTensor);
   }
 }
 
@@ -213,7 +213,7 @@ void IndexNotationRewriter::visit(const SuchThatNode* op) {
     stmt = op;
   }
   else {
-    stmt = new SuchThatNode(s, op->predicate);
+    stmt = new SuchThatNode(s, op->predicate, op->environment);
   }
 }
 

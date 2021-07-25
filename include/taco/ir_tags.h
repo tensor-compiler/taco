@@ -20,7 +20,7 @@ enum class MemoryLocation {
   Default, GPUSharedMemory,
   SpatialDRAM, SpatialSparseDRAM,
   SpatialSRAM, SpatialSparseSRAM,
-  SpatialSparseParSRAM, SparseParSRAMSwizzle,
+  SpatialSparseParSRAM, SpatialSparseParSRAMSwizzle,
   SpatialFIFO, SpatialFIFORetimed,
   SpatialReg, SpatialArgIn, SpatialArgOut
 };

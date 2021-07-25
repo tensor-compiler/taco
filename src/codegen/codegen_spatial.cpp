@@ -306,7 +306,9 @@ string CodeGen_Spatial::printFuncName(const Function *func,
   ret << "@spatial abstract class " << func->name << "(" << endl;
 
   // Parameters here
-  ret << ") extends FluorineApp with " << func->name << "ComputeCheck {" << endl;
+  string name = func->name.substr(0, func->name.find("_")); //
+
+  ret << ") extends FluorineApp with " << name << "ComputeCheck {" << endl;
   ret << "  type T = Int\n" << endl;  // FIXME: make type changeable
   ret << "  // Code used for running multiple datasets\n";
   ret << "  private val rt = sys.env(\"TACO_TO_SPATIAL_HOME\") + \"/data/mats/\"\n";
@@ -643,14 +645,12 @@ void CodeGen_Spatial::visit(const ReduceScan* op) {
   if (op->contents.defined())
     op->contents.accept(this);
 
-
   if (op->returnExpr.defined()) {
-    indent++;
     doIndent();
     op->returnExpr.accept(this);
-    stream << endl;
-    indent--;
   }
+
+  stream << endl;
 
   doIndent();
   stream << "} { _ ";
@@ -710,6 +710,7 @@ void CodeGen_Spatial::visit(const Allocate* op) {
   auto memLoc = op->memoryLocation;
 
   bool needNumElements = true;
+  bool retiming = false;
   switch(memLoc) {
     case MemoryLocation::SpatialSparseDRAM:
       stream << "SparseDRAM[" << elementType << "](";
@@ -723,8 +724,15 @@ void CodeGen_Spatial::visit(const Allocate* op) {
     case MemoryLocation::SpatialSparseParSRAM:
       stream << "SparseParSRAM[" << elementType << "](";
       break;
+    case MemoryLocation::SpatialSparseParSRAMSwizzle:
+      stream << "SparseParSRAMSwizzle[" << elementType << "](";
+      break;
     case MemoryLocation::SpatialFIFO:
       stream << "FIFO[" << elementType << "](";
+      break;
+    case MemoryLocation::SpatialFIFORetimed:
+      stream << "FIFO[" << elementType << "](";
+      retiming = true;
       break;
     case MemoryLocation::SpatialArgIn:
       stream << "ArgIn[" << elementType << "]";
@@ -748,8 +756,10 @@ void CodeGen_Spatial::visit(const Allocate* op) {
     parentPrecedence = TOP;
     stream << ")";
   }
+  if (retiming)
+    stream << ".retiming";
 
-    stream << endl;
+  stream << endl;
 }
 
 void CodeGen_Spatial::visit(const Sqrt* op) {
@@ -824,6 +834,27 @@ void CodeGen_Spatial::visit(const Store* op) {
 }
 
 void CodeGen_Spatial::visit(const StoreBulk* op) {
+  // Special case for stream_load_vec
+  if (op->rhs_mem_loc == MemoryLocation::SpatialDRAM) {
+    if (op->lhs_mem_loc == MemoryLocation::SpatialFIFORetimed || op->lhs_mem_loc == MemoryLocation::SpatialFIFO) {
+      taco_iassert(isa<LoadBulk>(op->data)) << "If you're trying to load from DRAM to a FIFO, the data must be a "
+                                               "bulk load. Currently it is not: " << op->data;
+      auto load = op->data.as<LoadBulk>();
+
+      doIndent();
+      load->arr.accept(this);
+
+      stream << " stream_load_vec(";
+      load->locStart.accept(this);
+      stream << ", ";
+      load->locEnd.accept(this);
+      stream << ", ";
+      op->arr.accept(this);
+      stream << ")" << endl;
+      return;
+    }
+  }
+
   if (op->use_atomics) {
     doIndent();
     stream << getAtomicPragma() << endl;
@@ -872,20 +903,29 @@ void CodeGen_Spatial::visit(const MemStore* op) {
 void CodeGen_Spatial::visit(const Load* op) {
   parentPrecedence = Precedence::LOAD;
   op->arr.accept(this);
-  if (op->mem_loc == MemoryLocation::SpatialArgIn) {
-    // do nothing
-  } else if (op->mem_loc == MemoryLocation::SpatialFIFO) {
-    stream << ".deq";
-  } else if (op->mem_loc == MemoryLocation::SpatialSparseDRAM || op->mem_loc == MemoryLocation::SpatialSparseSRAM) {
-    stream << ".barrierRead(";
-    parentPrecedence = Precedence::LOAD;
-    op->loc.accept(this);
-    stream << ", Seq())";
-  } else {
-    stream << "(";
-    parentPrecedence = Precedence::LOAD;
-    op->loc.accept(this);
-    stream << ")";
+  switch (op->mem_loc) {
+    case MemoryLocation::SpatialArgIn:
+      break;
+    case MemoryLocation::SpatialFIFORetimed:
+    case MemoryLocation::SpatialFIFO:
+      stream << ".deq";
+      break;
+    case MemoryLocation::SpatialSparseDRAM:
+    case MemoryLocation::SpatialSparseParSRAM:
+    case MemoryLocation::SpatialSparseParSRAMSwizzle:
+    case MemoryLocation::SpatialSparseSRAM:
+      stream << ".barrierRead(";
+      parentPrecedence = Precedence::LOAD;
+      op->loc.accept(this);
+      stream << ", Seq())";
+      break;
+    default:
+      stream << "(";
+      parentPrecedence = Precedence::LOAD;
+      op->loc.accept(this);
+      stream << ")";
+      break;
+
   }
 }
 
@@ -980,16 +1020,30 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
   stringstream ret;
   string indentation = "    ";
 
+  // if load_local in GP set, do not emit at all
+  if (op->load_local) {
+    if (op->property == TensorProperty::Values)
+      return "\n";
+    return "";
+  }
+
   auto tensor = op->tensor.as<Var>();
   string dims = "";
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     string memLoc = "";
-    bool useBP = false;
+    bool useBP = op->useBP;
     string memDims = "nnz_accel_max";
     string loadDims = "nnz_accel_max";
+    bool retiming = false;
+    bool emitMemBarrier = false;
 
     switch(tensor->memoryLocation) {
+      case MemoryLocation::SpatialFIFORetimed:
+        memLoc = "FIFO";
+        memDims = "16";
+        useBP = false;
+        retiming = true;
       case MemoryLocation::SpatialFIFO:
         memLoc = "FIFO";
         memDims = "16";
@@ -1005,20 +1059,22 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
       case MemoryLocation::SpatialSparseParSRAM:
         memLoc = "SparseParSRAM";
         break;
+      case MemoryLocation::SpatialSparseParSRAMSwizzle:
+        memLoc = "SparseParSRAMSwizzle";
+        emitMemBarrier = true;
+        break;
       case MemoryLocation::SpatialSRAM:
         memLoc = "SRAM";
         loadDims = "";
-        memDims = "";
         for (int i = 1; i < op->index + 1; i++) {
           loadDims += tensor->name + to_string(i) + "_dimension";
-          memDims += tensor->name + to_string(i) + "_dimension";
           if (i < op->index) {
             loadDims += "*";
-            memDims += "*";
           }
         }
         break;
       case MemoryLocation::SpatialArgIn:
+      case MemoryLocation::SpatialArgOut:
         return "";
         break;
       case MemoryLocation::SpatialReg:
@@ -1044,12 +1100,21 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
       }
     }
 
-    ret << memDims << ")" << endl;
+    ret << memDims;
+    if (emitMemBarrier)
+      ret << ", true";
+    ret << ")";
+
+    if (retiming)
+      ret << ".retiming" << endl;
+    else
+      ret << endl;
 
     // Load from DRAM into FIFO
     // TODO: case based on FIFO or SRAM
     if (!is_output_prop ) {
       switch(tensor->memoryLocation) {
+        case MemoryLocation::SpatialFIFORetimed:
         case MemoryLocation::SpatialFIFO:
           ret << indentation << varname << "_dram stream_load_vec(0, " << dims << ", " << varname << ")" << endl;
           break;
@@ -1058,6 +1123,7 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
           break;
         case MemoryLocation::SpatialSparseSRAM:
         case MemoryLocation::SpatialSparseParSRAM:
+        case MemoryLocation::SpatialSparseParSRAMSwizzle:
         case MemoryLocation::SpatialSRAM:
           ret << indentation << varname << " load " << varname << "_dram(0::" << dims << " par ip)" << endl;
           break;
@@ -1101,8 +1167,8 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
     string memLoc = "";
     string loadDims = "nnz_accel_max";
     string memDims = "nnz_accel_max";
-    bool useBP = true;
-
+    bool useBP = op->useBP;
+    bool retiming = false;
     string dims = "";
     for (int i = 1; i <= op->mode + 1; i++) {
       dims += tensor->name + to_string(i) + "_dimension";
@@ -1111,6 +1177,13 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
       }
     }
     switch(tensor->memoryLocation) {
+      case MemoryLocation::SpatialFIFORetimed:
+        memLoc = (nm == 1) ? "FIFO" : "SRAM"; // Needs to be SparseSRAM if there is a (pseudo-random inner loop accesses)
+        memDims = (nm == 1) ? "16" : "nnz_accel_max";
+        loadDims = (nm == 1) ? dims :  "(" + tensor->name + to_string(std::max(op->mode, 0)) + "_dimension + 1)";
+        useBP = false;
+        retiming = (nm == 1);
+        break;
       case MemoryLocation::SpatialFIFO:
         memLoc = (nm == 1) ? "FIFO" : "SRAM"; // Needs to be SparseSRAM if there is a (pseudo-random inner loop accesses)
         memDims = (nm == 1) ? "16" : "nnz_accel_max";
@@ -1120,6 +1193,7 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
       case MemoryLocation::SpatialSparseDRAM:
         // nm == 1 means it's the crd array
         memLoc = (is_output_prop) ? "SparseDRAM" : (nm == 1) ? "" : "SRAM";
+        loadDims = (nm == 1) ? dims : "(" + tensor->name + to_string(std::max(op->mode, 0)) + "_dimension + 1)";
         useBP = is_output_prop || nm != 0;
         break;
       case MemoryLocation::SpatialSparseSRAM:
@@ -1136,8 +1210,12 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
 
     if (memLoc != "") {
       string bpString = (useBP) ? "(bp)" : "";
-      ret << indentation << "val " << varname << " = " << memLoc << "[T]" << bpString << "(" << memDims << ")\n";
+      ret << indentation << "val " << varname << " = " << memLoc << "[T]" << bpString << "(" << memDims << ")";
     }
+    if (retiming)
+      ret << ".retiming" << endl;
+    else
+      ret << endl;
 
     // FIXME: Fixed size right now, should be max(NNZ)
     if (!is_output_prop) {
@@ -1176,14 +1254,14 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
     string dim = "(nnz_max)";
     if (tensor->memoryLocation == MemoryLocation::SpatialSRAM) {
       //loc = "SRAM";
-      dim = "(";
-      for (int i = 1; i < op->index + 1; i++) {
-        dim += tensor->name + to_string(i) + "_dimension";
-        if (i < op->index) {
-          dim += "*";
-        }
-      }
-      dim += ")";
+//      dim = "(";
+//      for (int i = 1; i < op->index + 1; i++) {
+//        dim += tensor->name + to_string(i) + "_dimension";
+//        if (i < op->index) {
+//          dim += "*";
+//        }
+//      }
+//      dim += ")";
     } else if (tensor->memoryLocation == MemoryLocation::SpatialReg) {
       useDRAM = false;
     } else if (tensor->memoryLocation == MemoryLocation::SpatialArgIn || tensor->memoryLocation == MemoryLocation::SpatialArgOut) {
@@ -1240,7 +1318,10 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
   }
 
   if (is_output_prop && op->property != TensorProperty::Dimension) {
-    ret << indent << "val gold_" << varname << "_dram = DRAM[T](nnz_max)\n";
+    if (tensor->memoryLocation == MemoryLocation::SpatialArgOut)
+      ret << indent << "val gold_" << varname << "_dram = ArgIn[T]\n";
+    else
+      ret << indent << "val gold_" << varname << "_dram = DRAM[T](nnz_max)\n";
     // For formatting reasons
     if (op->property == TensorProperty::Values)
       ret << endl;
@@ -1768,7 +1849,7 @@ string CodeGen_Spatial::outputTensorProperty(string varname, Expr tnsr,
         ret << indentation << varname << "_dram stream_store_vec(0, " << varname << ", " << dims <<  ")" << endl;
         break;
       case MemoryLocation::SpatialSRAM:
-        ret << indentation << varname << "_dram load (0::" << dims << ")" << endl;
+        ret << indentation << varname << "_dram(0::" << dims << " par ip) store " << varname << endl;
         break;
       default:
         break;

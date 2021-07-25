@@ -131,7 +131,68 @@ struct WorkspaceIndRewriter : ir::IRRewriter {
   }
 };
 
+struct TagTensorPropertyLoads : IRRewriter {
+  using IRRewriter::visit;
+  TensorVar tv;
+  map<TensorVar, Expr> tvs;
 
+  TagTensorPropertyLoads(TensorVar tv, map<TensorVar, Expr> tvs) : tv(tv), tvs(tvs) {}
+
+  void visit(const GetProperty* op) {
+    op->tensor.accept(this);
+
+    if (tvs.count(tv) > 0 && op->tensor == tvs.at(tv)) {
+      if ((op->property == TensorProperty::Indices && op->index == 1) || op->property == TensorProperty::Values) {
+        expr = GetProperty::make(op->tensor, op->property, op->mode, op->index, op->name, true);
+        return;
+      }
+    }
+    expr = op;
+  }
+};
+
+struct DetectBPTensorProperties : IRRewriter {
+  using IRRewriter::visit;
+  map<Expr, TensorVar> tensors;
+  std::map<std::string, ir::Expr> envValMap;
+
+  DetectBPTensorProperties(map<Expr, TensorVar> tensors, std::map<std::string, ir::Expr> envValMap) : tensors(tensors), envValMap(envValMap) {}
+
+  void visit(const GetProperty* op) {
+    op->tensor.accept(this);
+
+    if (tensors.count(op->tensor) > 0 &&  envValMap["bp"].as<ir::Literal>()->getIntValue() > 1) {
+      bool useBP = false;
+      MemoryLocation memLoc = tensors.at(op->tensor).getMemoryLocation();
+      switch (memLoc) {
+        case MemoryLocation::SpatialSparseParSRAMSwizzle:
+        case MemoryLocation::SpatialSparseParSRAM:
+        case MemoryLocation::SpatialSparseSRAM:
+          useBP = true;
+          break;
+        default:
+          break;
+      }
+
+      if (useBP)
+        expr = GetProperty::make(op->tensor, op->property, op->mode, op->index, op->name, op->load_local, true);
+      else
+        expr = op;
+    } else {
+      expr = op;
+    }
+  }
+};
+
+ir::Stmt addUseBPFlag(const ir::Stmt& stmt, std::map<Expr, TensorVar> tensors, std::map<std::string, ir::Expr> envValMap) {
+  ir::Stmt rewrittenStmt = DetectBPTensorProperties(tensors, envValMap).rewrite(stmt);
+  return rewrittenStmt;
+}
+
+ir::Stmt addGPLoadFlag(const ir::Stmt& stmt, TensorVar tv, map<TensorVar, Expr> tvs) {
+  ir::Stmt rewrittenStmt = TagTensorPropertyLoads(tv, tvs).rewrite(stmt);
+  return rewrittenStmt;
+}
 
 ir::Stmt rewriteTemporaryGP(const ir::Stmt& stmt, std::vector<TensorVar> whereTemps,
                             std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap,

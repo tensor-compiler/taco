@@ -1008,11 +1008,13 @@ struct GetProperty : public ExprNode<GetProperty> {
   int index = 0;
   std::string name;
   bool is_compressed = false;
+  bool load_local = false;
+  bool useBP = false;
 
   static Expr make(Expr tensor, TensorProperty property, int mode=0);
   static Expr make(Expr tensor, TensorProperty property, int mode, int index, bool is_compressed=false);
   static Expr make(Expr tensor, TensorProperty property, int mode,
-                   int index, std::string name);
+                   int index, std::string name, bool load_local = false, bool useBP = false);
   
   static const IRNodeType _type_info = IRNodeType::GetProperty;
 };
@@ -1055,6 +1057,7 @@ bool isValue(Expr expr, T val) {
 Stmt rewriteBulkStmt(Stmt stmt, IndexVar indexVar);
 Expr rewriteBulkExpr(Stmt stmt, IndexVar indexVar);
 Stmt rewriteStmtRemoveDuplicates(Stmt stmt1, Stmt stmt2);
+Stmt removeEndReduction(Stmt stmt);
 
 }}
 #endif

@@ -645,6 +645,9 @@ public:
   /// Needed for users to be able to set hardware metadata
   IndexStmt environment(std::string varname, size_t value = 0) const;
 
+  /// Needed for users to be able to set when local memory data
+  /// is needed for a certain tensor
+  IndexStmt communicate(Access access, IndexVar indexVar) const;
 
   /// pos and coord create
   /// new index variables in their respective iteration spaces.
@@ -796,8 +799,10 @@ public:
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
-  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0, size_t numChunks = 1);
-
+  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, TensorVar accessTensor,
+         size_t unrollFactor = 0, size_t numChunks = 1);
+  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy,
+         size_t unrollFactor = 0, size_t numChunks = 1);
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
 
@@ -807,6 +812,8 @@ public:
   size_t getUnrollFactor() const;
 
   size_t getNumChunks() const;
+
+  TensorVar getCommunicateAccess() const;
 
   typedef ForallNode Node;
 };
@@ -1198,6 +1205,9 @@ std::vector<TensorVar> getResults(IndexStmt stmt);
 
 /// Returns the input tensors to the index statement, in the order they appear.
 std::vector<TensorVar> getArguments(IndexStmt stmt);
+
+/// Returns the outermost forall loop (assuming no precompute)
+Forall getOuterLoop(IndexStmt stmt);
 
 /// Returns the temporaries in the index statement, in the order they appear.
 std::vector<TensorVar> getTemporaries(IndexStmt stmt);

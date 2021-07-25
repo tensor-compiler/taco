@@ -1606,9 +1606,27 @@ IndexStmt IndexStmt::environment(string varname, size_t value) const {
   return transformed;
 }
 
-//IndexStmt IndexStmt::communicate(Access access, IndexVar indexVar) const {
-//  struct
-//}
+IndexStmt IndexStmt::communicate(Access access, IndexVar indexVar) const {
+  struct TagForallCommunicate : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+    IndexVar i;
+    Access access;
+    TagForallCommunicate(IndexVar indexVar, Access access) : i(indexVar), access(access) {}
+    void visit(const ForallNode* node) {
+      auto forallStmt = rewrite(node->stmt);
+      if (node->indexVar == i) {
+        stmt = Forall(node->indexVar, forallStmt, node->parallel_unit, node->output_race_strategy, access.getTensorVar(), node->unrollFactor, node->numChunks);
+      } else if (forallStmt != node->stmt) {
+        stmt = Forall(node->indexVar, forallStmt, node->parallel_unit, node->output_race_strategy, node->accessTensor, node->unrollFactor, node->numChunks);
+      } else {
+        stmt = node;
+      }
+    }
+  };
+
+  IndexStmt transformed = TagForallCommunicate(indexVar, access).rewrite(*this);
+  return transformed;
+}
 
 IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
   // check access is contained in stmt
@@ -1822,8 +1840,14 @@ Forall::Forall(IndexVar indexVar, IndexStmt stmt)
     : Forall(indexVar, stmt, ParallelUnit::NotParallel, OutputRaceStrategy::IgnoreRaces) {
 }
 
-Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor, size_t numChunks)
-        : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor, numChunks)) {
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy,
+               size_t unrollFactor, size_t numChunks)
+  : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor, numChunks, TensorVar())) {
+}
+
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, TensorVar accessTensor,
+               size_t unrollFactor, size_t numChunks)
+  : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor, numChunks, accessTensor)) {
 }
 
 IndexVar Forall::getIndexVar() const {
@@ -1848,6 +1872,10 @@ size_t Forall::getUnrollFactor() const {
 
 size_t Forall::getNumChunks() const {
   return getNode(*this)->numChunks;
+}
+
+TensorVar Forall::getCommunicateAccess() const {
+  return getNode(*this)->accessTensor;
 }
 
 Forall forall(IndexVar i, IndexStmt stmt) {
@@ -3037,17 +3065,13 @@ std::map<Forall, std::pair<int, Assignment>> getForallReductions(IndexStmt stmt)
   vector<Forall> f;
   match(stmt,
         function<void(const ForallNode*, Matcher*)>([&](const ForallNode* op, Matcher* ctx) {
-          f.push_back(op);
+          if (op->parallel_unit == ParallelUnit::Spatial && op->output_race_strategy == OutputRaceStrategy::SpatialReduction)
+            f.push_back(op);
           ctx->match(op->stmt);
         }),
         function<void(const WhereNode*, Matcher*)>([&](const WhereNode* w, Matcher* ctx) {
-//          if (isa<Assignment>(w->consumer)) {
-//            auto c = to<Assignment>(w->consumer);
-//            if (!c.getOperator().defined()) {
-//              f.clear();
-//            }
-//          }
           ctx->match(w->consumer);
+          f.clear();
           ctx->match(w->producer);
         }),
         function<void(const AssignmentNode*, Matcher*)>([&](const AssignmentNode* a, Matcher* ctx) {
@@ -3084,6 +3108,19 @@ std::map<Forall, Assignment> getBulkMemTransfers(IndexStmt stmt) {
         })
   );
   return bulkTransfers;
+}
+
+Forall getOuterLoop(IndexStmt stmt) {
+  map<Forall, Assignment> bulkTransfers;
+  Forall f = Forall();
+  match(stmt,
+        function<void(const ForallNode*, Matcher*)>([&](const ForallNode* op, Matcher* ctx) {
+          if (!f.defined())
+          f = op;
+          ctx->match(op->stmt);
+        })
+  );
+  return f;
 }
 
 std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
