@@ -414,7 +414,7 @@ void IRRewriter::visit(const Function* op) {
     stmt = op;
   }
   else {
-    stmt = Function::make(op->name, outputs, inputs, body);
+    stmt = Function::make(op->name, outputs, inputs, body, op->returnType);
   }
 }
 

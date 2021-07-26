@@ -933,6 +933,40 @@ TEST(distributed, cuda_cosma) {
   }
 }
 
+TEST(distributed, innerprod) {
+  int dim = 10;
+
+  auto pieces = ir::Var::make("pieces", Int32, false, false, true);
+
+  Tensor<double> a("a");
+  Tensor<double> b("b", {dim, dim, dim}, Format{Dense, Dense, Dense});
+  Tensor<double> c("c", {dim, dim, dim}, Format{Dense, Dense, Dense});
+
+  auto part = lower(b.partitionStmt(Grid(pieces)), "partition3Tensor", false, true);
+
+  IndexVar i("i"), j("j"), k("k");
+  IndexVar in("in"), il("il");
+  IndexVar ii("ii"), io("io");
+  a() = b(i, j, k) * c(i, j, k);
+  auto stmt = a.getAssignment().concretize()
+               .distribute({i}, {in}, {il}, std::vector<Access>{b(i, j, k), c(i, j, k)})
+               // CPU schedule.
+               .split(il, io, ii, 4)
+               .parallelize(ii, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::ParallelReduction)
+               .parallelize(io, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::Atomics)
+               ;
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto all = ir::Block::make({part, lowered});
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  {
+    ofstream f("../legion/innerprod/taco-generated.cpp");
+    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+}
+
 TEST(distributed, solomonikMM) {
   int dim = 10;
   Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});

@@ -279,8 +279,6 @@ LowererImpl::lower(IndexStmt stmt, string name,
   // components
   createReducedValueVars(inputAccesses, &reducedValueVars);
 
-  map<TensorVar, Expr> scalars;
-
   // Define and initialize dimension variables
   set<TensorVar> temporariesSet(temporaries.begin(), temporaries.end());
   vector<IndexVar> indexVars = getIndexVars(stmt);
@@ -422,14 +420,15 @@ LowererImpl::lower(IndexStmt stmt, string name,
       if (!hasTransfer(node->lhs)) { accessesWithoutTransfers.push_back(node->lhs); }
     }));
 
-    std::vector<Stmt> stmts;
-    for (auto t : accessesWithoutTransfers) {
-      auto v = ir::Var::make("tx", Datatype::Int32);
-      auto tv = ir::Var::make(t.getTensorVar().getName(), Datatype::Int32);
-      auto fcall = ir::Call::make("top_level_transfer", {tv}, Datatype::Int32);
-      stmts.push_back(ir::Assign::make(v, fcall));
-    }
-    topLevelTransfers = ir::Block::make(stmts);
+    // We should stop emitting this fake "top_level_transfer" thing.
+    // std::vector<Stmt> stmts;
+    // for (auto t : accessesWithoutTransfers) {
+    //   auto v = ir::Var::make("tx", Datatype::Int32);
+    //   auto tv = ir::Var::make(t.getTensorVar().getName(), Datatype::Int32);
+    //   auto fcall = ir::Call::make("top_level_transfer", {tv}, Datatype::Int32);
+    //   stmts.push_back(ir::Assign::make(v, fcall));
+    // }
+    // topLevelTransfers = ir::Block::make(stmts);
   }
 
   // Allocate and initialize append and insert mode indices
@@ -727,12 +726,24 @@ LowererImpl::lower(IndexStmt stmt, string name,
           return it.first;
         }
       }
-      taco_ierror << "couldn't reverse lookup tensor: " << e << "in: " << util::join(this->tensorVars) << std::endl;
+      taco_ierror << "couldn't reverse lookup tensor: " << e << " in: " << util::join(this->tensorVars) << std::endl;
       return TensorVar();
     };
 
     for (auto ir : resultsIR) {
-      this->tensorVarOrdering.push_back(lookupTV(ir));
+      // Don't add scalars to the tensorVarOrdering.
+      bool isScalar = false;
+      for (auto it : this->scalars) {
+        if (it.second == ir) {
+          isScalar = true;
+          // TODO (rohany): Assert that there is only at most one scalar result.
+          this->performingScalarReduction = true;
+          this->scalarReductionResult = tensorVars.at(it.first);
+        }
+      }
+      if (!isScalar) {
+        this->tensorVarOrdering.push_back(lookupTV(ir));
+      }
     }
     for (auto ir : argumentsIR) {
       if (ir.as<Var>() && ir.as<Var>()->is_tensor) {
@@ -809,18 +820,43 @@ LowererImpl::lower(IndexStmt stmt, string name,
     std::set<ir::Expr> collectedVars;
   } pfinder; body.accept(&pfinder);
 
+  Datatype returnType = Datatype::Undefined;
   // Store scalar stack variables back to results
   if (generateComputeCode()) {
     for (auto& result : results) {
       if (isScalar(result.getType())) {
-        taco_iassert(util::contains(scalars, result));
-        taco_iassert(util::contains(tensorVars, result));
-        Expr resultIR = scalars.at(result);
-        Expr varValueIR = tensorVars.at(result);
-        Expr valuesArrIR = GetProperty::make(resultIR, TensorProperty::Values);
-        footer.push_back(Store::make(valuesArrIR, 0, varValueIR, markAssignsAtomicDepth > 0, atomicParallelUnit));
+        if (this->legion) {
+          taco_iassert(util::contains(scalars, result));
+          returnType = result.getType().getDataType();
+          Expr varValueIR = tensorVars.at(result);
+          footer.push_back(ir::Return::make(varValueIR));
+        } else {
+          taco_iassert(util::contains(scalars, result));
+          taco_iassert(util::contains(tensorVars, result));
+          Expr resultIR = scalars.at(result);
+          Expr varValueIR = tensorVars.at(result);
+          Expr valuesArrIR = GetProperty::make(resultIR, TensorProperty::Values);
+          footer.push_back(Store::make(valuesArrIR, 0, varValueIR, markAssignsAtomicDepth > 0, atomicParallelUnit));
+        }
       }
     }
+  }
+
+  if (this->legion) {
+    // Remove any scalars from the results IR for legion.
+    std::vector<ir::Expr> newResultsIR;
+    for (auto e : resultsIR) {
+      auto isScalar = false;
+      for (auto it : this->scalars) {
+        if (it.second == e) {
+          isScalar = true;
+        }
+      }
+      if (!isScalar) {
+        newResultsIR.push_back(e);
+      }
+    }
+    resultsIR = newResultsIR;
   }
 
   // Create function
@@ -830,7 +866,7 @@ LowererImpl::lower(IndexStmt stmt, string name,
                                       topLevelTransfers,
                                       body,
                                       finalizeResults,
-                                      Block::make(footer)));
+                                      Block::make(footer)), returnType);
 }
 
 
@@ -2159,7 +2195,17 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           {ctx, launcher},
           Auto
       );
-      if (this->distLoopDepth == 0 && this->waitOnFutureMap) {
+      if (this->performingScalarReduction) {
+        // In this case, we need to reduce the result of the index launch.
+        itlStmts.push_back(ir::VarDecl::make(fm, fmCall));
+        auto reduced = ir::Var::make("reduced", Auto);
+        auto redop = ir::Symbol::make(LegionRedopString(this->scalarReductionResult.type()));
+        itlStmts.push_back(ir::VarDecl::make(reduced, ir::Call::make("runtime->reduce_future_map", {ctx, fm, redop}, Auto)));
+        // TODO (rohany): Wait on the future's result.
+        std::stringstream funcName;
+        funcName << "get<" << this->scalarReductionResult.type() << ">";
+        itlStmts.push_back(ir::Assign::make(this->scalarReductionResult, ir::MethodCall::make(reduced, funcName.str(), {}, false, Auto)));
+      } else if (this->distLoopDepth == 0 && this->waitOnFutureMap) {
         itlStmts.push_back(ir::VarDecl::make(fm, fmCall));
         itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(fm, "wait_all_results", {}, false, Auto)));
       } else {
@@ -2316,7 +2362,13 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     )});
   }
 
-  body = Block::make({recoveryStmt, declarePartitionBounds, body});
+  Stmt returnReduction;
+  if (this->performingScalarReduction && isTask) {
+    // Tasks need to return their reduction result.
+    returnReduction = ir::Return::make(this->scalarReductionResult);
+  }
+
+  body = Block::make({recoveryStmt, declarePartitionBounds, body, returnReduction});
 
   Stmt posAppend = generateAppendPositions(appenders);
 

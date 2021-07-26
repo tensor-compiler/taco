@@ -426,7 +426,7 @@ Stmt CodeGen_CUDA::simplifyFunctionBodies(Stmt stmt) {
       int numYields = countYields(func); // temporary fix as simplifying function with yields will break printContextDeclAndInit
       if (numYields == 0) {
         Stmt body = ir::simplify(func->body);
-        stmt = Function::make(func->name, func->outputs, func->inputs, body);
+        stmt = Function::make(func->name, func->outputs, func->inputs, body, func->returnType);
       }
       else {
         stmt = func;

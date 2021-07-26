@@ -703,10 +703,12 @@ struct Function : public StmtNode<Function> {
   Stmt body;
   std::vector<Expr> inputs;
   std::vector<Expr> outputs;
+  // We assume that this is void unless set.
+  Datatype returnType;
   
   static Stmt make(std::string name,
                    std::vector<Expr> outputs, std::vector<Expr> inputs,
-                   Stmt body);
+                   Stmt body, Datatype returnType = Datatype::Undefined);
   
   std::pair<std::vector<Datatype>,Datatype> getReturnType() const;
   
