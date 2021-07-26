@@ -823,6 +823,96 @@ TEST(distributed, cuda_johnsonMM) {
   }
 }
 
+TEST(distributed, cosma) {
+  int dim = 10;
+  auto gx = ir::Var::make("gx", Int32, false, false, true);
+  auto gy = ir::Var::make("gy", Int32, false, false, true);
+  auto gz = ir::Var::make("gz", Int32, false, false, true);
+  auto cube = Grid(gx, gy, gz);
+  TensorDistribution aDist(TensorDistributionV2(PlacementGrid(gx, gy, gz | Face(0))));
+  TensorDistribution bDist(TensorDistributionV2(PlacementGrid(gx, gy | Face(0), gz)));
+  // Set this up so that the first dimension is partitioned by the k component.
+  TensorDistribution cDist(TensorDistributionV2(PlacementGrid(gx | Face(0), gy | 1, gz | 0)));
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, aDist);
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, bDist);
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, cDist);
+
+  auto aPartStmt = lower(a.partitionStmt(Grid(gx, gy)), "partitionLegionA", false, true);
+  auto bPartStmt = lower(b.partitionStmt(Grid(gx, gz)), "partitionLegionB", false, true);
+  auto cPartStmt = lower(c.partitionStmt(Grid(gz, gy)), "partitionLegionC", false, true);
+  auto aPlaceLowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
+  auto bPlaceLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
+  auto cPlaceLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
+  IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
+  a(i, j) = b(i, k) * c(k, j);
+  // The schedule for COSMA is simple, as much of the magic is in how it chooses to
+  // decompose the problem.
+  std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
+  auto stmt = a.getAssignment().concretize()
+               .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, cube)
+               .communicate(a(i, j), kn)
+               .communicate(b(i, k), kn)
+               .communicate(c(k, j), kn)
+               .swapLeafKernel(il, gemm)
+               // TODO (rohany): Until we support hierarchical reductions, we can't do this
+               //  in a neat manner.
+               ;
+  auto lowered = lowerNoWait(stmt, "computeLegion");
+  auto all = ir::Block::make({aPartStmt, bPartStmt, cPartStmt, aPlaceLowered, bPlaceLowered, cPlaceLowered, lowered});
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  {
+    ofstream f("../legion/cosma/taco-generated.cpp");
+    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+}
+
+TEST(distributed, cuda_cosma) {
+  int dim = 10;
+  auto gx = ir::Var::make("gx", Int32, false, false, true);
+  auto gy = ir::Var::make("gy", Int32, false, false, true);
+  auto gz = ir::Var::make("gz", Int32, false, false, true);
+  auto cube = Grid(gx, gy, gz);
+  TensorDistribution aDist(TensorDistributionV2(PlacementGrid(gx, gy, gz | Face(0))));
+  TensorDistribution bDist(TensorDistributionV2(PlacementGrid(gx, gy | Face(0), gz)));
+  // Set this up so that the first dimension is partitioned by the k component.
+  TensorDistribution cDist(TensorDistributionV2(PlacementGrid(gx | Face(0), gy | 1, gz | 0)));
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, aDist);
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, bDist);
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, cDist);
+
+  auto aPartStmt = lower(a.partitionStmt(Grid(gx, gy)), "partitionLegionA", false, true);
+  auto bPartStmt = lower(b.partitionStmt(Grid(gx, gz)), "partitionLegionB", false, true);
+  auto cPartStmt = lower(c.partitionStmt(Grid(gz, gy)), "partitionLegionC", false, true);
+  auto aPlaceLowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
+  auto bPlaceLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
+  auto cPlaceLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
+  IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
+  a(i, j) = b(i, k) * c(k, j);
+  // The schedule for COSMA is simple, as much of the magic is in how it chooses to
+  // decompose the problem.
+  std::shared_ptr<LeafCallInterface> gemm = std::make_shared<CuGEMM>();
+  auto stmt = a.getAssignment().concretize()
+               .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, cube, ParallelUnit::DistributedGPU)
+               .communicate(a(i, j), kn)
+               .communicate(b(i, k), kn)
+               .communicate(c(k, j), kn)
+               .swapLeafKernel(il, gemm)
+               ;
+  auto lowered = lowerNoWait(stmt, "computeLegion");
+  auto all = ir::Block::make({aPartStmt, bPartStmt, cPartStmt, aPlaceLowered, bPlaceLowered, cPlaceLowered, lowered});
+  auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  {
+    ofstream f("../legion/cosma/taco-generated.cu");
+    auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+}
+
 TEST(distributed, solomonikMM) {
   int dim = 10;
   Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
