@@ -967,6 +967,42 @@ TEST(distributed, innerprod) {
   }
 }
 
+TEST(distributed, cuda_innerprod) {
+  int dim = 10;
+
+  auto pieces = ir::Var::make("pieces", Int32, false, false, true);
+
+  Tensor<double> a("a");
+  Tensor<double> b("b", {dim, dim, dim}, Format{Dense, Dense, Dense});
+  Tensor<double> c("c", {dim, dim, dim}, Format{Dense, Dense, Dense});
+
+  auto part = lower(b.partitionStmt(Grid(pieces)), "partition3Tensor", false, true);
+
+  IndexVar i("i"), j("j"), k("k");
+  IndexVar in("in"), il("il");
+  IndexVar ii("ii"), io("io"), f("f"), f2("f2");
+  a() = b(i, j, k) * c(i, j, k);
+  auto stmt = a.getAssignment().concretize()
+               .distribute({i}, {in}, {il}, std::vector<Access>{b(i, j, k), c(i, j, k)}, ParallelUnit::DistributedGPU)
+               // GPU schedule.
+               .fuse(il, j, f)
+               .fuse(f, k, f2)
+               .split(f2, io, ii, 64)
+               .parallelize(ii, taco::ParallelUnit::GPUThread, taco::OutputRaceStrategy::ParallelReduction)
+               .parallelize(io, taco::ParallelUnit::GPUBlock, taco::OutputRaceStrategy::Atomics)
+               ;
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto all = ir::Block::make({part, lowered});
+  auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  {
+    ofstream f("../legion/innerprod/taco-generated.cu");
+    auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+}
+
 TEST(distributed, solomonikMM) {
   int dim = 10;
   Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
