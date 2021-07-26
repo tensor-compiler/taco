@@ -7,22 +7,16 @@ typedef FieldAccessor<READ_ONLY,double,2,coord_t,Realm::AffineAccessor<double,2,
 typedef ReductionAccessor<SumReduction<double>,true,2,coord_t,Realm::AffineAccessor<double,2,coord_t>> AccessorReducedouble2;
 
 struct task_1Args {
-  int32_t sfID;
-  int32_t gx;
-  int32_t gy;
-  int32_t gz;
+  int32_t px;
+  int32_t py;
 };
 struct task_2Args {
-  int32_t sfID;
-  int32_t gx;
-  int32_t gy;
-  int32_t gz;
+  int32_t px;
+  int32_t py;
 };
 struct task_3Args {
-  int32_t sfID;
-  int32_t gx;
-  int32_t gy;
-  int32_t gz;
+  int32_t px;
+  int32_t py;
 };
 struct task_4Args {
   int32_t gx;
@@ -113,32 +107,30 @@ void task_1(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
 
   int32_t distFused = task->index_point[0];
   task_1Args* args = (task_1Args*)(task->args);
-  int32_t gx = args->gx;
-  int32_t gy = args->gy;
-  int32_t gz = args->gz;
+  int32_t px = args->px;
+  int32_t py = args->py;
 
 
   int32_t in = getIndexPoint(task, 0);
   int32_t jn = getIndexPoint(task, 1);
-  int32_t kn = getIndexPoint(task, 2);
 }
 
-LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gx, int32_t gy, int32_t gz) {
+LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int32_t px, int32_t py) {
   int a1_dimension = runtime->get_index_space_domain(get_index_space(a)).hi()[0] + 1;
   int a2_dimension = runtime->get_index_space_domain(get_index_space(a)).hi()[1] + 1;
   auto a_index_space = get_index_space(a);
 
-  Point<3> lowerBound = Point<3>(0, 0, 0);
-  Point<3> upperBound = Point<3>((gx - 1), (gy - 1), 0);
-  auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<3>(lowerBound, upperBound));
-  DomainT<3> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<3>(distFusedIndexSpace));
+  Point<2> lowerBound = Point<2>(0, 0);
+  Point<2> upperBound = Point<2>((px - 1), (py - 1));
+  auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<2>(lowerBound, upperBound));
+  DomainT<2> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<2>(distFusedIndexSpace));
   auto aDomain = runtime->get_index_space_domain(ctx, a_index_space);
   DomainPointColoring aColoring = DomainPointColoring();
-  for (PointInDomainIterator<3> itr = PointInDomainIterator<3>(domain); itr.valid(); itr++) {
+  for (PointInDomainIterator<2> itr = PointInDomainIterator<2>(domain); itr.valid(); itr++) {
     int32_t in = (*itr)[0];
     int32_t jn = (*itr)[1];
-    Point<2> aStart = Point<2>((in * ((a1_dimension + (gx - 1)) / gx) + 0 / gx), (jn * ((a2_dimension + (gy - 1)) / gy) + 0 / gy));
-    Point<2> aEnd = Point<2>(TACO_MIN((in * ((a1_dimension + (gx - 1)) / gx) + ((a1_dimension + (gx - 1)) / gx - 1)), aDomain.hi()[0]), TACO_MIN((jn * ((a2_dimension + (gy - 1)) / gy) + ((a2_dimension + (gy - 1)) / gy - 1)), aDomain.hi()[1]));
+    Point<2> aStart = Point<2>((in * ((a1_dimension + (px - 1)) / px) + 0 / px), (jn * ((a2_dimension + (py - 1)) / py) + 0 / py));
+    Point<2> aEnd = Point<2>(TACO_MIN((in * ((a1_dimension + (px - 1)) / px) + ((a1_dimension + (px - 1)) / px - 1)), aDomain.hi()[0]), TACO_MIN((jn * ((a2_dimension + (py - 1)) / py) + ((a2_dimension + (py - 1)) / py - 1)), aDomain.hi()[1]));
     Rect<2> aRect = Rect<2>(aStart, aEnd);
     if (!aDomain.contains(aRect.lo) || !aDomain.contains(aRect.hi)) {
       aRect = aRect.make_empty();
@@ -149,20 +141,12 @@ LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, in
   LogicalPartition aLogicalPartition = runtime->get_logical_partition(ctx, get_logical_region(a), aPartition);
   RegionRequirement aReq = RegionRequirement(aLogicalPartition, 0, READ_ONLY, EXCLUSIVE, get_logical_region(a));
   aReq.add_field(FID_VAL);
-  std::vector<int> dims = std::vector<int>();
-  dims.push_back(gx);
-  dims.push_back(gy);
-  dims.push_back(gz);
-  registerPlacementShardingFunctor(ctx, runtime, shardingID(0), dims);
   task_1Args taskArgsRaw;
-  taskArgsRaw.sfID = shardingID(0);
-  taskArgsRaw.gx = gx;
-  taskArgsRaw.gy = gy;
-  taskArgsRaw.gz = gz;
+  taskArgsRaw.px = px;
+  taskArgsRaw.py = py;
   TaskArgument taskArgs = TaskArgument(&taskArgsRaw, sizeof(task_1Args));
   IndexLauncher launcher = IndexLauncher(taskID(1), domain, taskArgs, ArgumentMap());
   launcher.add_region_requirement(aReq);
-  launcher.tag = TACOMapper::PLACEMENT_SHARD;
   auto fm = runtime->execute_index_space(ctx, launcher);
   fm.wait_all_results();
   return runtime->get_logical_partition(ctx, get_logical_region(a), aPartition);
@@ -174,32 +158,30 @@ void task_2(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
 
   int32_t distFused = task->index_point[0];
   task_2Args* args = (task_2Args*)(task->args);
-  int32_t gx = args->gx;
-  int32_t gy = args->gy;
-  int32_t gz = args->gz;
+  int32_t px = args->px;
+  int32_t py = args->py;
 
 
   int32_t in = getIndexPoint(task, 0);
-  int32_t kn = getIndexPoint(task, 1);
-  int32_t jn = getIndexPoint(task, 2);
+  int32_t jn = getIndexPoint(task, 1);
 }
 
-LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, int32_t gx, int32_t gz, int32_t gy) {
+LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, int32_t px, int32_t py) {
   int b1_dimension = runtime->get_index_space_domain(get_index_space(b)).hi()[0] + 1;
   int b2_dimension = runtime->get_index_space_domain(get_index_space(b)).hi()[1] + 1;
   auto b_index_space = get_index_space(b);
 
-  Point<3> lowerBound = Point<3>(0, 0, 0);
-  Point<3> upperBound = Point<3>((gx - 1), 0, (gz - 1));
-  auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<3>(lowerBound, upperBound));
-  DomainT<3> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<3>(distFusedIndexSpace));
+  Point<2> lowerBound = Point<2>(0, 0);
+  Point<2> upperBound = Point<2>((px - 1), (py - 1));
+  auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<2>(lowerBound, upperBound));
+  DomainT<2> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<2>(distFusedIndexSpace));
   auto bDomain = runtime->get_index_space_domain(ctx, b_index_space);
   DomainPointColoring bColoring = DomainPointColoring();
-  for (PointInDomainIterator<3> itr = PointInDomainIterator<3>(domain); itr.valid(); itr++) {
+  for (PointInDomainIterator<2> itr = PointInDomainIterator<2>(domain); itr.valid(); itr++) {
     int32_t in = (*itr)[0];
-    int32_t jn = (*itr)[2];
-    Point<2> bStart = Point<2>((in * ((b1_dimension + (gx - 1)) / gx) + 0 / gx), (jn * ((b2_dimension + (gz - 1)) / gz) + 0 / gz));
-    Point<2> bEnd = Point<2>(TACO_MIN((in * ((b1_dimension + (gx - 1)) / gx) + ((b1_dimension + (gx - 1)) / gx - 1)), bDomain.hi()[0]), TACO_MIN((jn * ((b2_dimension + (gz - 1)) / gz) + ((b2_dimension + (gz - 1)) / gz - 1)), bDomain.hi()[1]));
+    int32_t jn = (*itr)[1];
+    Point<2> bStart = Point<2>((in * ((b1_dimension + (px - 1)) / px) + 0 / px), (jn * ((b2_dimension + (py - 1)) / py) + 0 / py));
+    Point<2> bEnd = Point<2>(TACO_MIN((in * ((b1_dimension + (px - 1)) / px) + ((b1_dimension + (px - 1)) / px - 1)), bDomain.hi()[0]), TACO_MIN((jn * ((b2_dimension + (py - 1)) / py) + ((b2_dimension + (py - 1)) / py - 1)), bDomain.hi()[1]));
     Rect<2> bRect = Rect<2>(bStart, bEnd);
     if (!bDomain.contains(bRect.lo) || !bDomain.contains(bRect.hi)) {
       bRect = bRect.make_empty();
@@ -210,20 +192,12 @@ LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, in
   LogicalPartition bLogicalPartition = runtime->get_logical_partition(ctx, get_logical_region(b), bPartition);
   RegionRequirement bReq = RegionRequirement(bLogicalPartition, 0, READ_ONLY, EXCLUSIVE, get_logical_region(b));
   bReq.add_field(FID_VAL);
-  std::vector<int> dims = std::vector<int>();
-  dims.push_back(gx);
-  dims.push_back(gy);
-  dims.push_back(gz);
-  registerPlacementShardingFunctor(ctx, runtime, shardingID(1), dims);
   task_2Args taskArgsRaw;
-  taskArgsRaw.sfID = shardingID(1);
-  taskArgsRaw.gx = gx;
-  taskArgsRaw.gy = gy;
-  taskArgsRaw.gz = gz;
+  taskArgsRaw.px = px;
+  taskArgsRaw.py = py;
   TaskArgument taskArgs = TaskArgument(&taskArgsRaw, sizeof(task_2Args));
   IndexLauncher launcher = IndexLauncher(taskID(2), domain, taskArgs, ArgumentMap());
   launcher.add_region_requirement(bReq);
-  launcher.tag = TACOMapper::PLACEMENT_SHARD;
   auto fm = runtime->execute_index_space(ctx, launcher);
   fm.wait_all_results();
   return runtime->get_logical_partition(ctx, get_logical_region(b), bPartition);
@@ -235,32 +209,30 @@ void task_3(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
 
   int32_t distFused = task->index_point[0];
   task_3Args* args = (task_3Args*)(task->args);
-  int32_t gx = args->gx;
-  int32_t gy = args->gy;
-  int32_t gz = args->gz;
+  int32_t px = args->px;
+  int32_t py = args->py;
 
 
-  int32_t kn = getIndexPoint(task, 0);
+  int32_t in = getIndexPoint(task, 0);
   int32_t jn = getIndexPoint(task, 1);
-  int32_t in = getIndexPoint(task, 2);
 }
 
-LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, int32_t gy, int32_t gz, int32_t gx) {
+LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, int32_t px, int32_t py) {
   int c1_dimension = runtime->get_index_space_domain(get_index_space(c)).hi()[0] + 1;
   int c2_dimension = runtime->get_index_space_domain(get_index_space(c)).hi()[1] + 1;
   auto c_index_space = get_index_space(c);
 
-  Point<3> lowerBound = Point<3>(0, 0, 0);
-  Point<3> upperBound = Point<3>(0, (gy - 1), (gz - 1));
-  auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<3>(lowerBound, upperBound));
-  DomainT<3> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<3>(distFusedIndexSpace));
+  Point<2> lowerBound = Point<2>(0, 0);
+  Point<2> upperBound = Point<2>((px - 1), (py - 1));
+  auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<2>(lowerBound, upperBound));
+  DomainT<2> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<2>(distFusedIndexSpace));
   auto cDomain = runtime->get_index_space_domain(ctx, c_index_space);
   DomainPointColoring cColoring = DomainPointColoring();
-  for (PointInDomainIterator<3> itr = PointInDomainIterator<3>(domain); itr.valid(); itr++) {
+  for (PointInDomainIterator<2> itr = PointInDomainIterator<2>(domain); itr.valid(); itr++) {
+    int32_t in = (*itr)[0];
     int32_t jn = (*itr)[1];
-    int32_t in = (*itr)[2];
-    Point<2> cStart = Point<2>((in * ((c1_dimension + (gz - 1)) / gz) + 0 / gz), (jn * ((c2_dimension + (gy - 1)) / gy) + 0 / gy));
-    Point<2> cEnd = Point<2>(TACO_MIN((in * ((c1_dimension + (gz - 1)) / gz) + ((c1_dimension + (gz - 1)) / gz - 1)), cDomain.hi()[0]), TACO_MIN((jn * ((c2_dimension + (gy - 1)) / gy) + ((c2_dimension + (gy - 1)) / gy - 1)), cDomain.hi()[1]));
+    Point<2> cStart = Point<2>((in * ((c1_dimension + (px - 1)) / px) + 0 / px), (jn * ((c2_dimension + (py - 1)) / py) + 0 / py));
+    Point<2> cEnd = Point<2>(TACO_MIN((in * ((c1_dimension + (px - 1)) / px) + ((c1_dimension + (px - 1)) / px - 1)), cDomain.hi()[0]), TACO_MIN((jn * ((c2_dimension + (py - 1)) / py) + ((c2_dimension + (py - 1)) / py - 1)), cDomain.hi()[1]));
     Rect<2> cRect = Rect<2>(cStart, cEnd);
     if (!cDomain.contains(cRect.lo) || !cDomain.contains(cRect.hi)) {
       cRect = cRect.make_empty();
@@ -271,20 +243,12 @@ LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, in
   LogicalPartition cLogicalPartition = runtime->get_logical_partition(ctx, get_logical_region(c), cPartition);
   RegionRequirement cReq = RegionRequirement(cLogicalPartition, 0, READ_ONLY, EXCLUSIVE, get_logical_region(c));
   cReq.add_field(FID_VAL);
-  std::vector<int> dims = std::vector<int>();
-  dims.push_back(gx);
-  dims.push_back(gy);
-  dims.push_back(gz);
-  registerPlacementShardingFunctor(ctx, runtime, shardingID(2), dims);
   task_3Args taskArgsRaw;
-  taskArgsRaw.sfID = shardingID(2);
-  taskArgsRaw.gx = gx;
-  taskArgsRaw.gy = gy;
-  taskArgsRaw.gz = gz;
+  taskArgsRaw.px = px;
+  taskArgsRaw.py = py;
   TaskArgument taskArgs = TaskArgument(&taskArgsRaw, sizeof(task_3Args));
   IndexLauncher launcher = IndexLauncher(taskID(3), domain, taskArgs, ArgumentMap());
   launcher.add_region_requirement(cReq);
-  launcher.tag = TACOMapper::PLACEMENT_SHARD;
   auto fm = runtime->execute_index_space(ctx, launcher);
   fm.wait_all_results();
   return runtime->get_logical_partition(ctx, get_logical_region(c), cPartition);
@@ -305,8 +269,8 @@ void task_4(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   auto a_index_space = get_index_space(a);
   auto b_index_space = get_index_space(b);
   auto c_index_space = get_index_space(c);
-  AccessorROdouble2 b_vals(b, FID_VAL);
   AccessorROdouble2 c_vals(c, FID_VAL);
+  AccessorROdouble2 b_vals(b, FID_VAL);
   AccessorReducedouble2 a_vals(a, FID_VAL, LEGION_REDOP_SUM_FLOAT64);
 
   int32_t in = getIndexPoint(task, 0);
@@ -408,25 +372,25 @@ void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion
 void registerTacoTasks() {
   {
     TaskVariantRegistrar registrar(taskID(1), "task_1");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_1>(registrar, "task_1");
   }
   {
     TaskVariantRegistrar registrar(taskID(2), "task_2");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_2>(registrar, "task_2");
   }
   {
     TaskVariantRegistrar registrar(taskID(3), "task_3");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_3>(registrar, "task_3");
   }
   {
     TaskVariantRegistrar registrar(taskID(4), "task_4");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<task_4>(registrar, "task_4");
   }

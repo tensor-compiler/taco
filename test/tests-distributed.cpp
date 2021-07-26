@@ -829,10 +829,20 @@ TEST(distributed, cosma) {
   auto gy = ir::Var::make("gy", Int32, false, false, true);
   auto gz = ir::Var::make("gz", Int32, false, false, true);
   auto cube = Grid(gx, gy, gz);
+  auto px = ir::Var::make("px", Int32, false, false, true);
+  auto py = ir::Var::make("py", Int32, false, false, true);
+  TensorDistribution aDist(TensorDistributionV2(PlacementGrid(px, py)));
+  TensorDistribution bDist(TensorDistributionV2(PlacementGrid(px, py)));
+  TensorDistribution cDist(TensorDistributionV2(PlacementGrid(px, py)));
+  // The below is an initial data placement that follows the distribution of the computation. However,
+  // this seems to result in an unbalanced initial data distribution that causes OOMs, so I'll start
+  // with a standard block distribution over all of the GPUs.
+  /*
   TensorDistribution aDist(TensorDistributionV2(PlacementGrid(gx, gy, gz | Face(0))));
   TensorDistribution bDist(TensorDistributionV2(PlacementGrid(gx, gy | Face(0), gz)));
   // Set this up so that the first dimension is partitioned by the k component.
   TensorDistribution cDist(TensorDistributionV2(PlacementGrid(gx | Face(0), gy | 1, gz | 0)));
+  */
   Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, aDist);
   Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, bDist);
   Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, cDist);
@@ -875,10 +885,20 @@ TEST(distributed, cuda_cosma) {
   auto gy = ir::Var::make("gy", Int32, false, false, true);
   auto gz = ir::Var::make("gz", Int32, false, false, true);
   auto cube = Grid(gx, gy, gz);
-  TensorDistribution aDist(TensorDistributionV2(PlacementGrid(gx, gy, gz | Face(0))));
-  TensorDistribution bDist(TensorDistributionV2(PlacementGrid(gx, gy | Face(0), gz)));
+  auto px = ir::Var::make("px", Int32, false, false, true);
+  auto py = ir::Var::make("py", Int32, false, false, true);
+  TensorDistribution aDist(TensorDistributionV2(PlacementGrid(px, py), ParallelUnit::DistributedGPU));
+  TensorDistribution bDist(TensorDistributionV2(PlacementGrid(px, py), ParallelUnit::DistributedGPU));
+  TensorDistribution cDist(TensorDistributionV2(PlacementGrid(px, py), ParallelUnit::DistributedGPU));
+  // The below is an initial data placement that follows the distribution of the computation. However,
+  // this seems to result in an unbalanced initial data distribution that causes OOMs, so I'll start
+  // with a standard block distribution over all of the GPUs.
+  /*
+  TensorDistribution aDist(TensorDistributionV2(PlacementGrid(gx, gy, gz | Face(0)), ParallelUnit::DistributedGPU));
+  TensorDistribution bDist(TensorDistributionV2(PlacementGrid(gx, gy | Face(0), gz), ParallelUnit::DistributedGPU));
   // Set this up so that the first dimension is partitioned by the k component.
-  TensorDistribution cDist(TensorDistributionV2(PlacementGrid(gx | Face(0), gy | 1, gz | 0)));
+  TensorDistribution cDist(TensorDistributionV2(PlacementGrid(gx | Face(0), gy | 1, gz | 0), ParallelUnit::DistributedGPU));
+  */
   Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, aDist);
   Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, bDist);
   Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, cDist);

@@ -219,6 +219,43 @@ class COSMAGPUBench(DMMBench):
         return header + \
                [os.path.join(cosmaDir, 'build/miniapp/cosma_miniapp'), '-r', '10', '-m', psize, '-n', psize, '-k', psize, '--procs_per_node', str(self.gpus)]
 
+class LgCOSMABench(DMMBench):
+    def __init__(self, initialProblemSize):
+        super().__init__(initialProblemSize)
+        # Mapping from processor / "rank" count to gx,gy,gz decompositions and px,py.
+        self.decomp = {
+          4: (1, 2, 2, 2, 2),
+          8: (2, 2, 2, 2, 4),
+          16: (2, 2, 4, 4, 4),
+          32: (2, 4, 4, 4, 8),
+          64: (4, 4, 4, 8, 8),
+          128: (4, 4, 8, 8, 16),
+          256: (4, 8, 8, 16, 16),
+        }
+
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        # Treat each NUMA node as a processor.
+        assert(2 * procs in self.decomp)
+        decomp = self.decomp[2 * procs]
+        return lassenHeader(procs) + \
+               ['bin/cosma', '-n', psize, '-gx', str(decomp[0]), '-gy', str(decomp[1]), '-gz', str(decomp[2])] + \
+               lgCPUArgs()
+
+class LgCOSMAGPUBench(LgCOSMABench):
+    def __init__(self, initialProblemSize, gpus):
+        super().__init__(initialProblemSize)
+        self.gpus = gpus
+
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        # Treat each GPU as a processor.
+        assert(self.gpus * procs in self.decomp)
+        decomp = self.decomp[self.gpus * procs]
+        return lassenHeader(procs) + \
+               ['bin/cosma-cuda', '-n', psize, '-gx', str(decomp[0]), '-gy', str(decomp[1]), '-gz', str(decomp[2]), '-px', str(decomp[3]), '-py', str(decomp[4])] + \
+               lgGPUArgs(self.gpus)
+
 class SCALAPACKBench(SUMMABench):
     def getCommand(self, procs):
         psize = str(self.problemSize(procs))
@@ -407,6 +444,8 @@ def main():
         "johnson": dmm,
         "cosma": dmm,
         "cosma-gpu": dmmgpu,
+        "lgcosma": dmm,
+        "lgcosma-gpu": dmmgpu,
         "summa": dmm,
         "summa-gpu": dmmgpu,
         "scalapack": dmm,
@@ -449,6 +488,10 @@ def main():
         bench = COSMABench(size)
     elif args.bench == "cosma-gpu":
         bench = COSMAGPUBench(size, args.gpus)
+    elif args.bench == "lgcosma":
+        bench = LgCOSMABench(size)
+    elif args.bench == "lgcosma-gpu":
+        bench = LgCOSMAGPUBench(size, args.gpus)
     elif args.bench == "scalapack":
         bench = SCALAPACKBench(size)
     elif args.bench == "legate":
