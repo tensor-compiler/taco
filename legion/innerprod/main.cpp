@@ -51,16 +51,28 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   tacoFill<valType>(ctx, runtime, B, bPart, valType(1));
   tacoFill<valType>(ctx, runtime, C, cPart, valType(1));
 
+  // Run one iteration to warm up the system.
+  computeLegion(ctx, runtime, B, C, bPart, cPart);
+
   std::vector<size_t> times;
-  benchmarkAsyncCall(ctx, runtime, times, [&]() {
-    auto res = computeLegion(ctx, runtime, B, C, bPart, cPart);
-    assert(res == valType(n * n * n));
-  });
+  for (int i = 0; i < 10; i++) {
+    benchmark(ctx, runtime, times, [&]() {
+      auto res = computeLegion(ctx, runtime, B, C, bPart, cPart);
+      assert(res == valType(valType(n) * valType(n) * valType(n)));
+    });
+  }
+  // benchmarkAsyncCall(ctx, runtime, times, [&]() {
+  //   for (int i = 0; i < 10; i++) {
+  //     auto res = computeLegion(ctx, runtime, B, C, bPart, cPart);
+  //     assert(res == valType(valType(n) * valType(n) * valType(n)));
+  //   }
+  // });
 
   size_t elems = [](size_t n) { return 2 * n * n * n; }(n);
   size_t bytes = elems * sizeof(valType);
   double gbytes = double(bytes) / 1e9;
-  auto avgTimeS = (double(times[0]) / 10.f) / 1e3;
+  // auto avgTimeS = (double(times[0]) / 10.f) / 1e3;
+  auto avgTimeS = (double(average(times))) / 1e3;
   double bw = gbytes / (avgTimeS);
   auto nodes = runtime->select_tunable_value(ctx, Mapping::DefaultMapper::DEFAULT_TUNABLE_NODE_COUNT).get<size_t>();
   LEGION_PRINT_ONCE(runtime, ctx, stdout, "On %ld nodes achieved GB/s BW per node: %lf.\n", nodes, bw / double(nodes));
