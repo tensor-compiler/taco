@@ -1468,8 +1468,10 @@ void CodeGen_CUDA::visit(const Store* op) {
         stream << ");" << endl;
       } else if (isa<Add>(op->data)) {
         auto add = to<Add>(op->data);
-        taco_iassert(isa<Load>(add->a));
-        taco_iassert(to<Load>(add->a)->arr == op->arr && to<Load>(add->a)->loc == op->loc);
+        // TODO (rohany): I don't think that we want these assertions right now, as they fail
+        //  when we are reducing into a scalar reduction.
+        // taco_iassert(isa<Load>(add->a));
+        // taco_iassert(to<Load>(add->a)->arr == op->arr && to<Load>(add->a)->loc == op->loc);
         if (deviceFunctionLoopDepth == 0 || op->atomic_parallel_unit == ParallelUnit::GPUWarp) {
           // use atomicAddWarp
           // doIndent();

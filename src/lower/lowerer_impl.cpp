@@ -1657,6 +1657,47 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
 
+  // Allocate a buffer onto the GPU for the reduction result.
+  std::vector<ir::Stmt> gpuReductionPreamble, gpuReductionPostamble;
+  if (forall.getParallelUnit() == taco::ParallelUnit::GPUBlock && this->performingScalarReduction) {
+    auto initVal = ir::Var::make("init", this->scalarReductionResult.type());
+    gpuReductionPreamble.push_back(ir::VarDecl::make(initVal, 0));
+    // Make a buffer for the allocation.
+    auto bufTy = DeferredBuffer(this->scalarReductionResult.type(), 1);
+    auto domTy = Domain(1);
+    auto rectTy = Rect(1);
+    auto dom = ir::makeConstructor(domTy, {ir::makeConstructor(rectTy, {0, 0})});
+    auto buf = ir::Var::make("buf", bufTy);
+    auto mem = ir::Symbol::make("Legion::Memory::Kind::GPU_FB_MEM");
+    auto addr = [](ir::Expr e) {
+      return ir::Call::make("&", {e}, Auto);
+    };
+    gpuReductionPreamble.push_back(ir::VarDecl::make(buf, makeConstructor(bufTy, {mem, dom, addr(initVal)})));
+    auto bufPtr = ir::Var::make("bufPtr", Pointer(this->scalarReductionResult.type()));
+    gpuReductionPreamble.push_back(ir::VarDecl::make(bufPtr, ir::MethodCall::make(buf, "ptr", {0}, false, Auto)));
+    // Now, rewrite body so that writes into the scalar result are replaced
+    // by writes into this buffer.
+    struct ScalarReductionRewriter : public IRRewriter {
+      void visit(const Assign* node) {
+        if (node->lhs == this->target) {
+          this->stmt = ir::Store::make(result, 0, node->rhs, true /* useAtomics */);
+        } else {
+          this->stmt = node;
+        }
+      }
+      ir::Expr target;
+      ir::Expr result;
+    };
+    ScalarReductionRewriter rw;
+    rw.target = this->scalarReductionResult; rw.result = bufPtr;
+    body = rw.rewrite(body);
+    // Finally, issue a copy of the buffer's data back to the CPU to be scheduled after the kernel.
+    auto copySize = ir::Call::make("sizeof", {this->scalarReductionResult}, Auto);
+    auto direction = ir::Symbol::make("cudaMemcpyHostToDevice");
+    auto call = ir::Call::make("cudaMemcpy", {bufPtr, addr(this->scalarReductionResult), copySize, direction}, Auto);
+    gpuReductionPostamble.push_back(ir::SideEffect::make(call));
+  }
+
   if (forall.isDistributed()) {
     this->curDistVar = forall.getIndexVar();
     this->distLoopDepth--;
@@ -1679,7 +1720,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     markAssignsAtomicDepth--;
   }
 
-  // Emit loop with preamble and postamble
+  // Emit loop with preamble and postamble.
   std::vector<ir::Expr> bounds = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
 
   Stmt declarePartitionBounds;
@@ -2392,7 +2433,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     return Block::blanks(ir::Block::make(partitionStmts));
   }
 
-  return Block::blanks(ir::Block::make(transfers),
+  return Block::blanks(ir::Block::make(transfers), ir::Block::make(gpuReductionPreamble),
                        For::make(coordinate, bounds[0], bounds[1], 1, body,
                                  kind,
                                  ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(),
@@ -2400,6 +2441,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
                                  // TODO (rohany): What do we do for vector width here?
                                  0,
                                  isTask, taskID),
+                       ir::Block::make(gpuReductionPostamble),
                        posAppend);
 }
 

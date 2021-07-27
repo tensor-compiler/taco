@@ -453,5 +453,15 @@ Datatype Domain(int n) {
 Datatype IndexSpaceT(int n) {
   return templateGen("IndexSpaceT", n);
 }
+Datatype DeferredBuffer(Datatype bufType, int dim) {
+  std::stringstream s;
+  s << "Legion::DeferredBuffer<" << bufType << ", " << dim << ">";
+  return Datatype(s.str());
+}
+Datatype Pointer(Datatype baseType) {
+  std::stringstream s;
+  s << baseType << "*";
+  return Datatype(s.str());
+}
 
 }
