@@ -1615,9 +1615,11 @@ IndexStmt IndexStmt::communicate(Access access, IndexVar indexVar) const {
     void visit(const ForallNode* node) {
       auto forallStmt = rewrite(node->stmt);
       if (node->indexVar == i) {
-        stmt = Forall(node->indexVar, forallStmt, node->parallel_unit, node->output_race_strategy, access.getTensorVar(), node->unrollFactor, node->numChunks);
+        vector<TensorVar> tensors = node->accessTensors;
+        tensors.push_back(access.getTensorVar());
+        stmt = Forall(node->indexVar, forallStmt, node->parallel_unit, node->output_race_strategy, tensors, node->unrollFactor, node->numChunks);
       } else if (forallStmt != node->stmt) {
-        stmt = Forall(node->indexVar, forallStmt, node->parallel_unit, node->output_race_strategy, node->accessTensor, node->unrollFactor, node->numChunks);
+        stmt = Forall(node->indexVar, forallStmt, node->parallel_unit, node->output_race_strategy, node->accessTensors, node->unrollFactor, node->numChunks);
       } else {
         stmt = node;
       }
@@ -1842,12 +1844,17 @@ Forall::Forall(IndexVar indexVar, IndexStmt stmt)
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy,
                size_t unrollFactor, size_t numChunks)
-  : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor, numChunks, TensorVar())) {
+  : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor, numChunks)) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, TensorVar accessTensor,
                size_t unrollFactor, size_t numChunks)
-  : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor, numChunks, accessTensor)) {
+  : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor, numChunks, {accessTensor})) {
+}
+
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, vector<TensorVar> accessTensors,
+               size_t unrollFactor, size_t numChunks)
+  : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor, numChunks, accessTensors)) {
 }
 
 IndexVar Forall::getIndexVar() const {
@@ -1874,8 +1881,8 @@ size_t Forall::getNumChunks() const {
   return getNode(*this)->numChunks;
 }
 
-TensorVar Forall::getCommunicateAccess() const {
-  return getNode(*this)->accessTensor;
+std::vector<TensorVar> Forall::getCommunicateTensors() const {
+  return getNode(*this)->accessTensors;
 }
 
 Forall forall(IndexVar i, IndexStmt stmt) {
@@ -3086,6 +3093,24 @@ std::map<Forall, std::pair<int, Assignment>> getForallReductions(IndexStmt stmt)
         })
   );
   return forallReductions;
+}
+
+std::map<IndexVar, std::vector<Access>> getHoistedAccesses(IndexStmt stmt) {
+  map<IndexVar, vector<Access>> hoistedAccesses;
+  match(stmt,
+        function<void(const AccessNode*, Matcher*)>([&](const AccessNode* op, Matcher* ctx) {
+          if (op->tensorVar.getMemoryLocation() == MemoryLocation::SpatialFIFORetimed ||
+              op->tensorVar.getMemoryLocation() == MemoryLocation::SpatialFIFO) {
+            IndexVar indexVar = op->indexVars.back();
+            if (hoistedAccesses.count(indexVar) == 0) {
+              hoistedAccesses[indexVar] = {Access(op)};
+            } else {
+              hoistedAccesses[indexVar].push_back(Access(op));
+            }
+          }
+        })
+  );
+  return hoistedAccesses;
 }
 
 std::map<Forall, Assignment> getBulkMemTransfers(IndexStmt stmt) {

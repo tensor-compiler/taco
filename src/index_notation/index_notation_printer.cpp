@@ -230,8 +230,13 @@ void IndexNotationPrinter::visit(const ForallNode* op) {
   if (op->numChunks > 1) {
     os << ", " << op->numChunks;
   }
-  if (op->accessTensor.defined()) {
-    os << ", " << op->accessTensor;
+  if (op->accessTensors.size() > 0) {
+    os << "| ";
+    for (int i = 0; i < (int)op->accessTensors.size(); i++) {
+      if (i > 0)
+        os << ", ";
+      os << op->accessTensors[i];
+    }
   }
   os << ")";
 }

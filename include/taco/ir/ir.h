@@ -680,6 +680,7 @@ struct Function : public StmtNode<Function> {
   // Needed for spatial metadata environments
   Stmt funcEnv;
   Stmt accelEnv;
+  Stmt accelEnvNoSimplify;
 
   static Stmt make(std::string name,
                    std::vector<Expr> outputs, std::vector<Expr> inputs,
@@ -687,7 +688,7 @@ struct Function : public StmtNode<Function> {
 
   static Stmt make(std::string name,
                    std::vector<Expr> outputs, std::vector<Expr> inputs,
-                   Stmt funcEnv, Stmt accelEnv,
+                   Stmt funcEnv, Stmt accelEnv, Stmt accelEnvNoSimplify,
                    Stmt body);
 
   std::pair<std::vector<Datatype>,Datatype> getReturnType() const;
@@ -860,8 +861,9 @@ struct LoadBulk : public ExprNode<LoadBulk> {
   Expr arr;
   Expr locStart;
   Expr locEnd;
+  Expr numChunks;
 
-  static Expr make(Expr arr, Expr locStart, Expr locEnd);
+  static Expr make(Expr arr, Expr locStart, Expr locEnd, Expr numChunks = Expr());
 
   static const IRNodeType _type_info = IRNodeType::Load;
 };
@@ -1010,12 +1012,15 @@ struct GetProperty : public ExprNode<GetProperty> {
   bool is_compressed = false;
   bool load_local = false;
   bool useBP = false;
+  Expr dim;
 
   static Expr make(Expr tensor, TensorProperty property, int mode=0);
   static Expr make(Expr tensor, TensorProperty property, int mode, int index, bool is_compressed=false);
   static Expr make(Expr tensor, TensorProperty property, int mode,
                    int index, std::string name, bool load_local = false, bool useBP = false);
-  
+  static Expr make(Expr tensor, TensorProperty property, int mode,
+                   int index, std::string name, Expr dim, bool load_local = false, bool useBP = false);
+
   static const IRNodeType _type_info = IRNodeType::GetProperty;
 };
 

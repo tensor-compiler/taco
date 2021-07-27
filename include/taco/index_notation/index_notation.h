@@ -801,6 +801,8 @@ public:
   Forall(IndexVar indexVar, IndexStmt stmt);
   Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, TensorVar accessTensor,
          size_t unrollFactor = 0, size_t numChunks = 1);
+  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, std::vector<TensorVar> accessTensors,
+                 size_t unrollFactor, size_t numChunks);
   Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy,
          size_t unrollFactor = 0, size_t numChunks = 1);
   IndexVar getIndexVar() const;
@@ -813,7 +815,7 @@ public:
 
   size_t getNumChunks() const;
 
-  TensorVar getCommunicateAccess() const;
+  std::vector<TensorVar> getCommunicateTensors() const;
 
   typedef ForallNode Node;
 };
@@ -1234,6 +1236,9 @@ std::map<Forall, std::pair<int, Assignment>> getForallReductions(IndexStmt stmt)
 // [Olivia]
 /// Returns a map of assigmnet statements that can be represented as LoadBulk or LoadStores and their parent forall stmt
 std::map<Forall, Assignment> getBulkMemTransfers(IndexStmt stmt);
+
+/// Returns a map of access tensors stored in FIFOs that need to be hoisted
+std::map<IndexVar, std::vector<Access>> getHoistedAccesses(IndexStmt stmt);
 
 /// Returns the tensors in the index statement.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);

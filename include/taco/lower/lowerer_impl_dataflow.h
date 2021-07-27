@@ -82,7 +82,7 @@ protected:
 
   /// Lower a forall that iterates over all the coordinates in the forall index
   /// var's dimension, and locates tensor positions from the locate iterators.
-  virtual ir::Stmt lowerForallDimension(Forall forall,
+  virtual ir::Stmt lowerForallDimension(Forall forall, Iterator iterator,
                                         std::vector<Iterator> locaters,
                                         std::vector<Iterator> inserters,
                                         std::vector<Iterator> appenders,
@@ -305,18 +305,22 @@ protected:
    */
   std::vector<ir::Expr> coordinates(Iterator iterator) const;
 
-  /**
-   * Retrieve the resolved coordinate variables of the iterators, which are the
-   * coordinates after per-iterator coordinates have been merged with the min
-   * function.
-   *
-   * \param iterators
-   *      A set of defined iterators.
-   *
-   * \return
-   *      IR expressions that resolve to resolved coordinates for the iterators,
-   *      in the same order they were given.
-   */
+  /// Retrieves the widths of the iterator and it's parents
+  std::vector<ir::Expr> widths(Iterator iterator) const;
+
+
+    /**
+     * Retrieve the resolved coordinate variables of the iterators, which are the
+     * coordinates after per-iterator coordinates have been merged with the min
+     * function.
+     *
+     * \param iterators
+     *      A set of defined iterators.
+     *
+     * \return
+     *      IR expressions that resolve to resolved coordinates for the iterators,
+     *      in the same order they were given.
+     */
   std::vector<ir::Expr> coordinates(std::vector<Iterator> iterators);
 
   /// Generate code to initialize result indices.
@@ -479,6 +483,13 @@ protected:
   // Map temporary tensorVars to a list of size expressions for each mode
   std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap;
 
+  /// Map for hoisting FIFO dequeues
+  std::map<IndexVar, std::vector<Access>> hoistedAccesses;
+
+  bool outputStored = false;
+  //ir::Expr outputStoreLen;
+  std::map<ir::Expr, ir::Expr> gpDimMap;
+
 protected:
   bool assemble;
   bool compute;
@@ -566,6 +577,8 @@ protected:
   std::map<ir::Expr, int> tensorExprDefinedBound;
 
   Forall outerForall;
+
+  std::map<Forall, ir::Expr> hoistedPosArrAllocate;
 
   class Visitor;
   friend class Visitor;

@@ -306,9 +306,9 @@ struct YieldNode : public IndexStmtNode {
 
 struct ForallNode : public IndexStmtNode {
   ForallNode(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy  output_race_strategy,
-             size_t unrollFactor = 0, size_t numChunks = 1, TensorVar accessTensor = TensorVar())
+             size_t unrollFactor = 0, size_t numChunks = 1, std::vector<TensorVar> accessTensors = {})
       : indexVar(indexVar), stmt(stmt), parallel_unit(parallel_unit), output_race_strategy(output_race_strategy),
-        unrollFactor(unrollFactor), numChunks(numChunks), accessTensor(accessTensor) {}
+        unrollFactor(unrollFactor), numChunks(numChunks), accessTensors(accessTensors) {}
 
   void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
@@ -320,7 +320,7 @@ struct ForallNode : public IndexStmtNode {
   OutputRaceStrategy  output_race_strategy;
   size_t unrollFactor = 0;
   size_t numChunks = 1;
-  TensorVar accessTensor = TensorVar();
+  std::vector<TensorVar> accessTensors = {};
 };
 
 struct WhereNode : public IndexStmtNode {

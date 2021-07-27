@@ -225,6 +225,8 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
 
   outerForall = getOuterLoop(stmt);
 
+  hoistedAccesses = getHoistedAccesses(stmt);
+
   // Convert tensor results and arguments IR variables
   map<TensorVar, Expr> resultVars;
   vector<Expr> resultsIR = createVars(results, &resultVars, unpack);
@@ -437,7 +439,6 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   // Allocate and initialize append and insert mode indices
   Stmt initializeResults = initResultArrays(resultAccesses, inputAccesses,
                                             reducedAccesses);
-
   // Lower the index statement to compute and/or assemble
   Stmt body = lower(stmt);
 
@@ -454,6 +455,11 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   // Post-process result modes and allocate memory for values if necessary
   Stmt finalizeResults = finalizeResultArrays(resultAccesses);
 
+  if (generateComputeCode()) {
+    for (auto& gpDim : gpDimMap) {
+      body = rewriteGPDim(body, gpDim.first.as<GetProperty>(), gpDim.second);
+    }
+  }
   // Store scalar stack variables back to results
   if (generateComputeCode()) {
     for (auto& result : results) {
@@ -478,7 +484,7 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
 
   // Create function
   return Function::make(name, resultsIR, argumentsIR,
-                        funcEnv, accelEnv,
+                        funcEnv, accelEnv, finalizeResults,
                         Block::blanks(Block::make(header),
                                       initializeResults,
                                       body,
@@ -865,13 +871,9 @@ Stmt LowererImplDataflow::lowerForall(Forall forall)
                                          inserters, appenders, reducedAccesses, recoveryStmt);
     }
 
-//    else if (canAccelWithSparseIteration) {
-//      loops = lowerForallDenseAcceleration(forall, locators, inserters, appenders, reducedAccesses, recoveryStmt);
-//    }
-
     // Emit dimension coordinate iteration loop
     else if (iterator.isDimensionIterator()) {
-      loops = lowerForallDimension(forall, point.locators(),
+      loops = lowerForallDimension(forall, iterator, point.locators(),
                                    inserters, appenders, reducedAccesses, recoveryStmt);
     }
     // Emit position iteration loop
@@ -882,7 +884,6 @@ Stmt LowererImplDataflow::lowerForall(Forall forall)
     // Emit coordinate iteration loop
     else {
       taco_iassert(iterator.hasCoordIter());
-//      taco_not_supported_yet
       loops = Stmt();
     }
   }
@@ -893,7 +894,6 @@ Stmt LowererImplDataflow::lowerForall(Forall forall)
     loops = lowerMergeLattice(lattice, underivedAncestors[0],
                               forall.getStmt(), reducedAccesses);
   }
-//  taco_iassert(loops.defined());
 
   if (!generateComputeCode() && !hasStores(loops)) {
     // If assembly loop does not modify output arrays, then it can be safely
@@ -909,7 +909,6 @@ Stmt LowererImplDataflow::lowerForall(Forall forall)
     parallelUnitIndexVars.erase(forall.getParallelUnit());
     parallelUnitSizes.erase(forall.getParallelUnit());
   }
-
 
   return Block::blanks(preInitValues,
                        temporaryValuesInitFree[0],
@@ -1208,7 +1207,7 @@ Stmt LowererImplDataflow::searchForFusedPositionStart(Forall forall, Iterator po
   return ir::Block::make(searchForUnderivedStart);
 }
 
-Stmt LowererImplDataflow::lowerForallDimension(Forall forall,
+Stmt LowererImplDataflow::lowerForallDimension(Forall forall, Iterator iterator,
                                        vector<Iterator> locators,
                                        vector<Iterator> inserters,
                                        vector<Iterator> appenders,
@@ -2279,6 +2278,7 @@ Stmt LowererImplDataflow::lowerWhere(Where where) {
   whereConsumers.pop_back();
   whereTemps.pop_back();
   whereTempsToResult.erase(where.getTemporary());
+
   return Block::make(initializeTemporary, producer, markAssignsAtomicDepth > 0 ? capturedLocatePos : ir::Stmt(), consumer,  freeTemporary);
 }
 
@@ -2675,6 +2675,18 @@ vector<Expr> LowererImplDataflow::coordinates(Iterator iterator) const {
   return vector<Expr>(reverse.begin(), reverse.end());
 }
 
+vector<Expr> LowererImplDataflow::widths(Iterator iterator) const {
+  taco_iassert(iterator.defined());
+
+  vector<Expr> widths;
+  do {
+    widths.push_back(iterator.getWidth());
+    iterator = iterator.getParent();
+  } while (!iterator.isRoot());
+  auto reverse = util::reverse(widths);
+  return vector<Expr>(reverse.begin(), reverse.end());
+}
+
 vector<Expr> LowererImplDataflow::coordinates(vector<Iterator> iterators)
 {
   taco_iassert(all(iterators, [](Iterator iter){ return iter.defined(); }));
@@ -2798,9 +2810,6 @@ Stmt LowererImplDataflow::initResultArrays(vector<Access> writes,
 
 
 ir::Stmt LowererImplDataflow::finalizeResultArrays(std::vector<Access> writes) {
-  if (!generateAssembleCode()) {
-    return Stmt();
-  }
 
   bool clearValuesAllocation = false;
   std::vector<Stmt> result;
@@ -2821,6 +2830,8 @@ ir::Stmt LowererImplDataflow::finalizeResultArrays(std::vector<Access> writes) {
       if (iterator.hasAppend()) {
         size = iterator.getPosVar();
         finalize = iterator.getAppendFinalizeLevel(parentSize, size);
+        Expr gp = GetProperty::make(iterator.getTensor(), TensorProperty::Values);
+        gpDimMap[gp] = size;
       } else if (iterator.hasInsert()) {
         size = simplify(ir::Mul::make(parentSize, iterator.getWidth()));
         finalize = iterator.getInsertFinalizeLevel(parentSize, size);

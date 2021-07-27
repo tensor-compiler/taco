@@ -748,7 +748,7 @@ Stmt Function::make(std::string name,
 // Function
 Stmt Function::make(std::string name,
                     std::vector<Expr> outputs, std::vector<Expr> inputs,
-                    Stmt funcEnv, Stmt accelEnv,
+                    Stmt funcEnv, Stmt accelEnv, Stmt accelEnvNoSimplify,
                     Stmt body) {
   Function *func = new Function;
   func->name = name;
@@ -757,6 +757,7 @@ Stmt Function::make(std::string name,
   func->outputs = outputs;
   func->funcEnv = funcEnv;
   func->accelEnv = accelEnv;
+  func->accelEnvNoSimplify = accelEnvNoSimplify;
   return func;
 }
 
@@ -887,7 +888,28 @@ Stmt Print::make(std::string fmt, std::vector<Expr> params) {
   pr->params = params;
   return pr;
 }
-  
+
+Expr GetProperty::make(Expr tensor, TensorProperty property, int mode,
+                       int index, std::string name, Expr dim, bool load_local, bool useBP) {
+  GetProperty* gp = new GetProperty;
+  gp->tensor = tensor;
+  gp->property = property;
+  gp->mode = mode;
+  gp->name = name;
+  gp->index = index;
+  gp->load_local = load_local;
+  gp->useBP = useBP;
+  gp->dim = dim;
+
+  //TODO: deal with the fact that some of these are pointers
+  if (property == TensorProperty::Values)
+    gp->type = tensor.type();
+  else
+    gp->type = Int();
+
+  return gp;
+}
+
 Expr GetProperty::make(Expr tensor, TensorProperty property, int mode,
                        int index, std::string name, bool load_local, bool useBP) {
   GetProperty* gp = new GetProperty;
@@ -1058,7 +1080,7 @@ Stmt StoreBulk::make(Expr arr, Expr data, MemoryLocation lhs_mem_loc, MemoryLoca
 }
 
 // Bulk Load
-Expr LoadBulk::make(Expr arr, Expr locStart, Expr locEnd) {
+Expr LoadBulk::make(Expr arr, Expr locStart, Expr locEnd, Expr numChunks) {
   taco_iassert(locStart.type().isInt() || locStart.type().isUInt())
           << "Can't load from a non-integer offset";
   taco_iassert(locEnd.type().isInt() || locEnd.type().isUInt())
@@ -1068,6 +1090,7 @@ Expr LoadBulk::make(Expr arr, Expr locStart, Expr locEnd) {
   load->arr = arr;
   load->locStart = locStart;
   load->locEnd = locEnd;
+  load->numChunks = numChunks;
   return load;
 }
 

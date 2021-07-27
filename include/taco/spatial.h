@@ -19,6 +19,12 @@ int get_Spatial_dimension();
 /// Check if should use Spatial multi-dimensional memories
 bool should_use_Spatial_multi_dim();
 
+void set_output_store(bool enabled);
+
+bool should_output_store();
+
+void set_tensor_files(bool enabled);
+bool should_use_tensor_files();
 }
 
 #endif

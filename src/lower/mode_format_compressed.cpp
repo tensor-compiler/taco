@@ -226,7 +226,15 @@ Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, Expr sz,
 Stmt CompressedModeFormat::getAppendFinalizeLevel(Expr szPrev, 
     Expr sz, Mode mode) const {
     ModeFormat parentModeType = mode.getParentModeType();
-  if ((isa<ir::Literal>(szPrev) && to<ir::Literal>(szPrev)->equalsScalar(1)) || 
+
+  if (should_use_Spatial_codegen()) {
+    Expr dimVar = sz;
+    Expr load = Load::make(getPosArray(mode.getModePack()), szPrev);
+    Stmt decl = VarDecl::make(dimVar, load);
+    return decl;
+  }
+
+  if ((isa<ir::Literal>(szPrev) && to<ir::Literal>(szPrev)->equalsScalar(1)) ||
       !parentModeType.defined() || parentModeType.hasAppend()) {
     return Stmt();
   }

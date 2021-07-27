@@ -1132,6 +1132,9 @@ TEST(spatial, sparse_csr_SDDMM) {
 
   TensorVar tjA("tjA", Type(Int32), {}, MemoryLocation::SpatialReg);
   IndexStmt stmt1 = forall(i, forall(j, where(A(i,j) = tjA(), forall(k, tjA() += B(i,j) * C(i,k) * D(k,j), ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction))));
+  stmt1 = stmt1.communicate(C(i,k), k);
+  stmt1 = stmt1.communicate(D(k,j), k);
+
   cout << stmt1 << endl;
 
   ir::IRPrinter irp = ir::IRPrinter(cout);
@@ -1269,6 +1272,10 @@ TEST(spatial, sparse_csf_3D_TTV) {
   stmt = stmt.parallelize(k, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 16);
   stmt = scalarPromote(stmt);
 
+  TensorVar A_ws("A_ws", Type(Float64, {16}), taco::sparse, MemoryLocation::SpatialFIFO);
+  IndexExpr preExpr = stmt.as<Forall>().getStmt().as<Forall>().getStmt().as<Where>().getConsumer().as<Assignment>().getRhs();
+  cout << preExpr << endl;
+  stmt = stmt.communicate(A(i,j), j);
   cout << "----------------Post-Schedule Stmt-----------------" << endl;
   cout << stmt << endl;
 
@@ -1281,6 +1288,7 @@ TEST(spatial, sparse_csf_3D_TTV) {
 
   cout << "----------------SPATIAL LLIR-----------------" << endl;
   set_Spatial_codegen_enabled(true);
+  set_tensor_files(true);
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt computes = lower(stmt, "TTV",  false, true);
   irp.print(computes);
@@ -1288,6 +1296,7 @@ TEST(spatial, sparse_csf_3D_TTV) {
   cout << "----------------SPATIAL CODEGEN-----------------" << endl;
   codegen->compile(computes, false);
   set_Spatial_codegen_enabled(false);
+  set_tensor_files(false);
 }
 
 TEST(spatial, sparse_csf_3D_TTM) {

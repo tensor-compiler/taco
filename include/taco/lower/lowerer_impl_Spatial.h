@@ -38,7 +38,7 @@ protected:
                              IndexStmt statement,
                              const std::set<Access>& reducedAccesses) ;
 
-  ir::Stmt lowerForallDimension(Forall forall,
+  ir::Stmt lowerForallDimension(Forall forall, Iterator iterator,
                                         std::vector<Iterator> locaters,
                                         std::vector<Iterator> inserters,
                                         std::vector<Iterator> appenders,
@@ -90,7 +90,14 @@ protected:
   std::vector<ir::Expr> getAllTemporaryModeArrays(Where where);
 
   ir::Stmt generateAppendCoordVar(std::vector<Iterator> appenders, ir::Expr coordinatePosVar);
-  ir::Stmt generateOPMemLoads(Forall forall, Iterator iterator, ir::Stmt& forallBodyStmt, ir::Expr startBound, ir::Expr endBound);
+  ir::Stmt generateOPMemLoads(Forall forall, ir::Stmt& forallBodyStmt, ir::Expr startBound, ir::Expr endBound, TensorVar tns);
+
+  /// Helper method to hoist tensor accesses of FIFOs to teh correct locator loop position
+  ir::Stmt generateHoistedtensorAccess(Forall forall);
+
+  ir::Stmt generateResultStore(Forall forall, std::vector<Iterator> appenders, ir::Expr start, ir::Expr end);
+
+  bool hasResult(std::vector<Iterator> appenders, TensorVar tensors);
 
     private:
   class Visitor;
@@ -114,6 +121,9 @@ protected:
 
   std::map<ir::Expr, ir::Expr> tensorPropertyVars;
 
+  std::map<IndexStmt, ir::Expr> hoistedPosArr;
+
+  std::map<TensorVar, ir::Expr> hoistedAccessVars;
 };
 
 

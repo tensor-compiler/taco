@@ -46,7 +46,8 @@ struct WorkspaceDimensionRewriter : ir::IRRewriter {
                                                             << op->mode 
                                                             << ") not in expression map (size = "
                                                             << tempExprList.size() << ")";
-          expr = tempExprList.at(op->mode);
+          int opMode = std::max((int)0, op->mode);
+          expr = tempExprList.at(opMode);
           return;
         }
       }
@@ -184,6 +185,30 @@ struct DetectBPTensorProperties : IRRewriter {
   }
 };
 
+struct RewriteGPDim : IRRewriter {
+  using IRRewriter::visit;
+  const GetProperty* gp;
+  Expr dim;
+
+  RewriteGPDim(const GetProperty* gp, ir::Expr dim) :
+    gp(gp), dim(dim) {}
+
+  void visit(const GetProperty* op) {
+    op->tensor.accept(this);
+
+    if (op->name == gp->name) {
+        expr = GetProperty::make(op->tensor, op->property, op->mode, op->index, op->name, dim, op->load_local, op->useBP);
+    } else {
+      expr = op;
+    }
+  }
+};
+
+ir::Stmt rewriteGPDim(ir::Stmt stmt, const GetProperty* gp, Expr dim) {
+  Stmt rewrittenStmt = RewriteGPDim(gp, dim).rewrite(stmt);
+  return rewrittenStmt;
+}
+
 ir::Stmt addUseBPFlag(const ir::Stmt& stmt, std::map<Expr, TensorVar> tensors, std::map<std::string, ir::Expr> envValMap) {
   ir::Stmt rewrittenStmt = DetectBPTensorProperties(tensors, envValMap).rewrite(stmt);
   return rewrittenStmt;
@@ -197,8 +222,8 @@ ir::Stmt addGPLoadFlag(const ir::Stmt& stmt, TensorVar tv, map<TensorVar, Expr> 
 ir::Stmt rewriteTemporaryGP(const ir::Stmt& stmt, std::vector<TensorVar> whereTemps,
                             std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap,
                             std::map<TensorVar, TemporaryArrays> temporaryArrays) {
-  ir::Stmt rewrittenStmt = WorkspaceDimensionRewriter(whereTemps, temporarySizeMap).rewrite(stmt);
 
+  ir::Stmt rewrittenStmt = WorkspaceDimensionRewriter(whereTemps, temporarySizeMap).rewrite(stmt);
 
   rewrittenStmt = WorkspaceIndRewriter(whereTemps, temporaryArrays).rewrite(rewrittenStmt);
   auto hasGP = HasWorkspaceGP(whereTemps, temporaryArrays).hasWsGP(rewrittenStmt);

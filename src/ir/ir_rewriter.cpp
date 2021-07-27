@@ -407,7 +407,7 @@ void IRRewriter::visit(const Function* op) {
     stmt = op;
   }
   else {
-    stmt = Function::make(op->name, outputs, inputs, body);
+    stmt = Function::make(op->name, outputs, inputs, op->funcEnv, op->accelEnv, op->accelEnvNoSimplify, body);
   }
 }
 
@@ -513,7 +513,7 @@ void IRRewriter::visit(const GetProperty* op) {
     expr = op;
   }
   else {
-    expr = GetProperty::make(tensor, op->property, op->mode, op->index, op->name);
+    expr = GetProperty::make(tensor, op->property, op->mode, op->index, op->name, op->dim, op->load_local, op->useBP);
   }
 }
 
@@ -558,11 +558,16 @@ void IRRewriter::visit(const LoadBulk* op) {
   Expr arr      = rewrite(op->arr);
   Expr locStart = rewrite(op->locStart);
   Expr locEnd   = rewrite(op->locEnd);
-  if (arr == op->arr && locStart == op->locStart && locEnd == op->locEnd) {
+  Expr numChunks;
+  if (op->numChunks.defined())
+    numChunks = rewrite(op->numChunks);
+
+  if (arr == op->arr && locStart == op->locStart && locEnd == op->locEnd &&
+    (!op->numChunks.defined() || (op->numChunks.defined() && numChunks == op->numChunks))) {
     expr = op;
   }
   else {
-    expr = LoadBulk::make(arr, locStart, locEnd);
+    expr = LoadBulk::make(arr, locStart, locEnd, numChunks);
   }
 }
 
