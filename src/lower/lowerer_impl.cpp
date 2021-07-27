@@ -385,6 +385,8 @@ LowererImpl::lower(IndexStmt stmt, string name,
     argumentsIR.push_back(this->computingOnPartition[var]);
   }
 
+  // TODO (rohany): Delete this code around top level transfers, as there isn't really
+  //  such a concept anymore.
   // If there are distributed loops, and no transfers present for an access, then that
   // transfer is occurring at the top level, so add it here.
   Stmt topLevelTransfers;
@@ -2243,7 +2245,6 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         auto reduced = ir::Var::make("reduced", Auto);
         auto redop = ir::Symbol::make(LegionRedopString(this->scalarReductionResult.type()));
         itlStmts.push_back(ir::VarDecl::make(reduced, ir::Call::make("runtime->reduce_future_map", {ctx, fm, redop}, Auto)));
-        // TODO (rohany): Wait on the future's result.
         std::stringstream funcName;
         funcName << "get<" << this->scalarReductionResult.type() << ">";
         itlStmts.push_back(ir::Assign::make(this->scalarReductionResult, ir::MethodCall::make(reduced, funcName.str(), {}, false, Auto)));
