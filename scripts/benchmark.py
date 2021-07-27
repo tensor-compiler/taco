@@ -130,6 +130,20 @@ class TTVBench:
     def getCommand(self, procs):
         pass
 
+class InnerProdBench:
+    def __init__(self, initialProblemSize):
+        self.initialProblemSize = initialProblemSize
+
+    def problemSize(self, procs):
+        # Weak scaling problem size. Keep the memory used per
+        # node the same.
+        size = int(self.initialProblemSize * pow(procs, 1.0 / 3.0))
+        size -= (size % 2)
+        return size
+
+    def getCommand(self, procs):
+        pass
+
 class CannonBench(DMMBench):
     def getgx(self, procs):
         # Asserting that we're running on powers of 2 here.
@@ -416,6 +430,14 @@ class CTFTTVBench(TTVBench):
         return envs + header + \
                [os.path.join(ctfDir, 'bin/ttv'), '-n', psize, '-procsPerNode', '4']
 
+class LgInnerProdBench(InnerProdBench):
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        return lassenHeader(procs) + [
+            # Do procs * 2 to account for multiple OMP procs per node.
+            'bin/innerprod', '-n', psize, '-pieces', str(2 * procs), '-tm:numa_aware_alloc'
+        ] + lgCPUArgs(othrs=76) # Run with more openmp threads than normal to make use of SMT.
+
 def executeCmd(cmd):
     cmdStr = " ".join(cmd)
     print("Executing command: {}".format(cmdStr))
@@ -436,6 +458,7 @@ def main():
     ttvgpu = 1750
     mttkrp = 768
     mttkrpgpu = 1500
+    innerprod = 1500
 
     benches = {
         # GEMM benchmarks.
@@ -462,6 +485,7 @@ def main():
         "mttkrp": mttkrp,
         "mttkrp-gpu": mttkrpgpu,
         "ctf-mttkrp": mttkrp,
+        "innerprod": innerprod,
     }
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on", default=[1])
@@ -518,6 +542,8 @@ def main():
         bench = LgGPUMTTKRPBench(size, args.gpus)
     elif args.bench == "ctf-mttkrp":
         bench = CTFMTTKRPBench(size)
+    elif args.bench == "innerprod":
+        bench = LgInnerProdBench(size)
     else:
         assert(False)
     for p in args.procs:
