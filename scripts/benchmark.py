@@ -448,6 +448,20 @@ class LgInnerProdGPUBench(InnerProdBench):
             'bin/innerprod-cuda', '-n', psize, '-pieces', str(self.gpus * procs),
         ] + lgGPUArgs(self.gpus)
 
+class CTFInnerProdBench(InnerProdBench):
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        openblasLib = os.getenv('OPENBLAS_LIB_DIR')
+        assert(openblasLib is not None)
+        ctfDir = os.getenv('CTF_DIR')
+        assert(ctfDir is not None)
+        envs = ['env', 'LD_LIBRARY_PATH=LD_LIBRARY_PATH:{}'.format(openblasLib)]
+        # This application performs the best with 40 ranks per node. Before you double check,
+        # I have verified that TTV does not see a benefit with 40 ranks per node.
+        header = ['jsrun', '-b', 'rs', '-c', '1', '-r', '40', '-n', str(40 * procs)]
+        return envs + header + \
+               [os.path.join(ctfDir, 'bin/innerprod'), '-n', psize, '-procsPerNode', '40']
+
 def executeCmd(cmd):
     cmdStr = " ".join(cmd)
     print("Executing command: {}".format(cmdStr))
@@ -497,6 +511,7 @@ def main():
         "ctf-mttkrp": mttkrp,
         "innerprod": innerprod,
         "innerprod-gpu": innerprod,
+        "ctf-innerprod": innerprod,
     }
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on", default=[1])
@@ -557,6 +572,8 @@ def main():
         bench = LgInnerProdBench(size)
     elif args.bench == "innerprod-gpu":
         bench = LgInnerProdGPUBench(size, args.gpus)
+    elif args.bench == "ctf-innerprod":
+        bench = CTFInnerProdBench(size)
     else:
         assert(False)
     for p in args.procs:

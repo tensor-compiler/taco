@@ -575,9 +575,16 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
     emittedTimerStartCode = true;
   }
 
+  gridSize = ir::simplify(gridSize);
+
+  // Need to emit a guard to ensure that we don't make bogus device calls.
+  stream << "if ((";
+  gridSize.accept(this);
+  stream << ") > 0) {" << endl;
+  indent++;
+  doIndent();
 
   stream << funcName << "DeviceKernel" << index << "<<<";
-  gridSize = ir::simplify(gridSize);
   gridSize.accept(this);
   stream << ", ";
   blockSize.accept(this);
@@ -594,6 +601,10 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
     delimiter = ", ";
   }
   stream << ");\n";
+
+  indent--;
+  doIndent();
+  stream << "}";
 
   if (GEN_TIMING_CODE) {
     doIndent();
