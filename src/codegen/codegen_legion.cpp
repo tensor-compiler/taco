@@ -41,7 +41,11 @@ std::string CodegenLegion::printFuncName(const Function *func,
   if (func->name.find("place") != std::string::npos || func->name.find("partition") != std::string::npos) {
     ret << "LogicalPartition " << func->name << "(";
   } else {
-    ret << "void " << func->name << "(";
+    if (func->returnType.getKind() == Datatype::Undefined) {
+      ret << "void " << func->name << "(";
+    } else {
+      ret << func->returnType << " " << func->name << "(";
+    }
   }
 
   std::string delimiter;
@@ -239,7 +243,8 @@ void CodegenLegion::analyzeAndCreateTasks(std::ostream& out) {
                   ir::Var::make("ctx", Context, false, false, false),
                   ir::Var::make("runtime", Runtime, true, false, false),
               },
-              node->contents
+              node->contents,
+              this->returnType
           );
           this->functions.push_back(func);
           this->idToFor[node->taskID] = node;
@@ -254,8 +259,11 @@ void CodegenLegion::analyzeAndCreateTasks(std::ostream& out) {
       std::map<int, Stmt> idToFor;
       std::map<int, Stmt> idToFunc;
       std::map<Stmt, Stmt> funcToFor;
+
+      Datatype returnType;
     };
     TaskCollector tc;
+    tc.returnType = ffunc.as<Function>()->returnType;
     ffunc.accept(&tc);
     for (auto f : util::reverse(tc.functions)) {
       this->functions[ffunc].push_back(f);
@@ -479,7 +487,11 @@ void CodegenLegion::emitRegisterTasks(std::ostream &out) {
       }
 
       doIndent();
-      out << "Runtime::preregister_task_variant<" << func->name << ">(registrar, \"" <<  func->name << "\");\n";
+      if (func->returnType.getKind() != Datatype::Undefined) {
+        out << "Runtime::preregister_task_variant<" << func->returnType << "," << func->name << ">(registrar, \"" <<  func->name << "\");\n";
+      } else {
+        out << "Runtime::preregister_task_variant<" << func->name << ">(registrar, \"" <<  func->name << "\");\n";
+      }
 
       indent--;
 

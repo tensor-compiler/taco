@@ -130,6 +130,20 @@ class TTVBench:
     def getCommand(self, procs):
         pass
 
+class InnerProdBench:
+    def __init__(self, initialProblemSize):
+        self.initialProblemSize = initialProblemSize
+
+    def problemSize(self, procs):
+        # Weak scaling problem size. Keep the memory used per
+        # node the same.
+        size = int(self.initialProblemSize * pow(procs, 1.0 / 3.0))
+        size -= (size % 2)
+        return size
+
+    def getCommand(self, procs):
+        pass
+
 class CannonBench(DMMBench):
     def getgx(self, procs):
         # Asserting that we're running on powers of 2 here.
@@ -416,6 +430,38 @@ class CTFTTVBench(TTVBench):
         return envs + header + \
                [os.path.join(ctfDir, 'bin/ttv'), '-n', psize, '-procsPerNode', '4']
 
+class LgInnerProdBench(InnerProdBench):
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        return lassenHeader(procs) + [
+            # Do procs * 2 to account for multiple OMP procs per node.
+            'bin/innerprod', '-n', psize, '-pieces', str(2 * procs), '-tm:numa_aware_alloc'
+        ] + lgCPUArgs(othrs=76) # Run with more openmp threads than normal to make use of SMT.
+
+class LgInnerProdGPUBench(InnerProdBench):
+    def __init__(self, initialProblemSize, gpus):
+        super().__init__(initialProblemSize)
+        self.gpus = gpus
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        return lassenHeader(procs) + [
+            'bin/innerprod-cuda', '-n', psize, '-pieces', str(self.gpus * procs),
+        ] + lgGPUArgs(self.gpus)
+
+class CTFInnerProdBench(InnerProdBench):
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        openblasLib = os.getenv('OPENBLAS_LIB_DIR')
+        assert(openblasLib is not None)
+        ctfDir = os.getenv('CTF_DIR')
+        assert(ctfDir is not None)
+        envs = ['env', 'LD_LIBRARY_PATH=LD_LIBRARY_PATH:{}'.format(openblasLib)]
+        # This application performs the best with 40 ranks per node. Before you double check,
+        # I have verified that TTV does not see a benefit with 40 ranks per node.
+        header = ['jsrun', '-b', 'rs', '-c', '1', '-r', '40', '-n', str(40 * procs)]
+        return envs + header + \
+               [os.path.join(ctfDir, 'bin/innerprod'), '-n', psize, '-procsPerNode', '40']
+
 def executeCmd(cmd):
     cmdStr = " ".join(cmd)
     print("Executing command: {}".format(cmdStr))
@@ -436,6 +482,7 @@ def main():
     ttvgpu = 1750
     mttkrp = 768
     mttkrpgpu = 1500
+    innerprod = 1500
 
     benches = {
         # GEMM benchmarks.
@@ -462,6 +509,9 @@ def main():
         "mttkrp": mttkrp,
         "mttkrp-gpu": mttkrpgpu,
         "ctf-mttkrp": mttkrp,
+        "innerprod": innerprod,
+        "innerprod-gpu": innerprod,
+        "ctf-innerprod": innerprod,
     }
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on", default=[1])
@@ -518,6 +568,12 @@ def main():
         bench = LgGPUMTTKRPBench(size, args.gpus)
     elif args.bench == "ctf-mttkrp":
         bench = CTFMTTKRPBench(size)
+    elif args.bench == "innerprod":
+        bench = LgInnerProdBench(size)
+    elif args.bench == "innerprod-gpu":
+        bench = LgInnerProdGPUBench(size, args.gpus)
+    elif args.bench == "ctf-innerprod":
+        bench = CTFInnerProdBench(size)
     else:
         assert(False)
     for p in args.procs:

@@ -426,7 +426,7 @@ Stmt CodeGen_CUDA::simplifyFunctionBodies(Stmt stmt) {
       int numYields = countYields(func); // temporary fix as simplifying function with yields will break printContextDeclAndInit
       if (numYields == 0) {
         Stmt body = ir::simplify(func->body);
-        stmt = Function::make(func->name, func->outputs, func->inputs, body);
+        stmt = Function::make(func->name, func->outputs, func->inputs, body, func->returnType);
       }
       else {
         stmt = func;
@@ -575,9 +575,16 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
     emittedTimerStartCode = true;
   }
 
+  gridSize = ir::simplify(gridSize);
+
+  // Need to emit a guard to ensure that we don't make bogus device calls.
+  stream << "if ((";
+  gridSize.accept(this);
+  stream << ") > 0) {" << endl;
+  indent++;
+  doIndent();
 
   stream << funcName << "DeviceKernel" << index << "<<<";
-  gridSize = ir::simplify(gridSize);
   gridSize.accept(this);
   stream << ", ";
   blockSize.accept(this);
@@ -594,6 +601,10 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
     delimiter = ", ";
   }
   stream << ");\n";
+
+  indent--;
+  doIndent();
+  stream << "}";
 
   if (GEN_TIMING_CODE) {
     doIndent();
@@ -1468,8 +1479,10 @@ void CodeGen_CUDA::visit(const Store* op) {
         stream << ");" << endl;
       } else if (isa<Add>(op->data)) {
         auto add = to<Add>(op->data);
-        taco_iassert(isa<Load>(add->a));
-        taco_iassert(to<Load>(add->a)->arr == op->arr && to<Load>(add->a)->loc == op->loc);
+        // TODO (rohany): I don't think that we want these assertions right now, as they fail
+        //  when we are reducing into a scalar reduction.
+        // taco_iassert(isa<Load>(add->a));
+        // taco_iassert(to<Load>(add->a)->arr == op->arr && to<Load>(add->a)->loc == op->loc);
         if (deviceFunctionLoopDepth == 0 || op->atomic_parallel_unit == ParallelUnit::GPUWarp) {
           // use atomicAddWarp
           // doIndent();

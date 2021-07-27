@@ -446,6 +446,7 @@ private:
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
+  std::map<TensorVar, ir::Expr> scalars;
 
   // Set of tensors that will be written to.
   std::set<TensorVar> resultTensors;
@@ -537,6 +538,8 @@ private:
   std::vector<TensorVar> computingOnTensorVar;
 
   bool performingLegionReduction = false;
+  bool performingScalarReduction = false;
+  ir::Expr scalarReductionResult;
 
   std::vector<TensorVar> tensorVarOrdering;
 

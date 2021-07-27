@@ -98,6 +98,7 @@ add_app_folder(cosma)
 add_app_folder(ttv)
 add_app_folder(mttkrp)
 add_app_folder(ttmc)
+add_app_folder(innerprod)
 
 add_cuda_folder(cuda-test)
 

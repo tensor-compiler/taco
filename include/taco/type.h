@@ -131,6 +131,8 @@ Datatype Domain();
 Datatype Domain(int n);
 // A specialized IndexSpace.
 Datatype IndexSpaceT(int n);
+Datatype DeferredBuffer(Datatype bufType, int dim);
+Datatype Pointer(Datatype baseType);
 
 Datatype max_type(Datatype a, Datatype b);
 

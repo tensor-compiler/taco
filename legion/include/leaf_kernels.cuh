@@ -127,6 +127,13 @@ size_t flattenPoint(T accessor, Legion::Point<DIM> point) {
   return base;
 }
 
+// Overload so that we can generate code that operates on regions and raw pointers.
+template<typename T>
+__device__ __inline__
+size_t flattenPoint(T* pointer, int point) {
+  return point;
+}
+
 template<typename T>
 __global__
 void ttv_kernel(int32_t iDim, int32_t jDim, int32_t kDim, size_t ldA, size_t ldB2, size_t ldB3, T* A_vals, const T* B_vals, const T* C_vals) {
