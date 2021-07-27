@@ -127,6 +127,15 @@ size_t flattenPoint(T accessor, Legion::Point<DIM> point) {
   return base;
 }
 
+// Hacky overload so that we can use atomic add warp with pointers and regions.
+// However, we should be able to assert that the desired point when used with a
+// pointer is 0.
+template<typename T>
+__device__ __inline__
+size_t flattenPoint(T* pointer, int point) {
+  return point;
+}
+
 template<typename T>
 __global__
 void ttv_kernel(int32_t iDim, int32_t jDim, int32_t kDim, size_t ldA, size_t ldB2, size_t ldB3, T* A_vals, const T* B_vals, const T* C_vals) {

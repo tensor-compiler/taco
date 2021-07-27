@@ -438,6 +438,16 @@ class LgInnerProdBench(InnerProdBench):
             'bin/innerprod', '-n', psize, '-pieces', str(2 * procs), '-tm:numa_aware_alloc'
         ] + lgCPUArgs(othrs=76) # Run with more openmp threads than normal to make use of SMT.
 
+class LgInnerProdGPUBench(InnerProdBench):
+    def __init__(self, initialProblemSize, gpus):
+        super().__init__(initialProblemSize)
+        self.gpus = gpus
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        return lassenHeader(procs) + [
+            'bin/innerprod-cuda', '-n', psize, '-pieces', str(self.gpus * procs),
+        ] + lgGPUArgs(self.gpus)
+
 def executeCmd(cmd):
     cmdStr = " ".join(cmd)
     print("Executing command: {}".format(cmdStr))
@@ -486,6 +496,7 @@ def main():
         "mttkrp-gpu": mttkrpgpu,
         "ctf-mttkrp": mttkrp,
         "innerprod": innerprod,
+        "innerprod-gpu": innerprod,
     }
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on", default=[1])
@@ -544,6 +555,8 @@ def main():
         bench = CTFMTTKRPBench(size)
     elif args.bench == "innerprod":
         bench = LgInnerProdBench(size)
+    elif args.bench == "innerprod-gpu":
+        bench = LgInnerProdGPUBench(size, args.gpus)
     else:
         assert(False)
     for p in args.procs:
