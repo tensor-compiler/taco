@@ -946,12 +946,16 @@ TEST(distributed, innerprod) {
 
   IndexVar i("i"), j("j"), k("k");
   IndexVar in("in"), il("il");
-  IndexVar ii("ii"), io("io");
+  IndexVar ii("ii"), io("io"), f("f");
   a() = b(i, j, k) * c(i, j, k);
   auto stmt = a.getAssignment().concretize()
                .distribute({i}, {in}, {il}, std::vector<Access>{b(i, j, k), c(i, j, k)})
-               // CPU schedule.
-               .split(il, io, ii, 4)
+               // CPU schedule. We first fuse the il and j loops before parallelizing so that
+               // there are enough parallelized iterations to take advantage of the 76 threads available
+               // on each OMP proc. Just parallelizing the il loops results in performance degradation
+               // on larger node counts as the side length increases much slower than the number of pieces.
+               .fuse(il, j, f)
+               .split(f, io, ii, 4)
                .parallelize(ii, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::ParallelReduction)
                .parallelize(io, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::Atomics)
                ;
