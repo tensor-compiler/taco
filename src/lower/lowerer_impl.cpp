@@ -1694,7 +1694,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     // Finally, issue a copy of the buffer's data back to the CPU to be scheduled after the kernel.
     auto copySize = ir::Call::make("sizeof", {this->scalarReductionResult}, Auto);
     auto direction = ir::Symbol::make("cudaMemcpyHostToDevice");
-    auto call = ir::Call::make("cudaMemcpy", {bufPtr, addr(this->scalarReductionResult), copySize, direction}, Auto);
+    // TODO (rohany): Wrap this in a error checking call.
+    auto call = ir::Call::make("cudaMemcpy", {addr(this->scalarReductionResult), bufPtr, copySize, direction}, Auto);
     gpuReductionPostamble.push_back(ir::SideEffect::make(call));
   }
 
