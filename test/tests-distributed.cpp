@@ -997,28 +997,28 @@ TEST(distributed, cuda_innerprod) {
 
 TEST(distributed, solomonikMM) {
   int dim = 10;
-  Tensor<int> a("a", {dim, dim}, Format{Dense, Dense});
-  Tensor<int> b("b", {dim, dim}, Format{Dense, Dense});
-  Tensor<int> c("c", {dim, dim}, Format{Dense, Dense});
 
-  int procs = 64;
-  int C = 2;
-  int rpoc = sqrt(procs / C);
-  int rpoc3 = sqrt(procs / (pow(C, 3)));
+  // TODO (rohany): See how much of this choosing of root(p) and c can be pushed till later.
+  auto c = ir::Var::make("c", Int32, false, false, true);
+  auto rpoc = ir::Var::make("rpoc", Int32, false, false, true);
+  auto rpoc3 = ir::Var::make("rpoc3", Int32, false, false, true);
+  Grid partGrid(rpoc, rpoc);
+  Grid procGrid(rpoc, rpoc, c);
 
-  // All tensors are distributed onto the i-j face of the process cube.
-  Grid partGrid = Grid(rpoc, rpoc);
-  Grid procGrid = Grid(rpoc, rpoc, C);
-  auto placeA = a.partition(partGrid).place(procGrid, GridPlacement({0, 1, Face(0)}));
-  auto placeB = b.partition(partGrid).place(procGrid, GridPlacement({0, 1, Face(0)}));
-  auto placeC = c.partition(partGrid).place(procGrid, GridPlacement({0, 1, Face(0)}));
-  auto placeALowered = lower(placeA, "placeLegionA", false, true);
-  auto placeBLowered = lower(placeB, "placeLegionB", false, true);
-  auto placeCLowered = lower(placeC, "placeLegionC", false, true);
+  TensorDistributionV2 dist(PlacementGrid(rpoc, rpoc, c | Face(0)));
+  Tensor<double> A("A", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> B("B", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> C("C", {dim, dim}, Format{Dense, Dense}, dist);
+
+  auto partition = lower(A.partitionStmt(partGrid), "partitionLegion", false, true);
+  auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
 
   IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl"), k1("k1"), k2("k2"), k1s("k1s");
-  a(i, j) = b(i, k) * c(k, j);
-  auto stmt = a.getAssignment().concretize();
+  A(i, j) = B(i, k) * C(k, j);
+  std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
+  auto stmt = A.getAssignment().concretize();
   // To schedule for solomonik's algorithm, we'll distribute over i, j, k according to the
   // processor grid. Then, we divide the kl loop into k1 and k2 so that each partition of C
   // is operated on in chunks. Finally, we then stagger the k1 loop so that along each parallel
@@ -1028,13 +1028,15 @@ TEST(distributed, solomonikMM) {
       .divide(kl, k1, k2, rpoc3)
       .reorder({k1, il, jl})
       .stagger(k1, {in, jn}, k1s)
-      .communicate(a(i, j), jn)
-      .communicate(b(i, k), k1s)
-      .communicate(c(k, j), k1s)
+      .communicate(A(i, j), jn)
+      .communicate(B(i, k), k1s)
+      .communicate(C(k, j), k1s)
+      // TODO (rohany): See if it makes sense to do a hierarchical decomposition for each NUMA node here.
+      .swapLeafKernel(il, gemm)
       ;
   auto lowered = lower(stmt, "computeLegion", false, true);
   // Code-generate all of the placement and compute code.
-  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
+  auto all = ir::Block::make({partition, placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
   {
