@@ -1068,6 +1068,58 @@ TEST(distributed, staggerNoDist) {
   ASSERT_TRUE(equals(a, expected));
 }
 
+TEST(distributed, cuda_solomonikMM) {
+  int dim = 10;
+
+  // TODO (rohany): See how much of this choosing of root(p) and c can be pushed till later.
+  auto c = ir::Var::make("c", Int32, false, false, true);
+  auto rpoc = ir::Var::make("rpoc", Int32, false, false, true);
+  auto rpoc3 = ir::Var::make("rpoc3", Int32, false, false, true);
+  Grid partGrid(rpoc, rpoc);
+  Grid procGrid(rpoc, rpoc, c);
+
+  TensorDistributionV2 dist(PlacementGrid(rpoc, rpoc, c | Face(0)), taco::ParallelUnit::DistributedGPU);
+  Tensor<double> A("A", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> B("B", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> C("C", {dim, dim}, Format{Dense, Dense}, dist);
+
+  auto partition = lower(A.partitionStmt(partGrid), "partitionLegion", false, true);
+  auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
+
+  IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl"), k1("k1"), k2("k2"), k1s("k1s");
+  A(i, j) = B(i, k) * C(k, j);
+  std::shared_ptr<LeafCallInterface> gemm = std::make_shared<CuGEMM>();
+  auto stmt = A.getAssignment().concretize();
+  // To schedule for solomonik's algorithm, we'll distribute over i, j, k according to the
+  // processor grid. Then, we divide the kl loop into k1 and k2 so that each partition of C
+  // is operated on in chunks. Finally, we then stagger the k1 loop so that along each parallel
+  // slice of k, a Cannon style shifting occurs.
+  stmt = stmt
+      .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, procGrid, ParallelUnit::DistributedGPU)
+      .divide(kl, k1, k2, rpoc3)
+      .reorder({k1, il, jl})
+      .stagger(k1, {in, jn}, k1s)
+      .communicate(A(i, j), jn)
+      .communicate(B(i, k), k1s)
+      .communicate(C(k, j), k1s)
+      .swapLeafKernel(il, gemm)
+      ;
+  auto lowered = lowerNoWait(stmt, "computeLegion");
+  // Code-generate all of the placement and compute code.
+  auto all = ir::Block::make({partition, placeALowered, placeBLowered, placeCLowered, lowered});
+  auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  {
+    ofstream f("../legion/solomonikMM/taco-generated.cu");
+    auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+
+}
+
 TEST(distributed, reduction) {
   int dim = 10;
   Tensor<int> a("a", {dim}, Format{Dense});
