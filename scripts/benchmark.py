@@ -210,6 +210,31 @@ class JohnsonBench(DMMBench):
                ['bin/johnsonMM', '-n', str(psize), '-gdim', str(gdim)] + \
                lgCPUArgs()
 
+class JohnsonGPUBench(DMMBench):
+    def __init__(self, initialProblemSize, gpus):
+        super().__init__(initialProblemSize)
+        self.gpus = gpus
+        # Map from GPUs to grid dims.
+        # TODO (rohany): It's hard to pick the right number of GPUs if we have to take 4 per node.
+        self.dims = {
+          4 : 2,
+          8 : 2,
+          16 : 4,
+          32 : 4,
+          64 : 4,
+          128: 6,
+          256: 7,
+        }
+
+    def getCommand(self, procs):
+        # Assuming that we're running on perfect cubes here.
+        psize = self.problemSize(procs)
+        assert(self.gpus * procs in self.dims)
+        gdim = self.dims[self.gpus * procs]
+        return lassenHeader(procs) + \
+               ['bin/johnsonMM-cuda', '-n', str(psize), '-gdim', str(gdim)] + \
+               lgGPUArgs(self.gpus)
+
 class COSMABench(DMMBench):
     def getCommand(self, procs):
         psize = str(self.problemSize(procs))
@@ -489,6 +514,7 @@ def main():
         "cannon": dmm,
         "cannon-gpu": dmmgpu,
         "johnson": dmm,
+        "johnson-gpu": dmmgpu,
         "cosma": dmm,
         "cosma-gpu": dmmgpu,
         "lgcosma": dmm,
@@ -530,6 +556,8 @@ def main():
         bench = CannonGPUBench(size, args.gpus)
     elif args.bench == "johnson":
         bench = JohnsonBench(size)
+    elif args.bench == "johnson-gpu":
+        bench = JohnsonGPUBench(size, args.gpus)
     elif args.bench == "summa":
         bench = SUMMABench(size)
     elif args.bench == "summa-gpu":

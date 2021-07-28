@@ -52,7 +52,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto cPart = partitionLegion(ctx, runtime, C, gdim);
 
   std::vector<size_t> times;
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 11; i++) {
     tacoFill<valType>(ctx, runtime, A, aPart, 0);
     tacoFill<valType>(ctx, runtime, B, bPart, 1);
     tacoFill<valType>(ctx, runtime, C, cPart, 1);
@@ -62,12 +62,19 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     placeLegionB(ctx, runtime, B, gdim);
     placeLegionC(ctx, runtime, C, gdim);
 
-    // Compute on the tensors.
-    benchmark(ctx, runtime, times, [&]() {
+    auto bench = [&]() {
       computeLegion(ctx, runtime, A, B, C, gdim);
       // Call the placement function again to force reduction along each slice of A.
       placeLegionA(ctx, runtime, A, gdim);
-    });
+    };
+
+    // Run one iteration of the algorithm to warm up the system.
+    if (i == 0) {
+      bench();
+    } else {
+      // Compute on the tensors.
+      benchmark(ctx, runtime, times, bench);
+    }
   }
 
   // Get the GFLOPS per node.
