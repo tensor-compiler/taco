@@ -2240,14 +2240,18 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           Auto
       );
       if (this->performingScalarReduction) {
-        // In this case, we need to reduce the result of the index launch.
-        itlStmts.push_back(ir::VarDecl::make(fm, fmCall));
-        auto reduced = ir::Var::make("reduced", Auto);
+        // Use a different overload of execute_index_space that does the reduction for us.
         auto redop = ir::Symbol::make(LegionRedopString(this->scalarReductionResult.type()));
-        itlStmts.push_back(ir::VarDecl::make(reduced, ir::Call::make("runtime->reduce_future_map", {ctx, fm, redop}, Auto)));
+        auto call = ir::Call::make(
+            "runtime->execute_index_space",
+            {ctx, launcher, redop},
+            Auto
+        );
         std::stringstream funcName;
         funcName << "get<" << this->scalarReductionResult.type() << ">";
-        itlStmts.push_back(ir::Assign::make(this->scalarReductionResult, ir::MethodCall::make(reduced, funcName.str(), {}, false, Auto)));
+        // Wait on the result of the index launch reduction.
+        auto reduced = ir::MethodCall::make(call, funcName.str(), {}, false, Auto);
+        itlStmts.push_back(ir::Assign::make(this->scalarReductionResult, reduced));
       } else if (this->distLoopDepth == 0 && this->waitOnFutureMap) {
         itlStmts.push_back(ir::VarDecl::make(fm, fmCall));
         itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(fm, "wait_all_results", {}, false, Auto)));
