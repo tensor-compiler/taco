@@ -295,6 +295,29 @@ class LgCOSMAGPUBench(LgCOSMABench):
                ['bin/cosma-cuda', '-n', psize, '-gx', str(decomp[0]), '-gy', str(decomp[1]), '-gz', str(decomp[2]), '-px', str(decomp[3]), '-py', str(decomp[4])] + \
                lgGPUArgs(self.gpus)
 
+class SolomonikGPUBench(DMMBench):
+    def __init__(self, initialProblemSize, gpus):
+        super().__init__(initialProblemSize)
+        self.gpus = gpus
+        # Mapping from number of "processors" to values for rpoc, c, and rpoc3.
+        self.params = {
+          4: (2, 1, 2),
+          8: (2, 2, 2),
+          16: (4, 1, 4),
+          32: (4, 2, 4),
+          64: (8, 1, 8),
+          128: (8, 2, 8),
+          256: (16, 1, 16),
+        }
+
+    def getCommand(self, procs):
+        psize = str(self.problemSize(procs))
+        assert(self.gpus * procs in self.params)
+        params = self.params[self.gpus * procs]
+        return lassenHeader(procs) + \
+               ['bin/solomonikMM-cuda', '-n', psize, '-rpoc', str(params[0]), '-c', str(params[1]), '-rpoc3', str(params[2])] + \
+               lgGPUArgs(self.gpus)
+
 class SCALAPACKBench(SUMMABench):
     def getCommand(self, procs):
         psize = str(self.problemSize(procs))
@@ -519,6 +542,7 @@ def main():
         "cosma-gpu": dmmgpu,
         "lgcosma": dmm,
         "lgcosma-gpu": dmmgpu,
+        "solomonik-gpu": dmmgpu,
         "summa": dmm,
         "summa-gpu": dmmgpu,
         "scalapack": dmm,
@@ -570,6 +594,8 @@ def main():
         bench = LgCOSMABench(size)
     elif args.bench == "lgcosma-gpu":
         bench = LgCOSMAGPUBench(size, args.gpus)
+    elif args.bench == "solomonik-gpu":
+        bench = SolomonikGPUBench(size, args.gpus)
     elif args.bench == "scalapack":
         bench = SCALAPACKBench(size)
     elif args.bench == "legate":

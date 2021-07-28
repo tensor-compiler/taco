@@ -58,6 +58,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     return;
   }
 
+  initCuBLAS(ctx, runtime);
+
   auto fspace = runtime->create_field_space(ctx);
   allocate_tensor_fields<valType>(ctx, runtime, fspace);
   auto ispace = runtime->create_index_space(ctx, Rect<2>({0, 0}, {n - 1, n - 1}));
@@ -74,8 +76,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   // Run the benchmark several times.
   for (int i = 0; i < 10; i++) {
     tacoFill<valType>(ctx, runtime, A, aPart, 0);
-    tacoFill<valType>(ctx, runtime, B, bPart, 0);
-    tacoFill<valType>(ctx, runtime, C, cPart, 0);
+    tacoFill<valType>(ctx, runtime, B, bPart, 1);
+    tacoFill<valType>(ctx, runtime, C, cPart, 1);
 
     // Place the tensors.
     placeLegionA(ctx, runtime, A, rpoc, c);
