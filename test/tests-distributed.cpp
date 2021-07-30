@@ -119,6 +119,114 @@ TEST(distributed, basicComputeOnto) {
   codegen->compile(lowered);
 }
 
+TEST(distributed, pummaMM) {
+  int dim = 10;
+  // Place each tensor onto a processor grid.
+  auto gx = ir::Var::make("gridX", Int32, false, false, true);
+  auto gy = ir::Var::make("gridY", Int32, false, false, true);
+  auto grid = Grid(gx, gy);
+  auto dist = TensorDistribution(grid);
+
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, dist);
+
+  IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko");
+  IndexVar iln("iln"), ill("ill"), kos("kos");
+  a(i, j) = b(i, k) * c(k, j);
+
+  auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
+  auto placeALowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
+
+  std::shared_ptr<LeafCallInterface> gemm = std::make_shared<GEMM>();
+  auto stmt = a.getAssignment().concretize();
+  stmt = stmt
+      .distribute({i, j}, {in, jn}, {il, jl}, a(i, j))
+      .divide(k, ko, ki, gx)
+      .reorder({ko, il, jl})
+      .stagger(ko, {in}, kos)
+      .communicate(b(i, k), kos)
+      .communicate(c(k, j), kos)
+      // Hierarchically parallelize the computation for each NUMA region.
+      // TODO (rohany): Make the number of OpenMP processors configurable.
+      .distribute({il}, {iln}, {ill}, Grid(2))
+      .communicate(a(i, j), iln)
+      .communicate(b(i, k), iln)
+      .communicate(c(k, j), iln)
+      .swapLeafKernel(ill, gemm)
+      ;
+
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+
+  // Code-generate all of the placement and compute code.
+  auto all = ir::Block::make({partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
+  codegen->compile(all);
+  // Also write it into a file.
+  {
+    ofstream f("../legion/pummaMM/taco-generated.cpp");
+    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+}
+
+TEST(distributed, cuda_pummaMM) {
+  int dim = 10;
+
+  // Place each tensor onto a processor grid.
+  auto gx = ir::Var::make("gridX", Int32, false, false, true);
+  auto gy = ir::Var::make("gridY", Int32, false, false, true);
+  auto grid = Grid(gx, gy);
+  auto partGrid = Grid(ir::Mul::make(gx, 2), ir::Mul::make(gy, 2));
+
+  auto gpuGrid = Grid(2, 2);
+  std::vector<TensorDistribution> dist{
+      TensorDistribution(grid),
+      TensorDistribution(gpuGrid, taco::ParallelUnit::DistributedGPU),
+  };
+
+  Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, dist);
+  Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, dist);
+
+  auto nodePart = lower(a.partitionStmt(grid), "partitionLegionNode", false, true);
+  auto partitionLowered = lower(a.partitionStmt(partGrid), "partitionLegion", false, true);
+  auto placeALowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
+  auto placeBLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
+  auto placeCLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
+  IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl"), k("k"), ki("ki"), ko("ko"), kos("kos");
+  IndexVar iln("iln"), ill("ill"), jln("jln"), jll("jll"), kii("kii"), kio("kio"), kios("kios");
+  std::shared_ptr<LeafCallInterface> gemm = std::make_shared<CuGEMM>();
+  a(i, j) = b(i, k) * c(k, j);
+  auto stmt = a.getAssignment().concretize();
+  stmt = stmt
+      // Schedule for each node.
+      .distribute({i, j}, {in, jn}, {il, jl}, a(i, j))
+      .divide(k, ko, ki, gx)
+      .reorder({ko, il, jl})
+      .stagger(ko, {in}, kos)
+      .communicate(b(i, k), kos)
+      .communicate(c(k, j), kos)
+      // Schedule for each GPU within a node.
+      .distribute({il, jl}, {iln, jln}, {ill, jll}, Grid(2, 2), taco::ParallelUnit::DistributedGPU)
+      .divide(ki, kio, kii, 2)
+      .reorder({kio, ill, jll})
+      .communicate(b(i, k), kio)
+      .communicate(c(k, j), kio)
+      .communicate(a(i, j), jln)
+      .swapLeafKernel(ill, gemm)
+      ;
+  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto all = ir::Block::make({partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
+  ofstream f("../legion/pummaMM/taco-generated.cu");
+  auto codegen = std::make_shared<ir::CodegenLegionCuda>(f, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  f.close();
+}
+
 TEST(distributed, summaMM) {
   int dim = 10;
   // Place each tensor onto a processor grid.

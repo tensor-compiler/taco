@@ -89,6 +89,7 @@ macro(add_basic_legion_cpugpu_test binary tag)
     add_basic_legion_gpu_test(${binary} ${tag} ${ARGN})
 endmacro()
 
+add_app_folder(pummaMM)
 add_app_folder(summaMM)
 add_app_folder(cannonMM)
 add_app_folder(placement-test)
