@@ -186,6 +186,22 @@ class SUMMAGPUBench(SUMMABench):
                ['bin/summaMM-cuda', '-n', str(psize), '-gx', str(gx), '-gy', str(procs // gx), '-dm:exact_region', '-tm:untrack_valid_regions'] + \
                lgGPUArgs(self.gpus)
 
+class PUMMABench(SUMMABench):
+    def getCommand(self, procs):
+        psize = self.problemSize(procs)
+        gx = self.getgx(procs)
+        return lassenHeader(procs) + \
+               ['bin/pummaMM', '-n', str(psize), '-gx', str(gx), '-gy', str(procs // gx)] + \
+               lgCPUArgs()
+
+class PUMMAGPUBench(SUMMAGPUBench):
+    def getCommand(self, procs):
+        psize = self.problemSize(procs)
+        gx = self.getgx(procs)
+        return lassenHeader(procs) + \
+               ['bin/pummaMM-cuda', '-n', str(psize), '-gx', str(gx), '-gy', str(procs // gx), '-dm:exact_region', '-tm:untrack_valid_regions'] + \
+               lgGPUArgs(self.gpus)
+
 class CannonGPUBench(CannonBench):
     def __init__(self, initialProblemSize, gpus):
         super().__init__(initialProblemSize)
@@ -315,7 +331,7 @@ class SolomonikGPUBench(DMMBench):
         assert(self.gpus * procs in self.params)
         params = self.params[self.gpus * procs]
         return lassenHeader(procs) + \
-               ['bin/solomonikMM-cuda', '-n', psize, '-rpoc', str(params[0]), '-c', str(params[1]), '-rpoc3', str(params[2])] + \
+               ['bin/solomonikMM-cuda', '-n', psize, '-rpoc', str(params[0]), '-c', str(params[1]), '-rpoc3', str(params[2]), '-tm:untrack_valid_regions'] + \
                lgGPUArgs(self.gpus)
 
 class SCALAPACKBench(SUMMABench):
@@ -545,6 +561,8 @@ def main():
         "solomonik-gpu": dmmgpu,
         "summa": dmm,
         "summa-gpu": dmmgpu,
+        "pumma": dmm,
+        "pumma-gpu": dmmgpu,
         "scalapack": dmm,
         "legate": dmm,
         "legate-gpu": dmmgpu,
@@ -586,6 +604,10 @@ def main():
         bench = SUMMABench(size)
     elif args.bench == "summa-gpu":
         bench = SUMMAGPUBench(size, args.gpus)
+    elif args.bench == "pumma":
+        bench = PUMMABench(size)
+    elif args.bench == "pumma-gpu":
+        bench = PUMMAGPUBench(size, args.gpus)
     elif args.bench == "cosma":
         bench = COSMABench(size)
     elif args.bench == "cosma-gpu":
