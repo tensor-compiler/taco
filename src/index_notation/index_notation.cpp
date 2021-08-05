@@ -189,10 +189,19 @@ struct Isomorphic : public IndexNotationVisitorStrict {
       }
     }
     if (anode->isAccessingStructure != bnode->isAccessingStructure ||
-        anode->windowedModes != bnode->windowedModes ||
-        anode->indexSetModes != bnode->indexSetModes) {
+        anode->windowedModes != bnode->windowedModes) {
       eq = false;
       return;
+    }
+    if (anode->indexSetModes.size() != bnode->indexSetModes.size()) {
+      eq = false;
+      return;
+    }
+    for (auto aset = anode->indexSetModes.begin(), bset = bnode->indexSetModes.begin(); aset != anode->indexSetModes.end(); ++aset, ++bset) {
+      if (aset->first != bset->first || *aset->second.set != *bset->second.set) {
+        eq = false;
+        return;
+      }
     }
     eq = true;
   }
