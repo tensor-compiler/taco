@@ -93,10 +93,11 @@ protected:
   std::string outputInitMemArgs(std::string varname, const GetProperty* op,
                               bool is_output_prop, bool last);
 
-  std::string printOutputCheck(std::map<std::tuple<Expr, TensorProperty, int, int>,
-          std::string> outputProperties, std::vector<Expr> outputs);
-  std::string outputCheckOutputArgs(std::string varname, Expr tnsr, TensorProperty property,
-                            int mode, int index, bool last);
+  std::string printOutputCheck(std::map<Expr, std::string, ExprCompare> varMap,
+                               std::map<std::tuple<Expr, TensorProperty, int, int>, std::string> outputProperties,
+                               std::vector<Expr> inputs, std::vector<Expr> outputs);
+  std::string outputCheckOutputArgs(std::string varname, const GetProperty* op,
+                                    bool is_output_prop, bool last);
 
   // Used for printing out output store
   std::string printOutputStore(std::map<Expr, std::string, ExprCompare> varMap,

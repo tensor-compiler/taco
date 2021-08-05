@@ -84,7 +84,7 @@ protected:
   ir::Stmt codeToInitializePosAccumulators();
 
   ir::Stmt generateAppendPositions(std::vector<Iterator> appenders) override;
-  ir::Stmt generateAppendPositionsForallPos(std::vector<Iterator> appenders, ir::Expr pos);
+  ir::Stmt generateAppendPositionsForallPos(std::vector<Iterator> appenders, ir::Expr pos, ir::Expr coordinate);
 
   // TODO: add this to LowererImplImperative too
   std::vector<ir::Expr> getAllTemporaryModeArrays(Where where);
@@ -122,8 +122,14 @@ protected:
   std::map<ir::Expr, ir::Expr> tensorPropertyVars;
 
   std::map<IndexStmt, ir::Expr> hoistedPosArr;
+  std::map<IndexStmt, ir::Expr> hoistedCrdArr;
+  std::map<IndexStmt, ir::Expr> hoistedValArr;
+  std::map<IndexStmt, Iterator> hoistedArrIterator;
 
+
+  std::map<ir::Expr, std::pair<ir::Expr, ir::Expr>> coordinateBounds;
   std::map<TensorVar, ir::Expr> hoistedAccessVars;
+  std::vector<ir::Expr> parentLoopVar;
 };
 
 

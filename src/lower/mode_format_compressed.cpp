@@ -150,7 +150,8 @@ Stmt CompressedModeFormat::getAppendEdges(Expr pPrev, Expr pBegin, Expr pEnd,
 
     //Expr edges = (!parentModeType.defined() || parentModeType.hasAppend())
     //             ? pEnd : ir::Sub::make(pEnd, pBegin);
-    if (mode.getMemoryLocation() == MemoryLocation::SpatialFIFO)
+    if (mode.getMemoryLocation() == MemoryLocation::SpatialFIFO ||
+        mode.getMemoryLocation() == MemoryLocation::SpatialFIFORetimed)
       return Store::make(posArray, ir::Add::make(pPrev, 1), edges, MemoryLocation::SpatialSRAM, MemoryLocation::SpatialReg);
     return Store::make(posArray, ir::Add::make(pPrev, 1), edges, mode.getMemoryLocation(), MemoryLocation::SpatialReg);
   } else {

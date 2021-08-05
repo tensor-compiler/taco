@@ -74,7 +74,7 @@ static void createCapacityVars(const map<TensorVar, Expr>& tensorVars,
                                map<Expr, Expr>* capacityVars) {
   for (auto& tensorVar : tensorVars) {
     Expr tensor = tensorVar.second;
-    Expr capacityVar = Var::make(util::toString(tensor) + "_capacity", Int());
+    Expr capacityVar = Var::make(util::toString(tensor) + "_capacity", UInt());
     capacityVars->insert({tensor, capacityVar});
   }
 }

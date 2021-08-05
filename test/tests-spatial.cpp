@@ -729,7 +729,7 @@ TEST(spatial, sparse_csr_spMV_default) {
   set_Spatial_codegen_enabled(false);
   int N = 32;
   Tensor<int> a("a", {N}, {Dense}, taco::MemoryLocation::SpatialFIFO);
-  Tensor<int> B("B", {N, N}, CSR, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> B("B", {N, N}, CSR, taco::MemoryLocation::SpatialFIFORetimed);
   Tensor<int> c("c", {N}, {Dense}, taco::MemoryLocation::SpatialSparseSRAM);
 
   for (int i = 0; i < N; i++) {
@@ -1009,8 +1009,10 @@ TEST(spatial, sparse_csf_3D_plus2) {
   irp.print(computes);
 
   cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  set_tensor_files(true);
   codegen->compile(computes, false);
   set_Spatial_codegen_enabled(false);
+  set_tensor_files(false);
 }
 
 TEST(spatial, csr_residual) {
@@ -1155,6 +1157,61 @@ TEST(spatial, sparse_csr_SDDMM) {
   set_Spatial_codegen_enabled(false);
 }
 
+TEST(spatial, sparse_csr_SDDMM_ws) {
+  set_Spatial_codegen_enabled(false);
+  int N = 16;
+  Format   rm({Dense,Dense});
+  Format   cm({Dense,Dense}, {1,0});
+  Tensor<int> A("A", {N, N}, CSR, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> B("B", {N, N}, CSR, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> C("C", {N, N}, rm, taco::MemoryLocation::SpatialDRAM);
+  Tensor<int> D("D", {N, N}, cm, taco::MemoryLocation::SpatialDRAM);
+
+  for (int i = 0; i < N; i++) {
+    B.insert({i, i}, (int) i);
+    C.insert({i, i}, (int) i);
+    D.insert({i, i}, (int) i);
+  }
+
+  IndexVar i("i"), j("j"), k("k");
+  A(i, j) = B(i, j) * C(i, k)*D(k, j);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  stmt = stmt.parallelize(k, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
+  stmt = scalarPromote(stmt);
+  cout << "----------------Post-Schedule Stmt-----------------" << endl;
+
+
+  TensorVar tjA("tjA", Type(Int32), {}, MemoryLocation::SpatialReg);
+  TensorVar C_ws("C_ws", Type(Int32, {N}), taco::Dense , MemoryLocation::SpatialSRAM);
+  TensorVar D_ws("D_ws", Type(Int32, {N}), taco::Dense, MemoryLocation::SpatialSRAM);
+  IndexStmt stmt1 = forall(i, forall(j, where(A(i,j) = tjA(), forall(k, tjA() += B(i,j) * C(i,k) * D(k,j), ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction))));
+
+  stmt1 = forall(i, forall(j, where(A(i,j) = tjA(), where(where(forall(k, tjA() += B(i,j) * C_ws(k) * D_ws(k),
+                  ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction), forall(k, C_ws(k) = C(i,k))), forall(k, D_ws(k) = D(k,j))))
+                                                                 ));
+
+
+  cout << stmt1 << endl;
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+
+  cout << "----------------CPU LLIR-----------------" << endl;
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  irp.print(compute);
+  cout << endl;
+
+  cout << "----------------SPATIAL LLIR-----------------" << endl;
+  set_Spatial_codegen_enabled(true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt computes = lower(stmt1, "SDDMM",  false, true);
+  irp.print(computes);
+
+  cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  codegen->compile(computes, false);
+  set_Spatial_codegen_enabled(false);
+}
+
 TEST(spatial, csr_mattransmul) {
   set_Spatial_codegen_enabled(false);
   int N = 16;
@@ -1257,7 +1314,7 @@ TEST(spatial, sparse_csf_3D_TTV) {
   set_Spatial_codegen_enabled(false);
 
   Tensor<int> A("A", {16, 16}, {sparse, sparse}, taco::MemoryLocation::SpatialFIFO);
-  Tensor<int> B("B", {16, 16, 16}, {sparse, sparse, sparse}, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> B("B", {16, 16, 16}, {sparse, sparse, sparse}, taco::MemoryLocation::SpatialFIFORetimed);
   Tensor<int> c("c", {16}, {dense}, taco::MemoryLocation::SpatialSparseSRAM);
 
   for (int i = 0; i < 16; i++) {
@@ -1288,12 +1345,12 @@ TEST(spatial, sparse_csf_3D_TTV) {
 
   cout << "----------------SPATIAL LLIR-----------------" << endl;
   set_Spatial_codegen_enabled(true);
-  set_tensor_files(true);
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt computes = lower(stmt, "TTV",  false, true);
   irp.print(computes);
 
   cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  set_tensor_files(true);
   codegen->compile(computes, false);
   set_Spatial_codegen_enabled(false);
   set_tensor_files(false);
@@ -1303,8 +1360,8 @@ TEST(spatial, sparse_csf_3D_TTM) {
   set_Spatial_codegen_enabled(false);
 
   Tensor<int> A("A", {16, 16, 16}, {sparse, sparse, sparse}, taco::MemoryLocation::SpatialFIFO);
-  Tensor<int> B("B", {16, 16, 16}, {sparse, sparse, sparse}, taco::MemoryLocation::SpatialFIFO);
-  Tensor<int> C("C", {16, 16}, {dense, dense}, taco::MemoryLocation::SpatialSparseSRAM);
+  Tensor<int> B("B", {16, 16, 16}, {sparse, sparse, sparse}, taco::MemoryLocation::SpatialFIFORetimed);
+  Tensor<int> C("C", {16, 16}, {dense, dense}, taco::MemoryLocation::SpatialSparseDRAM);
 
   for (int i = 0; i < 16; i++) {
     B.insert({i, i, i}, (int) i);
@@ -1317,16 +1374,16 @@ TEST(spatial, sparse_csf_3D_TTM) {
   IndexStmt stmt = A.getAssignment().concretize();
   stmt = stmt.parallelize(l, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 16);
   stmt = scalarPromote(stmt);
-
+  stmt = stmt.communicate(A(i,j,k), j);
+//
+//  TensorVar tlA("tlA", Type(Int32), {}, MemoryLocation::SpatialReg);
+//  TensorVar A_ws("A_ws", Type(Int32, {16}), taco::dense, MemoryLocation::SpatialFIFO);
+//  IndexStmt stmt1 = forall(i, forall(j, where(forall(k, A(i,j,k) = A_ws(k)) , forall(k, where(A_ws(k) = tlA, forall(l, tlA += B(i,j,l) * C(k,l),
+//                                                                     taco::ParallelUnit::Spatial, taco::OutputRaceStrategy::SpatialReduction, 0, 16))))));
   cout << "----------------Post-Schedule Stmt-----------------" << endl;
   cout << stmt << endl;
 
   ir::IRPrinter irp = ir::IRPrinter(cout);
-
-  cout << "----------------CPU LLIR-----------------" << endl;
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  irp.print(compute);
-  cout << endl;
 
   cout << "----------------SPATIAL LLIR-----------------" << endl;
   set_Spatial_codegen_enabled(true);
@@ -1335,17 +1392,20 @@ TEST(spatial, sparse_csf_3D_TTM) {
   irp.print(computes);
 
   cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  set_tensor_files(true);
   codegen->compile(computes, false);
   set_Spatial_codegen_enabled(false);
+  set_tensor_files(false);
 }
 
 TEST(spatial, sparse_csf_3D_MTTKRP) {
   set_Spatial_codegen_enabled(false);
 
-  Tensor<int> A("A", {16, 16}, {sparse, dense}, taco::MemoryLocation::SpatialSparseSRAM);
-  Tensor<int> B("B", {16, 16, 16}, {sparse, sparse, sparse}, taco::MemoryLocation::SpatialFIFO);
-  Tensor<int> C("C", {16, 16}, {dense, dense}, taco::MemoryLocation::SpatialSparseSRAM);
-  Tensor<int> D("D", {16, 16}, {dense, dense}, taco::MemoryLocation::SpatialSparseSRAM);
+  int N = 16;
+  Tensor<int> A("A", {N, N}, {sparse, dense}, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> B("B", {N, N, N}, {sparse, sparse, sparse}, taco::MemoryLocation::SpatialFIFORetimed);
+  Tensor<int> C("C", {N, N}, {dense, dense}, taco::MemoryLocation::SpatialSparseDRAM);
+  Tensor<int> D("D", {N, N}, {dense, dense}, taco::MemoryLocation::SpatialSparseDRAM);
 
   for (int i = 0; i < 16; i++) {
     B.insert({i, i, i}, (int) i);
@@ -1355,10 +1415,26 @@ TEST(spatial, sparse_csf_3D_MTTKRP) {
   IndexVar i("i"), j("j"), k("k"), l("l");
   A(i, j) = B(i, k, l) * C(k, j) * D(l, j);
 
+  TensorVar tkA("tkA", Type(Int32), {}, MemoryLocation::SpatialReg);
+  TensorVar Ct("Ct", Type(Int32, {N}), taco::Dense , MemoryLocation::SpatialSRAM);
+  TensorVar Dt("Dt", Type(Int32, {N}), taco::Dense, MemoryLocation::SpatialSRAM);
+
   IndexStmt stmt = A.getAssignment().concretize();
-  stmt = stmt.parallelize(l, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 16);
-  stmt = stmt.parallelize(k, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 16);
+//  stmt = stmt.reorder({i, k, l, j});
+//  IndexStmt stmt1 = forall(i, where(forall(j, A(i,j) = tkA) ,
+//                                    forall(k, forall(l, forall(j, tkA += B(i,k,l) * C(k,j) * D(l,j), ParallelUnit::Spatial,
+//                                                               OutputRaceStrategy::SpatialReduction)))));
+//  stmt1 = stmt1.parallelize(l, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 16);
+//  stmt1 = stmt1.parallelize(k, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 16);
+//  //stmt1 = stmt1.parallelize(j, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 16);
+//  stmt1 = stmt1.communicate(A(i,j), i);
+//  stmt1 = stmt1.communicate(C(k,j), )
+
+  stmt = stmt.parallelize(l, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
+  stmt = stmt.parallelize(k, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
+  stmt = stmt.parallelize(j, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
   stmt = scalarPromote(stmt);
+  stmt = stmt.communicate(A(i,j), i);
 
   cout << "----------------Post-Schedule Stmt-----------------" << endl;
   cout << stmt << endl;
@@ -1373,8 +1449,10 @@ TEST(spatial, sparse_csf_3D_MTTKRP) {
   irp.print(computes);
 
   cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  set_tensor_files(true);
   codegen->compile(computes, false);
   set_Spatial_codegen_enabled(false);
+  set_tensor_files(false);
 }
 
 TEST(spatial, sparse_csf_3D_innerprod) {
@@ -1396,7 +1474,7 @@ TEST(spatial, sparse_csf_3D_innerprod) {
   stmt = stmt.parallelize(i, ParallelUnit::Spatial,OutputRaceStrategy::SpatialReduction);
   stmt = stmt.parallelize(j, ParallelUnit::Spatial,OutputRaceStrategy::SpatialReduction);
   stmt = stmt.parallelize(k, ParallelUnit::Spatial,OutputRaceStrategy::SpatialReduction);
-
+  stmt = stmt.environment("sp", 1);
   cout << "----------------Post-Schedule Stmt-----------------" << endl;
   cout << stmt << endl;
 
@@ -1410,6 +1488,79 @@ TEST(spatial, sparse_csf_3D_innerprod) {
   irp.print(computes);
 
   cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  set_tensor_files(true);
   codegen->compile(computes, false);
   set_Spatial_codegen_enabled(false);
+  set_tensor_files(false);
+}
+
+TEST(spatial, sparse_dss_3D_innerprod) {
+  set_Spatial_codegen_enabled(false);
+
+  Tensor<int> a("a", {}, {}, MemoryLocation::SpatialArgOut);
+  Tensor<int> B("B", {16, 16, 16}, {dense, sparse, sparse}, taco::MemoryLocation::SpatialSparseDRAM);
+  Tensor<int> C("C", {16, 16, 16}, {dense, sparse, sparse}, taco::MemoryLocation::SpatialSparseDRAM);
+
+  for (int i = 0; i < 16; i++) {
+    B.insert({i, i, i}, (int) i);
+    C.insert({i, i, i}, (int) i);
+  }
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  a() = B(i, j, k) * C(i, j, k);
+
+  IndexStmt stmt = a.getAssignment().concretize();
+  stmt = stmt.parallelize(i, ParallelUnit::Spatial,OutputRaceStrategy::SpatialReduction);
+  stmt = stmt.parallelize(j, ParallelUnit::Spatial,OutputRaceStrategy::SpatialReduction);
+  stmt = stmt.parallelize(k, ParallelUnit::Spatial,OutputRaceStrategy::SpatialReduction);
+  stmt = stmt.environment("sp", 1);
+  cout << "----------------Post-Schedule Stmt-----------------" << endl;
+  cout << stmt << endl;
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+
+
+  cout << "----------------SPATIAL LLIR-----------------" << endl;
+  set_Spatial_codegen_enabled(true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt computes = lower(stmt, "InnerProdDSS",  false, true);
+  irp.print(computes);
+
+  cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  set_tensor_files(true);
+  codegen->compile(computes, false);
+  set_Spatial_codegen_enabled(false);
+  set_tensor_files(false);
+}
+
+TEST(spatial, tian_cpu) {
+  std::cout << "Format: ./sparse_csr_SDDMM mat0 " << std::endl;
+  int repeat = 1;
+  int rowsB, colsB;
+
+  // cout << "Parsing " << argv[1] << endl;
+  string ss;
+  ss = "/Users/oliviahsu/Files/research/sparse_spatial_compilation/taco-to-spatial/data/mats/ckt11752_dc_1.mtx";
+  // readMatrixSize(ss, rowsB, colsB);
+  // cout << "#rows = " << rowsB << ", #cols = " << colsB << endl;
+  Tensor<double> B = read(ss, CSR, true);
+  int N = B.getDimensions()[0];
+  cout << "N = "  << N << endl;
+
+  Format rm({Dense, Dense}); // The last two tensors should be dense?
+  Format cm({Dense, Dense}, {1, 0});
+  Tensor<double> A("A", {N, N}, CSR);
+  Tensor<double> C("C", {N, N}, rm);
+  Tensor<double> D("D", {N, N}, cm);
+
+  IndexVar i("i"), j("j"), k("k");
+  A(i, j) = B(i, j) * C(i, k) * D(k, j);
+
+  A.compile();
+  A.assemble();
+  A.compute();
+
+  cout << A;
+
+  // write(std::string("./result.tns"), FileType::tns, y);
 }

@@ -3136,7 +3136,6 @@ std::map<Forall, Assignment> getBulkMemTransfers(IndexStmt stmt) {
 }
 
 Forall getOuterLoop(IndexStmt stmt) {
-  map<Forall, Assignment> bulkTransfers;
   Forall f = Forall();
   match(stmt,
         function<void(const ForallNode*, Matcher*)>([&](const ForallNode* op, Matcher* ctx) {
@@ -3146,6 +3145,46 @@ Forall getOuterLoop(IndexStmt stmt) {
         })
   );
   return f;
+}
+
+std::vector<Forall> getInnerLoops(IndexStmt stmt) {
+  vector<Forall> innerForalls;
+  match(stmt,
+        function<void(const ForallNode*)>([&](const ForallNode* op) {
+          if (isa<Assignment>(op->stmt)) {
+            innerForalls.push_back(Forall(op));
+          }
+        })
+  );
+  return innerForalls;
+}
+
+std::map<TensorVar, Access> getCommunicateAccesses(IndexStmt stmt) {
+  std::map<TensorVar, Access> tensorAccessMap;
+
+  vector<TensorVar> communicateTensors;
+  match(stmt,
+        function<void(const ForallNode*, Matcher*)>([&](const ForallNode* op, Matcher* ctx) {
+          if (!op->accessTensors.empty()) {
+            for (auto& tensor : op->accessTensors) {
+              communicateTensors.push_back(tensor);
+            }
+          }
+          ctx->match(op->stmt);
+        })
+  );
+
+  match(stmt,
+        function<void(const AccessNode*)>([&](const AccessNode* op) {
+          for (auto& tensor : communicateTensors) {
+            if (op->tensorVar == tensor) {
+              tensorAccessMap[tensor] = Access(op);
+            }
+          }
+        })
+  );
+
+  return tensorAccessMap;
 }
 
 std::vector<TensorVar> getTemporaries(IndexStmt stmt) {

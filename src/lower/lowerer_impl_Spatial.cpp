@@ -368,8 +368,8 @@ Stmt LowererImplSpatial::lowerForall(Forall forall) {
       if (isa<Forall>(forall.getStmt())) {
         subforall = forall.getStmt().as<Forall>();
 
-      } else if (isa<Where>(forall.getStmt()) && isa<Forall>(forall.getStmt().as<Where>().getConsumer())) {
-        subforall = forall.getStmt().as<Where>().getConsumer().as<Forall>();
+//      } else if (isa<Where>(forall.getStmt()) && isa<Forall>(forall.getStmt().as<Where>().getConsumer())) {
+//        subforall = forall.getStmt().as<Where>().getConsumer().as<Forall>();
 
       } else if (isa<Where>(forall.getStmt()) && isa<Forall>(forall.getStmt().as<Where>().getProducer())) {
         subforall = forall.getStmt().as<Where>().getProducer().as<Forall>();
@@ -379,13 +379,62 @@ Stmt LowererImplSpatial::lowerForall(Forall forall) {
         auto sublattice = MergeLattice::make(subforall, iterators, provGraph,
                                              definedIndexVars, whereTempsToResult);
         Iterator subIterator = sublattice.iterators()[0];
+
         if (subIterator.getMode().defined()) {
           auto posArr = subIterator.getMode().getModePack().getArray(0);
 
+          auto parentVar = subIterator.getParent().getPosVar();
           hoistedPosArr[forall] = posArr;
+          hoistedArrIterator[forall] = subIterator.getParent();
+
+          const GetProperty* posArrGP = posArr.as<GetProperty>();
+          gpToVarMap[posArr] = ir::Var::make(posArrGP->name, posArrGP->type);
+
         }
       }
     }
+
+    if (forall != outerForall) {
+      Assignment assignment;
+      if (isa<Assignment>(forall.getStmt())) {
+        assignment = forall.getStmt().as<Assignment>();
+      } else if (isa<Where>(forall.getStmt()) && isa<Assignment>(forall.getStmt().as<Where>().getProducer())) {
+        assignment = forall.getStmt().as<Where>().getProducer().as<Assignment>();
+      }
+
+
+
+
+        auto lattice = MergeLattice::make(forall, iterators, provGraph,
+                                             definedIndexVars, whereTempsToResult);
+        Iterator iterator = lattice.iterators()[0];
+
+        if (iterator.getMode().defined()) {
+          auto crdArr = iterator.getMode().getModePack().getArray(1);
+
+          auto parentVar = iterator.getParent().getPosVar();
+          hoistedCrdArr[forall] = crdArr;
+          hoistedArrIterator[forall] = iterator;
+
+          const GetProperty* crdArrGP = crdArr.as<GetProperty>();
+          gpToVarMap[crdArr] = ir::Var::make(crdArrGP->name, crdArrGP->type);
+
+          if (assignment.defined()) {
+            Expr valArr;
+            for (auto& tv : tensorVars) {
+              if (tv.second == crdArr.as<GetProperty>()->tensor)
+                valArr = getValuesArray(tv.first);
+            }
+            taco_iassert(valArr.defined()) << "Values array must be in tensorVars map";
+
+            hoistedValArr[forall] = valArr;
+            gpToVarMap[valArr] = ir::Var::make(valArr.as<GetProperty>()->name, valArr.as<GetProperty>()->type);
+          }
+        }
+
+
+      }
+    //}
 
     vector<Iterator> locators = point.locators();
     vector<Iterator> appenders;
@@ -631,7 +680,9 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
                                               vector<Iterator> appenders,
                                               set<Access> reducedAccesses,
                                               ir::Stmt recoveryStmt) {
-  Expr numChunks = (forall == outerForall) ? funcEnvMap["bp"] : (int) forall.getNumChunks();
+  Expr numChunks = (forall == outerForall) ? funcEnvMap["bp"] :
+    (util::contains(innerForalls, forall)) ? funcEnvMap["ip"] :
+    (forall.getNumChunks() > 0 && forall.getNumChunks() <= 16) ? (int) forall.getNumChunks() : 1;
 
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
@@ -641,9 +692,11 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
     atomicParallelUnit = forall.getParallelUnit();
   }
 
+  parentLoopVar.push_back(coordinate);
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
 
+  parentLoopVar.pop_back();
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel &&
       forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
@@ -652,11 +705,15 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
 
   body = Block::make({recoveryStmt, body});
 
-  Stmt posAppend = generateAppendPositions(appenders);
-
   // Emit loop with preamble and postamble
   std::vector<ir::Expr> bounds = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered,
                                                             underivedBounds, indexVarToExprMap, iterators);
+
+  Expr appendLoopVar = coordinate;
+  if ( parentLoopVar.size() > 0) {
+    appendLoopVar =  parentLoopVar.back();
+  }
+  Stmt posAppend = generateAppendPositionsForallPos(appenders, bounds[1],  appendLoopVar);
 
   LoopKind kind = LoopKind::Serial;
   if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
@@ -664,6 +721,22 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
   } else if (forall.getParallelUnit() != ParallelUnit::NotParallel
              && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
     kind = LoopKind::Runtime;
+  }
+
+
+  Stmt posTransfers = Block::make();
+  if (hoistedPosArr.count(forall) > 0) {
+    auto arrIterator = hoistedArrIterator.at(forall);
+    auto bounds = coordinateBounds.at(arrIterator.getPosVar());
+
+    auto posArr = hoistedPosArr.at(forall);
+    auto posDram = ir::Var::make(posArr.as<GetProperty>()->name + "_dram", posArr.type());
+    auto memLoc = MemoryLocation::SpatialSRAM;
+    auto allocatePosArr = ir::Allocate::make(posArr, ir::Div::make(funcEnvMap["nnz_accel_max"], 4),
+                                             false, Expr(), false, memLoc);
+    auto posArrLoad = ir::LoadBulk::make(posDram, get<0>(bounds), ir::Add::make(get<1>(bounds), 1), funcEnvMap["ip"]);
+    auto posArrStore = ir::StoreBulk::make(posArr, posArrLoad, memLoc, MemoryLocation::SpatialDRAM);
+    posTransfers = Block::make(allocatePosArr, posArrStore);
   }
 
   vector<Expr> memLoadStart;
@@ -704,8 +777,8 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
           regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
       }
 
-      Stmt reductionBody = lowerForallReductionBody(coordinate, forall.getStmt(),
-                                                    locators, inserters, appenders, reducedAccesses);
+      Stmt reductionBody = removeEndReduction(body);
+
       reductionBody = Block::make({recoveryStmt, reductionBody});
 
       Expr reductionExpr = lower(forallExpr.getRhs());
@@ -714,8 +787,8 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
       taco_iassert(isa<taco::Add>(forallExpr.getOperator()));
 
       if (forallExpr.getOperator().defined()) {
-        auto reduce = Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1,
-                                                        funcEnvMap.at("ip"), Scope::make(reductionBody, reductionExpr),
+        auto reduce = Block::make(posTransfers, regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1,
+                                                        numChunks, Scope::make(reductionBody, reductionExpr),
                                                         true));
         for (int i = 0; i < (int) forall.getCommunicateTensors().size(); i++) {
           if (!hasResult(appenders, forall.getCommunicateTensors()[i])) {
@@ -750,8 +823,8 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
       vector<IndexVar> children = provGraph.getChildren(parentVar);
 
       if (forallExpr.getOperator().defined()) {
-        auto reduce = Block::make(regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1,
-                                                        funcEnvMap.at("ip"), body, true));
+        auto reduce = Block::make(posTransfers, regDecl, Reduce::make(coordinate, reg, bounds[0], bounds[1], 1,
+                                                        numChunks, body, true));
         for (int i = 0; i < (int) forall.getCommunicateTensors().size(); i++) {
           if (!hasResult(appenders, forall.getCommunicateTensors()[i])) {
             reduce = generateOPMemLoads(forall, reduce, memLoadStart[i], memLoadEnd[i],
@@ -778,13 +851,13 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
     Expr data = LoadBulk::make(valuesRhs, ir::Add::make(get<1>(locs[1]), bounds[0]),
                                ir::Add::make(get<1>(locs[1]), bounds[1]));
 
-    return Block::make(get<0>(locs[0]), StoreBulk::make(valuesLhs,
-                                                        ir::Add::make(get<1>(locs[0]), bounds[0]),
-                                                        ir::Add::make(get<1>(locs[0]), bounds[1]), data,
-                                                        tensorLhs.getMemoryLocation(), tensorRhs.getMemoryLocation()));
+    auto block = Block::make(posTransfers, get<0>(locs[0]), StoreBulk::make(valuesLhs,
+                                                              data,
+                                                              tensorLhs.getMemoryLocation(), tensorRhs.getMemoryLocation()));
+    return block;
   }
 
-  auto loop = Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, numChunks, body,
+  auto loop = Block::blanks(posTransfers, For::make(coordinate, bounds[0], bounds[1], 1, numChunks, body,
                                       kind,
                                       ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(),
                                       ignoreVectorize ? 0 : forall.getUnrollFactor(), 0),
@@ -805,7 +878,12 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
                                              vector<Iterator> appenders,
                                              set<Access> reducedAccesses,
                                              ir::Stmt recoveryStmt) {
+  Expr numChunks = (forall == outerForall) ? funcEnvMap["bp"] :
+                   (util::contains(innerForalls, forall)) ? funcEnvMap["ip"] :
+                   (forall.getNumChunks() > 0 && forall.getNumChunks() <= 16) ? (int) forall.getNumChunks() : 1;
+
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
+
   Stmt declareCoordinate = Stmt();
   if (getProvGraph().isCoordVariable(forall.getIndexVar())) {
     Expr coordinateArray = iterator.posAccess(iterator.getPosVar(),
@@ -827,16 +905,7 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
   Stmt hoistedTensorAccess = generateHoistedtensorAccess(forall);
 
 
-  Stmt body = lowerForallBody(coordinate, forall.getStmt(),
-                              locators, inserters, appenders, reducedAccesses);
-  body = Block::make(hoistedTensorAccess, body);
 
-  if (forall.getParallelUnit() != ParallelUnit::NotParallel &&
-      forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
-    markAssignsAtomicDepth--;
-  }
-
-  body = Block::make(recoveryStmt, body);
 
   // Code to compute iteration bounds
   Stmt boundsCompute;
@@ -868,6 +937,7 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
   }
 
   auto loopVar = to<Var>(iterator.getPosVar());
+
   Expr posAppendVar = endBound;
   vector<Expr> memLoadBounds = {startBound, ir::Sub::make(endBound, startBound)};
   // Spatial needs memory accesses to be described before loop
@@ -889,7 +959,6 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
     memLoadBounds = {startVar, lenVar};
 
     posAppendVar = endVar;
-
   } else if (!isa<Var>(startBound)) {
     //TODO: Remove duplicate code here
     auto startVar = Var::make(loopVar->name + "_start", startBound.type());
@@ -909,20 +978,72 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
     memLoadBounds = {startBound, ir::Sub::make(endBound, startBound)};
   }
 
+  coordinateBounds[iterator.getPosVar()] = {memLoadBounds[0], posAppendVar};
+
+  parentLoopVar.push_back(loopVar);
+  Stmt body = lowerForallBody(coordinate, forall.getStmt(),
+                              locators, inserters, appenders, reducedAccesses);
+
+  parentLoopVar.pop_back();
+  body = Block::make(hoistedTensorAccess, body);
+
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel &&
+      forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
+    markAssignsAtomicDepth--;
+  }
+
   Stmt posTransfers = Block::make();
   if (hoistedPosArr.count(forall) > 0) {
     auto posArr = hoistedPosArr.at(forall);
     auto posDram = ir::Var::make(posArr.as<GetProperty>()->name + "_dram", posArr.type());
     auto memLoc = MemoryLocation::SpatialSRAM;
-    auto allocatePosArr = ir::Allocate::make(posArr, ir::Div::make(funcEnvMap["nnz_accel_max"], 2),
+    auto allocatePosArr = ir::Allocate::make(posArr, ir::Div::make(funcEnvMap["nnz_accel_max"], 4),
                                              false, Expr(), false, memLoc);
     auto posArrLoad = ir::LoadBulk::make(posDram, memLoadBounds[0], ir::Add::make(posAppendVar, 1), funcEnvMap["ip"]);
     auto posArrStore = ir::StoreBulk::make(posArr, posArrLoad, memLoc, MemoryLocation::SpatialDRAM);
     posTransfers = Block::make(allocatePosArr, posArrStore);
   }
 
+  if (hoistedCrdArr.count(forall) > 0) {
+    auto crdArr = hoistedCrdArr.at(forall);
+    auto crdDram = ir::Var::make(crdArr.as<GetProperty>()->name + "_dram", crdArr.type());
+    auto memLoc = crdArr.as<GetProperty>()->tensor.as<Var>()->memoryLocation;
+    Expr size;
+    Expr endLoad;
+    if (memLoc == MemoryLocation::SpatialFIFO || memLoc == MemoryLocation::SpatialFIFORetimed) {
+      size = 16;
+      endLoad = memLoadBounds[1];
+    } else {
+      size = ir::Div::make(funcEnvMap["nnz_accel_max"], 4);
+      endLoad = posAppendVar;
+    }
+    auto allocateCrdArr = ir::Allocate::make(crdArr, size,
+                                             false, Expr(), false, memLoc);
+    auto crdArrLoad = ir::LoadBulk::make(crdDram, memLoadBounds[0], endLoad, funcEnvMap["ip"]);
+    auto crdArrStore = ir::StoreBulk::make(crdArr, crdArrLoad, memLoc, MemoryLocation::SpatialDRAM);
+    posTransfers = Block::make(posTransfers, allocateCrdArr, crdArrStore);
+
+    if (hoistedValArr.count(forall) > 0) {
+      Expr valArr = hoistedValArr.at(forall);
+      taco_iassert(valArr.defined()) << "Values array must be in tensorVars map";
+
+      auto valDram = ir::Var::make(valArr.as<GetProperty>()->name + "_dram", valArr.type());
+
+      auto allocateValArr = ir::Allocate::make(valArr, size,
+                                               false, Expr(), false, memLoc);
+      auto valArrLoad = ir::LoadBulk::make(valDram, memLoadBounds[0], endLoad, funcEnvMap["ip"]);
+      auto valArrStore = ir::StoreBulk::make(valArr, valArrLoad, memLoc, MemoryLocation::SpatialDRAM);
+      posTransfers = Block::make(posTransfers, allocateValArr, valArrStore);
+    }
+  }
+
+
   // Code to append positions
-  Stmt posAppend = generateAppendPositionsForallPos(appenders, posAppendVar);
+  Expr appendLoopVar = loopVar;
+  if ( parentLoopVar.size() > 0) {
+    appendLoopVar =  parentLoopVar.back();
+  }
+  Stmt posAppend = generateAppendPositionsForallPos(appenders, posAppendVar, appendLoopVar);
 
   Stmt resultStore = generateResultStore(forall, appenders, memLoadBounds[0], memLoadBounds[1]);
   posAppend = Block::make(posAppend, resultStore);
@@ -954,8 +1075,7 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
           regDecl = VarDecl::make(reg, ir::Literal::zero(reg.type()), MemoryLocation::SpatialReg);
       }
 
-      Stmt reductionBody = lowerForallReductionBody(coordinate, forall.getStmt(),
-                                                    locators, inserters, appenders, reducedAccesses);
+      Stmt reductionBody = removeEndReduction(body);
       reductionBody = Block::make({recoveryStmt, reductionBody});
 
       Expr reductionExpr = lower(forallExpr.getRhs());
@@ -963,7 +1083,7 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
       taco_iassert(isa<taco::Add>(forallExpr.getOperator())) << "Spatial reductions can only handle additions";
 
       if (forallExpr.getOperator().defined()) {
-        auto reduce = Reduce::make(loopVar, reg, startBound, endBound, 1, funcEnvMap.at("ip"),
+        auto reduce = Reduce::make(loopVar, reg, startBound, endBound, 1, numChunks,
                                    Block::make(declareCoordinate,
                                                Scope::make(reductionBody,
                                                            reductionExpr)),
@@ -971,7 +1091,7 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
         if (!forall.getCommunicateTensors().empty() && !hasResult(appenders, forall.getCommunicateTensors()[0]))
           reduce = generateOPMemLoads(forall, reduce, memLoadBounds[0], memLoadBounds[1],
                                       forall.getCommunicateTensors()[0]);
-        return Block::make(boundsCompute, boundsDecl, posTransfers, Block::blanks(regDecl, reduce));
+        return Block::make(boundsCompute, Block::blanks(boundsDecl, posTransfers, Block::blanks(regDecl, reduce)));
       }
     }
       //else if (forallReductions.find(forall) != forallReductions.end() && !provGraph.getParents(forall.getIndexVar()).empty()) {
@@ -997,18 +1117,18 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
 
       if (forallExpr.getOperator().defined()) {
         auto reduce = Reduce::make(loopVar, reg, startBound, endBound,
-                                   1, funcEnvMap.at("ip"), Block::make(declareCoordinate, body), true);
+                                   1, numChunks, Block::make(declareCoordinate, body), true);
         // Code to generate loads and stores from DRAM if tagged with communicate
         if (!forall.getCommunicateTensors().empty() && !hasResult(appenders, forall.getCommunicateTensors()[0]))
           reduce = generateOPMemLoads(forall, reduce, memLoadBounds[0], memLoadBounds[1],
                                       forall.getCommunicateTensors()[0]);
 
-        return Block::make(boundsCompute, boundsDecl, posTransfers, Block::blanks(regDecl, reduce));
+        return Block::make(boundsCompute, Block::blanks(boundsDecl, posTransfers, Block::blanks(regDecl, reduce)));
       }
     }
   }
 
-  auto loop = For::make(loopVar, startBound, endBound, 1,
+  auto loop = For::make(loopVar, startBound, endBound, 1, numChunks,
                         Block::make(declareCoordinate, body),
                         kind,
                         ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(),
@@ -1018,8 +1138,8 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
     loop = generateOPMemLoads(forall, loop, memLoadBounds[0], memLoadBounds[1], forall.getCommunicateTensors()[0]);
 
   // Loop with preamble and postamble
-  return Block::blanks(boundsCompute, boundsDecl, posTransfers,
-                       loop, posAppend);
+  return Block::blanks(boundsCompute, boundsDecl, Block::blanks(posTransfers,
+                       loop), posAppend);
 
 }
 
@@ -1059,13 +1179,17 @@ Stmt LowererImplSpatial::generateIteratorComputeLoop(Forall forall, IndexStmt st
 
   bool isReduction = (forall.getParallelUnit() == ParallelUnit::Spatial &&
                       forall.getOutputRaceStrategy() == OutputRaceStrategy::SpatialReduction);
+
+  bool isInnerLoop = (isa<Assignment>(forall.getStmt()));
+  auto parFactor = isInnerLoop ? funcEnvMap.at("ip") : funcEnvMap.at("sp");
+
   Expr scan = Expr();
   Expr typeCase = Expr();
   if (point.iterators().size() == 1) {
     auto iteratorVar = varMap[point.iterators()[0]];
     auto load = ir::Load::make(iteratorVar, iteratorVar.as<Var>()->memoryLocation);
     // TODO: fix bitcnt and par factor later
-    scan = ir::Scan::make(funcEnvMap.at("sp"),
+    scan = ir::Scan::make(parFactor,
                           bitLen,
                           load, Expr(), isUnion, isReduction);
 
@@ -1079,7 +1203,7 @@ Stmt LowererImplSpatial::generateIteratorComputeLoop(Forall forall, IndexStmt st
     // TODO: fix bitcnt and par factor later
     auto load1 = ir::Load::make(iteratorVar1, iteratorVar2.as<Var>()->memoryLocation);
     auto load2 = ir::Load::make(iteratorVar2, iteratorVar2.as<Var>()->memoryLocation);
-    scan = ir::Scan::make(funcEnvMap.at("sp"), bitLen, load1, load2, isUnion, isReduction);
+    scan = ir::Scan::make(parFactor, bitLen, load1, load2, isUnion, isReduction && isInnerLoop);
 
     typeCase = ir::TypeCase::make({uncompressedCrd, iterator1.getCoordVar(), compressedCrd, iterator2.getCoordVar()});
     coordinateScanVarsMap[coordinate] = {uncompressedCrd, iterator1.getCoordVar(), compressedCrd,
@@ -1192,13 +1316,16 @@ LowererImplSpatial::generateIteratorAppendPositions(IndexStmt statement, ir::Exp
                                                                                         "metadata environment";
   auto bitLen = ir::Mul::make(ir::Literal::make(32), indexVartoBitVarMap.at(coordinateVar));
 
+  bool isInnerLoop = (isa<Assignment>(statement));
+  auto parFactor = isInnerLoop ? funcEnvMap.at("ip") : funcEnvMap.at("sp");
+
   Expr scan = Expr();
   Expr typeCase = Expr();
   if (point.iterators().size() == 1) {
     auto iteratorVar = varMap[point.iterators()[0]];
     auto load = ir::Load::make(iteratorVar, iteratorVar.as<Var>()->memoryLocation);
     // TODO: fix bitcnt and par factor later
-    scan = ir::Scan::make(1, bitLen,
+    scan = ir::Scan::make(parFactor, bitLen,
                           load, Expr(), isUnion, true);
 
 
@@ -1211,7 +1338,7 @@ LowererImplSpatial::generateIteratorAppendPositions(IndexStmt statement, ir::Exp
     // TODO: fix bitcnt and par factor later
     auto load1 = ir::Load::make(iteratorVar1, iteratorVar2.as<Var>()->memoryLocation);
     auto load2 = ir::Load::make(iteratorVar2, iteratorVar2.as<Var>()->memoryLocation);
-    scan = ir::Scan::make(funcEnvMap.at("sp"), bitLen, load1, load2, isUnion, true);
+    scan = ir::Scan::make(parFactor, bitLen, load1, load2, isUnion, true);
 
     typeCase = ir::TypeCase::make({uncompressedCrd, iterator1.getCoordVar(), compressedCrd, iterator2.getCoordVar()});
   }
@@ -1631,6 +1758,8 @@ Stmt LowererImplSpatial::codeToInitializePosAccumulators() {
 }
 
 Stmt LowererImplSpatial::generateAppendPositions(vector<Iterator> appenders) {
+  // TODO: generate append position needs to add values to the counter
+
   vector<Stmt> result;
   for (Iterator appender : appenders) {
     if (appender.isBranchless() ||
@@ -1654,7 +1783,7 @@ Stmt LowererImplSpatial::generateAppendPositions(vector<Iterator> appenders) {
   return result.empty() ? Stmt() : Block::make(result);
 }
 
-Stmt LowererImplSpatial::generateAppendPositionsForallPos(vector<Iterator> appenders, Expr pos) {
+Stmt LowererImplSpatial::generateAppendPositionsForallPos(vector<Iterator> appenders, Expr pos, Expr coordinate) {
   vector<Stmt> result;
   for (Iterator appender : appenders) {
     if (appender.isBranchless() ||
@@ -1664,6 +1793,9 @@ Stmt LowererImplSpatial::generateAppendPositionsForallPos(vector<Iterator> appen
 
     Expr beginPos = appender.getBeginVar();
     Expr parentPos = appender.getParent().getPosVar();
+
+    if (isa<Var>(parentPos))
+      result.push_back(ir::VarDecl::make(parentPos, coordinate));
     auto appendEdges = appender.getAppendEdges(parentPos, beginPos, pos);
     result.push_back(appendEdges);
   }
@@ -1813,13 +1945,31 @@ ir::Stmt LowererImplSpatial::generateResultStore(Forall forall, vector<Iterator>
   if (forall.getCommunicateTensors().size() > 0) {
     for (auto& tensor : forall.getCommunicateTensors()) {
       if (hasResult(appenders, tensor)) {
-          set_output_store(false);
-          auto load = ir::LoadBulk::make(getValuesArray(tensor), start, end);
+        Expr startBound = start;
+        Expr EndBound = end;
+        set_output_store(false);
 
-          auto dram = ir::Var::make(getValuesArray(tensor).as<GetProperty>()->name + "_dram",
-                                    getValuesArray(tensor).type(), false, false, false, MemoryLocation::SpatialDRAM);
-          auto decl = ir::StoreBulk::make(dram, load, MemoryLocation::SpatialDRAM, tensor.getMemoryLocation());
-          return decl;
+        for (auto& access : resultTensorAccesses) {
+          if (access.getTensorVar() == tensor) {
+            bool seenForallIvar = false;
+            for (auto& ivar : access.getIndexVars()) {
+              if (ivar == forall.getIndexVar())
+                seenForallIvar = true;
+              else if (seenForallIvar) {
+                startBound = ir::Mul::make(dimensions[ivar], startBound);
+                EndBound = ir::Mul::make(dimensions[ivar], EndBound);
+              }
+            }
+          }
+        }
+
+
+        auto load = ir::LoadBulk::make(getValuesArray(tensor), startBound, EndBound);
+
+        auto dram = ir::Var::make(getValuesArray(tensor).as<GetProperty>()->name + "_dram",
+                                  getValuesArray(tensor).type(), false, false, false, MemoryLocation::SpatialDRAM);
+        auto decl = ir::StoreBulk::make(dram, load, MemoryLocation::SpatialDRAM, tensor.getMemoryLocation());
+        return decl;
 
       }
     }

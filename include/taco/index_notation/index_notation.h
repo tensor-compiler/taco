@@ -1211,6 +1211,12 @@ std::vector<TensorVar> getArguments(IndexStmt stmt);
 /// Returns the outermost forall loop (assuming no precompute)
 Forall getOuterLoop(IndexStmt stmt);
 
+///Returns a list of all foralls with assignments as the stmt within the forall
+std::vector<Forall> getInnerLoops(IndexStmt stmt);
+
+/// Returns a map from communicate tensors to Accesses
+std::map<TensorVar, Access> getCommunicateAccesses(IndexStmt stmt);
+
 /// Returns the temporaries in the index statement, in the order they appear.
 std::vector<TensorVar> getTemporaries(IndexStmt stmt);
 

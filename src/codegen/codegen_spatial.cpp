@@ -312,15 +312,18 @@ string CodeGen_Spatial::printFuncName(const Function *func,
   ret << "  type T = Int\n" << endl;  // FIXME: make type changeable
   ret << "  // Code used for running multiple datasets\n";
 
+  auto path = "";
+  auto files = "";
   if (should_use_tensor_files()) {
-    ret << "  private val rt = sys.env(\"TACO_TO_SPATIAL_HOME\") + \"/data/tensors/\"\n";
-    ret << "  val argList = ListBuffer(\n";
-    ret << "    \"fb1k.tns\",\n";
+    path = "\"/data/tensors/\"";
+    files = "\"fb1k.tns\",\n";
   } else {
-    ret << "  private val rt = sys.env(\"TACO_TO_SPATIAL_HOME\") + \"/data/mats/\"\n";
-    ret << "  val argList = ListBuffer(\n";
-    ret << "    \"ibm32.mtx\",\n";
+    path = "\"/data/mats/\"";
+    files = "\"ibm32.mtx\",\n";
   }
+  ret << "  private val rt = sys.env(\"TACO_TO_SPATIAL_HOME\") + " << path << "\n";
+  ret << "  val argList = ListBuffer(\n";
+  ret << "    " << files;
   ret << "    )\n";
   ret << "  private val absPaths = argList.map(m => rt + m)\n";
   ret << "  override def runtimeArgs: Args = absPaths.mkString(\" \")\n";
@@ -407,7 +410,9 @@ void CodeGen_Spatial::visit(const Function* func) {
   if (emittingCoroutine) {
     out << printCoroutineFinish(numYields, funcName);
   }
-  printEnv(func->accelEnvNoSimplify, varMap);
+
+  if (func->accelEnvNoSimplify.defined())
+    printEnv(func->accelEnvNoSimplify, varMap);
 
 
   // Reformat output (store back into DRAM)
@@ -419,7 +424,7 @@ void CodeGen_Spatial::visit(const Function* func) {
   out << "\n";
   
   indent++;
-  out << printOutputCheck(varFinder.outputProperties, func->outputs);
+  out << printOutputCheck(varFinder.varDecls, varFinder.outputProperties, func->inputs, func->outputs);
   //out << "assert(true)\n";
 
   out << "}\n";   // end main
@@ -805,10 +810,13 @@ void CodeGen_Spatial::visit(const Store* op) {
   doIndent();
   op->arr.accept(this);
 
-  if ((op->lhs_mem_loc != MemoryLocation::SpatialReg || op->rhs_mem_loc != MemoryLocation::SpatialReg)
-      && op->lhs_mem_loc != MemoryLocation::SpatialFIFO
-      && op->lhs_mem_loc != MemoryLocation::SpatialSparseDRAM
-      && op->lhs_mem_loc != MemoryLocation::SpatialSparseSRAM) {
+  if ((op->lhs_mem_loc == MemoryLocation::SpatialDRAM ||
+      op->lhs_mem_loc == MemoryLocation::SpatialSRAM)
+      //&&
+//      !(op->rhs_mem_loc == MemoryLocation::SpatialReg ||
+//        op->rhs_mem_loc == MemoryLocation::SpatialArgOut ||
+//        op->rhs_mem_loc == MemoryLocation::SpatialArgIn)
+        ) {
     stream << "(";
     parentPrecedence = Precedence::TOP;
     op->loc.accept(this);
@@ -820,9 +828,13 @@ void CodeGen_Spatial::visit(const Store* op) {
   } else if (op->lhs_mem_loc == MemoryLocation::SpatialDRAM) {
     //stream << " store ";
     stream << " = ";
-  } else if (op->lhs_mem_loc == MemoryLocation::SpatialReg && op->rhs_mem_loc == MemoryLocation::SpatialReg) {
+  } else if ((op->lhs_mem_loc == MemoryLocation::SpatialReg || op->lhs_mem_loc == MemoryLocation::SpatialArgOut ||
+              op->lhs_mem_loc == MemoryLocation::SpatialArgIn)
+              && (op->lhs_mem_loc == MemoryLocation::SpatialReg || op->lhs_mem_loc == MemoryLocation::SpatialArgOut ||
+                  op->lhs_mem_loc == MemoryLocation::SpatialArgIn)) {
     stream << " := ";
-  } else if (op->lhs_mem_loc == MemoryLocation::SpatialFIFO) {
+  } else if (op->lhs_mem_loc == MemoryLocation::SpatialFIFO ||
+             op->lhs_mem_loc == MemoryLocation::SpatialFIFORetimed) {
     stream << ".enq(";
   } else if (op->lhs_mem_loc == MemoryLocation::SpatialSparseDRAM || op->lhs_mem_loc == MemoryLocation::SpatialSparseSRAM) {
     parentPrecedence = Precedence::TOP;
@@ -835,7 +847,8 @@ void CodeGen_Spatial::visit(const Store* op) {
 
   parentPrecedence = Precedence::TOP;
   op->data.accept(this);
-  if (op->lhs_mem_loc == MemoryLocation::SpatialFIFO) {
+  if (op->lhs_mem_loc == MemoryLocation::SpatialFIFO ||
+      op->lhs_mem_loc == MemoryLocation::SpatialFIFORetimed) {
     stream << ")";
   } else if (op->lhs_mem_loc == MemoryLocation::SpatialSparseDRAM || op->lhs_mem_loc == MemoryLocation::SpatialSparseSRAM) {
     stream << ", Seq())";
@@ -1089,6 +1102,7 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
       case MemoryLocation::SpatialSparseDRAM:
         memLoc = "SparseDRAM";
         useBP = true;
+        memDims = "nnz_max";
         break;
       case MemoryLocation::SpatialSparseSRAM:
         memLoc = "SparseSRAM";
@@ -1116,6 +1130,7 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
         break;
       case MemoryLocation::SpatialReg:
       case MemoryLocation::SpatialDRAM:
+        return "";
       default:
         break;
     }
@@ -1231,7 +1246,7 @@ string CodeGen_Spatial::unpackTensorPropertyAccel(string varname, const GetPrope
       case MemoryLocation::SpatialSparseDRAM:
         // nm == 1 means it's the crd array
         memLoc = (is_output_prop) ? "SparseDRAM" : (nm == 1) ? "" : "SRAM";
-        loadDims = (nm == 1) ? dims :  (op->mode == 0) ? "ip" : "(" + tensor->name + to_string(std::max(op->mode, 1)) + "_dimension + 1)";
+        loadDims = (is_output_prop) ? "nnz_max" : (nm == 1) ? dims :  (op->mode == 0) ? "ip" : "(" + tensor->name + to_string(std::max(op->mode, 1)) + "_dimension + 1)";
         useBP = is_output_prop || nm != 0;
         break;
       case MemoryLocation::SpatialSparseSRAM:
@@ -1290,7 +1305,10 @@ string CodeGen_Spatial::unpackTensorProperty(string varname, const GetProperty* 
     bool emitDim = true;
     bool useDRAM = true;
     string dim = "(nnz_max)";
-    if (tensor->memoryLocation == MemoryLocation::SpatialSRAM) {
+    if (tensor->memoryLocation == MemoryLocation::SpatialDRAM) {
+      useDRAM = false;
+    }
+    else if (tensor->memoryLocation == MemoryLocation::SpatialSRAM) {
       //loc = "SRAM";
 //      dim = "(";
 //      for (int i = 1; i < op->index + 1; i++) {
@@ -1677,12 +1695,17 @@ string CodeGen_Spatial::outputInitMemArgs(string varname, const GetProperty* op,
 
   auto tensor = op->tensor.as<Var>();
   if (op->property == TensorProperty::Values && op->index == 0) {
-    if (tensor->memoryLocation == MemoryLocation::SpatialReg || tensor->memoryLocation == MemoryLocation::SpatialArgIn)
+    if (tensor->memoryLocation == MemoryLocation::SpatialReg ||
+        tensor->memoryLocation == MemoryLocation::SpatialArgIn ||
+        tensor->memoryLocation == MemoryLocation::SpatialArgOut)
       ret << "1, " << varname;
     else
       ret << "1, " << varname << "_dram";
   } else if (op->property == TensorProperty::Values) {
-    ret << varname << "_dram";
+    if (tensor->memoryLocation == MemoryLocation::SpatialDRAM)
+      ret << varname;
+    else
+      ret << varname << "_dram";
   } else if (op->property == TensorProperty::Dimension) {
     ret << varname;
   } else if (op->property == TensorProperty::Indices) {
@@ -1751,66 +1774,90 @@ string CodeGen_Spatial::printInitArgs(Stmt stmt) {
 }
 
 // helper to print output store
-string CodeGen_Spatial::printOutputCheck(map<tuple<Expr, TensorProperty, int, int>,
-        string> outputProperties, vector<Expr> outputs) {
-  stringstream ret;
-  vector<tuple<Expr, TensorProperty, int, int>> sortedProps;
+string CodeGen_Spatial::printOutputCheck(map<Expr, string, ExprCompare> varMap,
+                                         map<tuple<Expr, TensorProperty, int, int>, string> outputProperties,
+                                         vector<Expr> inputs, vector<Expr> outputs) {
+    stringstream ret;
+    unordered_set<string> propsAlreadyGenerated;
 
-  for (auto &prop: outputProperties) {
-    sortedProps.push_back(prop.first);
-  }
-  sort(sortedProps.begin(), sortedProps.end(),
-       [&](const tuple<Expr, TensorProperty, int, int> &a,
-           const tuple<Expr, TensorProperty, int, int> &b) -> bool {
-         // first, use a total order of outputs,inputs
-         auto a_it = find(outputs.begin(), outputs.end(), get<0>(a));
-         auto b_it = find(outputs.begin(), outputs.end(), get<0>(b));
-         auto a_pos = distance(outputs.begin(), a_it);
-         auto b_pos = distance(outputs.begin(), b_it);
+    vector<const GetProperty*> sortedProps;
 
-         // if total order is same, have to do more, otherwise we know
-         // our answer
-         if (a_pos != b_pos)
-           return a_pos < b_pos;
+    // Add properties to sortedProps and keep track of dimension names
+    for (auto const& p: varMap) {
+      if (p.first.as<GetProperty>()) {
+        if (util::contains(outputs, p.first.as<GetProperty>()->tensor)) {
+          auto getProperty = p.first.as<GetProperty>();
+          sortedProps.push_back(p.first.as<GetProperty>());
+        }
+      }
+    }
 
-         // if they're different properties, sort by property
-         if (get<1>(a) != get<1>(b))
-           return get<1>(a) < get<1>(b);
+    // sort the properties in order to generate them in a canonical order
+    sort(sortedProps.begin(), sortedProps.end(),
+         [&](const GetProperty *a,
+             const GetProperty *b) -> bool {
+           // first, use a total order of outputs,inputs
+           auto a_it = find(outputs.begin(), outputs.end(), a->tensor);
+           auto b_it = find(outputs.begin(), outputs.end(), b->tensor);
+           auto a_pos = distance(outputs.begin(), a_it);
+           auto b_pos = distance(outputs.begin(), b_it);
+           if (a_it == outputs.end())
+             a_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
+                                                    a->tensor));
+           if (b_it == outputs.end())
+             b_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
+                                                    b->tensor));
 
-         // now either the mode gives order, or index #
-         if (get<2>(a) != get<2>(b))
-           return get<2>(a) < get<2>(b);
+           // if total order is same, have to do more, otherwise we know
+           // our answer
+           if (a_pos != b_pos)
+             return a_pos < b_pos;
 
-         return get<3>(a) < get<3>(b);
-       });
+           // if they're different properties, sort by property
+           if (a->property != b->property)
+             return a->property < b->property;
+
+           // now either the mode gives order, or index #
+           if (a->mode != b->mode)
+             return a->mode < b->mode;
+
+           return a->index < b->index;
+         });
 
   ret << "  checkOutput[T](";
 
   for (int i = 0; i < (int)sortedProps.size(); i++) {
     auto prop = sortedProps[i];
-    auto var = get<0>(prop).as<Var>();
-    if (!var->is_parameter) {
-      ret << outputCheckOutputArgs(outputProperties[prop], get<0>(prop),
-                              get<1>(prop), get<2>(prop), get<3>(prop), i == (int)sortedProps.size() - 1);
+    bool isOutputProp = (find(outputs.begin(), outputs.end(),
+                              prop->tensor) != outputs.end());
+
+    auto var = prop->tensor.as<Var>();
+    if (!var->is_parameter && isOutputProp) {
+      ret << outputCheckOutputArgs(varMap[prop], prop, isOutputProp, i == (int)sortedProps.size() - 1);
     }
   }
   ret << ")" << endl;
   return ret.str();
 }
 
-string CodeGen_Spatial::outputCheckOutputArgs(string varname, Expr tnsr,
-                                   TensorProperty property,
-                                   int mode, int index, bool last) {
+string CodeGen_Spatial::outputCheckOutputArgs(string varname, const GetProperty* op,
+                                              bool is_output_prop, bool last) {
   stringstream ret;
   ret << "";
 
-  //auto tensor = tnsr.as<Var>();
-  if (property == TensorProperty::Values && index == 0) {
-    ret << "1, " << varname << "_dram";
-  } else if (property == TensorProperty::Dimension) {
+  auto tensor = op->tensor.as<Var>();
+  if (op->property == TensorProperty::Values && index == 0) {
+    if (tensor->memoryLocation == MemoryLocation::SpatialArgOut)
+      ret << "1, " << varname;
+    else
+      ret << "1, " << varname << "_dram";
+  } else if (op->property == TensorProperty::Dimension) {
     ret << varname;
   } else {
-    ret << varname << "_dram";
+    if (tensor->memoryLocation == MemoryLocation::SpatialArgOut)
+      ret << "1, " << varname;
+    else
+      ret << varname << "_dram";
   }
 
 //  if (property != TensorProperty::Dimension)
@@ -1956,6 +2003,10 @@ string CodeGen_Spatial::outputTensorProperty(string varname, const GetProperty* 
   stringstream ret;
   string indentation = "    ";
 
+  if (!should_output_store()) {
+    return "";
+  }
+
   auto tensor = op->tensor.as<Var>();
   string dims = "";
   for (int i = 1; i < op->index + 1; i++) {
@@ -1969,6 +2020,7 @@ string CodeGen_Spatial::outputTensorProperty(string varname, const GetProperty* 
 
   if (op->property == TensorProperty::Values) {
     switch(tensor->memoryLocation) {
+      case MemoryLocation::SpatialFIFORetimed:
       case MemoryLocation::SpatialFIFO:
         ret << indentation << varname << "_dram stream_store_vec(0, " << varname << ", " << dims <<  ")" << endl;
         break;

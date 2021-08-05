@@ -224,6 +224,8 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   bulkMemTransfer = getBulkMemTransfers(stmt);
 
   outerForall = getOuterLoop(stmt);
+  innerForalls = getInnerLoops(stmt);
+  communicateTensorAccesses = getCommunicateAccesses(stmt);
 
   hoistedAccesses = getHoistedAccesses(stmt);
 
@@ -293,6 +295,8 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   set<Access> reducedAccesses;
   inputAccesses = getArgumentAccesses(stmt);
   std::tie(resultAccesses, reducedAccesses) = getResultAccesses(stmt);
+
+  resultTensorAccesses = resultAccesses;
 
   // Create variables that represent the reduced values of duplicated tensor
   // components
@@ -444,6 +448,9 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
 
   // Post-process body to replace workspace/temporary GetProperties with local variables
   if (generateComputeCode()) {
+    // rewrite GP
+    body = replaceGPs(body, gpToVarMap);
+
     body = rewriteTemporaryGP(body, temporaries, temporarySizeMap, temporaryArrays);
 
     map<Expr, TensorVar> flippedTensorVars;
@@ -2226,7 +2233,8 @@ Stmt LowererImplDataflow::lowerWhere(Where where) {
   );
 
   Stmt consumer = lower(where.getConsumer());
-  if (accelerateDenseWorkSpace && sortAccelerator) {
+
+  if (accelerateDenseWorkSpace && sortAccelerator && !should_use_Spatial_codegen()) {
     // We need to sort the indices array
     Expr listOfIndices = tempToIndexList.at(temporary);
     Expr listOfIndicesSize = tempToIndexListSize.at(temporary);
@@ -2265,6 +2273,7 @@ Stmt LowererImplDataflow::lowerWhere(Where where) {
   }
 
   Stmt producer = lower(where.getProducer());
+
   if (accelerateDenseWorkSpace && !should_use_Spatial_codegen()) {
     const Expr indexListSizeExpr = tempToIndexListSize.at(temporary);
     const Stmt indexListSizeDecl = VarDecl::make(indexListSizeExpr, ir::Literal::make(0));

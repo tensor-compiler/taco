@@ -577,8 +577,14 @@ protected:
   std::map<ir::Expr, int> tensorExprDefinedBound;
 
   Forall outerForall;
+  std::vector<Forall> innerForalls;
 
   std::map<Forall, ir::Expr> hoistedPosArrAllocate;
+
+  std::map<TensorVar, Access> communicateTensorAccesses;
+  std::vector<Access> resultTensorAccesses;
+
+  std::map<ir::Expr, ir::Expr> gpToVarMap;
 
   class Visitor;
   friend class Visitor;

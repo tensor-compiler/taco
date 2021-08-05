@@ -12,7 +12,7 @@ struct TemporaryArrays;
 namespace ir {
 class Stmt;
 class Expr;
-class GetProperty;
+struct GetProperty;
 }
 
 /// Rewrite a post-lowered IR statement to take into account multidimensional temporaries. 
@@ -35,6 +35,8 @@ ir::Stmt addGPLoadFlag(const ir::Stmt& stmt, TensorVar tv, std::map<TensorVar, i
 ir::Stmt addUseBPFlag(const ir::Stmt& stmt, std::map<ir::Expr, TensorVar> tensors, std::map<std::string, ir::Expr> funcEnvMap);
 
 ir::Stmt rewriteGPDim(ir::Stmt stmt, const ir::GetProperty* gp, ir::Expr dim);
+
+ir::Stmt replaceGPs(const ir::Stmt& stmt, std::map<ir::Expr, ir::Expr> gpToVarMap);
 
 }
 #endif

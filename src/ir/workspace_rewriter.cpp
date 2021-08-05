@@ -11,8 +11,6 @@
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/lower/lowerer_impl_dataflow.h"
 #include "taco/spatial.h"
-#include <codegen/codegen_spatial.h>
-#include <codegen/codegen.h>
 
 using namespace std;
 using namespace taco::ir;
@@ -132,6 +130,24 @@ struct WorkspaceIndRewriter : ir::IRRewriter {
   }
 };
 
+struct GetPropertyRewriter : ir::IRRewriter {
+  GetPropertyRewriter(std::map<ir::Expr, ir::Expr> gpToVarMap)
+    : gpToVarMap(gpToVarMap) {}
+
+  std::map<ir::Expr, ir::Expr> gpToVarMap;
+
+  using IRRewriter::visit;
+  void visit(const ir::GetProperty* op) {
+    Expr tensor = rewrite(op->tensor);
+
+    if (gpToVarMap.count(op) > 0) {
+      expr = GetProperty::make(op->tensor, op->property, op->mode, op->index, op->name, op->dim, true, op->useBP);
+    } else {
+      expr = op;
+    }
+  }
+};
+
 struct TagTensorPropertyLoads : IRRewriter {
   using IRRewriter::visit;
   TensorVar tv;
@@ -237,6 +253,10 @@ ir::Stmt rewriteTemporaryGP(const ir::Stmt& stmt, std::vector<TensorVar> whereTe
   ir::Stmt rewrittenStmt = WorkspaceDimensionRewriter(whereTemps, temporarySizeMap).rewrite(stmt);
 
   return rewrittenStmt;
+}
+
+ir::Stmt replaceGPs(const ir::Stmt& stmt, std::map<ir::Expr, ir::Expr> gpToVarMap) {
+  return GetPropertyRewriter(gpToVarMap).rewrite(stmt);
 }
 
 }
