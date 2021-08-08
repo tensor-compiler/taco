@@ -789,7 +789,7 @@ TEST(spatial, sparse_csr_spMV_op) {
   stmt = scalarPromote(stmt);
   stmt = stmt.environment("bp", 2);
   cout << stmt << endl;
-  stmt = stmt.communicate(B(i, j), j);
+  //stmt = stmt.communicate(B(i, j), j);
 
   cout << "----------------Post-Schedule Stmt-----------------" << endl;
   cout << stmt << endl;
@@ -1124,7 +1124,7 @@ TEST(spatial, csr_residual_op) {
   stmt = scalarPromote(stmt);
   stmt = stmt.environment("bp", 2);
   cout << stmt << endl;
-  stmt = stmt.communicate(A(i, j), j);
+  //stmt = stmt.communicate(A(i, j), j);
 
   cout << "----------------Post-Schedule Stmt-----------------" << endl;
   cout << stmt << endl;
@@ -1384,7 +1384,7 @@ TEST(spatial, csr_mattransmul_op) {
   stmt = scalarPromote(stmt);
   stmt = stmt.environment("bp", 2);
   cout << stmt << endl;
-  stmt = stmt.communicate(A(i, j), j);
+  //stmt = stmt.communicate(A(i, j), j);
   cout << "----------------Post-Schedule Stmt-----------------" << endl;
   cout << stmt << endl;
 

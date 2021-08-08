@@ -1077,7 +1077,6 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
     }
   }
 
-
   // Code to append positions
   Expr appendLoopVar = loopVar;
   if ( parentLoopVar.size() > 0) {
@@ -1131,6 +1130,7 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
         if (!forall.getCommunicateTensors().empty() && !hasResult(appenders, forall.getCommunicateTensors()[0]))
           reduce = generateOPMemLoads(forall, reduce, memLoadBounds[0], memLoadBounds[1],
                                       forall.getCommunicateTensors()[0]);
+
         return Block::make(boundsCompute, Block::blanks(boundsDecl, posTransfers, Block::blanks(regDecl, reduce)));
       }
     }
@@ -2124,7 +2124,8 @@ Stmt LowererImplSpatial::generateOPResultHoist(Forall forall, Stmt body) {
       auto memLoc = access.getTensorVar().getMemoryLocation();
       if (memLoc != MemoryLocation::SpatialDRAM &&
           memLoc != MemoryLocation::SpatialSparseDRAM &&
-          memLoc != MemoryLocation::SpatialSparseDRAMFalse) {
+          memLoc != MemoryLocation::SpatialSparseDRAMFalse &&
+          memLoc != MemoryLocation::SpatialSRAM) {
         Expr size;
         switch (memLoc) {
           case MemoryLocation::SpatialFIFO:
