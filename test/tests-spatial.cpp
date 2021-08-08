@@ -960,9 +960,9 @@ TEST(spatial, sparse_csr_plus3) {
   ir::IRPrinter irp = ir::IRPrinter(cout);
 
   cout << "----------------CPU LLIR-----------------" << endl;
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  irp.print(compute);
-  cout << endl;
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  irp.print(compute);
+//  cout << endl;
 
   cout << "----------------SPATIAL LLIR-----------------" << endl;
   set_Spatial_codegen_enabled(true);
@@ -1758,36 +1758,4 @@ TEST(spatial, sparse_dss_3D_innerprod) {
   codegen->compile(computes, false);
   set_Spatial_codegen_enabled(false);
   set_tensor_files(false);
-}
-
-TEST(spatial, tian_cpu) {
-  std::cout << "Format: ./sparse_csr_SDDMM mat0 " << std::endl;
-  int repeat = 1;
-  int rowsB, colsB;
-
-  // cout << "Parsing " << argv[1] << endl;
-  string ss;
-  ss = "/Users/oliviahsu/Files/research/sparse_spatial_compilation/taco-to-spatial/data/mats/ckt11752_dc_1.mtx";
-  // readMatrixSize(ss, rowsB, colsB);
-  // cout << "#rows = " << rowsB << ", #cols = " << colsB << endl;
-  Tensor<double> B = read(ss, CSR, true);
-  int N = B.getDimensions()[0];
-  cout << "N = "  << N << endl;
-
-  Format rm({Dense, Dense}); // The last two tensors should be dense?
-  Format cm({Dense, Dense}, {1, 0});
-  Tensor<double> A("A", {N, N}, CSR);
-  Tensor<double> C("C", {N, N}, rm);
-  Tensor<double> D("D", {N, N}, cm);
-
-  IndexVar i("i"), j("j"), k("k");
-  A(i, j) = B(i, j) * C(i, k) * D(k, j);
-
-  A.compile();
-  A.assemble();
-  A.compute();
-
-  cout << A;
-
-  // write(std::string("./result.tns"), FileType::tns, y);
 }

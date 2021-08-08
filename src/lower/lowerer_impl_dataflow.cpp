@@ -225,7 +225,7 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
 
   outerForall = getOuterLoop(stmt);
   innerForalls = getInnerLoops(stmt);
-  communicateTensorAccesses = getCommunicateAccesses(stmt);
+  //communicateTensorAccesses = getCommunicateAccesses(stmt);
 
   hoistedAccesses = getHoistedAccesses(stmt);
 
@@ -1883,7 +1883,7 @@ Stmt LowererImplDataflow::lowerForallBody(Expr coordinate, IndexStmt stmt,
 
   // Locate positions
   Stmt declLocatorPosVars = declLocatePosVars(locators);
-  
+
   if (captureNextLocatePos) {
     capturedLocatePos = Block::make(declInserterPosVars, declLocatorPosVars);
     captureNextLocatePos = false;

@@ -747,16 +747,19 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
   Stmt posTransfers = Block::make();
   if (hoistedPosArr.count(forall) > 0) {
     auto arrIterator = hoistedArrIterator.at(forall);
-    auto bounds = coordinateBounds.at(arrIterator.getPosVar());
 
-    auto posArr = hoistedPosArr.at(forall);
-    auto posDram = ir::Var::make(posArr.as<GetProperty>()->name + "_dram", posArr.type());
-    auto memLoc = MemoryLocation::SpatialSRAM;
-    auto allocatePosArr = ir::Allocate::make(posArr, ir::Div::make(funcEnvMap["nnz_accel_max"], 4),
-                                             false, Expr(), false, memLoc);
-    auto posArrLoad = ir::LoadBulk::make(posDram, get<0>(bounds), ir::Add::make(get<1>(bounds), 1), funcEnvMap["ip"]);
-    auto posArrStore = ir::StoreBulk::make(posArr, posArrLoad, memLoc, MemoryLocation::SpatialDRAM);
-    posTransfers = Block::make(allocatePosArr, posArrStore);
+    if (coordinateBounds.count(arrIterator.getPosVar()) > 0) {
+      auto bounds = coordinateBounds.at(arrIterator.getPosVar());
+
+      auto posArr = hoistedPosArr.at(forall);
+      auto posDram = ir::Var::make(posArr.as<GetProperty>()->name + "_dram", posArr.type());
+      auto memLoc = MemoryLocation::SpatialSRAM;
+      auto allocatePosArr = ir::Allocate::make(posArr, ir::Div::make(funcEnvMap["nnz_accel_max"], 4),
+                                               false, Expr(), false, memLoc);
+      auto posArrLoad = ir::LoadBulk::make(posDram, get<0>(bounds), ir::Add::make(get<1>(bounds), 1), funcEnvMap["ip"]);
+      auto posArrStore = ir::StoreBulk::make(posArr, posArrLoad, memLoc, MemoryLocation::SpatialDRAM);
+      posTransfers = Block::make(allocatePosArr, posArrStore);
+    }
   }
 
   vector<Expr> memLoadStart;
