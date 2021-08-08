@@ -650,7 +650,7 @@ TEST(distributed, ttmc) {
   auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
   auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
   auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
-  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto lowered = lowerNoWait(stmt, "computeLegion");
   auto all = ir::Block::make({partition3tensor, placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
@@ -692,7 +692,7 @@ TEST(distributed, cuda_ttmc) {
   auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
   auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
   auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
-  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto lowered = lowerNoWait(stmt, "computeLegion");
   auto all = ir::Block::make({partition3tensor, placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);

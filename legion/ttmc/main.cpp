@@ -72,26 +72,27 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto cIndexPart = runtime->create_index_partition(ctx, cISpace, dom, cColoring, LEGION_DISJOINT_COMPLETE_KIND);
   auto cPart = runtime->get_logical_partition(ctx, C, cIndexPart);
 
+  tacoFill<valType>(ctx, runtime, A, aPart, 0);
   tacoFill<valType>(ctx, runtime, B, bPart, 1);
   tacoFill<valType>(ctx, runtime, C, cPart, 1);
 
-  std::vector<size_t> times;
-  for (int i = 0; i < 10; i++) {
-    tacoFill<valType>(ctx, runtime, A, aPart, 0);
+  // Run the program once for verification.
+  computeLegion(ctx, runtime, A, B, C, aPart, bPart, cPart);
+  tacoValidate<valType>(ctx, runtime, A, aPart, valType(n));
 
-    placeLegionA(ctx, runtime, A, pieces);
-    placeLegionB(ctx, runtime, B, pieces);
-    benchmark(ctx, runtime, times, [&]() { computeLegion(ctx, runtime, A, B, C, aPart, bPart, cPart); });
-  }
+  std::vector<size_t> times;
+  benchmarkAsyncCall(ctx, runtime, times, [&]() {
+    for (int i = 0; i < 10; i++) {
+      computeLegion(ctx, runtime, A, B, C, aPart, bPart, cPart);
+    }
+  });
 
   // Get the GFLOPS per node.
-  auto avgTime = average(times);
+  auto avgTime = double(times[0]) / 10.f;
   auto flopCount = getTTMCFLOPCount(n, n, n, n);
   auto gflops = getGFLOPS(flopCount, avgTime);
   auto nodes = runtime->select_tunable_value(ctx, Mapping::DefaultMapper::DEFAULT_TUNABLE_NODE_COUNT).get<size_t>();
   LEGION_PRINT_ONCE(runtime, ctx, stdout, "On %ld nodes achieved GFLOPS per node: %lf.\n", nodes, gflops / double(nodes));
-
-  tacoValidate<valType>(ctx, runtime, A, aPart, valType(n));
 }
 
 TACO_MAIN(valType)
