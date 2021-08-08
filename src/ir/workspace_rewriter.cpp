@@ -168,6 +168,24 @@ struct TagTensorPropertyLoads : IRRewriter {
   }
 };
 
+struct TagTensorPropertyLoadsAll : IRRewriter {
+  using IRRewriter::visit;
+  TensorVar tv;
+  map<TensorVar, Expr> tvs;
+
+  TagTensorPropertyLoadsAll(TensorVar tv, map<TensorVar, Expr> tvs) : tv(tv), tvs(tvs) {}
+
+  void visit(const GetProperty* op) {
+    op->tensor.accept(this);
+
+    if (tvs.count(tv) > 0 && op->tensor == tvs.at(tv)) {
+      expr = GetProperty::make(op->tensor, op->property, op->mode, op->index, op->name, true);
+      return;
+    }
+    expr = op;
+  }
+};
+
 struct DetectBPTensorProperties : IRRewriter {
   using IRRewriter::visit;
   map<Expr, TensorVar> tensors;
@@ -232,6 +250,11 @@ ir::Stmt addUseBPFlag(const ir::Stmt& stmt, std::map<Expr, TensorVar> tensors, s
 
 ir::Stmt addGPLoadFlag(const ir::Stmt& stmt, TensorVar tv, map<TensorVar, Expr> tvs) {
   ir::Stmt rewrittenStmt = TagTensorPropertyLoads(tv, tvs).rewrite(stmt);
+  return rewrittenStmt;
+}
+
+ir::Stmt addGPLoadFlagAll(const ir::Stmt& stmt, TensorVar tv, map<TensorVar, Expr> tvs) {
+  ir::Stmt rewrittenStmt = TagTensorPropertyLoadsAll(tv, tvs).rewrite(stmt);
   return rewrittenStmt;
 }
 

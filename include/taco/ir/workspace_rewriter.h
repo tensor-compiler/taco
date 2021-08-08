@@ -30,6 +30,7 @@ ir::Stmt rewriteTemporaryGP(const ir::Stmt& stmt, std::vector<TensorVar> whereTe
 
 /// Add in the flags for GetProperty nodes that shouldn't be emitted
 ir::Stmt addGPLoadFlag(const ir::Stmt& stmt, TensorVar tv, std::map<TensorVar, ir::Expr> tvs);
+ir::Stmt addGPLoadFlagAll(const ir::Stmt& stmt, TensorVar tv, std::map<TensorVar, ir::Expr> tvs);
 
 /// Add in the flags for memories that need bp tags
 ir::Stmt addUseBPFlag(const ir::Stmt& stmt, std::map<ir::Expr, TensorVar> tensors, std::map<std::string, ir::Expr> funcEnvMap);

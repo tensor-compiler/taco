@@ -460,7 +460,9 @@ LowererImplDataflow::lower(IndexStmt stmt, string name,
   }
 
   // Post-process result modes and allocate memory for values if necessary
-  Stmt finalizeResults = finalizeResultArrays(resultAccesses);
+  Stmt finalizeResults = Block::make();
+  if (!hasResultCommunicate)
+    finalizeResults = finalizeResultArrays(resultAccesses);
 
   if (generateComputeCode()) {
     for (auto& gpDim : gpDimMap) {
@@ -1881,7 +1883,7 @@ Stmt LowererImplDataflow::lowerForallBody(Expr coordinate, IndexStmt stmt,
 
   // Locate positions
   Stmt declLocatorPosVars = declLocatePosVars(locators);
-
+  
   if (captureNextLocatePos) {
     capturedLocatePos = Block::make(declInserterPosVars, declLocatorPosVars);
     captureNextLocatePos = false;
@@ -3086,6 +3088,8 @@ Stmt LowererImplDataflow::declLocatePosVars(vector<Iterator> locators) {
         Stmt declarePosVar = VarDecl::make(locateIterator.getPosVar(),
                                            locate.getResults()[0], locateIterator.getMode().getMemoryLocation());
 
+        if (locator.getMode().getMemoryLocation() != MemoryLocation::SpatialFIFO ||
+            locator.getMode().getMemoryLocation() != MemoryLocation::SpatialFIFORetimed)
         result.push_back(declarePosVar);
 
         if (locateIterator.isLeaf()) {

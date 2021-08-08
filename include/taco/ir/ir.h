@@ -739,9 +739,10 @@ struct Allocate : public StmtNode<Allocate> {
   bool is_realloc;
   bool clear; // Whether to use calloc to allocate this memory.
   MemoryLocation memoryLocation;
+  bool fillZero = true;
   
   static Stmt make(Expr var, Expr num_elements, bool is_realloc=false,
-                   Expr old_elements=Expr(), bool clear=false, MemoryLocation memoryLocation=MemoryLocation::Default);
+                   Expr old_elements=Expr(), bool clear=false, MemoryLocation memoryLocation=MemoryLocation::Default, bool fillZero = true);
   
   static const IRNodeType _type_info = IRNodeType::Allocate;
 };

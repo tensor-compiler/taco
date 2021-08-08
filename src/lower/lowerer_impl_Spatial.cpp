@@ -158,7 +158,8 @@ bool LowererImplSpatial::hasSparseDRAMAccesses(IndexExpr expression) {
   match(expression,
         std::function<void(const AccessNode *)>([&](const AccessNode *op) {
           TensorVar var = Access(op).getTensorVar();
-          if (var.getMemoryLocation() == MemoryLocation::SpatialSparseDRAM)
+          if (var.getMemoryLocation() == MemoryLocation::SpatialSparseDRAM ||
+              var.getMemoryLocation() == MemoryLocation::SpatialSparseDRAMFalse)
             hasSparseDRAMAccess = true;
         })
   );
@@ -171,7 +172,8 @@ Stmt LowererImplSpatial::hoistSparseDRAMAccesses(IndexExpr expression) {
   match(expression,
         std::function<void(const AccessNode *)>([&](const AccessNode *op) {
           TensorVar var = Access(op).getTensorVar();
-          if (!isScalar(var.getType()) && var.getMemoryLocation() == MemoryLocation::SpatialSparseDRAM) {
+          if (!isScalar(var.getType()) && (var.getMemoryLocation() == MemoryLocation::SpatialSparseDRAM ||
+                                           var.getMemoryLocation() == MemoryLocation::SpatialSparseDRAMFalse)) {
             auto vals = getValuesArray(var);
             auto loc = generateValueLocExpr(Access(op));
 
@@ -193,8 +195,9 @@ Expr LowererImplSpatial::lowerAccess(Access access) {
     return getTensorVar(var);
   }
 
-  if (var.getMemoryLocation() == MemoryLocation::SpatialSparseDRAM &&
-      sparseDRAMAccessMap.find(var) != sparseDRAMAccessMap.end()) {
+  if ((var.getMemoryLocation() == MemoryLocation::SpatialSparseDRAM ||
+       var.getMemoryLocation() == MemoryLocation::SpatialSparseDRAMFalse)
+      && sparseDRAMAccessMap.find(var) != sparseDRAMAccessMap.end()) {
     return sparseDRAMAccessMap.at(var);
   }
 
@@ -562,14 +565,22 @@ vector<Stmt> LowererImplSpatial::codeToInitializeTemporary(Where where) {
       Expr size = getTemporarySize(where);
 
       // allocate ws values array
-      Stmt allocate = Allocate::make(values, size);
+      MemoryLocation tempMemLoc = temporary.getMemoryLocation();
+      switch (tempMemLoc) {
+        case MemoryLocation::SpatialFIFORetimed:
+        case MemoryLocation::SpatialFIFO:
+          size = 16;
+        default:
+          size = ir::Div::make(funcEnvMap.at("nnz_accel_max"), 4);
+      }
+
+      Stmt allocate = Allocate::make(values, size, false, Expr(), false, tempMemLoc);
 
       Expr p = Var::make("p" + temporary.getName(), Int());
       Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
       Stmt zeroInitLoop = For::make(p, 0, size, 1, funcEnvMap["ip"], zeroInit, LoopKind::Serial);
 
       // allocate ws indices and dimension arrays
-      MemoryLocation tempMemLoc = temporary.getMemoryLocation();
       if (tempMemLoc != MemoryLocation::SpatialDRAM || tempMemLoc != MemoryLocation::SpatialSparseDRAM) {
 
         vector<Stmt> indArrays;
@@ -692,6 +703,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
     atomicParallelUnit = forall.getParallelUnit();
   }
 
+
   parentLoopVar.push_back(coordinate);
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
@@ -703,7 +715,10 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
     markAssignsAtomicDepth--;
   }
 
-  body = Block::make({recoveryStmt, body});
+  // If outer par is > 1, move result allocation into forall
+  Stmt allocResultArrs = generateOPResultHoist(forall, body);
+
+  body = Block::make({allocResultArrs, recoveryStmt, body});
 
   // Emit loop with preamble and postamble
   std::vector<ir::Expr> bounds = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered,
@@ -714,6 +729,11 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
     appendLoopVar =  parentLoopVar.back();
   }
   Stmt posAppend = generateAppendPositionsForallPos(appenders, bounds[1],  appendLoopVar);
+
+  auto startStore = (parentLoopVar.size() > 0) ? parentLoopVar.back() : 1;
+  startStore = ir::Mul::make(startStore, bounds[1]);
+  Stmt resultStore = generateResultStore(forall, appenders, startStore, bounds[1]);
+  posAppend = Block::make(posAppend, resultStore);
 
   LoopKind kind = LoopKind::Serial;
   if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
@@ -864,7 +884,7 @@ Stmt LowererImplSpatial::lowerForallDimension(Forall forall, Iterator iterator,
                             posAppend);
 
   for (int i = 0; i < (int) forall.getCommunicateTensors().size(); i++) {
-    if (!hasResult(appenders, forall.getCommunicateTensors()[i])) {
+    if (!hasResult(appenders, forall.getCommunicateTensors()[i]) && memLoadStart.size() > i ) {
       loop = generateOPMemLoads(forall, loop, memLoadStart[i], memLoadEnd[i], forall.getCommunicateTensors()[i]);
     }
   }
@@ -892,6 +912,8 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
 
   }
 
+  auto appenderDecls = declLocatePosVars(appenders);
+
   // Generate correct coordinate appender
   Stmt appendCoordVar = generateAppendCoordVar(appenders, iterator.getPosVar());
 
@@ -903,8 +925,6 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
   }
 
   Stmt hoistedTensorAccess = generateHoistedtensorAccess(forall);
-
-
 
 
   // Code to compute iteration bounds
@@ -978,6 +998,7 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
     memLoadBounds = {startBound, ir::Sub::make(endBound, startBound)};
   }
 
+
   coordinateBounds[iterator.getPosVar()] = {memLoadBounds[0], posAppendVar};
 
   parentLoopVar.push_back(loopVar);
@@ -985,7 +1006,23 @@ Stmt LowererImplSpatial::lowerForallPosition(Forall forall, Iterator iterator,
                               locators, inserters, appenders, reducedAccesses);
 
   parentLoopVar.pop_back();
+
   body = Block::make(hoistedTensorAccess, body);
+
+  // If outer par is > 1, move result allocation into forall
+  Stmt allocResultArrs = generateOPResultHoist(forall, body);
+
+  // Add in resultVals to beginning of loop
+  declareCoordinate = Block::blanks(allocResultArrs, appenderDecls, declareCoordinate);
+
+  // Cleanup GetProperties from resultAccesses above
+  if (forall == outerForall && envValMap.at("bp").as<ir::Literal>()->getTypedVal() > 1) {
+    // Get all properties from result
+    // move result allocation here.. but how?
+    for (auto &access : resultTensorAccesses) {
+      body = addGPLoadFlag(body, access.getTensorVar(), tensorVars);
+    }
+  }
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel &&
       forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
@@ -1236,8 +1273,10 @@ Stmt LowererImplSpatial::generateIteratorComputeLoop(Forall forall, IndexStmt st
   }
 
 
+  previousIteratorCoord.push_back(coordinate);
   Stmt body = lowerForallBody(coordinate, statement, {}, inserters,
                               appenders, reducedAccesses);
+  previousIteratorCoord.pop_back();
 
   body = Block::make(Block::make(iterVars), body);
 
@@ -1369,17 +1408,21 @@ LowererImplSpatial::generateIteratorAppendPositions(IndexStmt statement, ir::Exp
     Expr posAccumulationVar = ir::Var::make(pos.as<Var>()->name + "_acc", pos.as<Var>()->type, true);
     posAccumulationVars.push_back(posAccumulationVar);
 
+    Expr beginPos = appender.getBeginVar();
+    Expr parentPos = appender.getParent().getPosVar();
+
+    Expr prevCoordIterator = (previousIteratorCoord.size() > 0) ? coordinateScanVarsMap[previousIteratorCoord.back()][3] : 0;
     Expr posNext = ir::Var::make(pos.as<Var>()->name + "_next", pos.as<Var>()->type);
     Stmt posNextDecl = ir::VarDecl::make(posNext,
-                                         ir::RMW::make(posAccumulationVar, 0, reg, Expr(), SpatialRMWoperators::Add,
-                                                       SpatialMemOrdering::Ordered));
+                                         ir::Add::make(ir::RMW::make(posAccumulationVar, 0, reg, Expr(), SpatialRMWoperators::Add,
+                                                       SpatialMemOrdering::Ordered),
+                                                       ir::Div::make(prevCoordIterator, 100000)));
     result.push_back(posNextDecl);
     Stmt beginVarDecl = ir::VarDecl::make(appender.getBeginVar(), ir::Sub::make(posNext, reg));
     result.push_back(beginVarDecl);
     varMap[appender] = appender.getBeginVar();
 
-    Expr beginPos = appender.getBeginVar();
-    Expr parentPos = appender.getParent().getPosVar();
+
     Stmt appendEdges = appender.getAppendEdges(parentPos, beginPos, posNext);
 
     result.push_back(appendEdges);
@@ -1740,9 +1783,10 @@ Stmt LowererImplSpatial::codeToInitializePosAccumulators() {
   taco_iassert(funcEnvMap.count("bp") > 0) << "Cannot find the body-parallelization variable "
                                               "variable 'bp' in the function environment map";
   vector<Stmt> resultStmts;
-  for (auto &posAccVar : posAccumulationVars) {
-    auto allocPosAccVar = ir::Allocate::make(posAccVar, funcEnvMap.at("ip"), false, Expr(), false,
-                                             MemoryLocation::SpatialSparseSRAM);
+  for (int i = 0; i < (int)posAccumulationVars.size(); i++) {
+    auto posAccVar = posAccumulationVars.at(i);
+    Stmt allocPosAccVar = ir::Allocate::make(posAccVar,funcEnvMap.at("ip"), false, Expr(), false,
+                                          MemoryLocation::SpatialSparseParSRAM);
     resultStmts.push_back(allocPosAccVar);
 
     auto innerLoopIdxVar = ir::Var::make("j_temp", Int());
@@ -1942,9 +1986,24 @@ ir::Stmt LowererImplSpatial::generateHoistedtensorAccess(Forall forall) {
 }
 
 ir::Stmt LowererImplSpatial::generateResultStore(Forall forall, vector<Iterator> appenders, Expr start, Expr end) {
+
   if (forall.getCommunicateTensors().size() > 0) {
     for (auto& tensor : forall.getCommunicateTensors()) {
-      if (hasResult(appenders, tensor)) {
+      bool hasDimResult = false;
+      match(forall,
+            std::function<void(const WhereNode *, Matcher* ctx)>([&](const WhereNode *op, Matcher* ctx) {
+              ctx->match(op->consumer);
+            }),
+            std::function<void(const ForallNode *, Matcher* ctx)>([&](const ForallNode *op, Matcher* ctx) {
+             ctx->match(op->stmt);
+            }),
+            std::function<void(const AssignmentNode *, Matcher* ctx)>([&](const AssignmentNode *op, Matcher* ctx) {
+              if (op->lhs.getTensorVar() == tensor)
+                hasDimResult = true;
+            }));
+
+      if (hasResult(appenders, tensor) || hasDimResult) {
+        hasResultCommunicate = true;
         Expr startBound = start;
         Expr EndBound = end;
         set_output_store(false);
@@ -1985,6 +2044,128 @@ bool LowererImplSpatial::hasResult(vector<Iterator> appenders, TensorVar tensor)
     }
   }
   return isResult;
+}
+
+Stmt LowererImplSpatial::declLocatePosVars(vector<Iterator> locators) {
+  vector<Stmt> result;
+  for (Iterator& locator : locators) {
+    accessibleIterators.insert(locator);
+
+    bool doLocate = true;
+    for (Iterator ancestorIterator = locator.getParent();
+         !ancestorIterator.isRoot() && ancestorIterator.hasLocate();
+         ancestorIterator = ancestorIterator.getParent()) {
+      if (!accessibleIterators.contains(ancestorIterator)) {
+        doLocate = false;
+      }
+    }
+
+    if (doLocate) {
+      Iterator locateIterator = locator;
+      if (locateIterator.hasPosIter()) {
+        auto coords = coordinates(locateIterator);
+        auto expr = coords[coords.size() - 1];
+        //Stmt declarePosVar = VarDecl::make(locateIterator.getPosVar(),
+        //                                  expr);
+
+        //result.push_back(declarePosVar);
+
+        continue; // these will be recovered with separate procedure
+      }
+      do {
+        auto coords = coordinates(locateIterator);
+        // If this dimension iterator operates over a window, then it needs
+        // to be projected up to the window's iteration space.
+        if (locateIterator.isWindowed()) {
+          auto expr = coords[coords.size() - 1];
+          coords[coords.size() - 1] = this->projectCanonicalSpaceToWindowedPosition(locateIterator, expr);
+        } else if (locateIterator.hasIndexSet()) {
+          // If this dimension iterator operates over an index set, follow the
+          // indirection by using the locator access the index set's crd array.
+          // The resulting value is where we should locate into the actual tensor.
+          auto expr = coords[coords.size() - 1];
+          auto indexSetIterator = locateIterator.getIndexSetIterator();
+          auto coordArray = indexSetIterator.posAccess(expr, coordinates(indexSetIterator)).getResults()[0];
+          coords[coords.size() - 1] = coordArray;
+        }
+        ModeFunction locate = locateIterator.locate(coords);
+        taco_iassert(isValue(locate.getResults()[1], true));
+        Stmt declarePosVar = VarDecl::make(locateIterator.getPosVar(),
+                                           locate.getResults()[0], locateIterator.getMode().getMemoryLocation());
+
+//        if (locator.getMode().getMemoryLocation() != MemoryLocation::SpatialFIFO &&
+//            locator.getMode().getMemoryLocation() != MemoryLocation::SpatialFIFORetimed)
+          result.push_back(declarePosVar);
+
+        if (locateIterator.isLeaf()) {
+          break;
+        }
+
+        locateIterator = locateIterator.getChild();
+      } while (locateIterator.hasLocate() &&
+               accessibleIterators.contains(locateIterator));
+    }
+  }
+  return result.empty() ? Stmt() : Block::make(result);
+}
+
+Stmt LowererImplSpatial::generateOPResultHoist(Forall forall, Stmt body) {
+  // If outer par is > 1, move result allocation into forall
+  vector<Stmt> allocateResultVals;
+  if (forall == outerForall && envValMap.at("bp").as<ir::Literal>()->getTypedVal() > 1) {
+    // Get all properties from result
+    // move result allocation here.. but how?
+    for (auto& access : resultTensorAccesses) {
+      auto var = access.getTensorVar();
+      auto vals = getValuesArray(var);
+      auto memLoc = access.getTensorVar().getMemoryLocation();
+      if (memLoc != MemoryLocation::SpatialDRAM &&
+          memLoc != MemoryLocation::SpatialSparseDRAM &&
+          memLoc != MemoryLocation::SpatialSparseDRAMFalse) {
+        Expr size;
+        switch (memLoc) {
+          case MemoryLocation::SpatialFIFO:
+          case MemoryLocation::SpatialFIFORetimed:
+            size = 16;
+            break;
+          default:
+            size = funcEnvMap.at("nnz_accel_max");
+            break;
+        }
+
+        auto allocate = ir::Allocate::make(vals, size, false, Expr(), false, memLoc);
+        allocate = addGPLoadFlag(allocate, access.getTensorVar(), tensorVars);
+        allocateResultVals.push_back(allocate);
+
+        body = addGPLoadFlag(body, access.getTensorVar(), tensorVars);
+
+        if (util::contains(var.getFormat().getModeFormats(), sparse)) {
+          for (int i = 0; i < (int) var.getFormat().getModeFormats().size(); i++) {
+            auto modeFormat = var.getFormat().getModeFormats()[i];
+            if (modeFormat == sparse || modeFormat == compressed) {
+              auto crd = GetProperty::make(getTensorVar(var), TensorProperty::Indices, i, 1,
+                                           var.getName() + to_string(i+1) + "_crd", false);
+              auto crdAllocate = ir::Allocate::make(crd, size, false, Expr(), false, memLoc);
+              crdAllocate = addGPLoadFlag(crdAllocate, access.getTensorVar(), tensorVars);
+              allocateResultVals.push_back(crdAllocate);
+
+              body = addGPLoadFlag(body, access.getTensorVar(), tensorVars);
+            }
+          }
+        }
+        if (var.getFormat().getModeFormats().size() > 0 && var.getFormat().getModeFormats().back() == sparse) {
+          auto pos = GetProperty::make(getTensorVar(var), TensorProperty::Indices, var.getOrder() - 1, 0,
+                                       var.getName() + to_string(var.getOrder()) + "_pos", false);
+          auto posAllocate = ir::Allocate::make(pos, funcEnvMap.at("nnz_accel_max"), false, Expr(), false, MemoryLocation::SpatialSRAM);
+          posAllocate = addGPLoadFlagAll(posAllocate, access.getTensorVar(), tensorVars);
+          allocateResultVals.push_back(posAllocate);
+
+          body = addGPLoadFlagAll(body, access.getTensorVar(), tensorVars);
+        }
+      }
+    }
+  }
+  return Block::make(allocateResultVals);
 }
 
 } // namespace taco

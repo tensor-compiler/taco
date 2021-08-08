@@ -1015,6 +1015,46 @@ TEST(spatial, sparse_csf_3D_plus2) {
   set_tensor_files(false);
 }
 
+TEST(spatial, sparse_dss_3D_plus2) {
+  set_Spatial_codegen_enabled(true);
+
+  Tensor<int> A("A", {16, 16, 16}, {dense, sparse, sparse}, taco::MemoryLocation::SpatialSparseDRAM);
+  Tensor<int> B("B", {16, 16, 16}, {dense, sparse, sparse}, taco::MemoryLocation::SpatialSparseDRAMFalse);
+  Tensor<int> C("C", {16, 16, 16}, {dense, sparse, sparse}, taco::MemoryLocation::SpatialSparseDRAMFalse);
+
+  for (int i = 0; i < 16; i++) {
+    B.insert({i, i, i}, (int) i);
+    C.insert({i, i, i}, (int) i);
+  }
+
+  IndexVar i("i"), j("j"), k("k");
+  A(i, j, k) = B(i, j, k) + C(i, j, k);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+
+  cout << "----------------Post-Schedule Stmt-----------------" << endl;
+  cout << stmt << endl;
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+
+  cout << "----------------CPU LLIR-----------------" << endl;
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  irp.print(compute);
+  cout << endl;
+
+  cout << "----------------SPATIAL LLIR-----------------" << endl;
+  set_Spatial_codegen_enabled(true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt computes = lower(stmt, "Plus2CSF_DSS",  false, true);
+  irp.print(computes);
+
+  cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  set_tensor_files(true);
+  codegen->compile(computes, false);
+  set_Spatial_codegen_enabled(false);
+  set_tensor_files(false);
+}
+
 TEST(spatial, csr_residual) {
   set_Spatial_codegen_enabled(false);
 
@@ -1212,6 +1252,62 @@ TEST(spatial, sparse_csr_SDDMM_ws) {
   set_Spatial_codegen_enabled(false);
 }
 
+TEST(spatial, sparse_csr_SDDMM_ws_op) {
+  set_Spatial_codegen_enabled(false);
+  int N = 16;
+  Format   rm({Dense,Dense});
+  Format   cm({Dense,Dense}, {1,0});
+  Tensor<int> A("A", {N, N}, CSR, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> B("B", {N, N}, CSR, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> C("C", {N, N}, rm, taco::MemoryLocation::SpatialDRAM);
+  Tensor<int> D("D", {N, N}, cm, taco::MemoryLocation::SpatialDRAM);
+
+  for (int i = 0; i < N; i++) {
+    B.insert({i, i}, (int) i);
+    C.insert({i, i}, (int) i);
+    D.insert({i, i}, (int) i);
+  }
+
+  IndexVar i("i"), j("j"), k("k");
+  A(i, j) = B(i, j) * C(i, k)*D(k, j);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  stmt = stmt.parallelize(k, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
+  stmt = scalarPromote(stmt);
+  cout << "----------------Post-Schedule Stmt-----------------" << endl;
+
+
+  TensorVar tjA("tjA", Type(Int32), {}, MemoryLocation::SpatialReg);
+  TensorVar C_ws("C_ws", Type(Int32, {N}), taco::Dense , MemoryLocation::SpatialSRAM);
+  TensorVar D_ws("D_ws", Type(Int32, {N}), taco::Dense, MemoryLocation::SpatialSRAM);
+  IndexStmt stmt1 = forall(i, forall(j, where(A(i,j) = tjA(), forall(k, tjA() += B(i,j) * C(i,k) * D(k,j), ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction))));
+
+  stmt1 = forall(i, forall(j, where(A(i,j) = tjA(), where(where(forall(k, tjA() += B(i,j) * C_ws(k) * D_ws(k),
+                                                                       ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction), forall(k, C_ws(k) = C(i,k))), forall(k, D_ws(k) = D(k,j))))
+  ));
+  stmt1 = stmt1.environment("bp", 2);
+  stmt1 = stmt1.communicate(A(i,j), j);
+
+  cout << stmt1 << endl;
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+
+  cout << "----------------CPU LLIR-----------------" << endl;
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  irp.print(compute);
+  cout << endl;
+
+  cout << "----------------SPATIAL LLIR-----------------" << endl;
+  set_Spatial_codegen_enabled(true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt computes = lower(stmt1, "SDDMM_OP",  false, true);
+  irp.print(computes);
+
+  cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  codegen->compile(computes, false);
+  set_Spatial_codegen_enabled(false);
+}
+
 TEST(spatial, csr_mattransmul) {
   set_Spatial_codegen_enabled(false);
   int N = 16;
@@ -1356,6 +1452,53 @@ TEST(spatial, sparse_csf_3D_TTV) {
   set_tensor_files(false);
 }
 
+TEST(spatial, sparse_csf_3D_TTV_op) {
+  set_Spatial_codegen_enabled(false);
+
+  Tensor<int> A("A", {16, 16}, {sparse, sparse}, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> B("B", {16, 16, 16}, {sparse, sparse, sparse}, taco::MemoryLocation::SpatialFIFORetimed);
+  Tensor<int> c("c", {16}, {dense}, taco::MemoryLocation::SpatialSparseParSRAMSwizzle);
+
+  for (int i = 0; i < 16; i++) {
+    B.insert({i, i, i}, (int) i);
+    c.insert({i}, (int) i);
+  }
+
+  IndexVar i("i"), j("j"), k("k");
+  A(i, j) = B(i, j, k) * c(k);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  stmt = stmt.parallelize(k, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 16);
+  stmt = scalarPromote(stmt);
+
+  TensorVar A_ws("A_ws", Type(Float64, {16}), taco::sparse, MemoryLocation::SpatialFIFO);
+  IndexExpr preExpr = stmt.as<Forall>().getStmt().as<Forall>().getStmt().as<Where>().getConsumer().as<Assignment>().getRhs();
+  cout << preExpr << endl;
+  stmt = stmt.communicate(A(i,j), j);
+  stmt = stmt.environment("bp", 2);
+  cout << "----------------Post-Schedule Stmt-----------------" << endl;
+  cout << stmt << endl;
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+
+  cout << "----------------CPU LLIR-----------------" << endl;
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  irp.print(compute);
+  cout << endl;
+
+  cout << "----------------SPATIAL LLIR-----------------" << endl;
+  set_Spatial_codegen_enabled(true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt computes = lower(stmt, "TTV_OP",  false, true);
+  irp.print(computes);
+
+  cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  set_tensor_files(true);
+  codegen->compile(computes, false);
+  set_Spatial_codegen_enabled(false);
+  set_tensor_files(false);
+}
+
 TEST(spatial, sparse_csf_3D_TTM) {
   set_Spatial_codegen_enabled(false);
 
@@ -1389,6 +1532,45 @@ TEST(spatial, sparse_csf_3D_TTM) {
   set_Spatial_codegen_enabled(true);
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt computes = lower(stmt, "TTM",  false, true);
+  irp.print(computes);
+
+  cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  set_tensor_files(true);
+  codegen->compile(computes, false);
+  set_Spatial_codegen_enabled(false);
+  set_tensor_files(false);
+}
+
+TEST(spatial, sparse_csf_3D_TTM_op) {
+  set_Spatial_codegen_enabled(false);
+  int N = 16;
+  Tensor<int> A("A", {N, N, N}, {sparse, sparse, sparse}, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> B("B", {N, N, N}, {sparse, sparse, sparse}, taco::MemoryLocation::SpatialFIFORetimed);
+  Tensor<int> C("C", {N, N}, {dense, dense}, taco::MemoryLocation::SpatialSparseDRAM);
+
+  for (int i = 0; i < N; i++) {
+    B.insert({i, i, i}, (int) i);
+    C.insert({i, i}, (int) i);
+  }
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  A(i, j, k) = B(i, j, l) * C(k, l);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  stmt = stmt.parallelize(l, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction, 16);
+  stmt = scalarPromote(stmt);
+  stmt = stmt.communicate(A(i,j,k), j);
+  stmt = stmt.environment("bp", 2);
+
+  cout << "----------------Post-Schedule Stmt-----------------" << endl;
+  cout << stmt << endl;
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+
+  cout << "----------------SPATIAL LLIR-----------------" << endl;
+  set_Spatial_codegen_enabled(true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt computes = lower(stmt, "TTM_OP",  false, true);
   irp.print(computes);
 
   cout << "----------------SPATIAL CODEGEN-----------------" << endl;
@@ -1446,6 +1628,51 @@ TEST(spatial, sparse_csf_3D_MTTKRP) {
   set_Spatial_codegen_enabled(true);
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt computes = lower(stmt, "MTTKRP",  false, true);
+  irp.print(computes);
+
+  cout << "----------------SPATIAL CODEGEN-----------------" << endl;
+  set_tensor_files(true);
+  codegen->compile(computes, false);
+  set_Spatial_codegen_enabled(false);
+  set_tensor_files(false);
+}
+
+TEST(spatial, sparse_csf_3D_MTTKRP_op) {
+  set_Spatial_codegen_enabled(false);
+
+  int N = 16;
+  Tensor<int> A("A", {N, N}, {sparse, dense}, taco::MemoryLocation::SpatialFIFO);
+  Tensor<int> B("B", {N, N, N}, {sparse, sparse, sparse}, taco::MemoryLocation::SpatialFIFORetimed);
+  Tensor<int> C("C", {N, N}, {dense, dense}, taco::MemoryLocation::SpatialSparseDRAM);
+  Tensor<int> D("D", {N, N}, {dense, dense}, taco::MemoryLocation::SpatialSparseDRAM);
+
+  for (int i = 0; i < 16; i++) {
+    B.insert({i, i, i}, (int) i);
+    C.insert({i, i}, (int) i);
+  }
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  A(i, j) = B(i, k, l) * C(k, j) * D(l, j);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+
+  stmt = stmt.parallelize(l, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
+  stmt = stmt.parallelize(k, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
+  stmt = stmt.parallelize(j, ParallelUnit::Spatial, OutputRaceStrategy::SpatialReduction);
+  stmt = scalarPromote(stmt);
+  stmt = stmt.communicate(A(i,j), j);
+  stmt = stmt.environment("bp", 2);
+
+  cout << "----------------Post-Schedule Stmt-----------------" << endl;
+  cout << stmt << endl;
+
+  ir::IRPrinter irp = ir::IRPrinter(cout);
+
+
+  cout << "----------------SPATIAL LLIR-----------------" << endl;
+  set_Spatial_codegen_enabled(true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt computes = lower(stmt, "MTTKRP_OP",  false, true);
   irp.print(computes);
 
   cout << "----------------SPATIAL CODEGEN-----------------" << endl;

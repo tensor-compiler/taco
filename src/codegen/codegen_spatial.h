@@ -11,7 +11,6 @@
 namespace taco {
 namespace ir {
 
-
 class CodeGen_Spatial : public CodeGen {
 public:
   /// Initialize a code generator that generates code to an

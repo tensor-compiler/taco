@@ -55,6 +55,8 @@ protected:
   /// Create statements to append coordinate to result modes.
   ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord) override;
 
+  ir::Stmt declLocatePosVars(std::vector<Iterator> locators) override;
+
   /// Returns the segment of IR that generates the bitvectors from the FIFO crd arrays
   ir::Stmt generateIteratorBitVectors(IndexStmt statement, ir::Expr coordinate, IndexVar coordinateVar,
                                       MergePoint point,  std::map<Iterator, ir::Expr>& bvRawMap, std::map<Iterator, ir::Expr>& bvMap);
@@ -97,6 +99,8 @@ protected:
 
   ir::Stmt generateResultStore(Forall forall, std::vector<Iterator> appenders, ir::Expr start, ir::Expr end);
 
+  ir::Stmt generateOPResultHoist(Forall forall, ir::Stmt body);
+
   bool hasResult(std::vector<Iterator> appenders, TensorVar tensors);
 
     private:
@@ -130,6 +134,9 @@ protected:
   std::map<ir::Expr, std::pair<ir::Expr, ir::Expr>> coordinateBounds;
   std::map<TensorVar, ir::Expr> hoistedAccessVars;
   std::vector<ir::Expr> parentLoopVar;
+
+  // Get parent coordinate for scanners
+  std::vector<ir::Expr> previousIteratorCoord;
 };
 
 

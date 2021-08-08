@@ -350,7 +350,7 @@ protected:
   ir::Stmt zeroInitValues(ir::Expr tensor, ir::Expr begin, ir::Expr size, TensorVar var);
 
   /// Declare position variables and initialize them with a locate.
-  ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
+  virtual ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
 
   /// Emit loops to reduce duplicate coordinates.
   ir::Stmt reduceDuplicateCoordinates(ir::Expr coordinate, 
@@ -575,6 +575,7 @@ protected:
 
   /// SPATIAL ONLY
   std::map<ir::Expr, int> tensorExprDefinedBound;
+  bool hasResultCommunicate = false;
 
   Forall outerForall;
   std::vector<Forall> innerForalls;
