@@ -100,6 +100,7 @@ add_app_folder(ttv)
 add_app_folder(mttkrp)
 add_app_folder(ttmc)
 add_app_folder(innerprod)
+add_app_folder(matvec-adapt)
 
 add_cuda_folder(cuda-test)
 
@@ -120,6 +121,10 @@ add_basic_legion_test(johnsonMM basic -n 1024 -gdim 3)
 
 # Tests for Solomonik-2.5D.
 add_basic_legion_test(solomonikMM basic -n 1024)
+
+# Tests for the matvec-adapt stuff. Run with and without a match.
+add_basic_legion_test(matvec-adapt match -n 1024 -pieces 8 -match)
+add_basic_legion_test(matvec-adapt nomatch -n 1024 -pieces 8)
 
 # Deduplicate the list of test binaries so that we have all of our dependencies.
 # All tests must be added above this line.

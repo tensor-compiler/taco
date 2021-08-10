@@ -621,6 +621,61 @@ TEST(distributed, cuda_ttv) {
   }
 }
 
+TEST(distributed, codeAdaptDist) {
+  int dim = 1000;
+  auto pieces = ir::Var::make("pieces", Int32, false, false, true);
+  auto grid = Grid(pieces);
+
+  TensorDistributionV2 rows(PlacementGrid(pieces | 0));
+  TensorDistributionV2 cols(PlacementGrid(pieces | 1));
+
+  // Create two placements: one row wise, one column wise.
+  Tensor<double> A("A", {dim, dim}, {Dense, Dense});
+  Tensor<double> B("B", {dim, dim}, {Dense, Dense});
+  Tensor<double> C("C", {dim}, {Dense});
+  auto rowPart = lower(A.partitionStmt(grid), "partitionRows", false, true);
+  auto cPart = lower(C.partitionStmt(grid), "partitionC", false, true);
+
+  IndexVar i("i"), j("j"), in("in"), jn("jn"), il("il"), jl("jl");
+  IndexVar ii("ii"), io("io"), ji("ji"), jo("jo");
+  A(i, j) = B(i, j) * C(j);
+
+  // Schedule the computation with a row-wise distribution.
+  auto row = A.getAssignment().concretize()
+              .distribute({i}, {in}, {il}, std::vector<Access>{A(i, j), B(i, j)})
+              .communicate(C(j), in)
+              // Schedule the inner loops.
+              .split(il, io, ii, 4)
+              .parallelize(ii, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
+              .parallelize(io, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
+              ;
+  // Schedule the computation with a column-wise distribution.
+  auto col = A.getAssignment().concretize()
+              .reorder({j, i})
+              .distribute({j}, {jn}, {jl}, std::vector<Access>{A(i, j), B(i, j), C(j)})
+              // Schedule the inner loops. We make sure to reorder the computation
+              // for the row-major storage of the matrices.
+              .reorder({i, jl})
+              .split(i, io, ii, 4)
+              .parallelize(ii, taco::ParallelUnit::CPUVector, taco::OutputRaceStrategy::NoRaces)
+              .parallelize(io, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::NoRaces)
+              ;
+
+  auto rowLowered = lower(row, "computeLegionRows", false, true);
+  auto colLowered = lower(col, "computeLegionCols", false, true);
+
+  auto all = ir::Block::make({rowPart, cPart, rowLowered, colLowered});
+  auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
+  codegen->compile(all);
+  {
+    // Output the result to a file.
+    ofstream f("../legion/matvec-adapt/taco-generated.cpp");
+    auto codegen = std::make_shared<ir::CodegenLegionC>(f, taco::ir::CodeGen::ImplementationGen);
+    codegen->compile(all);
+    f.close();
+  }
+}
+
 TEST(distributed, ttmc) {
   int dim = 1000;
   auto pieces = ir::Var::make("pieces", Int32, false, false, true);
