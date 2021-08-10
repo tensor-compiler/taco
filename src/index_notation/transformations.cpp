@@ -768,8 +768,16 @@ IndexStmt Distribute::apply(IndexStmt stmt, std::string* reason) const {
     taco_iassert(!this->content->onto.empty());
     auto& part = *this->content->onto.begin();
     for (size_t i = 0; i < this->content->original.size(); i++) {
-      taco_iassert(this->content->original[i] == part.getIndexVars()[i]);
-      auto rel = IndexVarRel(new DivideOntoPartition(this->content->original[i], this->content->distVars[i], this->content->innerVars[i], part, i));
+      // Find the target variable.
+      auto accessIdx = -1;
+      for (size_t j = 0; j < part.getIndexVars().size(); j++) {
+        if (this->content->original[i] == part.getIndexVars()[j]) {
+          accessIdx = j;
+        }
+      }
+      assert(accessIdx != -1);
+
+      auto rel = IndexVarRel(new DivideOntoPartition(this->content->original[i], this->content->distVars[i], this->content->innerVars[i], part, accessIdx));
       stmt = Transformation(AddSuchThatPredicates({rel})).apply(stmt, reason);
       if (!stmt.defined()) {
         taco_uerror << reason;
