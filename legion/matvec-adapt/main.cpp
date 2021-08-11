@@ -90,8 +90,11 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   // Just fill C with the runtime.
   runtime->fill_field(ctx, C, C, FID_VAL, valType(1));
 
+  // TODO (rohany): IMPORTANT: When running these benchmarks, ensure that the bounds checks
+  //  within the column generated code are removed, otherwise an artificial slowdown occurs.
+
   std::vector<size_t> times;
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 11; i++) {
     // Fill the row wise partitions.
     tacoFill<valType>(ctx, runtime, A, aPartRows, 0);
     tacoFill<valType>(ctx, runtime, B, bPartRows, 1);
@@ -101,13 +104,18 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
 
     // If we're supposed to match the partition, then use the row-wise compute. Otherwise
     // use the column wise compute.
-    benchmark(ctx, runtime, times, [&]() {
+    auto bench = [&]() {
       if (match) {
         computeLegionRows(ctx, runtime, A, B, C, aPartRows, bPartRows);
       } else {
         computeLegionCols(ctx, runtime, A, B, C, aPartCols, bPartCols, cPartCols);
       }
-    });
+    };
+    if (i == 0) {
+      bench();
+    } else {
+      benchmark(ctx, runtime, times, bench);
+    }
   }
 
   // Calculate the total bandwidth.

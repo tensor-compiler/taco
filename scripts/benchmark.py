@@ -526,6 +526,26 @@ class CTFInnerProdBench(InnerProdBench):
         return envs + header + \
                [os.path.join(ctfDir, 'bin/innerprod'), '-n', psize, '-procsPerNode', '40']
 
+class AdaptBench:
+    def __init__(self, initialProblemSize, gpus, match):
+        self.initialProblemSize = initialProblemSize
+        self.gpus = gpus
+        self.match = match
+
+    def problemSize(self, procs):
+        # Weak scaling problem size. Keep the memory used per
+        # node the same.
+        size = int(self.initialProblemSize * pow(procs, 1.0 / 2.0))
+        size -= (size % 2)
+        return size
+
+    def getCommand(self, procs):
+        cmd = ['bin/matvec-adapt-cuda', '-pieces', str(procs * self.gpus), '-n', str(self.problemSize(procs))]
+        cmd += lgGPUArgs(self.gpus)
+        if self.match:
+            cmd += ['-match']
+        return lassenHeader(procs) + cmd
+
 def executeCmd(cmd):
     cmdStr = " ".join(cmd)
     print("Executing command: {}".format(cmdStr))
@@ -547,6 +567,7 @@ def main():
     mttkrp = 768
     mttkrpgpu = 1500
     innerprod = 1500
+    adapt = 40000
 
     benches = {
         # GEMM benchmarks.
@@ -580,6 +601,8 @@ def main():
         "innerprod": innerprod,
         "innerprod-gpu": innerprod,
         "ctf-innerprod": innerprod,
+        "adapt-match": adapt,
+        "adapt-no-match": adapt,
     }
     parser = argparse.ArgumentParser()
     parser.add_argument("--procs", type=int, nargs='+', help="List of node counts to run on", default=[1])
@@ -650,6 +673,10 @@ def main():
         bench = LgInnerProdGPUBench(size, args.gpus)
     elif args.bench == "ctf-innerprod":
         bench = CTFInnerProdBench(size)
+    elif args.bench == "adapt-match":
+        bench = AdaptBench(size, args.gpus, True)
+    elif args.bench == "adapt-no-match":
+        bench = AdaptBench(size, args.gpus, False)
     else:
         assert(False)
     for p in args.procs:
