@@ -49,7 +49,7 @@ ir::Stmt lower(IndexStmt stmt, std::string name,
   string reason;
   taco_iassert(isLowerable(stmt, &reason))
       << "Not lowerable, because " << reason << ": " << stmt;
-  ir::Stmt lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute, pack, unpack, true);
+  ir::Stmt lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute, pack, unpack, true, true);
 
   // TODO: re-enable this
   // std::string messages;
@@ -62,6 +62,12 @@ ir::Stmt lower(IndexStmt stmt, std::string name,
 }
 
 ir::Stmt lowerNoWait(IndexStmt stmt, std::string name, Lowerer lowerer) {
+  return lowerLegion(stmt, name, true /* partition */ , true /* compute */, false /* waitOnFutureMap */);
+}
+
+ir::Stmt lowerLegion(IndexStmt stmt, std::string name,
+                     bool partition, bool compute, bool waitOnFuture,
+                     Lowerer lowerer) {
   string reason;
   taco_iassert(isLowerable(stmt, &reason))
       << "Not lowerable, because " << reason << ": " << stmt;
@@ -69,13 +75,19 @@ ir::Stmt lowerNoWait(IndexStmt stmt, std::string name, Lowerer lowerer) {
       stmt,
       name,
       false /* assemble */,
-      true /* compute */,
+      compute /* compute */,
       false /* pack */,
       false /* unpack */,
-      false /* waitOnFutureMap */
-      );
+      partition /* partition */,
+      waitOnFuture /* waitOnFutureMap */
+  );
 }
 
+ir::Stmt lowerLegionSeparatePartitionCompute(IndexStmt stmt, std::string name, bool waitOnFuture) {
+  auto part = lowerLegion(stmt, "partitionFor" + name, true /* partition */, false /* compute */, waitOnFuture);
+  auto compute = lowerLegion(stmt, name, false /* partition */, true /* compute */, waitOnFuture);
+  return ir::Block::make({part, compute});
+}
 
 bool isLowerable(IndexStmt stmt, std::string* reason) {
   INIT_REASON(reason);

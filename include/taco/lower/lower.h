@@ -52,6 +52,22 @@ ir::Stmt lower(IndexStmt stmt, std::string functionName,
 // a stall on the resulting FutureMap from execute_index_space.
 ir::Stmt lowerNoWait(IndexStmt stmt, std::string functionName, Lowerer lowerer=Lowerer());
 
+// lowerLegion is a legion specific lowering function that has Legion specific
+// choices for lowering.
+// If partition and compute are true, then the generated code will create the partitions
+// necessary for the computation within the code. If only partition is true, then the
+// generated code will just create top level partitions and return then. If only compute
+// is true, then the generated code will create no top level partitions and operate only
+// on partitions passed in as arguments.
+ir::Stmt lowerLegion(IndexStmt stmt, std::string functionName,
+                     bool partition=true, bool compute=true, bool waitOnFuture=true,
+                     Lowerer lowerer=Lowerer());
+
+// lowerLegionSeparatePartitionCompute lowers an IndexStmt into two separate
+// functions, one that performs all of the partitioning for the statement up front,
+// and another that performs all of the compute given those partitions.
+ir::Stmt lowerLegionSeparatePartitionCompute(IndexStmt stmt, std::string name, bool waitOnFuture=true);
+
 /// Check whether the an index statement can be lowered to C code.  If the
 /// statement cannot be lowered and a `reason` string is provided then it is
 /// filled with the a reason.

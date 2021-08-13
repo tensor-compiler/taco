@@ -188,7 +188,9 @@ bool hasSparseInserts(const std::vector<Iterator>& resultIterators,
 
 Stmt
 LowererImpl::lower(IndexStmt stmt, string name,
-                   bool assemble, bool compute, bool pack, bool unpack, bool waitOnFutureMap)
+                   bool assemble, bool compute,
+                   bool pack, bool unpack,
+                   bool partition, bool waitOnFutureMap)
 {
   this->assemble = assemble;
   this->compute = compute;
@@ -196,6 +198,23 @@ LowererImpl::lower(IndexStmt stmt, string name,
   this->waitOnFutureMap = waitOnFutureMap;
   definedIndexVarsOrdered = {};
   definedIndexVars = {};
+
+  // Figure out what sort of code we're supposed to be emitting.
+  if (compute && partition) {
+    this->legionLoweringKind = PARTITION_AND_COMPUTE;
+  } else if (compute && !partition) {
+    this->legionLoweringKind = COMPUTE_ONLY;
+  } else if (!compute && partition) {
+    this->legionLoweringKind = PARTITION_ONLY;
+  } else {
+    taco_uassert(false) << " invalid combination of compute/partition parameters";
+  }
+
+  // Hack: We still need to set compute to be true so that the rest of the machinery
+  // works as expected if we are PARTITION_ONLY.
+  if (this->legionLoweringKind == PARTITION_ONLY) {
+    this->compute = true;
+  }
 
   // Create result and parameter variables
   vector<TensorVar> results = getResults(stmt);
@@ -754,6 +773,16 @@ LowererImpl::lower(IndexStmt stmt, string name,
     }
   }
 
+  // If we're going to compute only, create partition variables for each of the tensors that
+  // hold onto their LogicalPartitions. This is similar to the code for generating code that
+  // computes onto a partition.
+  if (this->legionLoweringKind == COMPUTE_ONLY) {
+    for (auto tv : this->tensorVarOrdering) {
+      this->computeOnlyPartitions[tv] = ir::Var::make(tv.getName() + "Partition", LogicalPartition);
+      argumentsIR.push_back(this->computeOnlyPartitions[tv]);
+    }
+  }
+
   match(stmt, function<void(const PlaceNode*)>([&](const PlaceNode* node) {
     this->isPlacementCode = true;
     this->placements = node->placements;
@@ -842,6 +871,17 @@ LowererImpl::lower(IndexStmt stmt, string name,
         }
       }
     }
+  }
+
+  // If the desired lowering target is to create partitions only, then change
+  // the return type to be a vector of LogicalPartitions as the result.
+  if (this->legionLoweringKind == PARTITION_ONLY) {
+    taco_iassert(returnType.getKind() == Datatype::Undefined);
+    returnType = Datatype("std::vector<LogicalPartition>");
+  } else if ((this->isPartitionCode || this->isPlacementCode) && this->legionLoweringKind != COMPUTE_ONLY) {
+    // The result for partition and placement codes is a LogicalPartition.
+    taco_iassert(returnType.getKind() == Datatype::Undefined);
+    returnType = Datatype("LogicalPartition");
   }
 
   if (this->legion) {
@@ -1729,7 +1769,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Stmt declarePartitionBounds;
   auto isTask = forall.isDistributed() || (forall.getTransfers().size() > 0);
   auto taskID = -1;
-  std::vector<ir::Stmt> transfers, partitionStmts;
+  std::vector<ir::Stmt> transfers, partitionStmts, partitionForComputeStmts;
   if (isTask) {
     taskID = this->taskCounter;
     this->taskCounter++;
@@ -1770,6 +1810,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto placementShard = ir::Symbol::make("TACOMapper::PLACEMENT_SHARD");
     auto untrackValidRegions = ir::Symbol::make("TACOMapper::UNTRACK_VALID_REGIONS");
     auto sameAddressSpace = ir::Symbol::make("Mapping::DefaultMapper::SAME_ADDRESS_SPACE");
+    auto domainIter = ir::Var::make("itr", pointInDimT);
 
     // We need to emit accessing the partition for any child task that uses the partition.
     // TODO (rohany): A hack that doesn't scale to nested distributions.
@@ -1835,186 +1876,188 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       transfers.push_back(ir::VarDecl::make(domain, makeDomain));
     }
 
-    // Extract the region domains for each region in the transfer.
-    std::map<TensorVar, ir::Expr> domains;
-    for (auto& t : forall.getTransfers()) {
-      auto domain = ir::Var::make(t.getAccess().getTensorVar().getName() + "Domain", Auto);
-      auto ispace = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::IndexSpace);
-      transfers.push_back(ir::VarDecl::make(domain, ir::Call::make("runtime->get_index_space_domain", {ctx, ispace}, Auto)));
-      domains[t.getAccess().getTensorVar()] = domain;
-    }
+    // Only perform the partitioning generation logic if we are not requested
+    // to generate only compute code.
+    std::map<TensorVar, Expr> partitionings;
+    if (!(this->legionLoweringKind == COMPUTE_ONLY && this->distLoopDepth == 0)) {
+      // Extract the region domains for each region in the transfer.
+      std::map<TensorVar, ir::Expr> domains;
+      for (auto& t : forall.getTransfers()) {
+        auto domain = ir::Var::make(t.getAccess().getTensorVar().getName() + "Domain", Auto);
+        auto ispace = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::IndexSpace);
+        transfers.push_back(ir::VarDecl::make(domain, ir::Call::make("runtime->get_index_space_domain", {ctx, ispace}, Auto)));
+        domains[t.getAccess().getTensorVar()] = domain;
+      }
 
-    // Make a coloring for each transfer.
-    std::vector<Expr> colorings;
-    for (auto& t : forall.getTransfers()) {
-      auto c = ir::Var::make(t.getAccess().getTensorVar().getName() + "Coloring", DomainPointColoring);
-      transfers.push_back(ir::VarDecl::make(c, ir::Call::make(DomainPointColoring.getName(), {}, DomainPointColoring)));
-      colorings.push_back(c);
-    }
+      // Make a coloring for each transfer.
+      std::vector<Expr> colorings;
+      for (auto& t : forall.getTransfers()) {
+        auto c = ir::Var::make(t.getAccess().getTensorVar().getName() + "Coloring", DomainPointColoring);
+        transfers.push_back(ir::VarDecl::make(c, ir::Call::make(DomainPointColoring.getName(), {}, DomainPointColoring)));
+        colorings.push_back(c);
+      }
 
-    auto domainIter = ir::Var::make("itr", pointInDimT);
+      std::vector<Stmt> partStmts;
+      for (size_t i = 0; i < distIvars.size(); i++) {
+        auto ivar = distIvars[i];
+        auto ivarExpr = this->indexVarToExprMap[ivar];
+        partStmts.push_back(ir::VarDecl::make(ivarExpr, ir::Load::make(ir::Deref::make(domainIter, pointT), int32_t(i))));
+      }
 
-    std::vector<Stmt> partStmts;
-    for (size_t i = 0; i < distIvars.size(); i++) {
-      auto ivar = distIvars[i];
-      auto ivarExpr = this->indexVarToExprMap[ivar];
-      partStmts.push_back(ir::VarDecl::make(ivarExpr, ir::Load::make(ir::Deref::make(domainIter, pointT), int32_t(i))));
-    }
-
-    // If operating on a partition, we need to get the bounds of the partition at each index point.
-    if (!forall.getComputingOn().empty()) {
-      auto point = ir::Var::make("domPoint", Datatype("DomainPoint"));
-      partStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, Auto)));
-      auto part = *forall.getComputingOn().begin();
-      auto partVar = ir::Var::make(part.getName() + "PartitionBounds", Auto);
-      auto subreg = ir::Call::make("runtime->get_logical_subregion_by_color", {ctx, this->computingOnPartition[part], point}, Auto);
-      auto subregispace = ir::MethodCall::make(subreg, "get_index_space", {}, false, Auto);
-      auto bounds = ir::Call::make("runtime->get_index_space_domain", {subregispace}, Auto);
-      partStmts.push_back(ir::VarDecl::make(partVar, bounds));
-      // Declare all of the bounds variables here.
-      for (auto tvItr : this->provGraph.getPartitionBounds()) {
-        for (auto idxItr : tvItr.second) {
-          auto lo = ir::Load::make(ir::MethodCall::make(partVar, "lo", {}, false, Int64), idxItr.first);
-          auto hi = ir::Load::make(ir::MethodCall::make(partVar, "hi", {}, false, Int64), idxItr.first);
-          partStmts.push_back(ir::VarDecl::make(idxItr.second.first, lo));
-          partStmts.push_back(ir::VarDecl::make(idxItr.second.second, hi));
+      // If operating on a partition, we need to get the bounds of the partition at each index point.
+      if (!forall.getComputingOn().empty()) {
+        auto point = ir::Var::make("domPoint", Datatype("DomainPoint"));
+        partStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, Auto)));
+        auto part = *forall.getComputingOn().begin();
+        auto partVar = ir::Var::make(part.getName() + "PartitionBounds", Auto);
+        auto subreg = ir::Call::make("runtime->get_logical_subregion_by_color", {ctx, this->computingOnPartition[part], point}, Auto);
+        auto subregispace = ir::MethodCall::make(subreg, "get_index_space", {}, false, Auto);
+        auto bounds = ir::Call::make("runtime->get_index_space_domain", {subregispace}, Auto);
+        partStmts.push_back(ir::VarDecl::make(partVar, bounds));
+        // Declare all of the bounds variables here.
+        for (auto tvItr : this->provGraph.getPartitionBounds()) {
+          for (auto idxItr : tvItr.second) {
+            auto lo = ir::Load::make(ir::MethodCall::make(partVar, "lo", {}, false, Int64), idxItr.first);
+            auto hi = ir::Load::make(ir::MethodCall::make(partVar, "hi", {}, false, Int64), idxItr.first);
+            partStmts.push_back(ir::VarDecl::make(idxItr.second.first, lo));
+            partStmts.push_back(ir::VarDecl::make(idxItr.second.second, hi));
+          }
         }
       }
-    }
 
-    std::set<TensorVar> fullyReplicatedTensors;
+      std::set<TensorVar> fullyReplicatedTensors;
 
-    // Add a dummy partition object for each transfer.
-    for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
-      auto& t = forall.getTransfers()[idx];
-      auto n = t.getAccess().getTensorVar().getName();
+      // Add a dummy partition object for each transfer.
+      for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
+        auto& t = forall.getTransfers()[idx];
+        auto n = t.getAccess().getTensorVar().getName();
 
-      // If this tensor isn't partitioned by any variables in the current loop,
-      // then the full thing is going to be replicated. In this case, it's better
-      // to pass the region directly to each child task, rather than a full aliasing
-      // partition.
-      bool hasPartitioningVar = false;
-      for (auto ivar : t.getAccess().getIndexVars()) {
-        if (this->anyParentInSet(ivar, this->varsInScope[this->curDistVar])) {
-          hasPartitioningVar = true;
+        // If this tensor isn't partitioned by any variables in the current loop,
+        // then the full thing is going to be replicated. In this case, it's better
+        // to pass the region directly to each child task, rather than a full aliasing
+        // partition.
+        bool hasPartitioningVar = false;
+        for (auto ivar : t.getAccess().getIndexVars()) {
+          if (this->anyParentInSet(ivar, this->varsInScope[this->curDistVar])) {
+            hasPartitioningVar = true;
+          }
         }
+        if (!hasPartitioningVar && !(this->isPlacementCode || this->isPartitionCode)) {
+          fullyReplicatedTensors.insert(t.getAccess().getTensorVar());
+          continue;
+        }
+
+        auto tensorDim = t.getAccess().getIndexVars().size();
+        auto txPoint = Point(tensorDim);
+        auto txRect = Rect(tensorDim);
+
+        auto rdomain = domains[t.getAccess().getTensorVar()];
+        auto tbounds = this->derivedBounds[forall.getIndexVar()][t.getAccess().getTensorVar()];
+        std::vector<Expr> los, his;
+        for (size_t dimIdx = 0; dimIdx < tensorDim; dimIdx++) {
+          los.push_back(tbounds[dimIdx][0]);
+          auto dimBound = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::Dimension, dimIdx);
+          // The upper bound of the partition should be at most the upper bound of
+          // the region itself.
+          auto partUpper = ir::Load::make(ir::MethodCall::make(rdomain, "hi", {}, false, Int64), int(dimIdx));
+          auto upper = ir::Min::make(tbounds[dimIdx][1], partUpper);
+          his.push_back(upper);
+        }
+        auto start = ir::Var::make(n + "Start", txPoint);
+        auto end = ir::Var::make(n + "End", txPoint);
+        partStmts.push_back(ir::VarDecl::make(start, makeConstructor(txPoint, los)));
+        partStmts.push_back(ir::VarDecl::make(end, makeConstructor(txPoint, his)));
+        auto rect = ir::Var::make(n + "Rect", txRect);
+        partStmts.push_back(ir::VarDecl::make(rect, makeConstructor(txRect, {start, end})));
+
+        // It's possible that this partitioning makes a rectangle that goes out of bounds
+        // of the tensor's index space. If so, replace the rectangle with an empty Rect.
+        auto lb = ir::MethodCall::make(rdomain, "contains", {ir::FieldAccess::make(rect, "lo", false, Auto)}, false, Bool);
+        auto hb = ir::MethodCall::make(rdomain, "contains", {ir::FieldAccess::make(rect, "hi", false, Auto)}, false, Bool);
+        auto guard = ir::Or::make(ir::Neg::make(lb), ir::Neg::make(hb));
+        partStmts.push_back(ir::IfThenElse::make(guard, ir::Block::make(ir::Assign::make(rect, ir::MethodCall::make(rect, "make_empty", {}, false, Auto)))));
+
+        auto coloring = colorings[idx];
+        partStmts.push_back(ir::Assign::make(ir::Load::make(coloring, ir::Deref::make(domainIter, Auto)), rect));
       }
-      if (!hasPartitioningVar && !(this->isPlacementCode || this->isPartitionCode)) {
-        fullyReplicatedTensors.insert(t.getAccess().getTensorVar());
-        continue;
-      }
 
-      auto tensorDim = t.getAccess().getIndexVars().size();
-      auto txPoint = Point(tensorDim);
-      auto txRect = Rect(tensorDim);
-
-      auto rdomain = domains[t.getAccess().getTensorVar()];
-      auto tbounds = this->derivedBounds[forall.getIndexVar()][t.getAccess().getTensorVar()];
-      std::vector<Expr> los, his;
-      for (size_t dimIdx = 0; dimIdx < tensorDim; dimIdx++) {
-        los.push_back(tbounds[dimIdx][0]);
-        auto dimBound = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::Dimension, dimIdx);
-        // The upper bound of the partition should be at most the upper bound of
-        // the region itself.
-        auto partUpper = ir::Load::make(ir::MethodCall::make(rdomain, "hi", {}, false, Int64), int(dimIdx));
-        auto upper = ir::Min::make(tbounds[dimIdx][1], partUpper);
-        his.push_back(upper);
-      }
-      auto start = ir::Var::make(n + "Start", txPoint);
-      auto end = ir::Var::make(n + "End", txPoint);
-      partStmts.push_back(ir::VarDecl::make(start, makeConstructor(txPoint, los)));
-      partStmts.push_back(ir::VarDecl::make(end, makeConstructor(txPoint, his)));
-      auto rect = ir::Var::make(n + "Rect", txRect);
-      partStmts.push_back(ir::VarDecl::make(rect, makeConstructor(txRect, {start, end})));
-
-      // It's possible that this partitioning makes a rectangle that goes out of bounds
-      // of the tensor's index space. If so, replace the rectangle with an empty Rect.
-      auto lb = ir::MethodCall::make(rdomain, "contains", {ir::FieldAccess::make(rect, "lo", false, Auto)}, false, Bool);
-      auto hb = ir::MethodCall::make(rdomain, "contains", {ir::FieldAccess::make(rect, "hi", false, Auto)}, false, Bool);
-      auto guard = ir::Or::make(ir::Neg::make(lb), ir::Neg::make(hb));
-      partStmts.push_back(ir::IfThenElse::make(guard, ir::Block::make(ir::Assign::make(rect, ir::MethodCall::make(rect, "make_empty", {}, false, Auto)))));
-
-      auto coloring = colorings[idx];
-      partStmts.push_back(ir::Assign::make(ir::Load::make(coloring, ir::Deref::make(domainIter, Auto)), rect));
-    }
-
-    auto l = ir::For::make(
+      auto l = ir::For::make(
           domainIter,
           ir::Call::make(pointInDimT.getName(), {domain}, pointInDimT),
           ir::MethodCall::make(domainIter, "valid", {}, false /* deref */, Datatype::Bool),
           1 /* increment -- hack to get ++ */,
           ir::Block::make(partStmts)
-    );
-    transfers.push_back(l);
-
-    std::map<TensorVar, Expr> partitionings;
-    for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
-      auto& t = forall.getTransfers()[idx];
-      auto& tv = t.getAccess().getTensorVar();
-      // Skip fully replicated tensors.
-      if (util::contains(fullyReplicatedTensors, tv)) {
-        continue;
-      }
-
-      auto coloring = colorings[idx];
-      auto part = ir::Var::make(tv.getName() + "Partition", Auto);
-      auto partKind = disjointPart;
-      // Figure out how many axes of the tensor are not being partitioned in order
-      // to figure out how many axes of the tensor are being partitioned. If
-      // the tensor is being partitioned in as many ways as the target loop is
-      // distributed, then the partition is disjoint. If there are unpartitioned
-      // axes and more distribution variables, then the tensor is likely aliased.
-      size_t aliasingVarsCount = 0;
-      for (auto ivar : t.getAccess().getIndexVars()) {
-        if (!this->anyParentInSet(ivar, this->varsInScope[this->curDistVar])) {
-          aliasingVarsCount++;
-        }
-      }
-      assert(aliasingVarsCount <= t.getAccess().getIndexVars().size());
-      size_t partitionedVars = t.getAccess().getIndexVars().size() - aliasingVarsCount;
-      if (partitionedVars < distIvars.size()) {
-        partKind = aliasedPart;
-      }
-
-      // If none of the variables in the access are changing in this loop, then we're
-      // most likely operating on an aliased partition as well.
-      std::set<IndexVar> curLoopVars;
-      curLoopVars.insert(forall.getIndexVar());
-      auto mfp = this->provGraph.getMultiFusedParents(forall.getIndexVar());
-      curLoopVars.insert(mfp.begin(), mfp.end());
-      bool accessIter = false;
-      for (auto var : t.getAccess().getIndexVars()) {
-        if (this->anyParentInSet(var, curLoopVars)) {
-          accessIter = true;
-        }
-      }
-      if (!accessIter) {
-        partKind = aliasedPart;
-      }
-
-      // If we're doing a reduction, we're most likely not operating on a disjoint partition.
-      // So, fall back to an aliased partition.
-      if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction) {
-        partKind = aliasedPart;
-      }
-
-      // If we're lowering placement code, it's too hard to figure this out (for now).
-      if (this->isPlacementCode) {
-        partKind = computePart;
-      }
-
-      // Pure partitioning code always results in disjoint partitions.
-      if (this->isPartitionCode) {
-        partKind = disjointPart;
-      }
-
-      partitionings[tv] = part;
-      auto partcall = ir::Call::make(
-          "runtime->create_index_partition",
-          {ctx, ir::GetProperty::make(this->tensorVars[tv], TensorProperty::IndexSpace), domain, coloring, partKind},
-          Auto
       );
-      transfers.push_back(ir::VarDecl::make(part, partcall));
+      transfers.push_back(l);
+
+      for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
+        auto& t = forall.getTransfers()[idx];
+        auto& tv = t.getAccess().getTensorVar();
+        // Skip fully replicated tensors.
+        if (util::contains(fullyReplicatedTensors, tv)) {
+          continue;
+        }
+
+        auto coloring = colorings[idx];
+        auto part = ir::Var::make(tv.getName() + "Partition", Auto);
+        auto partKind = disjointPart;
+        // Figure out how many axes of the tensor are not being partitioned in order
+        // to figure out how many axes of the tensor are being partitioned. If
+        // the tensor is being partitioned in as many ways as the target loop is
+        // distributed, then the partition is disjoint. If there are unpartitioned
+        // axes and more distribution variables, then the tensor is likely aliased.
+        size_t aliasingVarsCount = 0;
+        for (auto ivar : t.getAccess().getIndexVars()) {
+          if (!this->anyParentInSet(ivar, this->varsInScope[this->curDistVar])) {
+            aliasingVarsCount++;
+          }
+        }
+        assert(aliasingVarsCount <= t.getAccess().getIndexVars().size());
+        size_t partitionedVars = t.getAccess().getIndexVars().size() - aliasingVarsCount;
+        if (partitionedVars < distIvars.size()) {
+          partKind = aliasedPart;
+        }
+
+        // If none of the variables in the access are changing in this loop, then we're
+        // most likely operating on an aliased partition as well.
+        std::set<IndexVar> curLoopVars;
+        curLoopVars.insert(forall.getIndexVar());
+        auto mfp = this->provGraph.getMultiFusedParents(forall.getIndexVar());
+        curLoopVars.insert(mfp.begin(), mfp.end());
+        bool accessIter = false;
+        for (auto var : t.getAccess().getIndexVars()) {
+          if (this->anyParentInSet(var, curLoopVars)) {
+            accessIter = true;
+          }
+        }
+        if (!accessIter) {
+          partKind = aliasedPart;
+        }
+
+        // If we're doing a reduction, we're most likely not operating on a disjoint partition.
+        // So, fall back to an aliased partition.
+        if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction) {
+          partKind = aliasedPart;
+        }
+
+        // If we're lowering placement code, it's too hard to figure this out (for now).
+        if (this->isPlacementCode) {
+          partKind = computePart;
+        }
+
+        // Pure partitioning code always results in disjoint partitions.
+        if (this->isPartitionCode) {
+          partKind = disjointPart;
+        }
+
+        partitionings[tv] = part;
+        auto partcall = ir::Call::make(
+            "runtime->create_index_partition",
+            {ctx, ir::GetProperty::make(this->tensorVars[tv], TensorProperty::IndexSpace), domain, coloring, partKind},
+            Auto
+        );
+        transfers.push_back(ir::VarDecl::make(part, partcall));
+      }
     }
 
     auto getPriv = [&](const TensorVar& tv) {
@@ -2041,6 +2084,24 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       auto region = this->tensorVars[pair->first];
       auto part = pair->second;
       partitionStmts.push_back(ir::Return::make(ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(region), part}, Auto)));
+    } else if (this->legionLoweringKind == PARTITION_ONLY && this->distLoopDepth == 0) {
+      // This code is badly named / name overloaded, but we perform a
+      // similar operation here if the desired output is code that just
+      // partitions the tensors for computation.
+      // Declare a result vector.
+      auto vecTy = Datatype("std::vector<LogicalPartition>");
+      auto retVec = ir::Var::make("computePartitions", vecTy);
+      partitionForComputeStmts = transfers;
+      partitionForComputeStmts.push_back(ir::VarDecl::make(retVec, ir::makeConstructor(vecTy, {})));
+      for (auto t : this->tensorVarOrdering) {
+        auto region = this->tensorVars[t];
+        auto it = partitionings.find(t);
+        taco_iassert(it != partitionings.end());
+        auto part = it->second;
+        auto add = ir::MethodCall::make(retVec, "push_back", {ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(region), part}, Auto)}, false, Auto);
+        partitionForComputeStmts.push_back(ir::SideEffect::make(add));
+      }
+      partitionForComputeStmts.push_back(ir::Return::make(retVec));
     }
 
     // AccessFinder finds is the task being lowered accesses the target tensor.
@@ -2086,26 +2147,34 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
           auto call = ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(tvIR), partitionings.at(tv)}, LogicalPartition);
           itlStmts.push_back(ir::VarDecl::make(part, call));
           regionReqArgs = {
-              part,
-              0,
-              priv.first,
-              priv.second,
-              getLogicalRegion(tvIR),
+            part,
+            0,
+            priv.first,
+            priv.second,
+            getLogicalRegion(tvIR),
           };
         } else if (util::contains(forall.getComputingOn(), tv)) {
           regionReqArgs = {
-              this->computingOnPartition[tv],
-              0,
-              priv.first,
-              priv.second,
-              getLogicalRegion(tvIR),
+            this->computingOnPartition[tv],
+            0,
+            priv.first,
+            priv.second,
+            getLogicalRegion(tvIR),
+          };
+        } else if (util::contains(this->computeOnlyPartitions, tv) && this->distLoopDepth == 0 && this->legionLoweringKind == COMPUTE_ONLY) {
+          regionReqArgs = {
+            this->computeOnlyPartitions[tv],
+            0,
+            priv.first,
+            priv.second,
+            getLogicalRegion(tvIR),
           };
         } else {
-          regionReqArgs = {
-              getLogicalRegion(tvIR),
-              priv.first,
-              priv.second,
-              getLogicalRegion(tvIR),
+            regionReqArgs = {
+            getLogicalRegion(tvIR),
+            priv.first,
+            priv.second,
+            getLogicalRegion(tvIR),
           };
         }
         auto regReq = ir::Var::make(tv.getName() + "Req", RegionRequirement);
@@ -2260,7 +2329,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       }
 
       // Placement code should return the LogicalPartition for the top level partition.
-      if (this->isPlacementCode && this->distLoopDepth == 0) {
+      if (this->isPlacementCode && this->distLoopDepth == 0 && this->legionLoweringKind == PARTITION_AND_COMPUTE) {
         auto tv = this->tensorVars.begin()->first;
         auto tvIR = this->tensorVars.begin()->second;
         auto call = ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(tvIR), partitionings.at(tv)}, LogicalPartition);
@@ -2437,6 +2506,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   // Return just the partitioning statements if we are generating partitioning code.
   if (this->isPartitionCode) {
     return Block::blanks(ir::Block::make(partitionStmts));
+  }
+
+  if (this->legionLoweringKind == PARTITION_ONLY && this->distLoopDepth == 0) {
+    return Block::blanks(ir::Block::make(partitionForComputeStmts));
   }
 
   return Block::blanks(ir::Block::make(transfers), ir::Block::make(gpuReductionPreamble),
