@@ -412,9 +412,10 @@ TEST(distributed, mttkrp) {
   A(i, l) = B(i, j, k) * C(j, l) * D(k, l);
   auto stmt = A.getAssignment().concretize()
                .reorder({i, j, k, l})
-               .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, B(i, j, k))
+               .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, grid3)
                .reorder({il, jl, kl, l})
                .communicate(A(i, l), kn)
+               .communicate(B(i, j, l), kn)
                .communicate(C(j, l), kn)
                .communicate(D(k, l), kn)
                .swapLeafKernel(il, mttkrp)
@@ -427,11 +428,11 @@ TEST(distributed, mttkrp) {
   auto partitionD = lower(D.partitionStmt(Grid(gz)), "partitionLegionD", false, true);
 
   // Placement statements for each tensor.
-  auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
-  auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
-  auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
-  auto placeDLowered = lower(D.getPlacementStatement(), "placeLegionD", false, true);
-  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto placeALowered = lowerLegionSeparatePartitionCompute(A.getPlacementStatement(), "placeLegionA");
+  auto placeBLowered = lowerLegionSeparatePartitionCompute(B.getPlacementStatement(), "placeLegionB");
+  auto placeCLowered = lowerLegionSeparatePartitionCompute(C.getPlacementStatement(), "placeLegionC");
+  auto placeDLowered = lowerLegionSeparatePartitionCompute(D.getPlacementStatement(), "placeLegionD");
+  auto lowered = lowerLegionSeparatePartitionCompute(stmt, "computeLegion", false /* waitOnFutureMap */);
   auto all = ir::Block::make({
     partitionA, partitionB, partitionC, partitionD,
     placeALowered, placeBLowered, placeCLowered, placeDLowered,
@@ -482,10 +483,11 @@ TEST(distributed, cuda_mttkrp) {
   // Since hierarchical reductions don't work yet, we'll start with a flat implementation.
   auto stmt = A.getAssignment().concretize()
       .reorder({i, j, k, l})
-      .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, B(i, j, k), taco::ParallelUnit::DistributedGPU)
+      .distribute({i, j, k}, {in, jn, kn}, {il, jl, kl}, grid3, taco::ParallelUnit::DistributedGPU)
       .divide(l, lo, li, gx)
       .reorder({lo, il, jl, kl, li})
       .communicate(A(i, l), lo)
+      .communicate(B(i, j, k), kn)
       .communicate(C(j, l), lo)
       .communicate(D(k, l), lo)
       .swapLeafKernel(il, mttkrp)
@@ -498,11 +500,11 @@ TEST(distributed, cuda_mttkrp) {
   auto partitionD = lower(D.partitionStmt(Grid(gz)), "partitionLegionD", false, true);
 
   // Placement statements for each tensor.
-  auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
-  auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
-  auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
-  auto placeDLowered = lower(D.getPlacementStatement(), "placeLegionD", false, true);
-  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto placeALowered = lowerLegionSeparatePartitionCompute(A.getPlacementStatement(), "placeLegionA");
+  auto placeBLowered = lowerLegionSeparatePartitionCompute(B.getPlacementStatement(), "placeLegionB");
+  auto placeCLowered = lowerLegionSeparatePartitionCompute(C.getPlacementStatement(), "placeLegionC");
+  auto placeDLowered = lowerLegionSeparatePartitionCompute(D.getPlacementStatement(), "placeLegionD");
+  auto lowered = lowerLegionSeparatePartitionCompute(stmt, "computeLegion", false /* waitOnFutureMap */);
   auto all = ir::Block::make({
                                  partitionA, partitionB, partitionC, partitionD,
                                  placeALowered, placeBLowered, placeCLowered, placeDLowered,

@@ -15,15 +15,20 @@ LogicalPartition partitionLegionB(Context ctx, Runtime* runtime, LogicalRegion B
 LogicalPartition partitionLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t gridY);
 LogicalPartition partitionLegionD(Context ctx, Runtime* runtime, LogicalRegion D, int32_t gridZ);
 
-LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion A, int32_t gridX, int32_t gridY, int32_t gridZ);
-LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion B, int32_t gridX, int32_t gridY, int32_t gridZ);
-LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t gridY, int32_t gridX, int32_t gridZ);
-LogicalPartition placeLegionD(Context ctx, Runtime* runtime, LogicalRegion D, int32_t gridZ, int32_t gridX, int32_t gridY);
-#ifdef TACO_USE_CUDA
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalRegion D, LogicalPartition BPartition, int32_t gx);
-#else
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalRegion D, LogicalPartition BPartition);
-#endif
+std::vector<LogicalPartition> partitionForplaceLegionA(Context ctx, Runtime* runtime, LogicalRegion A, int32_t gridX);
+void placeLegionA(Context ctx, Runtime* runtime, LogicalRegion A, LogicalPartition aPart, int32_t gridX, int32_t gridY, int32_t gridZ);
+
+std::vector<LogicalPartition> partitionForplaceLegionB(Context ctx, Runtime* runtime, LogicalRegion B, int32_t gridX, int32_t gridY, int32_t gridZ);
+void placeLegionB(Context ctx, Runtime* runtime, LogicalRegion B, LogicalPartition bPart, int32_t gridX, int32_t gridY, int32_t gridZ);
+
+std::vector<LogicalPartition> partitionForplaceLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t gridY);
+void placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, LogicalPartition cPart, int32_t gridY, int32_t gridX, int32_t gridZ);
+
+std::vector<LogicalPartition> partitionForplaceLegionD(Context ctx, Runtime* runtime, LogicalRegion D, int32_t gridZ);
+void placeLegionD(Context ctx, Runtime* runtime, LogicalRegion D, LogicalPartition dPart, int32_t gridZ, int32_t gridX, int32_t gridY);
+
+std::vector<LogicalPartition> partitionForcomputeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalRegion D, int32_t gridX, int32_t gridY, int32_t gridZ);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalRegion D, LogicalPartition APartition, LogicalPartition BPartition, LogicalPartition CPartition, LogicalPartition DPartition, int32_t gridX, int32_t gridY, int32_t gridZ);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   auto args = runtime->get_input_args();
@@ -87,6 +92,15 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto cPart = partitionLegionC(ctx, runtime, C, gy);
   auto dPart = partitionLegionD(ctx, runtime, D, gz);
 
+  // Partitions for placement operators.
+  auto pAPart = partitionForplaceLegionA(ctx, runtime, A, gx)[0];
+  auto pBPart = partitionForplaceLegionB(ctx, runtime, B, gx, gy, gz)[0];
+  auto pCPart = partitionForplaceLegionC(ctx, runtime, C, gy)[0];
+  auto pDPart = partitionForplaceLegionD(ctx, runtime, D, gz)[0];
+
+  // Partitions for computation.
+  auto compParts = partitionForcomputeLegion(ctx, runtime, A, B, C, D, gx, gy, gz);
+
   std::vector<size_t> times;
   for (int i = 0; i < 11; i++) {
     tacoFill<valType>(ctx, runtime, A, aPart, 0);
@@ -94,19 +108,15 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     tacoFill<valType>(ctx, runtime, C, cPart, 1);
     tacoFill<valType>(ctx, runtime, D, dPart, 1);
 
-    placeLegionA(ctx, runtime, A, gx, gy, gz);
-    placeLegionB(ctx, runtime, B, gx, gy, gz);
-    placeLegionC(ctx, runtime, C, gx, gy, gz);
-    placeLegionD(ctx, runtime, D, gx, gy, gz);
+    placeLegionA(ctx, runtime, A, pAPart, gx, gy, gz);
+    placeLegionB(ctx, runtime, B, pBPart, gx, gy, gz);
+    placeLegionC(ctx, runtime, C, pCPart, gy, gx, gz);
+    placeLegionD(ctx, runtime, D, pDPart, gz, gx, gy);
 
     auto bench = [&]() {
-#ifdef TACO_USE_CUDA
-      computeLegion(ctx, runtime, A, B, C, D, bPart, gx);
-#else
-      computeLegion(ctx, runtime, A, B, C, D, bPart);
-#endif
+      computeLegion(ctx, runtime, A, B, C, D, compParts[0], compParts[1], compParts[2], compParts[3], gx, gy, gz);
       // Run the A placement routine again to force a reduction into the right place.
-      placeLegionA(ctx, runtime, A, gx, gy, gz);
+      placeLegionA(ctx, runtime, A, pAPart, gx, gy, gz);
     };
 
     if (i == 0) {
