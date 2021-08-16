@@ -1854,62 +1854,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         util::append(partStmts, this->declarePartitionBoundsVars(domainIter, *forall.getComputingOn().begin()));
       }
 
+      // Create colorings for each tensor being transferred.
       std::set<TensorVar> fullyReplicatedTensors;
-
-      // Add a dummy partition object for each transfer.
-      for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
-        auto& t = forall.getTransfers()[idx];
-        auto n = t.getAccess().getTensorVar().getName();
-
-        // If this tensor isn't partitioned by any variables in the current loop,
-        // then the full thing is going to be replicated. In this case, it's better
-        // to pass the region directly to each child task, rather than a full aliasing
-        // partition.
-        bool hasPartitioningVar = false;
-        for (auto ivar : t.getAccess().getIndexVars()) {
-          if (this->anyParentInSet(ivar, this->varsInScope[this->curDistVar])) {
-            hasPartitioningVar = true;
-          }
-        }
-        if (!hasPartitioningVar && !(this->isPlacementCode || this->isPartitionCode)) {
-          fullyReplicatedTensors.insert(t.getAccess().getTensorVar());
-          continue;
-        }
-
-        auto tensorDim = t.getAccess().getIndexVars().size();
-        auto txPoint = Point(tensorDim);
-        auto txRect = Rect(tensorDim);
-
-        auto rdomain = domains[t.getAccess().getTensorVar()];
-        auto tbounds = this->derivedBounds[forall.getIndexVar()][t.getAccess().getTensorVar()];
-        std::vector<Expr> los, his;
-        for (size_t dimIdx = 0; dimIdx < tensorDim; dimIdx++) {
-          los.push_back(tbounds[dimIdx][0]);
-          auto dimBound = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::Dimension, dimIdx);
-          // The upper bound of the partition should be at most the upper bound of
-          // the region itself.
-          auto partUpper = ir::Load::make(ir::MethodCall::make(rdomain, "hi", {}, false, Int64), int(dimIdx));
-          auto upper = ir::Min::make(tbounds[dimIdx][1], partUpper);
-          his.push_back(upper);
-        }
-        auto start = ir::Var::make(n + "Start", txPoint);
-        auto end = ir::Var::make(n + "End", txPoint);
-        partStmts.push_back(ir::VarDecl::make(start, makeConstructor(txPoint, los)));
-        partStmts.push_back(ir::VarDecl::make(end, makeConstructor(txPoint, his)));
-        auto rect = ir::Var::make(n + "Rect", txRect);
-        partStmts.push_back(ir::VarDecl::make(rect, makeConstructor(txRect, {start, end})));
-
-        // It's possible that this partitioning makes a rectangle that goes out of bounds
-        // of the tensor's index space. If so, replace the rectangle with an empty Rect.
-        auto lb = ir::MethodCall::make(rdomain, "contains", {ir::FieldAccess::make(rect, "lo", false, Auto)}, false, Bool);
-        auto hb = ir::MethodCall::make(rdomain, "contains", {ir::FieldAccess::make(rect, "hi", false, Auto)}, false, Bool);
-        auto guard = ir::Or::make(ir::Neg::make(lb), ir::Neg::make(hb));
-        partStmts.push_back(ir::IfThenElse::make(guard, ir::Block::make(ir::Assign::make(rect, ir::MethodCall::make(rect, "make_empty", {}, false, Auto)))));
-
-        auto coloring = colorings[idx];
-        partStmts.push_back(ir::Assign::make(ir::Load::make(coloring, ir::Deref::make(domainIter, Auto)), rect));
-      }
-
+      util::append(partStmts, this->createDomainPointColorings(forall, domainIter, domains, fullyReplicatedTensors, colorings));
+      // Construct a loop over the launch domain that colors the accessed subregion
+      // of each tensor.
       auto l = ir::For::make(
           domainIter,
           ir::Call::make(pointInDimT.getName(), {domain}, pointInDimT),
@@ -4546,6 +4495,72 @@ std::vector<ir::Stmt> LowererImpl::declarePartitionBoundsVars(ir::Expr domainIte
   return result;
 }
 
+std::vector<ir::Stmt> LowererImpl::createDomainPointColorings(
+    Forall forall,
+    ir::Expr domainIter,
+    std::map<TensorVar, ir::Expr> domains,
+    std::set<TensorVar>& fullyReplicatedTensors,
+    std::vector<ir::Expr> colorings
+) {
+  taco_iassert(colorings.size() == forall.getTransfers().size());
+
+  std::vector<ir::Stmt> result;
+  // Add a dummy partition object for each transfer.
+  for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
+    auto& t = forall.getTransfers()[idx];
+    auto n = t.getAccess().getTensorVar().getName();
+
+    // If this tensor isn't partitioned by any variables in the current loop,
+    // then the full thing is going to be replicated. In this case, it's better
+    // to pass the region directly to each child task, rather than a full aliasing
+    // partition.
+    bool hasPartitioningVar = false;
+    for (auto ivar : t.getAccess().getIndexVars()) {
+      if (this->anyParentInSet(ivar, this->varsInScope[this->curDistVar])) {
+        hasPartitioningVar = true;
+      }
+    }
+    if (!hasPartitioningVar && !(this->isPlacementCode || this->isPartitionCode)) {
+      fullyReplicatedTensors.insert(t.getAccess().getTensorVar());
+      continue;
+    }
+
+    auto tensorDim = t.getAccess().getIndexVars().size();
+    auto txPoint = Point(tensorDim);
+    auto txRect = Rect(tensorDim);
+
+    auto rdomain = domains[t.getAccess().getTensorVar()];
+    auto tbounds = this->derivedBounds[forall.getIndexVar()][t.getAccess().getTensorVar()];
+    std::vector<Expr> los, his;
+    for (size_t dimIdx = 0; dimIdx < tensorDim; dimIdx++) {
+      los.push_back(tbounds[dimIdx][0]);
+      auto dimBound = ir::GetProperty::make(this->tensorVars[t.getAccess().getTensorVar()], TensorProperty::Dimension, dimIdx);
+      // The upper bound of the partition should be at most the upper bound of
+      // the region itself.
+      auto partUpper = ir::Load::make(ir::MethodCall::make(rdomain, "hi", {}, false, Int64), int(dimIdx));
+      auto upper = ir::Min::make(tbounds[dimIdx][1], partUpper);
+      his.push_back(upper);
+    }
+    auto start = ir::Var::make(n + "Start", txPoint);
+    auto end = ir::Var::make(n + "End", txPoint);
+    result.push_back(ir::VarDecl::make(start, makeConstructor(txPoint, los)));
+    result.push_back(ir::VarDecl::make(end, makeConstructor(txPoint, his)));
+    auto rect = ir::Var::make(n + "Rect", txRect);
+    result.push_back(ir::VarDecl::make(rect, makeConstructor(txRect, {start, end})));
+
+    // It's possible that this partitioning makes a rectangle that goes out of bounds
+    // of the tensor's index space. If so, replace the rectangle with an empty Rect.
+    auto lb = ir::MethodCall::make(rdomain, "contains", {ir::FieldAccess::make(rect, "lo", false, Auto)}, false, Bool);
+    auto hb = ir::MethodCall::make(rdomain, "contains", {ir::FieldAccess::make(rect, "hi", false, Auto)}, false, Bool);
+    auto guard = ir::Or::make(ir::Neg::make(lb), ir::Neg::make(hb));
+    result.push_back(ir::IfThenElse::make(guard, ir::Block::make(ir::Assign::make(rect, ir::MethodCall::make(rect, "make_empty", {}, false, Auto)))));
+
+    auto coloring = colorings[idx];
+    result.push_back(ir::Assign::make(ir::Load::make(coloring, ir::Deref::make(domainIter, Auto)), rect));
+  }
+
+  return result;
+}
 
 std::vector<ir::Stmt> LowererImpl::createIndexPartitions(
     Forall forall,
