@@ -443,6 +443,29 @@ protected:
   // an iterator through the partition's domain.
   std::vector<ir::Stmt> declarePartitionBoundsVars(ir::Expr domainIter, TensorVar tensor);
 
+  // getPrivilegeForTensor returns the Legion privilege and coherence mode to access
+  // the input tensor with.
+  std::pair<ir::Expr, ir::Expr> getPrivilegeForTensor(Forall forall, const TensorVar& tv);
+
+  // lowerIndexLaunch lowers a loop into a parallel index launch.
+  std::vector<ir::Stmt> lowerIndexLaunch(
+      Forall forall,
+      ir::Expr domain,
+      std::map<TensorVar, ir::Expr> partitionings,
+      std::set<TensorVar> tensorsAccessed,
+      int taskID
+  );
+
+  // lowerSerialTaskLoop lowers a loop of serial task launches.
+  std::vector<ir::Stmt> lowerSerialTaskLoop(
+      Forall forall,
+      ir::Expr domain,
+      ir::Expr domainIter,
+      Datatype pointT,
+      std::map<TensorVar, ir::Expr> partitionings,
+      std::set<TensorVar> tensorsAccessed,
+      int taskID);
+
 private:
   bool assemble;
   bool compute;

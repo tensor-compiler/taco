@@ -1792,12 +1792,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     // Declare some commonly used datatypes.
     auto dimT = Domain(dim);
     auto domain = ir::Var::make("domain", dimT);
-
     auto pointInDimT = PointInDomainIterator(dim);
     auto pointT = Point(dim);
 
-    // TODO (rohany): Assuming that all tensors have the same type right now.
-    auto reduce = ir::Symbol::make(LegionRedopString(this->tensorVars.begin()->first.getType().getDataType()));
     auto domainIter = ir::Var::make("itr", pointInDimT);
 
     // We need to emit accessing the partition for any child task that uses the partition.
@@ -1992,21 +1989,6 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       }
     }
 
-    auto getPriv = [&](const TensorVar& tv) {
-      if (util::contains(this->resultTensors, tv)) {
-        // If we're already reducing, we can't go up the lattice to read_write
-        // so stay at reduction.
-        if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction || this->performingLegionReduction) {
-          return std::make_pair(reduce, simultaneous);
-        }
-        return std::make_pair(readWrite, exclusive);
-      }
-      return std::make_pair(readOnly, exclusive);
-    };
-
-    auto getLogicalRegion = [](Expr e) {
-      return ir::Call::make("get_logical_region", {e}, Auto);
-    };
 
     // If we're emitting partitioning code, then this is all we care about. Package
     // up everything and add on a get_logical_partition call to return.
@@ -2036,334 +2018,21 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       partitionForComputeStmts.push_back(ir::Return::make(retVec));
     }
 
+    // See which of the regions are accessed by the task body.
+    std::set<TensorVar> tensorsAccessedByTask;
+    for (auto& it : this->tensorVarOrdering) {
+      if (this->statementAccessesTensor(body, this->tensorVars[it])) {
+        tensorsAccessedByTask.insert(it);
+      }
+    }
+
+    // Lower the appropriate kind of task call depending on whether the forall
+    // is distributed.
     if (forall.isDistributed()) {
-      // In a distributed for-all, we have to make an index launch.
-      std::vector<Stmt> itlStmts;
-      std::vector<Expr> regionReqs;
-      std::vector<Expr> regionReqArgs;
-      bool taskReadsAnyVars = false;
-      for (auto& it : this->tensorVarOrdering) {
-        auto tv = it;
-        auto tvIR = this->tensorVars[tv];
-        auto priv = getPriv(tv);
-        // If the tensor is being transferred at this level, then use the
-        // corresponding partition. Otherwise, use the tensorvar itself.
-        if (util::contains(partitionings, tv)) {
-          auto part = ir::Var::make(tv.getName() + "LogicalPartition", LogicalPartition);
-          auto call = ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(tvIR), partitionings.at(tv)}, LogicalPartition);
-          itlStmts.push_back(ir::VarDecl::make(part, call));
-          regionReqArgs = {
-            part,
-            0,
-            priv.first,
-            priv.second,
-            getLogicalRegion(tvIR),
-          };
-        } else if (util::contains(forall.getComputingOn(), tv)) {
-          regionReqArgs = {
-            this->computingOnPartition[tv],
-            0,
-            priv.first,
-            priv.second,
-            getLogicalRegion(tvIR),
-          };
-        } else if (util::contains(this->computeOnlyPartitions, tv) && this->distLoopDepth == 0 && this->legionLoweringKind == COMPUTE_ONLY) {
-          regionReqArgs = {
-            this->computeOnlyPartitions[tv],
-            0,
-            priv.first,
-            priv.second,
-            getLogicalRegion(tvIR),
-          };
-        } else {
-            regionReqArgs = {
-            getLogicalRegion(tvIR),
-            priv.first,
-            priv.second,
-            getLogicalRegion(tvIR),
-          };
-        }
-        auto regReq = ir::Var::make(tv.getName() + "Req", RegionRequirement);
-        auto makeReq = ir::Call::make(
-            RegionRequirement.getName(),
-            regionReqArgs,
-            RegionRequirement
-        );
-        itlStmts.push_back(ir::VarDecl::make(regReq, makeReq));
-        itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(regReq, "add_field", {fidVal}, false, Auto)));
-
-        // If the task being launched doesn't access the target region, then we can
-        // virtually map the region. Or, for placement code, we don't want to virtually
-        // map a region that the leaf placement tasks use.
-        auto bodyReadsVar = this->statementAccessesTensor(body, tvIR);
-        if (!bodyReadsVar && !(this->isPlacementCode && size_t(this->distLoopDepth + 1) == this->placements.size())) {
-          itlStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
-        }
-        taskReadsAnyVars |= bodyReadsVar;
-        regionReqs.push_back(regReq);
-      }
-
-      // These args have to be for each of the subtasks.
-      auto args = ir::Var::make("taskArgs", Auto);
-      bool unpackFaceArgs = false;
-      // We only generate code for control replicated placement if the distribution
-      // is done at the top level.
-      auto useCtrlRep = this->distLoopDepth == 0;
-      if (this->isPlacementCode) {
-        auto placementGrid = this->placements[this->distLoopDepth].first;
-        auto placement = this->placements[this->distLoopDepth].second;
-
-        // Count the number of Face() axes placements.
-        int count = 0;
-        for (auto axis : placement.axes) {
-          if (axis.kind == GridPlacement::AxisMatch::Face) {
-            count++;
-          }
-        }
-        if (count > 0) {
-          std::vector<Expr> prefixVars, prefixExprs;
-          if (useCtrlRep) {
-            // If we are using control replication, we'll need to do some extra
-            // work to set up a sharding functor so that index tasks are sharded to
-            // the right positions. To do so, we'll need to add a sharding functor ID
-            // to the argument pack. Next, we need to register the sharding functor
-            // to the runtime system, rather than letting the mapper handle it.
-            int sfID = shardingFunctorID++;
-            prefixVars.push_back(ir::Var::make("sfID", Int32));
-            prefixExprs.push_back(ir::Call::make("shardingID", {sfID}, Int32));
-
-            // Create the vector of dimensions.
-            auto vecty = Datatype("std::vector<int>");
-            auto dimVec = ir::Var::make("dims", vecty);
-            itlStmts.push_back(ir::VarDecl::make(dimVec, ir::makeConstructor(vecty, {})));
-            for (int i = 0; i < placementGrid.getDim(); i++) {
-              itlStmts.push_back(ir::SideEffect::make(
-                  ir::MethodCall::make(dimVec, "push_back", {placementGrid.getDimSize(i)}, false /* deref */, Auto)));
-            }
-            itlStmts.push_back(
-              ir::SideEffect::make(
-                ir::Call::make(
-                  "registerPlacementShardingFunctor",
-                  {ctx, runtime, ir::Call::make("shardingID", {sfID}, Int32), dimVec},
-                  Auto
-                )
-              )
-            );
-          } else {
-            // If we are directed to place a tensor onto a Face of the placement
-            // grid, then we need to package up the full dimensions of the placement
-            // grid into the task's arguments so that the mapper can extract it.
-            for (int i = 0; i < placementGrid.getDim(); i++) {
-              std::stringstream varname;
-              varname << "dim" << i;
-              auto var = ir::Var::make(varname.str(), Int32);
-              prefixVars.push_back(var); prefixExprs.push_back(placementGrid.getDimSize(i));
-            }
-          }
-          itlStmts.push_back(ir::PackTaskArgs::make(args, taskID, prefixVars, prefixExprs));
-          unpackFaceArgs = true;
-        } else {
-          itlStmts.push_back(ir::PackTaskArgs::make(args, taskID, {}, {}));
-        }
-      } else {
-        itlStmts.push_back(ir::PackTaskArgs::make(args, taskID, {}, {}));
-      }
-
-      auto launcher = ir::Var::make("launcher", IndexLauncher);
-      auto launcherMake = ir::Call::make(
-          IndexLauncher.getName(),
-          {
-              ir::Call::make("taskID", {taskID}, Datatype::Int32),
-              domain,
-              args,
-              ir::Call::make(ArgumentMap.getName(), {}, ArgumentMap),
-          },
-          IndexLauncher
-      );
-      itlStmts.push_back(ir::VarDecl::make(launcher, launcherMake));
-      for (auto& req : regionReqs) {
-        auto mcall = ir::MethodCall::make(launcher, "add_region_requirement", {req}, false /* deref */, Auto);
-        itlStmts.push_back(ir::SideEffect::make(mcall));
-      }
-      if (unpackFaceArgs) {
-        auto tag = placementMap;
-        if (useCtrlRep) {
-          tag = placementShard;
-        }
-        auto addTag = ir::Assign::make(ir::FieldAccess::make(launcher, "tag", false, Auto), tag);
-        itlStmts.push_back(addTag);
-      }
-      // If this task reads the regions explicitly, then give a chance to the
-      // mapper to potentially garbage collect these instances.
-      if (taskReadsAnyVars && !this->isPlacementCode) {
-        auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
-        itlStmts.push_back(ir::Assign::make(tag, ir::BitOr::make(tag, untrackValidRegions)));
-      }
-
-      // If this is a nested distribution, keep it on the same node.
-      if (this->distLoopDepth > 0) {
-        auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
-        auto addTag = ir::Assign::make(tag, ir::BitOr::make(tag, sameAddressSpace));
-        itlStmts.push_back(addTag);
-      }
-
-      auto fm = ir::Var::make("fm", Auto);
-      auto fmCall = ir::Call::make(
-          "runtime->execute_index_space",
-          {ctx, launcher},
-          Auto
-      );
-      if (this->performingScalarReduction) {
-        // Use a different overload of execute_index_space that does the reduction for us.
-        auto redop = ir::Symbol::make(LegionRedopString(this->scalarReductionResult.type()));
-        auto call = ir::Call::make(
-            "runtime->execute_index_space",
-            {ctx, launcher, redop},
-            Auto
-        );
-        std::stringstream funcName;
-        funcName << "get<" << this->scalarReductionResult.type() << ">";
-        // Wait on the result of the index launch reduction.
-        auto reduced = ir::MethodCall::make(call, funcName.str(), {}, false, Auto);
-        itlStmts.push_back(ir::Assign::make(this->scalarReductionResult, reduced));
-      } else if (this->distLoopDepth == 0 && this->waitOnFutureMap) {
-        itlStmts.push_back(ir::VarDecl::make(fm, fmCall));
-        itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(fm, "wait_all_results", {}, false, Auto)));
-      } else {
-        itlStmts.push_back(ir::SideEffect::make(fmCall));
-      }
-
-      // Placement code should return the LogicalPartition for the top level partition.
-      if (this->isPlacementCode && this->distLoopDepth == 0 && this->legionLoweringKind == PARTITION_AND_COMPUTE) {
-        auto tv = this->tensorVars.begin()->first;
-        auto tvIR = this->tensorVars.begin()->second;
-        auto call = ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(tvIR), partitionings.at(tv)}, LogicalPartition);
-        itlStmts.push_back(ir::Return::make(call));
-      }
-
-      transfers.push_back(ir::Block::make(itlStmts));
+      util::append(transfers, this->lowerIndexLaunch(forall, domain, partitionings, tensorsAccessedByTask, taskID));
     } else {
-      // TODO (rohany): This code assumes that we always distributed multi
-      //  dimensional task launches via index launches.
-      auto point = this->indexVarToExprMap[forall.getIndexVar()];
-
-      // If this operation is over reductions, we need to serialize the reductions
-      // some how so they don't all run at the same time.
-      Datatype futureTy("Future");
-      auto future = ir::Var::make("future", futureTy);
-      if (this->performingLegionReduction) {
-        transfers.push_back(ir::VarDecl::make(future, ir::makeConstructor(futureTy, {})));
-      }
-
-      // Otherwise, we make a loop that launches the task.
-      std::vector<Stmt> taskCallStmts;
-      taskCallStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, pointT)));
-      std::vector<Expr> regionReqs;
-      std::vector<Expr> regionReqArgs;
-      bool taskReadsAnyVars = false;
-      for (auto& it : this->tensorVarOrdering) {
-        auto tv = it;
-        auto tvIR = this->tensorVars[tv];
-        // If the tensor is being transferred at this level, then use the
-        // corresponding partition. Otherwise, use the tensorvar itself.
-        auto priv = getPriv(tv);
-        if (util::contains(partitionings, tv)) {
-          auto call = ir::Call::make(
-              "runtime->get_logical_subregion_by_color",
-              {
-                  ctx,
-                  ir::Call::make(
-                      "runtime->get_logical_partition",
-                      {ctx, getLogicalRegion(tvIR), partitionings.at(tv)},
-                      Auto
-                  ),
-                  point
-              },
-              Auto
-          );
-          auto subreg = ir::Var::make(tv.getName() + "subReg", Auto);
-          taskCallStmts.push_back(ir::VarDecl::make(subreg, call));
-          regionReqArgs = {
-              subreg,
-              priv.first,
-              priv.second,
-              getLogicalRegion(tvIR),
-          };
-        } else {
-          regionReqArgs = {
-              getLogicalRegion(tvIR),
-              priv.first,
-              priv.second,
-              getLogicalRegion(tvIR)
-          };
-        }
-
-        auto regReq = ir::Var::make(tv.getName() + "Req", RegionRequirement);
-        auto makeReq = ir::Call::make(
-            RegionRequirement.getName(),
-            regionReqArgs,
-            RegionRequirement
-        );
-        taskCallStmts.push_back(ir::VarDecl::make(regReq, makeReq));
-        taskCallStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(regReq, "add_field", {fidVal}, false, Auto)));
-
-        // If the task being launched doesn't access the target region, then we can
-        // virtually map the region.
-        auto bodyReadsVar = this->statementAccessesTensor(body, tvIR);
-        if (!bodyReadsVar) {
-          taskCallStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
-        }
-        taskReadsAnyVars |= bodyReadsVar;
-        regionReqs.push_back(regReq);
-      }
-
-      auto args = ir::Var::make("taskArgs", Auto);
-      taskCallStmts.push_back(ir::PackTaskArgs::make(args, taskID, {}, {}));
-
-      auto launcher = ir::Var::make("launcher", TaskLauncher);
-      auto launcherMake = ir::Call::make(
-        TaskLauncher.getName(),
-        {
-          ir::Call::make("taskID", {taskID}, Datatype::Int32),
-          args,
-        },
-        TaskLauncher
-      );
-      taskCallStmts.push_back(ir::VarDecl::make(launcher, launcherMake));
-      for (auto& req : regionReqs) {
-        auto mcall = ir::MethodCall::make(launcher, "add_region_requirement", {req}, false /* deref */, Auto);
-        taskCallStmts.push_back(ir::SideEffect::make(mcall));
-      }
-      // If this task reads the regions explicitly, then give a chance to the
-      // mapper to potentially garbage collect these instances.
-      if (taskReadsAnyVars && !this->isPlacementCode) {
-        auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
-        taskCallStmts.push_back(ir::Assign::make(tag, ir::BitOr::make(tag, untrackValidRegions)));
-      }
-      // If the future is valid and we need to serialize our operations, add a dependency on the future.
-      if (this->performingLegionReduction) {
-        taskCallStmts.push_back(ir::IfThenElse::make(
-           ir::MethodCall::make(future, "valid", {}, false, Bool),
-           ir::SideEffect::make(ir::MethodCall::make(launcher, "add_future", {future}, false, Auto))
-        ));
-      }
-      // The actual task call.
-      auto tcall = ir::Call::make("runtime->execute_task", {ctx, launcher}, Auto);
-      // If we need to keep track of the futures, assign the result of the task call to the future.
-      if (this->performingLegionReduction) {
-        taskCallStmts.push_back(ir::Assign::make(future, tcall));
-      } else {
-        taskCallStmts.push_back(ir::SideEffect::make(tcall));
-      }
-
-      auto tcallLoop = ir::For::make(
-          domainIter,
-          ir::Call::make(pointInDimT.getName(), {domain}, pointInDimT),
-          ir::MethodCall::make(domainIter, "valid", {}, false /* deref */, Datatype::Bool),
-          1 /* increment -- hack to get ++ */,
-          ir::Block::make(taskCallStmts)
-      );
-      transfers.push_back(tcallLoop);
+      // Lower a serial loop of task launches.
+      util::append(transfers, this->lowerSerialTaskLoop(forall, domain, domainIter, pointT, partitionings, tensorsAccessedByTask, taskID));
     }
   }
 
@@ -4940,6 +4609,388 @@ std::vector<ir::Stmt> LowererImpl::declarePartitionBoundsVars(ir::Expr domainIte
       result.push_back(ir::VarDecl::make(idxItr.second.second, hi));
     }
   }
+  return result;
+}
+
+std::pair<ir::Expr, ir::Expr> LowererImpl::getPrivilegeForTensor(Forall forall, const TensorVar& tv) {
+  // TODO (rohany): Assuming that all tensors have the same type right now.
+  auto reduce = ir::Symbol::make(LegionRedopString(tv.getType().getDataType()));
+  if (util::contains(this->resultTensors, tv)) {
+    // If we're already reducing, we can't go up the lattice to read_write
+    // so stay at reduction.
+    if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction || this->performingLegionReduction) {
+      return std::make_pair(reduce, simultaneous);
+    }
+    return std::make_pair(readWrite, exclusive);
+  }
+  return std::make_pair(readOnly, exclusive);
+}
+
+std::vector<ir::Stmt> LowererImpl::lowerIndexLaunch(
+    Forall forall,
+    ir::Expr domain,
+    std::map<TensorVar, Expr> partitionings,
+    std::set<TensorVar> tensorsAccessed,
+    int taskID
+) {
+  std::vector<ir::Stmt> result;
+  std::vector<Stmt> itlStmts;
+
+  // Construct the region requirements for each tensor argument.
+  std::vector<Expr> regionReqs;
+  std::vector<Expr> regionReqArgs;
+  bool taskReadsAnyVars = false;
+  for (auto& it : this->tensorVarOrdering) {
+    auto tv = it;
+    auto tvIR = this->tensorVars[tv];
+    auto priv = this->getPrivilegeForTensor(forall, tv);
+
+    // If the tensor is being transferred at this level, then use the
+    // corresponding partition. Otherwise, pass the entire region to
+    // the subtask using the TensorVar.
+    if (util::contains(partitionings, tv)) {
+      auto part = ir::Var::make(tv.getName() + "LogicalPartition", LogicalPartition);
+      auto call = ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(tvIR), partitionings.at(tv)}, LogicalPartition);
+      itlStmts.push_back(ir::VarDecl::make(part, call));
+      regionReqArgs = {
+          part,
+          0,
+          priv.first,
+          priv.second,
+          getLogicalRegion(tvIR),
+      };
+    } else if (util::contains(forall.getComputingOn(), tv)) {
+      // If the target TensorVar is the target of a distributeOnto statement, then use
+      // the partition passed in as an argument.
+      regionReqArgs = {
+          this->computingOnPartition[tv],
+          0,
+          priv.first,
+          priv.second,
+          getLogicalRegion(tvIR),
+      };
+    } else if (util::contains(this->computeOnlyPartitions, tv) && this->distLoopDepth == 0 && this->legionLoweringKind == COMPUTE_ONLY) {
+      // If the target tensorVar has been pre-partitioned for us in an aot-partitioning phase,
+      // then use the argument partition rather than the create partitions.
+      regionReqArgs = {
+          this->computeOnlyPartitions[tv],
+          0,
+          priv.first,
+          priv.second,
+          getLogicalRegion(tvIR),
+      };
+    } else {
+      // Finally, fall back to just using the region itself.
+      regionReqArgs = {
+          getLogicalRegion(tvIR),
+          priv.first,
+          priv.second,
+          getLogicalRegion(tvIR),
+      };
+    }
+    auto regReq = ir::Var::make(tv.getName() + "Req", RegionRequirement);
+    auto makeReq = ir::Call::make(
+        RegionRequirement.getName(),
+        regionReqArgs,
+        RegionRequirement
+    );
+    itlStmts.push_back(ir::VarDecl::make(regReq, makeReq));
+    itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(regReq, "add_field", {fidVal}, false, Auto)));
+
+    // If the task being launched doesn't access the target region, then we can
+    // virtually map the region. Or, for placement code, we don't want to virtually
+    // map a region that the leaf placement tasks use.
+    auto bodyReadsVar = util::contains(tensorsAccessed, it);
+    if (!bodyReadsVar && !(this->isPlacementCode && size_t(this->distLoopDepth + 1) == this->placements.size())) {
+      itlStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
+    }
+    taskReadsAnyVars |= bodyReadsVar;
+    regionReqs.push_back(regReq);
+  }
+
+  // These args have to be for each of the subtasks.
+  auto args = ir::Var::make("taskArgs", Auto);
+  bool unpackFaceArgs = false;
+  // We only generate code for control replicated placement if the distribution
+  // is done at the top level.
+  auto useCtrlRep = this->distLoopDepth == 0;
+  if (this->isPlacementCode) {
+    auto placementGrid = this->placements[this->distLoopDepth].first;
+    auto placement = this->placements[this->distLoopDepth].second;
+
+    // Count the number of Face() axes placements.
+    int count = 0;
+    for (auto axis : placement.axes) {
+      if (axis.kind == GridPlacement::AxisMatch::Face) {
+        count++;
+      }
+    }
+    if (count > 0) {
+      std::vector<Expr> prefixVars, prefixExprs;
+      if (useCtrlRep) {
+        // If we are using control replication, we'll need to do some extra
+        // work to set up a sharding functor so that index tasks are sharded to
+        // the right positions. To do so, we'll need to add a sharding functor ID
+        // to the argument pack. Next, we need to register the sharding functor
+        // to the runtime system, rather than letting the mapper handle it.
+        int sfID = shardingFunctorID++;
+        prefixVars.push_back(ir::Var::make("sfID", Int32));
+        prefixExprs.push_back(ir::Call::make("shardingID", {sfID}, Int32));
+
+        // Create the vector of dimensions.
+        auto vecty = Datatype("std::vector<int>");
+        auto dimVec = ir::Var::make("dims", vecty);
+        itlStmts.push_back(ir::VarDecl::make(dimVec, ir::makeConstructor(vecty, {})));
+        for (int i = 0; i < placementGrid.getDim(); i++) {
+          itlStmts.push_back(ir::SideEffect::make(
+              ir::MethodCall::make(dimVec, "push_back", {placementGrid.getDimSize(i)}, false /* deref */, Auto)));
+        }
+        itlStmts.push_back(
+            ir::SideEffect::make(
+                ir::Call::make(
+                    "registerPlacementShardingFunctor",
+                    {ctx, runtime, ir::Call::make("shardingID", {sfID}, Int32), dimVec},
+                    Auto
+                )
+            )
+        );
+      } else {
+        // If we are directed to place a tensor onto a Face of the placement
+        // grid, then we need to package up the full dimensions of the placement
+        // grid into the task's arguments so that the mapper can extract it.
+        for (int i = 0; i < placementGrid.getDim(); i++) {
+          std::stringstream varname;
+          varname << "dim" << i;
+          auto var = ir::Var::make(varname.str(), Int32);
+          prefixVars.push_back(var); prefixExprs.push_back(placementGrid.getDimSize(i));
+        }
+      }
+      itlStmts.push_back(ir::PackTaskArgs::make(args, taskID, prefixVars, prefixExprs));
+      unpackFaceArgs = true;
+    } else {
+      itlStmts.push_back(ir::PackTaskArgs::make(args, taskID, {}, {}));
+    }
+  } else {
+    itlStmts.push_back(ir::PackTaskArgs::make(args, taskID, {}, {}));
+  }
+
+  auto launcher = ir::Var::make("launcher", IndexLauncher);
+  auto launcherMake = ir::Call::make(
+      IndexLauncher.getName(),
+      {
+          ir::Call::make("taskID", {taskID}, Datatype::Int32),
+          domain,
+          args,
+          ir::Call::make(ArgumentMap.getName(), {}, ArgumentMap),
+      },
+      IndexLauncher
+  );
+  itlStmts.push_back(ir::VarDecl::make(launcher, launcherMake));
+  for (auto& req : regionReqs) {
+    auto mcall = ir::MethodCall::make(launcher, "add_region_requirement", {req}, false /* deref */, Auto);
+    itlStmts.push_back(ir::SideEffect::make(mcall));
+  }
+  if (unpackFaceArgs) {
+    auto tag = placementMap;
+    if (useCtrlRep) {
+      tag = placementShard;
+    }
+    auto addTag = ir::Assign::make(ir::FieldAccess::make(launcher, "tag", false, Auto), tag);
+    itlStmts.push_back(addTag);
+  }
+  // If this task reads the regions explicitly, then give a chance to the
+  // mapper to potentially garbage collect these instances.
+  if (taskReadsAnyVars && !this->isPlacementCode) {
+    auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
+    itlStmts.push_back(ir::Assign::make(tag, ir::BitOr::make(tag, untrackValidRegions)));
+  }
+
+  // If this is a nested distribution, keep it on the same node.
+  if (this->distLoopDepth > 0) {
+    auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
+    auto addTag = ir::Assign::make(tag, ir::BitOr::make(tag, sameAddressSpace));
+    itlStmts.push_back(addTag);
+  }
+
+  auto fm = ir::Var::make("fm", Auto);
+  auto fmCall = ir::Call::make(
+      "runtime->execute_index_space",
+      {ctx, launcher},
+      Auto
+  );
+  if (this->performingScalarReduction) {
+    // Use a different overload of execute_index_space that does the reduction for us.
+    auto redop = ir::Symbol::make(LegionRedopString(this->scalarReductionResult.type()));
+    auto call = ir::Call::make(
+        "runtime->execute_index_space",
+        {ctx, launcher, redop},
+        Auto
+    );
+    std::stringstream funcName;
+    funcName << "get<" << this->scalarReductionResult.type() << ">";
+    // Wait on the result of the index launch reduction.
+    auto reduced = ir::MethodCall::make(call, funcName.str(), {}, false, Auto);
+    itlStmts.push_back(ir::Assign::make(this->scalarReductionResult, reduced));
+  } else if (this->distLoopDepth == 0 && this->waitOnFutureMap) {
+    itlStmts.push_back(ir::VarDecl::make(fm, fmCall));
+    itlStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(fm, "wait_all_results", {}, false, Auto)));
+  } else {
+    itlStmts.push_back(ir::SideEffect::make(fmCall));
+  }
+
+  // Placement code should return the LogicalPartition for the top level partition.
+  if (this->isPlacementCode && this->distLoopDepth == 0 && this->legionLoweringKind == PARTITION_AND_COMPUTE) {
+    auto tv = this->tensorVars.begin()->first;
+    auto tvIR = this->tensorVars.begin()->second;
+    auto call = ir::Call::make("runtime->get_logical_partition", {ctx, getLogicalRegion(tvIR), partitionings.at(tv)}, LogicalPartition);
+    itlStmts.push_back(ir::Return::make(call));
+  }
+
+  result.push_back(ir::Block::make(itlStmts));
+  return result;
+}
+
+
+std::vector<ir::Stmt> LowererImpl::lowerSerialTaskLoop(
+    Forall forall,
+    ir::Expr domain,
+    ir::Expr domainIter,
+    Datatype pointT,
+    std::map<TensorVar, Expr> partitionings,
+    std::set<TensorVar> tensorsAccessed,
+    int taskID) {
+  std::vector<ir::Stmt> result;
+  // Extract the index variable for this loop.
+  auto point = this->indexVarToExprMap[forall.getIndexVar()];
+  // If this operation is over reductions, we need to serialize the reductions
+  // so they don't all run at the same time. Serialization for task launch loops
+  // with read-write privileges is done by Legion.
+  Datatype futureTy("Future");
+  auto future = ir::Var::make("future", futureTy);
+  if (this->performingLegionReduction) {
+    result.push_back(ir::VarDecl::make(future, ir::makeConstructor(futureTy, {})));
+  }
+
+  // Create a loop that launches instances of the task.
+  std::vector<Stmt> taskCallStmts;
+  taskCallStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, pointT)));
+
+  // Construct the region requirements for each tensor.
+  std::vector<Expr> regionReqs;
+  std::vector<Expr> regionReqArgs;
+  bool taskReadsAnyVars = false;
+  for (auto& it : this->tensorVarOrdering) {
+    auto tv = it;
+    auto tvIR = this->tensorVars[tv];
+    // If the tensor is being transferred at this level, then use the
+    // corresponding partition. Otherwise send the entire region through as
+    // a region requirement using the TensorVar directly.
+    auto priv = this->getPrivilegeForTensor(forall, tv);
+    if (util::contains(partitionings, tv)) {
+      // Get the subregion that corresponds to this domain point.
+      auto call = ir::Call::make(
+          "runtime->get_logical_subregion_by_color",
+          {
+              ctx,
+              ir::Call::make(
+                  "runtime->get_logical_partition",
+                  {ctx, getLogicalRegion(tvIR), partitionings.at(tv)},
+                  Auto
+              ),
+              point
+          },
+          Auto
+      );
+      auto subreg = ir::Var::make(tv.getName() + "subReg", Auto);
+      taskCallStmts.push_back(ir::VarDecl::make(subreg, call));
+      regionReqArgs = {
+          subreg,
+          priv.first,
+          priv.second,
+          getLogicalRegion(tvIR),
+      };
+    } else {
+      // Otherwise, pass the entire region through.
+      regionReqArgs = {
+          getLogicalRegion(tvIR),
+          priv.first,
+          priv.second,
+          getLogicalRegion(tvIR)
+      };
+    }
+
+    auto regReq = ir::Var::make(tv.getName() + "Req", RegionRequirement);
+    auto makeReq = ir::Call::make(
+        RegionRequirement.getName(),
+        regionReqArgs,
+        RegionRequirement
+    );
+    taskCallStmts.push_back(ir::VarDecl::make(regReq, makeReq));
+    taskCallStmts.push_back(ir::SideEffect::make(ir::MethodCall::make(regReq, "add_field", {fidVal}, false, Auto)));
+
+    // If the task being launched doesn't access the target region, then we can
+    // virtually map the region.
+    auto bodyReadsVar = util::contains(tensorsAccessed, it);
+    if (!bodyReadsVar) {
+      taskCallStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
+    }
+    taskReadsAnyVars |= bodyReadsVar;
+    regionReqs.push_back(regReq);
+  }
+
+  auto args = ir::Var::make("taskArgs", Auto);
+  taskCallStmts.push_back(ir::PackTaskArgs::make(args, taskID, {}, {}));
+
+  auto launcher = ir::Var::make("launcher", TaskLauncher);
+  auto launcherMake = ir::Call::make(
+      TaskLauncher.getName(),
+      {
+          ir::Call::make("taskID", {taskID}, Datatype::Int32),
+          args,
+      },
+      TaskLauncher
+  );
+  taskCallStmts.push_back(ir::VarDecl::make(launcher, launcherMake));
+  for (auto& req : regionReqs) {
+    auto mcall = ir::MethodCall::make(launcher, "add_region_requirement", {req}, false /* deref */, Auto);
+    taskCallStmts.push_back(ir::SideEffect::make(mcall));
+  }
+
+  // If this task reads the regions explicitly, then give a chance to the
+  // mapper to potentially garbage collect these instances.
+  if (taskReadsAnyVars && !this->isPlacementCode) {
+    auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
+    taskCallStmts.push_back(ir::Assign::make(tag, ir::BitOr::make(tag, untrackValidRegions)));
+  }
+
+  // If the future is valid and we need to serialize our operations, add a dependency on the future
+  // to serialize this task behind tasks in prior iterations.
+  if (this->performingLegionReduction) {
+    taskCallStmts.push_back(ir::IfThenElse::make(
+        ir::MethodCall::make(future, "valid", {}, false, Bool),
+        ir::SideEffect::make(ir::MethodCall::make(launcher, "add_future", {future}, false, Auto))
+    ));
+  }
+
+  // The actual task call.
+  auto tcall = ir::Call::make("runtime->execute_task", {ctx, launcher}, Auto);
+  // If we need to keep track of the futures, assign the result of the task call to the future.
+  if (this->performingLegionReduction) {
+    taskCallStmts.push_back(ir::Assign::make(future, tcall));
+  } else {
+    taskCallStmts.push_back(ir::SideEffect::make(tcall));
+  }
+
+  // Finally, wrap everything within a for loop that launches the tasks.
+  auto tcallLoop = ir::For::make(
+      domainIter,
+      ir::Call::make(domainIter.type().getName(), {domain}, domainIter.type()),
+      ir::MethodCall::make(domainIter, "valid", {}, false /* deref */, Datatype::Bool),
+      1 /* increment -- hack to get ++ */,
+      ir::Block::make(taskCallStmts)
+  );
+
+  result.push_back(tcallLoop);
   return result;
 }
 
