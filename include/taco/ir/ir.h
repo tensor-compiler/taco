@@ -507,6 +507,9 @@ struct Call : public ExprNode<Call> {
 // makeConstructor is shorthand for using a C++ type as a function
 // call to mimic using a C++ constructor.
 Expr makeConstructor(Datatype type, std::vector<Expr> args);
+// getLogicalRegion is a utility method that wraps an expression
+// in a get_logical_region call.
+Expr getLogicalRegion(Expr e);
 
 struct MethodCall : public ExprNode<MethodCall> {
   Expr var;

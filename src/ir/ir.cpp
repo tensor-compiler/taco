@@ -508,6 +508,10 @@ Expr makeConstructor(Datatype type, std::vector<Expr> args) {
   return ir::Call::make(type.getName(), args, type);
 }
 
+Expr getLogicalRegion(Expr e) {
+  return ir::Call::make("get_logical_region", {e}, Auto);
+};
+
 Expr MethodCall::make(Expr var, const std::string &func, const std::vector<Expr> &args, bool deref, Datatype type) {
   MethodCall *call = new MethodCall;
   call->type = type;
