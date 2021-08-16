@@ -431,6 +431,11 @@ protected:
 
   bool anyParentInSet(IndexVar var, std::set<IndexVar>& s);
 
+  // Helper methods for lowering Legion code.
+
+  // statementAccessesTensor returns true if an ir statement reads or writes a tensor.
+  bool statementAccessesTensor(ir::Stmt stmt, ir::Expr target);
+
 private:
   bool assemble;
   bool compute;

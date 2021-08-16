@@ -2104,32 +2104,6 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       partitionForComputeStmts.push_back(ir::Return::make(retVec));
     }
 
-    // AccessFinder finds is the task being lowered accesses the target tensor.
-    struct AccessFinder : public IRVisitor {
-      void visit(const GetProperty* prop) {
-        if (prop->tensor == this->targetVar) {
-          switch (prop->property) {
-            case ir::TensorProperty::ValuesReductionAccessor:
-            case ir::TensorProperty::ValuesWriteAccessor:
-            case ir::TensorProperty::ValuesReadAccessor:
-              this->readsVar = true;
-              break;
-            default:
-              return;
-          }
-        }
-      }
-      void visit(const For* node) {
-        if (node->isTask) { return; }
-        node->contents.accept(this);
-        // TODO (rohany): When considering sparse tensors, we will need to recurse into
-        //  the other parts of the for loop.
-      }
-
-      ir::Expr targetVar;
-      bool readsVar = false;
-    };
-
     if (forall.isDistributed()) {
       // In a distributed for-all, we have to make an index launch.
       std::vector<Stmt> itlStmts;
@@ -2189,12 +2163,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
         // If the task being launched doesn't access the target region, then we can
         // virtually map the region. Or, for placement code, we don't want to virtually
         // map a region that the leaf placement tasks use.
-        AccessFinder finder; finder.targetVar = tvIR;
-        body.accept(&finder);
-        if (!finder.readsVar && !(this->isPlacementCode && size_t(this->distLoopDepth + 1) == this->placements.size())) {
+        auto bodyReadsVar = this->statementAccessesTensor(body, tvIR);
+        if (!bodyReadsVar && !(this->isPlacementCode && size_t(this->distLoopDepth + 1) == this->placements.size())) {
           itlStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
         }
-        taskReadsAnyVars |= finder.readsVar;
+        taskReadsAnyVars |= bodyReadsVar;
         regionReqs.push_back(regReq);
       }
 
@@ -2404,12 +2377,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
         // If the task being launched doesn't access the target region, then we can
         // virtually map the region.
-        AccessFinder finder; finder.targetVar = tvIR;
-        body.accept(&finder);
-        if (!finder.readsVar) {
+        auto bodyReadsVar = this->statementAccessesTensor(body, tvIR);
+        if (!bodyReadsVar) {
           taskCallStmts.push_back(ir::Assign::make(ir::FieldAccess::make(regReq, "tag", false, Auto), virtualMap));
         }
-        taskReadsAnyVars |= finder.readsVar;
+        taskReadsAnyVars |= bodyReadsVar;
         regionReqs.push_back(regReq);
       }
 
@@ -4934,6 +4906,38 @@ bool LowererImpl::anyParentInSet(IndexVar var, std::set<IndexVar>& s) {
     }
   }
   return false;
+}
+
+
+bool LowererImpl::statementAccessesTensor(ir::Stmt stmt, ir::Expr target) {
+  taco_iassert(target.as<Var>() != nullptr);
+  // AccessFinder finds is the task being lowered accesses the target tensor.
+  struct AccessFinder : public IRVisitor {
+    void visit(const GetProperty* prop) {
+      if (prop->tensor == this->targetVar) {
+        switch (prop->property) {
+          case ir::TensorProperty::ValuesReductionAccessor:
+          case ir::TensorProperty::ValuesWriteAccessor:
+          case ir::TensorProperty::ValuesReadAccessor:
+            this->readsVar = true;
+            break;
+          default:
+            return;
+        }
+      }
+    }
+    void visit(const For* node) {
+      if (node->isTask) { return; }
+      node->contents.accept(this);
+      // TODO (rohany): When considering sparse tensors, we will need to recurse into
+      //  the other parts of the for loop.
+    }
+    ir::Expr targetVar;
+    bool readsVar = false;
+  } finder;
+  finder.targetVar = target;
+  stmt.accept(&finder);
+  return finder.readsVar;
 }
 
 }
