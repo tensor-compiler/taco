@@ -433,6 +433,9 @@ protected:
 
   // Helper methods for lowering Legion code.
 
+  // declareLaunchDomain declares the index space domain for a distributed task launch.
+  std::vector<ir::Stmt> declareLaunchDomain(ir::Expr domain, Forall forall, const std::vector<IndexVar>& distVars);
+
   // statementAccessesTensor returns true if an ir statement reads or writes a tensor.
   bool statementAccessesTensor(ir::Stmt stmt, ir::Expr target);
 

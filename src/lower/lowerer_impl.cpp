@@ -1791,10 +1791,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
     // Declare some commonly used datatypes.
     auto dimT = Domain(dim);
+    auto domain = ir::Var::make("domain", dimT);
+
     auto pointInDimT = PointInDomainIterator(dim);
     auto pointT = Point(dim);
-    auto rectT = Rect(dim);
-    auto indexSpaceT = IndexSpaceT(dim);
 
     // TODO (rohany): Assuming that all tensors have the same type right now.
     auto reduce = ir::Symbol::make(LegionRedopString(this->tensorVars.begin()->first.getType().getDataType()));
@@ -1821,47 +1821,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       declarePartitionBounds = ir::Block::make(declareBlock);
     }
 
-    auto domain = ir::Var::make("domain", dimT);
-    if (!forall.getComputingOn().empty()) {
-      // If we're computing on a tensor, then use the domain of the partition as the
-      // launch domain for the task launch.
-      auto getDomain = ir::Call::make("runtime->get_index_partition_color_space", {ctx, ir::Call::make("get_index_partition", {this->computingOnPartition[*forall.getComputingOn().begin()]}, Auto)}, Auto);
-      transfers.push_back(ir::VarDecl::make(domain, getDomain));
-    } else {
-      auto varIspace = ir::Var::make(forall.getIndexVar().getName() + "IndexSpace", Auto);
-      auto lowerBound = ir::Var::make("lowerBound", pointT);
-      auto upperBound = ir::Var::make("upperBound", pointT);
-      std::vector<ir::Expr> lowerBoundExprs;
-      std::vector<ir::Expr> upperBoundExprs;
-      for (auto it : distIvars) {
-        // If the bounds of an index variable have been overridden for placement code
-        // use those bounds instead of the ones derived from the Provenance Graph.
-        if (this->isPlacementCode && util::contains(this->indexVarFaces, it)) {
-          auto face = this->indexVarFaces[it];
-          lowerBoundExprs.push_back(face);
-          upperBoundExprs.push_back(face);
-        } else {
-          auto bounds = provGraph.deriveIterBounds(it, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
-          lowerBoundExprs.push_back(bounds[0]);
-          upperBoundExprs.push_back(ir::Sub::make(bounds[1], 1));
-        }
-      }
-      transfers.push_back(ir::VarDecl::make(lowerBound, makeConstructor(pointT, lowerBoundExprs)));
-      transfers.push_back(ir::VarDecl::make(upperBound, makeConstructor(pointT, upperBoundExprs)));
-
-      auto makeIspace = ir::Call::make(
-          "runtime->create_index_space",
-          {ctx, makeConstructor(rectT, {lowerBound, upperBound})},
-          Auto
-      );
-      transfers.push_back(ir::VarDecl::make(varIspace, makeIspace));
-      auto makeDomain = ir::Call::make(
-          "runtime->get_index_space_domain",
-          {ctx, makeConstructor(indexSpaceT, {varIspace})},
-          dimT
-      );
-      transfers.push_back(ir::VarDecl::make(domain, makeDomain));
-    }
+    // Declare the launch domain for the current task launch.
+    util::append(transfers, this->declareLaunchDomain(domain, forall, distIvars));
 
     // Only perform the partitioning generation logic if we are not requested
     // to generate only compute code.
@@ -4879,7 +4840,57 @@ bool LowererImpl::anyParentInSet(IndexVar var, std::set<IndexVar>& s) {
   return false;
 }
 
-bool LowererImpl::statementAccessesTensor(ir::Stmt stmt, ir::Expr target) {
+std::vector<ir::Stmt> LowererImpl::declareLaunchDomain(ir::Expr domain, Forall forall, const std::vector<IndexVar>& distVars) {
+  std::vector<ir::Stmt> result;
+  auto dim = distVars.size();
+  auto pointT = Point(dim);
+  auto indexSpaceT = IndexSpaceT(dim);
+  auto rectT = Rect(dim);
+  // If we're computing on a tensor, then use the domain of the partition as the
+  // launch domain for the task launch.
+  if (!forall.getComputingOn().empty()) {
+    auto getDomain = ir::Call::make("runtime->get_index_partition_color_space", {ctx, ir::Call::make("get_index_partition", {this->computingOnPartition[*forall.getComputingOn().begin()]}, Auto)}, Auto);
+    result.push_back(ir::VarDecl::make(domain, getDomain));
+  } else {
+    // Otherwise, construct the launch domain from the distribution variables.
+    auto varIspace = ir::Var::make(forall.getIndexVar().getName() + "IndexSpace", Auto);
+    auto lowerBound = ir::Var::make("lowerBound", pointT);
+    auto upperBound = ir::Var::make("upperBound", pointT);
+    std::vector<ir::Expr> lowerBoundExprs;
+    std::vector<ir::Expr> upperBoundExprs;
+    for (auto it : distVars) {
+      // If the bounds of an index variable have been overridden for placement code
+      // use those bounds instead of the ones derived from the Provenance Graph.
+      if (this->isPlacementCode && util::contains(this->indexVarFaces, it)) {
+        auto face = this->indexVarFaces[it];
+        lowerBoundExprs.push_back(face);
+        upperBoundExprs.push_back(face);
+      } else {
+        auto bounds = provGraph.deriveIterBounds(it, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+        lowerBoundExprs.push_back(bounds[0]);
+        upperBoundExprs.push_back(ir::Sub::make(bounds[1], 1));
+      }
+    }
+    result.push_back(ir::VarDecl::make(lowerBound, makeConstructor(pointT, lowerBoundExprs)));
+    result.push_back(ir::VarDecl::make(upperBound, makeConstructor(pointT, upperBoundExprs)));
+
+    auto makeIspace = ir::Call::make(
+        "runtime->create_index_space",
+        {ctx, makeConstructor(rectT, {lowerBound, upperBound})},
+        Auto
+    );
+    result.push_back(ir::VarDecl::make(varIspace, makeIspace));
+    auto makeDomain = ir::Call::make(
+        "runtime->get_index_space_domain",
+        {ctx, makeConstructor(indexSpaceT, {varIspace})},
+        domain.type()
+    );
+    result.push_back(ir::VarDecl::make(domain, makeDomain));
+  }
+  return result;
+}
+
+  bool LowererImpl::statementAccessesTensor(ir::Stmt stmt, ir::Expr target) {
   taco_iassert(target.as<Var>() != nullptr);
   // AccessFinder finds is the task being lowered accesses the target tensor.
   struct AccessFinder : public IRVisitor {
