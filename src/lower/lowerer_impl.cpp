@@ -1919,74 +1919,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       );
       transfers.push_back(l);
 
-      for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
-        auto& t = forall.getTransfers()[idx];
-        auto& tv = t.getAccess().getTensorVar();
-        // Skip fully replicated tensors.
-        if (util::contains(fullyReplicatedTensors, tv)) {
-          continue;
-        }
-
-        auto coloring = colorings[idx];
-        auto part = ir::Var::make(tv.getName() + "Partition", Auto);
-        auto partKind = disjointPart;
-        // Figure out how many axes of the tensor are not being partitioned in order
-        // to figure out how many axes of the tensor are being partitioned. If
-        // the tensor is being partitioned in as many ways as the target loop is
-        // distributed, then the partition is disjoint. If there are unpartitioned
-        // axes and more distribution variables, then the tensor is likely aliased.
-        size_t aliasingVarsCount = 0;
-        for (auto ivar : t.getAccess().getIndexVars()) {
-          if (!this->anyParentInSet(ivar, this->varsInScope[this->curDistVar])) {
-            aliasingVarsCount++;
-          }
-        }
-        assert(aliasingVarsCount <= t.getAccess().getIndexVars().size());
-        size_t partitionedVars = t.getAccess().getIndexVars().size() - aliasingVarsCount;
-        if (partitionedVars < distIvars.size()) {
-          partKind = aliasedPart;
-        }
-
-        // If none of the variables in the access are changing in this loop, then we're
-        // most likely operating on an aliased partition as well.
-        std::set<IndexVar> curLoopVars;
-        curLoopVars.insert(forall.getIndexVar());
-        auto mfp = this->provGraph.getMultiFusedParents(forall.getIndexVar());
-        curLoopVars.insert(mfp.begin(), mfp.end());
-        bool accessIter = false;
-        for (auto var : t.getAccess().getIndexVars()) {
-          if (this->anyParentInSet(var, curLoopVars)) {
-            accessIter = true;
-          }
-        }
-        if (!accessIter) {
-          partKind = aliasedPart;
-        }
-
-        // If we're doing a reduction, we're most likely not operating on a disjoint partition.
-        // So, fall back to an aliased partition.
-        if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction) {
-          partKind = aliasedPart;
-        }
-
-        // If we're lowering placement code, it's too hard to figure this out (for now).
-        if (this->isPlacementCode) {
-          partKind = computePart;
-        }
-
-        // Pure partitioning code always results in disjoint partitions.
-        if (this->isPartitionCode) {
-          partKind = disjointPart;
-        }
-
-        partitionings[tv] = part;
-        auto partcall = ir::Call::make(
-            "runtime->create_index_partition",
-            {ctx, ir::GetProperty::make(this->tensorVars[tv], TensorProperty::IndexSpace), domain, coloring, partKind},
-            Auto
-        );
-        transfers.push_back(ir::VarDecl::make(part, partcall));
-      }
+      // Create IndexPartition objects from each of the colorings created.
+      util::append(transfers, this->createIndexPartitions(forall, domain, partitionings, fullyReplicatedTensors, colorings, distIvars));
     }
 
 
@@ -4608,6 +4542,89 @@ std::vector<ir::Stmt> LowererImpl::declarePartitionBoundsVars(ir::Expr domainIte
       result.push_back(ir::VarDecl::make(idxItr.second.first, lo));
       result.push_back(ir::VarDecl::make(idxItr.second.second, hi));
     }
+  }
+  return result;
+}
+
+
+std::vector<ir::Stmt> LowererImpl::createIndexPartitions(
+    Forall forall,
+    ir::Expr domain,
+    std::map<TensorVar, ir::Expr>& partitionings,
+    std::set<TensorVar> fullyReplicatedTensors,
+    std::vector<Expr> colorings,
+    const std::vector<IndexVar>& distIvars) {
+  taco_iassert(colorings.size() == forall.getTransfers().size());
+
+  std::vector<ir::Stmt> result;
+
+  for (size_t idx = 0; idx < forall.getTransfers().size(); idx++) {
+    auto& t = forall.getTransfers()[idx];
+    auto& tv = t.getAccess().getTensorVar();
+    // Skip fully replicated tensors.
+    if (util::contains(fullyReplicatedTensors, tv)) {
+      continue;
+    }
+
+    auto coloring = colorings[idx];
+    auto part = ir::Var::make(tv.getName() + "Partition", Auto);
+    auto partKind = disjointPart;
+    // Figure out how many axes of the tensor are not being partitioned in order
+    // to figure out how many axes of the tensor are being partitioned. If
+    // the tensor is being partitioned in as many ways as the target loop is
+    // distributed, then the partition is disjoint. If there are unpartitioned
+    // axes and more distribution variables, then the tensor is likely aliased.
+    size_t aliasingVarsCount = 0;
+    for (auto ivar : t.getAccess().getIndexVars()) {
+      if (!this->anyParentInSet(ivar, this->varsInScope[this->curDistVar])) {
+        aliasingVarsCount++;
+      }
+    }
+    assert(aliasingVarsCount <= t.getAccess().getIndexVars().size());
+    size_t partitionedVars = t.getAccess().getIndexVars().size() - aliasingVarsCount;
+    if (partitionedVars < distIvars.size()) {
+      partKind = aliasedPart;
+    }
+
+    // If none of the variables in the access are changing in this loop, then we're
+    // most likely operating on an aliased partition as well.
+    std::set<IndexVar> curLoopVars;
+    curLoopVars.insert(forall.getIndexVar());
+    auto mfp = this->provGraph.getMultiFusedParents(forall.getIndexVar());
+    curLoopVars.insert(mfp.begin(), mfp.end());
+    bool accessIter = false;
+    for (auto var : t.getAccess().getIndexVars()) {
+      if (this->anyParentInSet(var, curLoopVars)) {
+        accessIter = true;
+      }
+    }
+    if (!accessIter) {
+      partKind = aliasedPart;
+    }
+
+    // If we're doing a reduction, we're most likely not operating on a disjoint partition.
+    // So, fall back to an aliased partition.
+    if (forall.getOutputRaceStrategy() == OutputRaceStrategy::ParallelReduction) {
+      partKind = aliasedPart;
+    }
+
+    // If we're lowering placement code, it's too hard to figure this out (for now).
+    if (this->isPlacementCode) {
+      partKind = computePart;
+    }
+
+    // Pure partitioning code always results in disjoint partitions.
+    if (this->isPartitionCode) {
+      partKind = disjointPart;
+    }
+
+    partitionings[tv] = part;
+    auto partcall = ir::Call::make(
+        "runtime->create_index_partition",
+        {ctx, ir::GetProperty::make(this->tensorVars[tv], TensorProperty::IndexSpace), domain, coloring, partKind},
+        Auto
+    );
+    result.push_back(ir::VarDecl::make(part, partcall));
   }
   return result;
 }

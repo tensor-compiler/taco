@@ -443,6 +443,16 @@ protected:
   // an iterator through the partition's domain.
   std::vector<ir::Stmt> declarePartitionBoundsVars(ir::Expr domainIter, TensorVar tensor);
 
+  // createIndexPartitions creates IndexPartitions from constructed point colorings
+  // of each tensor being transferred at the current level.
+  std::vector<ir::Stmt> createIndexPartitions(
+      Forall forall,
+      ir::Expr domain,
+      std::map<TensorVar, ir::Expr>& partitionings,
+      std::set<TensorVar> fullyReplicatedTensors,
+      std::vector<ir::Expr> colorings,
+      const std::vector<IndexVar>& distIvars);
+
   // getPrivilegeForTensor returns the Legion privilege and coherence mode to access
   // the input tensor with.
   std::pair<ir::Expr, ir::Expr> getPrivilegeForTensor(Forall forall, const TensorVar& tv);
