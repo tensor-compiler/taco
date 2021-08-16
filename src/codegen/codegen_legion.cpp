@@ -37,15 +37,19 @@ std::string CodegenLegion::printFuncName(const Function *func,
                                           std::map<Expr, std::string, ExprCompare> outputMap) {
   std::stringstream ret;
 
-  // Tasks need to have a void function type.
-  if (func->name.find("place") != std::string::npos || func->name.find("partition") != std::string::npos) {
-    ret << "LogicalPartition " << func->name << "(";
+  bool isTask = func->name.find("task") != std::string::npos;
+
+  // TODO (rohany): This is a hack.
+  // When the parent function has a type, we give that type to all children functions
+  // to handle reductions into scalars, as those tasks return values to accumulate
+  // as the result of the scalar. However, since we also support upfront partitioning,
+  // the PARTITION_ONLY functions also have a non-void return type, which confuses the
+  // logic here. To be safe, we only let the tasks have a explicit return type if the
+  // return type is a primitive type.
+  if (func->returnType.getKind() == Datatype::Undefined || (isTask && func->returnType.getKind() == Datatype::CppType)) {
+    ret << "void " << func->name << "(";
   } else {
-    if (func->returnType.getKind() == Datatype::Undefined) {
-      ret << "void " << func->name << "(";
-    } else {
-      ret << func->returnType << " " << func->name << "(";
-    }
+    ret << func->returnType << " " << func->name << "(";
   }
 
   std::string delimiter;
@@ -58,7 +62,7 @@ std::string CodegenLegion::printFuncName(const Function *func,
 //    delimiter = ", ";
 //  }
 
-  if (func->name.find("task") == std::string::npos) {
+  if (!isTask) {
     // Add the context and runtime arguments.
     ret << "Context ctx, Runtime* runtime, ";
   }
@@ -487,7 +491,14 @@ void CodegenLegion::emitRegisterTasks(std::ostream &out) {
       }
 
       doIndent();
-      if (func->returnType.getKind() != Datatype::Undefined) {
+      // TODO (rohany): This is a hack.
+      // When the parent function has a type, we give that type to all children functions
+      // to handle reductions into scalars, as those tasks return values to accumulate
+      // as the result of the scalar. However, since we also support upfront partitioning,
+      // the PARTITION_ONLY functions also have a non-void return type, which confuses the
+      // logic here. To be safe, we only let the tasks have a explicit return type if the
+      // return type is a primitive type.
+      if (func->returnType.getKind() != Datatype::Undefined && func->returnType.getKind() != Datatype::CppType) {
         out << "Runtime::preregister_task_variant<" << func->returnType << "," << func->name << ">(registrar, \"" <<  func->name << "\");\n";
       } else {
         out << "Runtime::preregister_task_variant<" << func->name << ">(registrar, \"" <<  func->name << "\");\n";

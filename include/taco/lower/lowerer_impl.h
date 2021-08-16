@@ -55,7 +55,9 @@ public:
 
   /// Lower an index statement to an IR function.
   ir::Stmt lower(IndexStmt stmt, std::string name, 
-                 bool assemble, bool compute, bool pack, bool unpack, bool waitOnFutureMap);
+                 bool assemble, bool compute,
+                 bool pack, bool unpack,
+                 bool partition, bool waitOnFutureMap);
 
 protected:
 
@@ -552,6 +554,18 @@ private:
   std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls;
 
   bool waitOnFutureMap;
+
+  // LegionLoweringKind controls how the lowerer should generate code
+  // for the target statement.
+  enum LegionLoweringKind {
+    PARTITION_AND_COMPUTE,
+    PARTITION_ONLY,
+    COMPUTE_ONLY,
+  };
+  LegionLoweringKind legionLoweringKind;
+  // computeOnlyPartitions holds onto a partition argument for each tensor
+  // when the LegionLoweringKind is COMPUTE_ONLY.
+  std::map<TensorVar, ir::Expr> computeOnlyPartitions;
 };
 
 }
