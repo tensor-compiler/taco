@@ -571,6 +571,23 @@ private:
   // computeOnlyPartitions holds onto a partition argument for each tensor
   // when the LegionLoweringKind is COMPUTE_ONLY.
   std::map<TensorVar, ir::Expr> computeOnlyPartitions;
+
+  // Some common Legion expressions and types.
+  static inline ir::Expr disjointPart = ir::Symbol::make("LEGION_DISJOINT_COMPLETE_KIND");
+  static inline ir::Expr aliasedPart = ir::Symbol::make("LEGION_ALIASED_COMPLETE_KIND");
+  static inline ir::Expr computePart = ir::Symbol::make("LEGION_COMPUTE_KIND");
+  static inline ir::Expr readOnly = ir::Symbol::make("READ_ONLY");
+  static inline ir::Expr readWrite = ir::Symbol::make("READ_WRITE");
+  static inline ir::Expr exclusive = ir::Symbol::make("EXCLUSIVE");
+  static inline ir::Expr simultaneous = ir::Symbol::make("LEGION_SIMULTANEOUS");
+  static inline ir::Expr fidVal = ir::Symbol::make("FID_VAL");
+  static inline ir::Expr ctx = ir::Symbol::make("ctx");
+  static inline ir::Expr runtime = ir::Symbol::make("runtime");
+  static inline ir::Expr virtualMap = ir::Symbol::make("Mapping::DefaultMapper::VIRTUAL_MAP");
+  static inline ir::Expr placementMap = ir::Symbol::make("TACOMapper::PLACEMENT");
+  static inline ir::Expr placementShard = ir::Symbol::make("TACOMapper::PLACEMENT_SHARD");
+  static inline ir::Expr untrackValidRegions = ir::Symbol::make("TACOMapper::UNTRACK_VALID_REGIONS");
+  static inline ir::Expr sameAddressSpace = ir::Symbol::make("Mapping::DefaultMapper::SAME_ADDRESS_SPACE");
 };
 
 }

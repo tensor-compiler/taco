@@ -17,12 +17,6 @@
 
 using namespace taco;
 
-const int NNZ_PER_THREAD=8;
-const int WARP_SIZE = 32;
-const int BLOCK_SIZE=256;
-const int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
-const int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
-
 TEST(distributed, test) {
   int dim = 10;
   Tensor<int> a("a", {dim}, Format{Dense});

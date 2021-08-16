@@ -1779,10 +1779,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     std::vector<IndexVar> distIvars = {forall.getIndexVar()};
     auto dim = 1;
 
-    // TODO (rohany): Comment.
+    // If this loop is a multi-dimensional distributed loop collapsed into
+    // a single loop, then unpack thee actual variables that are being distributed.
     {
       auto fusedVars = this->provGraph.getMultiFusedParents(forall.getIndexVar());
-      if (fusedVars.size() > 0) {
+      if (!fusedVars.empty()) {
         dim = fusedVars.size();
         distIvars = fusedVars;
       }
@@ -1793,23 +1794,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     auto pointT = Point(dim);
     auto rectT = Rect(dim);
     auto indexSpaceT = IndexSpaceT(dim);
-    auto disjointPart = ir::Symbol::make("LEGION_DISJOINT_COMPLETE_KIND");
-    auto aliasedPart = ir::Symbol::make("LEGION_ALIASED_COMPLETE_KIND");
-    auto computePart = ir::Symbol::make("LEGION_COMPUTE_KIND");
-    auto readOnly = ir::Symbol::make("READ_ONLY");
-    auto readWrite = ir::Symbol::make("READ_WRITE");
     // TODO (rohany): Assuming that all tensors have the same type right now.
     auto reduce = ir::Symbol::make(LegionRedopString(this->tensorVars.begin()->first.getType().getDataType()));
-    auto exclusive = ir::Symbol::make("EXCLUSIVE");
-    auto simultaneous = ir::Symbol::make("LEGION_SIMULTANEOUS");
-    auto fidVal = ir::Symbol::make("FID_VAL");
-    auto ctx = ir::Symbol::make("ctx");
-    auto runtime = ir::Symbol::make("runtime");
-    auto virtualMap = ir::Symbol::make("Mapping::DefaultMapper::VIRTUAL_MAP");
-    auto placementMap = ir::Symbol::make("TACOMapper::PLACEMENT");
-    auto placementShard = ir::Symbol::make("TACOMapper::PLACEMENT_SHARD");
-    auto untrackValidRegions = ir::Symbol::make("TACOMapper::UNTRACK_VALID_REGIONS");
-    auto sameAddressSpace = ir::Symbol::make("Mapping::DefaultMapper::SAME_ADDRESS_SPACE");
     auto domainIter = ir::Var::make("itr", pointInDimT);
 
     // We need to emit accessing the partition for any child task that uses the partition.
@@ -1837,7 +1823,6 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     if (!forall.getComputingOn().empty()) {
       // If we're computing on a tensor, then use the domain of the partition as the
       // launch domain for the task launch.
-      // TODO (rohany): Might need a wrapper method call on computingOnVar.
       auto getDomain = ir::Call::make("runtime->get_index_partition_color_space", {ctx, ir::Call::make("get_index_partition", {this->computingOnPartition[*forall.getComputingOn().begin()]}, Auto)}, Auto);
       transfers.push_back(ir::VarDecl::make(domain, getDomain));
     } else {
