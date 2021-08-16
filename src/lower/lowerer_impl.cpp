@@ -1789,11 +1789,13 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
       }
     }
 
+    // Declare some commonly used datatypes.
     auto dimT = Domain(dim);
     auto pointInDimT = PointInDomainIterator(dim);
     auto pointT = Point(dim);
     auto rectT = Rect(dim);
     auto indexSpaceT = IndexSpaceT(dim);
+
     // TODO (rohany): Assuming that all tensors have the same type right now.
     auto reduce = ir::Symbol::make(LegionRedopString(this->tensorVars.begin()->first.getType().getDataType()));
     auto domainIter = ir::Var::make("itr", pointInDimT);
@@ -1891,23 +1893,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
       // If operating on a partition, we need to get the bounds of the partition at each index point.
       if (!forall.getComputingOn().empty()) {
-        auto point = ir::Var::make("domPoint", Datatype("DomainPoint"));
-        partStmts.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, Auto)));
-        auto part = *forall.getComputingOn().begin();
-        auto partVar = ir::Var::make(part.getName() + "PartitionBounds", Auto);
-        auto subreg = ir::Call::make("runtime->get_logical_subregion_by_color", {ctx, this->computingOnPartition[part], point}, Auto);
-        auto subregispace = ir::MethodCall::make(subreg, "get_index_space", {}, false, Auto);
-        auto bounds = ir::Call::make("runtime->get_index_space_domain", {subregispace}, Auto);
-        partStmts.push_back(ir::VarDecl::make(partVar, bounds));
-        // Declare all of the bounds variables here.
-        for (auto tvItr : this->provGraph.getPartitionBounds()) {
-          for (auto idxItr : tvItr.second) {
-            auto lo = ir::Load::make(ir::MethodCall::make(partVar, "lo", {}, false, Int64), idxItr.first);
-            auto hi = ir::Load::make(ir::MethodCall::make(partVar, "hi", {}, false, Int64), idxItr.first);
-            partStmts.push_back(ir::VarDecl::make(idxItr.second.first, lo));
-            partStmts.push_back(ir::VarDecl::make(idxItr.second.second, hi));
-          }
-        }
+        util::append(partStmts, this->declarePartitionBoundsVars(domainIter, *forall.getComputingOn().begin()));
       }
 
       std::set<TensorVar> fullyReplicatedTensors;
@@ -4893,7 +4879,6 @@ bool LowererImpl::anyParentInSet(IndexVar var, std::set<IndexVar>& s) {
   return false;
 }
 
-
 bool LowererImpl::statementAccessesTensor(ir::Stmt stmt, ir::Expr target) {
   taco_iassert(target.as<Var>() != nullptr);
   // AccessFinder finds is the task being lowered accesses the target tensor.
@@ -4923,6 +4908,28 @@ bool LowererImpl::statementAccessesTensor(ir::Stmt stmt, ir::Expr target) {
   finder.targetVar = target;
   stmt.accept(&finder);
   return finder.readsVar;
+}
+
+std::vector<ir::Stmt> LowererImpl::declarePartitionBoundsVars(ir::Expr domainIter, TensorVar tensor) {
+  std::vector<ir::Stmt> result;
+  auto point = ir::Var::make("domPoint", Datatype("DomainPoint"));
+  result.push_back(ir::VarDecl::make(point, ir::Deref::make(domainIter, Auto)));
+  auto part = tensor;
+  auto partVar = ir::Var::make(part.getName() + "PartitionBounds", Auto);
+  auto subreg = ir::Call::make("runtime->get_logical_subregion_by_color", {ctx, this->computingOnPartition[part], point}, Auto);
+  auto subregispace = ir::MethodCall::make(subreg, "get_index_space", {}, false, Auto);
+  auto bounds = ir::Call::make("runtime->get_index_space_domain", {subregispace}, Auto);
+  result.push_back(ir::VarDecl::make(partVar, bounds));
+  // Declare all of the bounds variables here.
+  for (auto tvItr : this->provGraph.getPartitionBounds()) {
+    for (auto idxItr : tvItr.second) {
+      auto lo = ir::Load::make(ir::MethodCall::make(partVar, "lo", {}, false, Int64), idxItr.first);
+      auto hi = ir::Load::make(ir::MethodCall::make(partVar, "hi", {}, false, Int64), idxItr.first);
+      result.push_back(ir::VarDecl::make(idxItr.second.first, lo));
+      result.push_back(ir::VarDecl::make(idxItr.second.second, hi));
+    }
+  }
+  return result;
 }
 
 }

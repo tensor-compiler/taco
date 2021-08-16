@@ -436,6 +436,10 @@ protected:
   // statementAccessesTensor returns true if an ir statement reads or writes a tensor.
   bool statementAccessesTensor(ir::Stmt stmt, ir::Expr target);
 
+  // declarePartitionBoundsVars declares partition bounds for a particular value of
+  // an iterator through the partition's domain.
+  std::vector<ir::Stmt> declarePartitionBoundsVars(ir::Expr domainIter, TensorVar tensor);
+
 private:
   bool assemble;
   bool compute;
