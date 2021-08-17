@@ -1767,6 +1767,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   std::vector<ir::Expr> bounds = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
 
   Stmt declarePartitionBounds;
+  // serializeOnPriorHeader is a header for a task that serializes
+  // on the first future provided to the task. It is set only if
+  // this behavior is needed.
+  Stmt serializeOnPriorHeader;
   auto isTask = forall.isDistributed() || (forall.getTransfers().size() > 0);
   auto taskID = -1;
   std::vector<ir::Stmt> transfers, partitionStmts, partitionForComputeStmts;
@@ -1916,13 +1920,31 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     } else {
       // Lower a serial loop of task launches.
       util::append(transfers, this->lowerSerialTaskLoop(forall, domain, domainIter, pointT, partitionings, tensorsAccessedByTask, taskID));
+      // If we're performing a reduction into a region and are launching a
+      // serial loop of tasks, then we need to serialize the tasks. Otherwise,
+      // Legion thinks that all of the reductions can run in parallel, when
+      // in reality, that will likely lead to too much memory being used.
+      if (this->performingLegionReduction) {
+        // Generates code that looks like:
+        // if (task->futures.size() > 0) {
+        //   task->futures[0].wait();
+        // }
+        auto futures = ir::FieldAccess::make(task, "futures", true /* deref */, Auto);
+        auto firstFuture = ir::Load::make(futures, 0);
+        auto wait = ir::SideEffect::make(ir::MethodCall::make(firstFuture, "wait", {}, false /* deref */, Auto));
+        auto size = ir::MethodCall::make(futures, "size", {}, false /* deref */, Int64);
+        serializeOnPriorHeader = ir::IfThenElse::make(
+          ir::Gt::make(size, 0),
+          wait
+        );
+      }
     }
   }
 
   // If this forall is supposed to be replaced with a call to a leaf kernel,
   // do so and don't emit the surrounding loop and recovery statements.
   if (util::contains(this->calls, forall.getIndexVar())) {
-    return Block::make({declarePartitionBounds, this->calls[forall.getIndexVar()]->replaceValidStmt(
+    return Block::make({serializeOnPriorHeader, declarePartitionBounds, this->calls[forall.getIndexVar()]->replaceValidStmt(
         forall,
         this->provGraph,
         this->tensorVars,
@@ -1940,7 +1962,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     returnReduction = ir::Return::make(this->scalarReductionResult);
   }
 
-  body = Block::make({recoveryStmt, declarePartitionBounds, body, returnReduction});
+  body = Block::make({serializeOnPriorHeader, recoveryStmt, declarePartitionBounds, body, returnReduction});
 
   Stmt posAppend = generateAppendPositions(appenders);
 
