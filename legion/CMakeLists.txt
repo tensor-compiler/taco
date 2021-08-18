@@ -15,6 +15,9 @@ if (Legion_USE_CUDA)
   link_directories(${TACO_CUDA_LIBS})
 endif()
 
+# Collect sources that can be also used by tools outside of TACO codes.
+set(LG_EXTRA_SOURCES src/hdf5_utils.cpp src/strings.cpp)
+
 # Optimize these codes.
 SET(CMAKE_CXX_FLAGS "-O3 ${CMAKE_CXX_FLAGS}")
 
@@ -138,5 +141,5 @@ add_executable(spmv SpMV/handwritten.cpp ${LG_SOURCES})
 target_link_libraries(spmv Legion::Legion)
 
 # Utility to preload tns files into hdf5 files for easier ingestion.
-add_executable(tnstohdf5 fileio/tnstohdf5.cpp)
+add_executable(tnstohdf5 fileio/tnstohdf5.cpp ${LG_EXTRA_SOURCES})
 target_link_libraries(tnstohdf5 Legion::Legion)
