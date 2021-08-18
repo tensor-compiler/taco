@@ -641,6 +641,7 @@ private:
   static inline ir::Expr placementShard = ir::Symbol::make("TACOMapper::PLACEMENT_SHARD");
   static inline ir::Expr untrackValidRegions = ir::Symbol::make("TACOMapper::UNTRACK_VALID_REGIONS");
   static inline ir::Expr sameAddressSpace = ir::Symbol::make("Mapping::DefaultMapper::SAME_ADDRESS_SPACE");
+  static inline ir::Expr backpressureTask = ir::Symbol::make("TACOMapper::BACKPRESSURE_TASK");
 };
 
 }

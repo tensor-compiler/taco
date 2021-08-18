@@ -1920,24 +1920,6 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     } else {
       // Lower a serial loop of task launches.
       util::append(transfers, this->lowerSerialTaskLoop(forall, domain, domainIter, pointT, partitionings, tensorsAccessedByTask, taskID));
-      // If we're performing a reduction into a region and are launching a
-      // serial loop of tasks, then we need to serialize the tasks. Otherwise,
-      // Legion thinks that all of the reductions can run in parallel, when
-      // in reality, that will likely lead to too much memory being used.
-      if (this->performingLegionReduction) {
-        // Generates code that looks like:
-        // if (task->futures.size() > 0) {
-        //   task->futures[0].wait();
-        // }
-        auto futures = ir::FieldAccess::make(task, "futures", true /* deref */, Auto);
-        auto firstFuture = ir::Load::make(futures, 0);
-        auto wait = ir::SideEffect::make(ir::MethodCall::make(firstFuture, "wait", {}, false /* deref */, Auto));
-        auto size = ir::MethodCall::make(futures, "size", {}, false /* deref */, Int64);
-        serializeOnPriorHeader = ir::IfThenElse::make(
-          ir::Gt::make(size, 0),
-          wait
-        );
-      }
     }
   }
 
@@ -4916,14 +4898,6 @@ std::vector<ir::Stmt> LowererImpl::lowerSerialTaskLoop(
   std::vector<ir::Stmt> result;
   // Extract the index variable for this loop.
   auto point = this->indexVarToExprMap[forall.getIndexVar()];
-  // If this operation is over reductions, we need to serialize the reductions
-  // so they don't all run at the same time. Serialization for task launch loops
-  // with read-write privileges is done by Legion.
-  Datatype futureTy("Future");
-  auto future = ir::Var::make("future", futureTy);
-  if (this->performingLegionReduction) {
-    result.push_back(ir::VarDecl::make(future, ir::makeConstructor(futureTy, {})));
-  }
 
   // Create a loop that launches instances of the task.
   std::vector<Stmt> taskCallStmts;
@@ -5010,30 +4984,26 @@ std::vector<ir::Stmt> LowererImpl::lowerSerialTaskLoop(
     taskCallStmts.push_back(ir::SideEffect::make(mcall));
   }
 
+  // Extract the task's tag.
+  auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
+
   // If this task reads the regions explicitly, then give a chance to the
   // mapper to potentially garbage collect these instances.
   if (taskReadsAnyVars && !this->isPlacementCode) {
-    auto tag = ir::FieldAccess::make(launcher, "tag", false, Auto);
     taskCallStmts.push_back(ir::Assign::make(tag, ir::BitOr::make(tag, untrackValidRegions)));
   }
 
-  // If the future is valid and we need to serialize our operations, add a dependency on the future
-  // to serialize this task behind tasks in prior iterations.
+  // If this operation is over reductions, we need to serialize the reductions
+  // so they don't all run at the same time. Serialization for task launch loops
+  // with read-write privileges is done by Legion. We do this by attaching a
+  // tag to the task so the mapper knows to backpressure the executions.
   if (this->performingLegionReduction) {
-    taskCallStmts.push_back(ir::IfThenElse::make(
-        ir::MethodCall::make(future, "valid", {}, false, Bool),
-        ir::SideEffect::make(ir::MethodCall::make(launcher, "add_future", {future}, false, Auto))
-    ));
+    taskCallStmts.push_back(ir::Assign::make(tag, ir::BitOr::make(tag, backpressureTask)));
   }
 
   // The actual task call.
   auto tcall = ir::Call::make("runtime->execute_task", {ctx, launcher}, Auto);
-  // If we need to keep track of the futures, assign the result of the task call to the future.
-  if (this->performingLegionReduction) {
-    taskCallStmts.push_back(ir::Assign::make(future, tcall));
-  } else {
-    taskCallStmts.push_back(ir::SideEffect::make(tcall));
-  }
+  taskCallStmts.push_back(ir::SideEffect::make(tcall));
 
   // Finally, wrap everything within a for loop that launches the tasks.
   auto tcallLoop = ir::For::make(

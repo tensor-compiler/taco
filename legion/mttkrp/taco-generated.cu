@@ -204,9 +204,9 @@ void placeLegionA(Context ctx, Runtime* runtime, LogicalRegion A, LogicalPartiti
   dims.push_back(gridX);
   dims.push_back(gridY);
   dims.push_back(gridZ);
-  registerPlacementShardingFunctor(ctx, runtime, shardingID(7), dims);
+  registerPlacementShardingFunctor(ctx, runtime, shardingID(1), dims);
   task_1Args taskArgsRaw;
-  taskArgsRaw.sfID = shardingID(7);
+  taskArgsRaw.sfID = shardingID(1);
   taskArgsRaw.gridX = gridX;
   taskArgsRaw.gridY = gridY;
   taskArgsRaw.gridZ = gridZ;
@@ -338,9 +338,9 @@ void placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, LogicalPartiti
   dims.push_back(gridX);
   dims.push_back(gridY);
   dims.push_back(gridZ);
-  registerPlacementShardingFunctor(ctx, runtime, shardingID(9), dims);
+  registerPlacementShardingFunctor(ctx, runtime, shardingID(3), dims);
   task_3Args taskArgsRaw;
-  taskArgsRaw.sfID = shardingID(9);
+  taskArgsRaw.sfID = shardingID(3);
   taskArgsRaw.gridX = gridX;
   taskArgsRaw.gridY = gridY;
   taskArgsRaw.gridZ = gridZ;
@@ -407,9 +407,9 @@ void placeLegionD(Context ctx, Runtime* runtime, LogicalRegion D, LogicalPartiti
   dims.push_back(gridX);
   dims.push_back(gridY);
   dims.push_back(gridZ);
-  registerPlacementShardingFunctor(ctx, runtime, shardingID(11), dims);
+  registerPlacementShardingFunctor(ctx, runtime, shardingID(5), dims);
   task_4Args taskArgsRaw;
-  taskArgsRaw.sfID = shardingID(11);
+  taskArgsRaw.sfID = shardingID(5);
   taskArgsRaw.gridX = gridX;
   taskArgsRaw.gridY = gridY;
   taskArgsRaw.gridZ = gridZ;
@@ -589,7 +589,6 @@ void task_6(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   auto APartition = runtime->create_index_partition(ctx, A_index_space, domain, AColoring, LEGION_DISJOINT_COMPLETE_KIND);
   auto CPartition = runtime->create_index_partition(ctx, C_index_space, domain, CColoring, LEGION_DISJOINT_COMPLETE_KIND);
   auto DPartition = runtime->create_index_partition(ctx, D_index_space, domain, DColoring, LEGION_DISJOINT_COMPLETE_KIND);
-  Future future = Future();
   for (PointInDomainIterator<1> itr = PointInDomainIterator<1>(domain); itr.valid(); itr++) {
     int32_t lo = (*itr);
     auto AsubReg = runtime->get_logical_subregion_by_color(ctx, runtime->get_logical_partition(ctx, get_logical_region(A), APartition), lo);
@@ -613,10 +612,8 @@ void task_6(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
     launcher.add_region_requirement(CReq);
     launcher.add_region_requirement(DReq);
     launcher.tag = launcher.tag | TACOMapper::UNTRACK_VALID_REGIONS;
-    if (future.valid())
-      launcher.add_future(future);
-
-    future = runtime->execute_task(ctx, launcher);
+    launcher.tag = launcher.tag | TACOMapper::BACKPRESSURE_TASK;
+    runtime->execute_task(ctx, launcher);
   }
 
 }
