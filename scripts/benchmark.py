@@ -459,7 +459,9 @@ class LgGPUMTTKRPBench(LgMTTKRPBench):
         assert(procs in self.sizes)
         x, y, z = self.sizes[procs]
         return lassenHeader(procs) + [
-            'bin/mttkrp-cuda', '-n', psize, '-gx', str(2 * x), '-gy', str(2 * y), '-gz', str(z), '-lg:eager_alloc_percentage', '50',
+            'bin/mttkrp-cuda', '-n', psize, '-gx', str(4 * x), '-gy', str(y), '-gz', str(z), '-lg:eager_alloc_percentage', '50', '-gex:bindcuda', '0',
+            # We need to let the mapper backpressure calls to the leaf kernel. However, there's enough memory to run 2 at a time.
+            '-tm:enable_backpressure', '-tm:backpressure_max_in_flight', '2',
         ] + lgGPUArgs(self.gpus)
 
 class LgTTVBench(TTVBench):

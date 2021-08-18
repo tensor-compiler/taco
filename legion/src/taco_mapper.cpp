@@ -7,12 +7,32 @@ using namespace Legion::Mapping;
 const char* TACOMapperName = "TACOMapper";
 
 void register_taco_mapper(Machine machine, Runtime *runtime, const std::set<Processor> &local_procs) {
-  for (auto it : local_procs) {
+  // If we're supposed to backpressure task executions, then we need to only
+  // have a single mapper per node. Otherwise, we can use a mapper per processor.
+  bool backpressure = false;
+  auto args = Legion::Runtime::get_input_args();
+  for (int i = 1; i < args.argc; i++) {
+    if (strcmp(args.argv[i], "-tm:enable_backpressure") == 0) {
+      backpressure = true;
+      break;
+    }
+  }
+
+  if (backpressure) {
+    auto proc = *local_procs.begin();
 #ifdef TACO_USE_LOGGING_MAPPER
-    runtime->replace_default_mapper(new Mapping::LoggingWrapper(new TACOMapper(runtime->get_mapper_runtime(), machine, it, TACOMapperName)), it);
+    runtime->replace_default_mapper(new Mapping::LoggingWrapper(new TACOMapper(runtime->get_mapper_runtime(), machine, proc, TACOMapperName)), Processor::NO_PROC);
 #else
-    runtime->replace_default_mapper(new TACOMapper(runtime->get_mapper_runtime(), machine, it, TACOMapperName), it);
+    runtime->replace_default_mapper(new TACOMapper(runtime->get_mapper_runtime(), machine, proc, TACOMapperName), Processor::NO_PROC);
 #endif
+  } else {
+    for (auto it : local_procs) {
+#ifdef TACO_USE_LOGGING_MAPPER
+      runtime->replace_default_mapper(new Mapping::LoggingWrapper(new TACOMapper(runtime->get_mapper_runtime(), machine, it, TACOMapperName)), it);
+#else
+      runtime->replace_default_mapper(new TACOMapper(runtime->get_mapper_runtime(), machine, it, TACOMapperName), it);
+#endif
+    }
   }
 }
 
@@ -23,14 +43,21 @@ TACOMapper::TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine &mach
     char **argv = Legion::HighLevelRuntime::get_input_args().argv;
     for (int i = 1; i < argc; i++) {
 #define BOOL_ARG(argname, varname) do {       \
-          if (!strcmp(argv[i], (argname))) {    \
+          if (!strcmp(argv[i], (argname))) {  \
             varname = true;                   \
             continue;                         \
+          } } while(0);
+#define INT_ARG(argname, varname) do {      \
+          if (!strcmp(argv[i], (argname))) {  \
+            varname = atoi(argv[++i]);      \
+            continue;                       \
           } } while(0);
       BOOL_ARG("-tm:fill_cpu", this->preferCPUFill);
       BOOL_ARG("-tm:validate_cpu", this->preferCPUValidate);
       BOOL_ARG("-tm:untrack_valid_regions", this->untrackValidRegions);
       BOOL_ARG("-tm:numa_aware_alloc", this->numaAwareAllocs);
+      BOOL_ARG("-tm:enable_backpressure", this->enableBackpressure);
+      INT_ARG("-tm:backpressure_max_in_flight", this->maxInFlightTasks);
 #undef BOOL_ARG
     }
   }
@@ -81,6 +108,10 @@ void TACOMapper::map_task(const Legion::Mapping::MapperContext ctx,
         output.untracked_valid_regions.insert(i);
       }
     }
+  }
+  // Mark that we want profiling from this task if we're supposed to backpressure it.
+  if ((task.tag & BACKPRESSURE_TASK) != 0 && this->enableBackpressure) {
+    output.task_prof_requests.add_measurement<ProfilingMeasurements::OperationStatus>();
   }
 }
 
@@ -253,4 +284,120 @@ void TACOMapper::slice_task(const Legion::Mapping::MapperContext ctx,
         assert(false);
     }
   }
+}
+
+void TACOMapper::report_profiling(const MapperContext ctx,
+                                  const Task& task,
+                                  const TaskProfilingInfo& input) {
+  // We should only get profiling responses if we've enabled backpressuring.
+  assert(this->enableBackpressure);
+  // We should only get profiling responses for tasks that are supposed to be backpressured.
+  assert((task.tag & BACKPRESSURE_TASK) != 0);
+  auto prof = input.profiling_responses.get_measurement<ProfilingMeasurements::OperationStatus>();
+  // All our tasks should complete successfully.
+  assert(prof->result == Realm::ProfilingMeasurements::OperationStatus::COMPLETED_SUCCESSFULLY);
+  // Clean up after ourselves.
+  delete prof;
+  // Backpressured tasks are launched in a loop, and are kept on the originating processor.
+  // So, we'll use orig_proc to index into the queue.
+  auto& inflight = this->backPressureQueue[task.orig_proc];
+  MapperEvent event;
+  // Find this task in the queue.
+  for (auto it = inflight.begin(); it != inflight.end(); it++) {
+    if (it->id == task.get_unique_id()) {
+      event = it->event;
+      inflight.erase(it);
+      break;
+    }
+  }
+  // Assert that we found a valid event.
+  assert(event.exists());
+  // Finally, trigger the event for anyone waiting on it.
+  this->runtime->trigger_mapper_event(ctx, event);
+}
+
+// In select_tasks_to_map, we attempt to perform backpressuring on tasks that
+// need to be backpressured.
+void TACOMapper::select_tasks_to_map(const MapperContext ctx,
+                                     const SelectMappingInput& input,
+                                           SelectMappingOutput& output) {
+  if (!this->enableBackpressure) {
+    DefaultMapper::select_tasks_to_map(ctx, input, output);
+  } else {
+    // Mark when we are potentially scheduling tasks.
+    auto schedTime = std::chrono::high_resolution_clock::now();
+    // Create an event that we will return in case we schedule nothing.
+    MapperEvent returnEvent;
+    // Also maintain a time point of the best return event. We want this function
+    // to get invoked as soon as any backpressure task finishes, so we'll use the
+    // completion event for the earliest one.
+    auto returnTime = std::chrono::high_resolution_clock::time_point::max();
+
+    // Find the depth of the deepest task.
+    int max_depth = 0;
+    for (std::list<const Task*>::const_iterator it =
+        input.ready_tasks.begin(); it != input.ready_tasks.end(); it++)
+    {
+      int depth = (*it)->get_depth();
+      if (depth > max_depth)
+        max_depth = depth;
+    }
+    unsigned count = 0;
+    // Only schedule tasks from the max depth in any pass.
+    for (std::list<const Task*>::const_iterator it =
+        input.ready_tasks.begin(); (count < max_schedule_count) &&
+                                   (it != input.ready_tasks.end()); it++)
+    {
+      auto task = *it;
+      bool schedule = true;
+      if ((task->tag & BACKPRESSURE_TASK) != 0) {
+        // See how many tasks we have in flight. Again, we use the orig_proc here
+        // rather than target_proc to match with our heuristics for where serial task
+        // launch loops go.
+        auto inflight = this->backPressureQueue[task->orig_proc];
+        if (inflight.size() == this->maxInFlightTasks) {
+          // We've hit the cap, so we can't schedule any more tasks.
+          schedule = false;
+          // As a heuristic, we'll wait on the first mapper event to
+          // finish, as it's likely that one will finish first. We'll also
+          // try to get a task that will complete before the current best.
+          auto front = inflight.front();
+          if (front.schedTime < returnTime) {
+            returnEvent = front.event;
+            returnTime = front.schedTime;
+          }
+        } else {
+          // Otherwise, we can schedule the task. Create a new event
+          // and queue it up on the processor.
+          this->backPressureQueue[task->orig_proc].push_back({
+            .id = task->get_unique_id(),
+            .event = this->runtime->create_mapper_event(ctx),
+            .schedTime = schedTime,
+          });
+        }
+      }
+      // Schedule tasks that are valid and have the target depth.
+      if (schedule && (*it)->get_depth() == max_depth)
+      {
+        output.map_tasks.insert(*it);
+        count++;
+      }
+    }
+    // If we didn't schedule any tasks, tell the runtime to ask us again when
+    // our return event triggers.
+    if (output.map_tasks.empty()) {
+      assert(returnEvent.exists());
+      output.deferral_event = returnEvent;
+    }
+  }
+}
+
+Mapper::MapperSyncModel TACOMapper::get_mapper_sync_model() const {
+  // If we're going to attempt to backpressure tasks, then we need to use
+  // a sync model with high gaurantees.
+  if (this->enableBackpressure) {
+    return SERIALIZED_NON_REENTRANT_MAPPER_MODEL;
+  }
+  // Otherwise, we can do whatever the default mapper is doing.
+  return DefaultMapper::get_mapper_sync_model();
 }

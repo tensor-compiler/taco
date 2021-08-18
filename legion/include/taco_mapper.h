@@ -7,6 +7,8 @@
 #include "task_ids.h"
 #include "shard.h"
 
+#include <chrono>
+
 class TACOMapper : public Legion::Mapping::DefaultMapper {
 public:
   // Mapping tags handled specific for the TACO mapper.
@@ -18,6 +20,8 @@ public:
     PLACEMENT_SHARD = (1 << 6),
     // Marks that the task should have its read-only regions be eligible for collection.
     UNTRACK_VALID_REGIONS = (1 << 7),
+    // Marks that invocations of this task should be backpressured by the mapper.
+    BACKPRESSURE_TASK = (1 << 8),
   };
 
   TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine &machine, const Legion::Processor &local, const char* name);
@@ -57,6 +61,16 @@ public:
                                                      Legion::Processor target_proc,
                                                      const Legion::RegionRequirement &req,
                                                      Legion::MemoryConstraint mc = Legion::MemoryConstraint()) override;
+
+  void report_profiling(const Legion::Mapping::MapperContext ctx,
+                        const Legion::Task& task,
+                        const TaskProfilingInfo& input) override;
+
+  void select_tasks_to_map(const Legion::Mapping::MapperContext ctx,
+                           const SelectMappingInput& input,
+                                 SelectMappingOutput& output) override;
+
+  MapperSyncModel get_mapper_sync_model() const override;
 
   template<int DIM>
   void decompose_points(const Legion::DomainT<DIM, Legion::coord_t> &point_space,
@@ -119,6 +133,29 @@ private:
   bool numaAwareAllocs = false;
   // A map from OpenMP processor to the NUMA region local to that OpenMP processor.
   std::map<Legion::Processor, Legion::Memory> numaDomains;
+
+  // Denotes whether or not the mapper should attempt to backpressure executions of
+  // tagged tasks.
+  bool enableBackpressure = false;
+  // Denotes how many tasks being backpressured can execute at the same time.
+  size_t maxInFlightTasks = 1;
+
+  // InFlightTask represents a task currently being executed.
+  struct InFlightTask {
+    // Unique identifier of the task instance.
+    Legion::UniqueID id;
+    // An event that will be triggered when the task finishes.
+    Legion::Mapping::MapperEvent event;
+    // A clock measurement from when the task was scheduled.
+    std::chrono::high_resolution_clock::time_point schedTime;
+  };
+  // backPressureQueue maintains state for each processor about how many
+  // tasks that are marked to be backpressured are executing on the processor.
+  // TODO (rohany): This works in a situation where we're running one of the
+  //  benchmark applications, and only single task at a time is being backpressured/
+  //  serialized onto a processor. If there are multiple different kernels running
+  //  that all need to be backpressured then I'm not sure how that will work.
+  std::map<Legion::Processor, std::deque<InFlightTask>> backPressureQueue;
 
   // TODO (rohany): It may end up being necessary that we need to explicitly map
   //  regions for placement tasks. If so, Manolis says the following approach
