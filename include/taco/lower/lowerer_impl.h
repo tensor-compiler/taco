@@ -634,6 +634,7 @@ private:
   static inline ir::Expr simultaneous = ir::Symbol::make("LEGION_SIMULTANEOUS");
   static inline ir::Expr fidVal = ir::Symbol::make("FID_VAL");
   static inline ir::Expr ctx = ir::Symbol::make("ctx");
+  static inline ir::Expr task = ir::Symbol::make("task");
   static inline ir::Expr runtime = ir::Symbol::make("runtime");
   static inline ir::Expr virtualMap = ir::Symbol::make("Mapping::DefaultMapper::VIRTUAL_MAP");
   static inline ir::Expr placementMap = ir::Symbol::make("TACOMapper::PLACEMENT");
