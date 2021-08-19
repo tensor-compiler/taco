@@ -2,6 +2,8 @@
 #include "realm/cmdline.h"
 #include "mappers/default_mapper.h"
 
+#include "legion/legion_utilities.h"
+
 #include "hdf5_utils.h"
 
 using namespace Legion;
@@ -31,6 +33,43 @@ struct spmvArgs {
 struct spmvPosSplitArgs {
   int nnz;
 };
+
+
+struct LegionTensor {
+  int32_t order;
+  std::vector<int32_t> dims;
+
+  std::vector<std::vector<LogicalRegion>> indices;
+  std::vector<std::vector<LogicalRegion>> indicesParents;
+
+  LogicalRegion vals;
+  LogicalRegion valsParent;
+
+  // Has some sort of serialize method, deserialize to add dims and regions
+  // to a task launcher.
+
+  void serialize(Serializer& sez) {
+    sez.serialize(this->order);
+    for (auto dim : this->dims) {
+      sez.serialize(dim);
+    }
+  }
+
+  void deserialize(Deserializer& derez) {
+    derez.deserialize(this->order);
+    for (int32_t i = 0; i < this->order; i++) {
+      int32_t val;
+      derez.deserialize(val);
+      this->dims.push_back(val);
+    }
+  }
+};
+
+struct LegionTensorPartition {
+  LogicalPartition** indicesPartitions;
+  LogicalPartition valsPartition;
+};
+
 
 template<typename T>
 void allocate_fields(Legion::Context ctx, Legion::Runtime* runtime, Legion::FieldSpace valSpace, Legion::FieldID fid, std::string name) {
@@ -97,29 +136,30 @@ struct PackArgs {
 };
 
 void packACSR(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
+  typedef FieldAccessor<READ_ONLY,int32_t,1,coord_t,Realm::AffineAccessor<int32_t,1,coord_t>> RAccessorI;
+  typedef FieldAccessor<READ_ONLY,double,1,coord_t,Realm::AffineAccessor<double,1,coord_t>> RAccessorD;
+
   typedef FieldAccessor<READ_WRITE,int32_t,1,coord_t,Realm::AffineAccessor<int32_t,1,coord_t>> AccessorI;
   typedef FieldAccessor<READ_WRITE,Rect<1>,1,coord_t,Realm::AffineAccessor<Rect<1>,1,coord_t>> AccessorR;
   typedef FieldAccessor<READ_WRITE,double,1,coord_t,Realm::AffineAccessor<double,1,coord_t>> AccessorD;
 
-  // TODO (rohany): Unpack argument information about tensor dimensions.
+  LegionTensor coordList;
+  Deserializer derez(task->args, task->arglen);
+  coordList.deserialize(derez);
 
-  // TODO (rohany): Let's look into this serializer stuff.
-  // Legion::Deserializer des(task->args, task->arglen);
-
-  // TODO (rohany): We need to know this tensor dimension.
-  int32_t A1_dimension = ((PackArgs*)task->args)->A1_dimension;
+  int32_t A1_dimension = coordList.dims[0];
 
   // These are physically mapped.
-  AccessorI COO1(regions[0], FID_COORD_X);
-  AccessorI COO2(regions[0], FID_COORD_Y);
-  AccessorD COOVals(regions[0], FID_VALUE);
+  RAccessorI COO1(regions[0], FID_INDEX);
+  RAccessorI COO2(regions[1], FID_INDEX);
+  RAccessorD COOVals(regions[2], FID_VALUE);
 
   auto nnz = Rect<1>(runtime->get_index_space_domain(regions[0].get_logical_region().get_index_space())).hi + 1;
 
   // These regions are all virtually mapped. We'll have to malloc / realloc them.
-  auto lPos = regions[1].get_logical_region();
-  auto lCrd = regions[2].get_logical_region();
-  auto lVals = regions[3].get_logical_region();
+  auto lPos = regions[3].get_logical_region();
+  auto lCrd = regions[4].get_logical_region();
+  auto lVals = regions[5].get_logical_region();
 
   // Initialize A2_pos.
   auto A2_pos_phys = lgMalloc(ctx, runtime, lPos, A1_dimension, FID_RECT_1);
@@ -203,6 +243,98 @@ void packACSR(const Task* task, const std::vector<PhysicalRegion>& regions, Cont
   runtime->unmap_region(ctx, A_vals_phys);
 }
 
+class ExternalResourceCollector {
+public:
+  ExternalResourceCollector(Context ctx, Runtime* runtime) : ctx(ctx), runtime(runtime) {}
+  ~ExternalResourceCollector() {
+    // On destruct, free all of the resources.
+    for (auto reg : this->physicalRegions) {
+      runtime->detach_external_resource(ctx, reg).wait();
+    }
+  }
+  void attach(PhysicalRegion region) {
+    this->physicalRegions.push_back(region);
+  }
+private:
+  Context ctx;
+  Runtime* runtime;
+  std::vector<PhysicalRegion> physicalRegions;
+};
+
+LegionTensor loadCoordList(Context ctx, Runtime* runtime, std::string filename, ExternalResourceCollector& col) {
+  LegionTensor result;
+
+  // Get out metadata from the file.
+  size_t order, nnz;
+  getCoordListHDF5Meta(filename, order, nnz);
+  result.order = order;
+
+  // Create all of the field and index spaces.
+  auto fispace = runtime->create_field_space(ctx);
+  auto fvspace = runtime->create_field_space(ctx);
+  {
+    FieldAllocator fa = runtime->create_field_allocator(ctx, fispace);
+    fa.allocate_field(sizeof(int32_t), FID_INDEX);
+  }
+  {
+    FieldAllocator fa = runtime->create_field_allocator(ctx, fvspace);
+    fa.allocate_field(sizeof(double), FID_VALUE);
+  }
+  auto dimIspace = runtime->create_index_space(ctx, Rect<1>(0, order - 1));
+  auto coordIspace = runtime->create_index_space(ctx, Rect<1>(0, nnz - 1));
+
+  // Finally make the regions.
+  auto dims = runtime->create_logical_region(ctx, dimIspace, fispace);
+  auto dimsMem = runtime->create_logical_region(ctx, dimIspace, fispace);
+  auto coo1 = runtime->create_logical_region(ctx, coordIspace, fispace);
+  auto coo2 = runtime->create_logical_region(ctx, coordIspace, fispace);
+  auto vals = runtime->create_logical_region(ctx, coordIspace, fvspace);
+
+  // Attach all of the regions.
+  auto dimsDisk = attachHDF5(ctx, runtime, dims, {{FID_INDEX, COODimsField}}, filename);
+  col.attach(attachHDF5(ctx, runtime, coo1, {{FID_INDEX, COOCoordsFields[0]}}, filename));
+  col.attach(attachHDF5(ctx, runtime, coo2, {{FID_INDEX, COOCoordsFields[1]}}, filename));
+  col.attach(attachHDF5(ctx, runtime, vals, {{FID_VALUE, COOValsField}}, filename));
+
+  // Extract the dimensions into a CPU memory instance.
+  {
+    CopyLauncher cl;
+    cl.add_copy_requirements(
+      RegionRequirement(dims, READ_ONLY, EXCLUSIVE, dims),
+      RegionRequirement(dimsMem, WRITE_DISCARD, EXCLUSIVE, dimsMem)
+    );
+    cl.add_src_field(0, FID_INDEX); cl.add_dst_field(0, FID_INDEX);
+    runtime->issue_copy_operation(ctx, cl);
+  }
+  {
+    // Map the CPU region directly now.
+    auto preg = runtime->map_region(
+        ctx,
+        RegionRequirement(dimsMem, READ_ONLY, EXCLUSIVE, dimsMem).add_field(FID_INDEX)
+    );
+    FieldAccessor<READ_ONLY,int32_t,1,coord_t, Realm::AffineAccessor<int32_t, 1, coord_t>> acc(preg, FID_INDEX);
+    result.dims = std::vector<int32_t>(result.order);
+    for (size_t i = 0; i < order; i++) {
+      result.dims[i] = acc[i];
+    }
+    runtime->unmap_region(ctx, preg);
+  }
+
+  // Now, construct the resulting tensor.
+  result.indices = std::vector<std::vector<LogicalRegion>>(2);
+  result.indicesParents = std::vector<std::vector<LogicalRegion>>(2);
+  result.indices[0] = {coo1}; result.indicesParents[0] = {coo1};
+  result.indices[1] = {coo2}; result.indicesParents[1] = {coo2};
+
+  result.vals = vals;
+  result.valsParent = vals;
+
+  runtime->destroy_logical_region(ctx, dims);
+  runtime->destroy_logical_region(ctx, dimsMem);
+
+  return result;
+}
+
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   bool posSplit = false, dump = false;
   std::string filename;
@@ -214,34 +346,40 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   assert(parser.parse_command_line(args.argc, args.argv));
   assert(!filename.empty());
 
-  // Get information about the file we're loading in order to make the region. We know
-  // that the HDF5 encoded files have a "value" column.
-  auto info = getHDF5Info(filename, "value");
+  ExternalResourceCollector col(ctx, runtime);
+  auto coordList = loadCoordList(ctx, runtime, filename, col);
+
+  size_t order = coordList.order;
+  size_t nnz = Rect<1>(runtime->get_index_space_domain(coordList.vals.get_index_space())).hi + 1;
+  int n = coordList.dims[0];
+  int m = coordList.dims[1];
+
   // Load the input HDF5 file into a region.
-  LogicalRegion coordList;
-  {
-    auto fspace = runtime->create_field_space(ctx);
-    Legion::FieldAllocator allocator = runtime->create_field_allocator(ctx, fspace);
-    allocator.allocate_field(sizeof(int32_t), FID_COORD_X);
-    allocator.allocate_field(sizeof(int32_t), FID_COORD_Y);
-    allocator.allocate_field(sizeof(double), FID_VALUE);
-    auto ispace = runtime->create_index_space(ctx, Rect<1>(0, info.numElements - 1));
-    coordList = runtime->create_logical_region(ctx, ispace, fspace);
-  }
-  auto disk = attachHDF5(ctx, runtime, coordList, {
-    {FID_COORD_X, "coord0"},
-    {FID_COORD_Y, "coord1"},
-    {FID_VALUE, "value"},
-  }, filename);
+//  LogicalRegion coordList;
+//  {
+//    auto fspace = runtime->create_field_space(ctx);
+//    Legion::FieldAllocator allocator = runtime->create_field_allocator(ctx, fspace);
+//    allocator.allocate_field(sizeof(int32_t), FID_COORD_X);
+//    allocator.allocate_field(sizeof(int32_t), FID_COORD_Y);
+//    allocator.allocate_field(sizeof(double), FID_VALUE);
+//    auto ispace = runtime->create_index_space(ctx, Rect<1>(0, nnz - 1));
+//    coordList = runtime->create_logical_region(ctx, ispace, fspace);
+//  }
+//  auto disk = attachHDF5(ctx, runtime, coordList, {
+//    {FID_COORD_X, COOCoordsFields[0]},
+//    {FID_COORD_Y, COOCoordsFields[1]},
+//    {FID_VALUE, COOValsField},
+//  }, filename);
 
   // Let's print out what is in the matrix.
-  if (dump) {
-    RegionRequirement r(coordList, READ_ONLY, EXCLUSIVE, coordList);
-    r.add_field(FID_COORD_X).add_field(FID_COORD_Y).add_field(FID_VALUE);
-    TaskLauncher launcher(TID_PRINT_COORD_LIST, TaskArgument());
-    launcher.add_region_requirement(r);
-    runtime->execute_task(ctx, launcher).wait();
-  }
+  // TODO (rohany): Rewrite this.
+//  if (dump) {
+//    RegionRequirement r(coordList, READ_ONLY, EXCLUSIVE, coordList);
+//    r.add_field(FID_COORD_X).add_field(FID_COORD_Y).add_field(FID_VALUE);
+//    TaskLauncher launcher(TID_PRINT_COORD_LIST, TaskArgument());
+//    launcher.add_region_requirement(r);
+//    runtime->execute_task(ctx, launcher).wait();
+//  }
 
   // TODO (rohany): We need the dimensions...
 
@@ -270,39 +408,45 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     runtime->fill_field(ctx, crd, crd, FID_INDEX, int32_t(0));
     runtime->fill_field(ctx, vals, vals, FID_VALUE, double(0));
 
-    RegionRequirement r1(coordList, READ_WRITE, EXCLUSIVE, coordList);
-    r1.add_field(FID_COORD_X).add_field(FID_COORD_Y).add_field(FID_VALUE);
+    Serializer s;
+    coordList.serialize(s);
+    TaskLauncher launcher(TID_PACK_A_CSR, TaskArgument(s.get_buffer(), s.get_used_bytes()));
 
-    RegionRequirement rPos(pos, READ_WRITE, EXCLUSIVE, pos, Mapping::DefaultMapper::VIRTUAL_MAP);
-    rPos.add_field(FID_RECT_1);
+    // RegionRequirements for the COO matrix.
+    launcher.add_region_requirement(
+        RegionRequirement(coordList.indices[0][0], READ_ONLY, EXCLUSIVE, coordList.indicesParents[0][0])
+            .add_field(FID_INDEX)
+    );
+    launcher.add_region_requirement(
+        RegionRequirement(coordList.indices[1][0], READ_ONLY, EXCLUSIVE, coordList.indicesParents[1][0])
+            .add_field(FID_INDEX)
+    );
+    launcher.add_region_requirement(
+        RegionRequirement(coordList.vals, READ_ONLY, EXCLUSIVE, coordList.valsParent)
+            .add_field(FID_VALUE)
+    );
 
-    RegionRequirement rCrd(crd, READ_WRITE, EXCLUSIVE, crd, Mapping::DefaultMapper::VIRTUAL_MAP);
-    rCrd.add_field(FID_INDEX);
-
-    RegionRequirement rVal(vals, READ_WRITE, EXCLUSIVE, vals, Mapping::DefaultMapper::VIRTUAL_MAP);
-    rVal.add_field(FID_VALUE);
-
-    PackArgs pa; pa.A1_dimension = 10;
-
-    TaskLauncher launcher(TID_PACK_A_CSR, TaskArgument(&pa, sizeof(PackArgs)));
-    launcher.add_region_requirement(r1);
-    launcher.add_region_requirement(rPos);
-    launcher.add_region_requirement(rCrd);
-    launcher.add_region_requirement(rVal);
+    // Region requirements for the CSR matrix.
+    launcher.add_region_requirement(
+        RegionRequirement(pos, READ_WRITE, EXCLUSIVE, pos, Mapping::DefaultMapper::VIRTUAL_MAP)
+            .add_field(FID_RECT_1)
+    );
+    launcher.add_region_requirement(
+        RegionRequirement(crd, READ_WRITE, EXCLUSIVE, crd, Mapping::DefaultMapper::VIRTUAL_MAP)
+            .add_field(FID_INDEX)
+    );
+    launcher.add_region_requirement(
+        RegionRequirement(vals, READ_WRITE, EXCLUSIVE, vals, Mapping::DefaultMapper::VIRTUAL_MAP)
+            .add_field(FID_VALUE)
+    );
     runtime->execute_task(ctx, launcher).wait();
   }
-
-  // TODO (rohany): Always need to know each dimension, and nnz.
-
-  int n = 10;
-  int m = 10;
-  int nnz = info.numElements;
 
   // Let's print out the regions and see what happened.
   if (dump) {
     {
       auto a2posreg = lgMalloc(ctx, runtime, pos, n, FID_RECT_1);
-      FieldAccessor<READ_WRITE, Rect<1> ,1,coord_t, Realm::AffineAccessor<Rect<1>, 1, coord_t>> a2posrw(a2posreg, FID_RECT_1);
+      FieldAccessor<READ_WRITE,Rect<1>,1,coord_t, Realm::AffineAccessor<Rect<1>, 1, coord_t>> a2posrw(a2posreg, FID_RECT_1);
       for (int i = 0; i < n; i++) {
         std::cout << a2posrw[i] << " ";
       }
@@ -310,7 +454,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
       runtime->unmap_region(ctx, a2posreg);
     }
     {
-      auto a2crdreg = lgMalloc(ctx, runtime, crd, info.numElements, FID_INDEX);
+      auto a2crdreg = lgMalloc(ctx, runtime, crd, nnz, FID_INDEX);
       FieldAccessor<READ_WRITE,int32_t,1,coord_t, Realm::AffineAccessor<int32_t, 1, coord_t>> a2crdrw(a2crdreg, FID_INDEX);
       for (int i = 0; i < nnz; i++) {
         std::cout << a2crdrw[i] << " ";
@@ -319,7 +463,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
       runtime->unmap_region(ctx, a2crdreg);
     }
     {
-      auto avalsreg = lgMalloc(ctx, runtime, vals, info.numElements, FID_VALUE);
+      auto avalsreg = lgMalloc(ctx, runtime, vals, nnz, FID_VALUE);
       FieldAccessor<READ_WRITE,double,1,coord_t, Realm::AffineAccessor<double, 1, coord_t>> avalsrw(avalsreg, FID_VALUE);
       for (int i = 0; i < nnz; i++) {
         std::cout << avalsrw[i] << " ";
@@ -594,7 +738,7 @@ void spmvPosSplit(const Task* task, const std::vector<PhysicalRegion>& regions, 
   int32_t i = i_pos;
 
   for (int32_t fpos1 = 0; fpos1 < ((nnz + 3) / 4); fpos1++) {
-    int32_t fposA = fpos0 * (nnz / 4) + fpos1;
+    int32_t fposA = fpos0 * ((nnz + 3) / 4) + fpos1;
     if (fposA >= (fpos0 + 1) * ((nnz + 3) / 4))
       continue;
     if (fposA >= nnz)
