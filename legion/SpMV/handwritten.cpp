@@ -1,4 +1,8 @@
 #include "legion.h"
+#include "realm/cmdline.h"
+#include "mappers/default_mapper.h"
+
+#include "hdf5_utils.h"
 
 using namespace Legion;
 
@@ -6,6 +10,8 @@ enum FieldIDs {
   FID_VALUE,
   FID_INDEX,
   FID_RECT_1,
+  FID_COORD_X,
+  FID_COORD_Y,
 };
 
 enum TaskIDs {
@@ -13,6 +19,8 @@ enum TaskIDs {
   TID_PARTITION_A2_CRD,
   TID_SPMV,
   TID_SPMV_POS_SPLIT,
+  TID_PRINT_COORD_LIST,
+  TID_PACK_A_CSR,
 };
 
 struct spmvArgs {
@@ -37,86 +45,321 @@ Legion::PhysicalRegion getRegionToWrite(Legion::Context ctx, Legion::Runtime* ru
   return runtime->map_region(ctx, req);
 }
 
-void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
-  auto args = runtime->get_input_args();
-  bool posSplit = false;
-  for (int i = 1; i < args.argc; i++) {
-    if (strcmp(args.argv[i], "-pos") == 0) {
-      posSplit = true;
-      continue;
-    }
+void printCoordListMatrix(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
+  auto reg = regions[0];
+  // Declare some accessors.
+  FieldAccessor<READ_ONLY,int32_t,1,coord_t, Realm::AffineAccessor<int32_t, 1, coord_t>> x(reg, FID_COORD_X);
+  FieldAccessor<READ_ONLY,int32_t,1,coord_t, Realm::AffineAccessor<int32_t, 1, coord_t>> y(reg, FID_COORD_Y);
+  FieldAccessor<READ_ONLY,double,1,coord_t, Realm::AffineAccessor<double, 1, coord_t>> v(reg, FID_VALUE);
+
+  for (PointInDomainIterator<1> itr(reg); itr(); itr++) {
+    int i = *itr;
+    printf("%d %d %lf\n", x[i], y[i], v[i]);
   }
+}
+
+LogicalRegion getSubRegion(Context ctx, Runtime* runtime, LogicalRegion region, size_t numElems) {
+  // Get a partition of the region of the appropriate size.
+  auto bounds = Rect<1>(0, numElems - 1);
+  IndexSpaceT<1> colorSpace = runtime->create_index_space(ctx, Rect<1>(0, 0));
+  Transform<1,1> transform;
+  transform[0][0] = 0;
+  auto ip = runtime->create_partition_by_restriction(
+      ctx,
+      region.get_index_space(),
+      colorSpace,
+      transform,
+      bounds,
+      DISJOINT_KIND
+      // Do I need to pick a color for this partition?
+  );
+  auto lp = runtime->get_logical_partition(ctx, region, ip);
+  return runtime->get_logical_subregion_by_color(ctx, lp, 0);
+}
+
+PhysicalRegion lgMalloc(Context ctx, Runtime* runtime, LogicalRegion region, size_t numElems, FieldID fid) {
+  auto subreg = getSubRegion(ctx, runtime, region, numElems);
+  RegionRequirement req(subreg, READ_WRITE, EXCLUSIVE, region, Mapping::DefaultMapper::EXACT_REGION);
+  req.add_field(fid);
+  return runtime->map_region(ctx, req);
+}
+
+// Interestingly, with Legion, I don't have to realloc like this. Instead, I can just ask Legion
+// for the next x elements, rather than mapping twice the space! It's going to hold on to the
+// data that I've already written, and I don't need to do offset arithmetic calculations either.
+PhysicalRegion lgRealloc(Context ctx, Runtime* runtime, LogicalRegion region, PhysicalRegion pg, size_t numElems, FieldID fid) {
+  runtime->unmap_region(ctx, pg);
+  return lgMalloc(ctx, runtime, region, numElems, fid);
+}
+
+struct PackArgs {
+  size_t A1_dimension;
+};
+
+void packACSR(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
+  typedef FieldAccessor<READ_WRITE,int32_t,1,coord_t,Realm::AffineAccessor<int32_t,1,coord_t>> AccessorI;
+  typedef FieldAccessor<READ_WRITE,Rect<1>,1,coord_t,Realm::AffineAccessor<Rect<1>,1,coord_t>> AccessorR;
+  typedef FieldAccessor<READ_WRITE,double,1,coord_t,Realm::AffineAccessor<double,1,coord_t>> AccessorD;
+
+  // TODO (rohany): Unpack argument information about tensor dimensions.
+
+  // TODO (rohany): Let's look into this serializer stuff.
+  // Legion::Deserializer des(task->args, task->arglen);
+
+  // TODO (rohany): We need to know this tensor dimension.
+  int32_t A1_dimension = ((PackArgs*)task->args)->A1_dimension;
+
+  // These are physically mapped.
+  AccessorI COO1(regions[0], FID_COORD_X);
+  AccessorI COO2(regions[0], FID_COORD_Y);
+  AccessorD COOVals(regions[0], FID_VALUE);
+
+  auto nnz = Rect<1>(runtime->get_index_space_domain(regions[0].get_logical_region().get_index_space())).hi + 1;
+
+  // These regions are all virtually mapped. We'll have to malloc / realloc them.
+  auto lPos = regions[1].get_logical_region();
+  auto lCrd = regions[2].get_logical_region();
+  auto lVals = regions[3].get_logical_region();
+
+  // Initialize A2_pos.
+  auto A2_pos_phys = lgMalloc(ctx, runtime, lPos, A1_dimension, FID_RECT_1);
+  AccessorR A2_pos(A2_pos_phys, FID_RECT_1);
+  for (int i = 0; i < A1_dimension; i++) {
+    // Initialize each rect as empty.
+    A2_pos[i] = Rect<1>(0, -1);
+  }
+
+  // The default starting size. Can bump this up for later.
+  int32_t A_capacity = 100;
+  int32_t jA = 0;
+  auto A_vals_phys = lgMalloc(ctx, runtime, lVals, A_capacity, FID_VALUE);
+  AccessorD A_vals(A_vals_phys, FID_VALUE);
+
+  int32_t A2_crd_size = 100;
+  auto A2_crd_phys = lgMalloc(ctx, runtime, lCrd, A2_crd_size, FID_INDEX);
+  AccessorI A2_crd(A2_crd_phys, FID_INDEX);
+
+  int32_t iA = 0;
+  // First level loop.
+  while (iA < nnz) {
+    int32_t i = COO1[iA];
+    int32_t A1_segend = iA + 1;
+    // Walk through all coordinates equal to the current to find the bounds of
+    // the segment.
+    while (A1_segend < nnz && COO1[A1_segend] == i) {
+      A1_segend++;
+    }
+
+    int32_t pA2_begin = jA;
+
+    int32_t jA_COO = iA;
+    // Second level loop.
+    while (jA_COO < A1_segend) {
+      int32_t j = COO2[jA_COO];
+      double A_COO_val = COOVals[jA_COO];
+      jA_COO++;
+      while (jA_COO < A1_segend && COO2[jA_COO] == j) {
+        A_COO_val += COOVals[jA_COO];
+        jA_COO++;
+      }
+      if (A_capacity <= jA) {
+        A_vals_phys = lgRealloc(ctx, runtime, lVals, A_vals_phys, A_capacity * 2, FID_VALUE);
+        A_vals = AccessorD(A_vals_phys, FID_VALUE);
+        A_capacity *= 2;
+      }
+      A_vals[jA] = A_COO_val;
+      if (A2_crd_size <= jA) {
+        A2_crd_phys = lgRealloc(ctx, runtime, lCrd, A2_crd_phys, A2_crd_size * 2, FID_INDEX);
+        A2_crd = AccessorI(A2_crd_phys, FID_INDEX);
+        A2_crd_size *= 2;
+      }
+      A2_crd[jA] = j;
+      jA++;
+    }
+
+    // Minus 1 is important here.
+    // A2_pos[i].hi = jA - pA2_begin - 1;
+    A2_pos[i].hi = A2_pos[i].hi + (jA - pA2_begin);
+    iA = A1_segend;
+  }
+
+  // This is different than the standard packing operation for normal sparse levels.
+  // Here, we have to do something more than the prefix sum operation. We need to
+  // increment each position by the accumulator, and then bump the accumulator with
+  // the high value of the rectangle because the bounds are inclusive.
+  int32_t acc = 0;
+  for (int i = 0; i < A1_dimension; i++) {
+    int32_t hi = A2_pos[i].hi;
+    A2_pos[i].lo = A2_pos[i].lo + acc;
+    A2_pos[i].hi = A2_pos[i].hi + acc;
+
+    // Now increment acc by hi?
+    acc += hi + 1;
+  }
+
+  // Unmap all physical regions.
+  runtime->unmap_region(ctx, A2_crd_phys);
+  runtime->unmap_region(ctx, A2_pos_phys);
+  runtime->unmap_region(ctx, A_vals_phys);
+}
+
+void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
+  bool posSplit = false, dump = false;
+  std::string filename;
+  Realm::CommandLineParser parser;
+  parser.add_option_bool("-pos", posSplit);
+  parser.add_option_string("-file", filename);
+  parser.add_option_bool("-dump", dump);
+  auto args = Runtime::get_input_args();
+  assert(parser.parse_command_line(args.argc, args.argv));
+  assert(!filename.empty());
+
+  // Get information about the file we're loading in order to make the region. We know
+  // that the HDF5 encoded files have a "value" column.
+  auto info = getHDF5Info(filename, "value");
+  // Load the input HDF5 file into a region.
+  LogicalRegion coordList;
+  {
+    auto fspace = runtime->create_field_space(ctx);
+    Legion::FieldAllocator allocator = runtime->create_field_allocator(ctx, fspace);
+    allocator.allocate_field(sizeof(int32_t), FID_COORD_X);
+    allocator.allocate_field(sizeof(int32_t), FID_COORD_Y);
+    allocator.allocate_field(sizeof(double), FID_VALUE);
+    auto ispace = runtime->create_index_space(ctx, Rect<1>(0, info.numElements - 1));
+    coordList = runtime->create_logical_region(ctx, ispace, fspace);
+  }
+  auto disk = attachHDF5(ctx, runtime, coordList, {
+    {FID_COORD_X, "coord0"},
+    {FID_COORD_Y, "coord1"},
+    {FID_VALUE, "value"},
+  }, filename);
+
+  // Let's print out what is in the matrix.
+  if (dump) {
+    RegionRequirement r(coordList, READ_ONLY, EXCLUSIVE, coordList);
+    r.add_field(FID_COORD_X).add_field(FID_COORD_Y).add_field(FID_VALUE);
+    TaskLauncher launcher(TID_PRINT_COORD_LIST, TaskArgument());
+    launcher.add_region_requirement(r);
+    runtime->execute_task(ctx, launcher).wait();
+  }
+
+  // TODO (rohany): We need the dimensions...
+
+  // Allocate regions for the pos, crd and vals array.
+  LogicalRegion pos, crd, vals;
+  {
+    auto posspace = runtime->create_field_space(ctx);
+    auto crdspace = runtime->create_field_space(ctx);
+    auto valspace = runtime->create_field_space(ctx);
+    allocate_fields<Rect<1>>(ctx, runtime, posspace, FID_RECT_1, "pos");
+    allocate_fields<int32_t>(ctx, runtime, crdspace, FID_INDEX, "crd");
+    allocate_fields<double>(ctx, runtime, valspace, FID_VALUE, "vals");
+
+    // Let's try the reallocating logic for all of the arrays.
+    auto maxSize = 1 << 30;
+    auto ispace = runtime->create_index_space(ctx, Rect<1>(0, maxSize - 1));
+
+    pos = runtime->create_logical_region(ctx, ispace, posspace);
+    crd = runtime->create_logical_region(ctx, ispace, crdspace);
+    vals = runtime->create_logical_region(ctx, ispace, valspace);
+  }
+
+  // Launch the pack task.
+  {
+    runtime->fill_field(ctx, pos, pos, FID_RECT_1, Rect<1>(0, 0));
+    runtime->fill_field(ctx, crd, crd, FID_INDEX, int32_t(0));
+    runtime->fill_field(ctx, vals, vals, FID_VALUE, double(0));
+
+    RegionRequirement r1(coordList, READ_WRITE, EXCLUSIVE, coordList);
+    r1.add_field(FID_COORD_X).add_field(FID_COORD_Y).add_field(FID_VALUE);
+
+    RegionRequirement rPos(pos, READ_WRITE, EXCLUSIVE, pos, Mapping::DefaultMapper::VIRTUAL_MAP);
+    rPos.add_field(FID_RECT_1);
+
+    RegionRequirement rCrd(crd, READ_WRITE, EXCLUSIVE, crd, Mapping::DefaultMapper::VIRTUAL_MAP);
+    rCrd.add_field(FID_INDEX);
+
+    RegionRequirement rVal(vals, READ_WRITE, EXCLUSIVE, vals, Mapping::DefaultMapper::VIRTUAL_MAP);
+    rVal.add_field(FID_VALUE);
+
+    PackArgs pa; pa.A1_dimension = 10;
+
+    TaskLauncher launcher(TID_PACK_A_CSR, TaskArgument(&pa, sizeof(PackArgs)));
+    launcher.add_region_requirement(r1);
+    launcher.add_region_requirement(rPos);
+    launcher.add_region_requirement(rCrd);
+    launcher.add_region_requirement(rVal);
+    runtime->execute_task(ctx, launcher).wait();
+  }
+
+  // TODO (rohany): Always need to know each dimension, and nnz.
 
   int n = 10;
   int m = 10;
-  int nnz = 20;
+  int nnz = info.numElements;
 
+  // Let's print out the regions and see what happened.
+  if (dump) {
+    {
+      auto a2posreg = lgMalloc(ctx, runtime, pos, n, FID_RECT_1);
+      FieldAccessor<READ_WRITE, Rect<1> ,1,coord_t, Realm::AffineAccessor<Rect<1>, 1, coord_t>> a2posrw(a2posreg, FID_RECT_1);
+      for (int i = 0; i < n; i++) {
+        std::cout << a2posrw[i] << " ";
+      }
+      std::cout << std::endl;
+      runtime->unmap_region(ctx, a2posreg);
+    }
+    {
+      auto a2crdreg = lgMalloc(ctx, runtime, crd, info.numElements, FID_INDEX);
+      FieldAccessor<READ_WRITE,int32_t,1,coord_t, Realm::AffineAccessor<int32_t, 1, coord_t>> a2crdrw(a2crdreg, FID_INDEX);
+      for (int i = 0; i < nnz; i++) {
+        std::cout << a2crdrw[i] << " ";
+      }
+      std::cout << std::endl;
+      runtime->unmap_region(ctx, a2crdreg);
+    }
+    {
+      auto avalsreg = lgMalloc(ctx, runtime, vals, info.numElements, FID_VALUE);
+      FieldAccessor<READ_WRITE,double,1,coord_t, Realm::AffineAccessor<double, 1, coord_t>> avalsrw(avalsreg, FID_VALUE);
+      for (int i = 0; i < nnz; i++) {
+        std::cout << avalsrw[i] << " ";
+      }
+      std::cout << std::endl;
+      runtime->unmap_region(ctx, avalsreg);
+    }
+  }
+
+  // Create x, y and initialize them.
   auto valFSpace = runtime->create_field_space(ctx);
   allocate_fields<double>(ctx, runtime, valFSpace, FID_VALUE, "vals");
-  auto idxFSpace = runtime->create_field_space(ctx);
-  allocate_fields<int32_t>(ctx, runtime, idxFSpace, FID_INDEX, "idxs");
-  auto rFSpace = runtime->create_field_space(ctx);
-  allocate_fields<Rect<1>>(ctx, runtime, rFSpace, FID_RECT_1, "rects");
-
   auto yIspace = runtime->create_index_space(ctx, Rect<1>(0, n - 1));
   auto xIspace = runtime->create_index_space(ctx, Rect<1>(0, m - 1));
-
-  auto A2_pos_ispace = runtime->create_index_space(ctx, Rect<1>(0, n - 1));
-  auto A2_crd_ispace = runtime->create_index_space(ctx, Rect<1>(0, nnz - 1));
-  auto A_vals_ispace = runtime->create_index_space(ctx, Rect<1>(0, nnz - 1));
-
   auto y = runtime->create_logical_region(ctx, yIspace, valFSpace);
   auto x = runtime->create_logical_region(ctx, xIspace, valFSpace);
-  auto A2_pos = runtime->create_logical_region(ctx, A2_pos_ispace, rFSpace);
-  auto A2_crd = runtime->create_logical_region(ctx, A2_crd_ispace, idxFSpace);
-  auto A_vals = runtime->create_logical_region(ctx, A_vals_ispace, valFSpace);
-
-  // Fill all of the fields. Somehow find a parallel method to constructing these tensors.
-  // TODO (rohany): I think such a method has to be parallel, as there isn't a good way otherwise
-  //  to ensure that each node only reads a subset of the data and assembles it.
   runtime->fill_field<double>(ctx, y, y, FID_VALUE, 0);
-  runtime->fill_field<double>(ctx, x, x, FID_VALUE, 0);
-  runtime->fill_field<Rect<1>>(ctx, A2_pos, A2_pos, FID_RECT_1, Rect<1>{0, 0});
-  runtime->fill_field<int32_t>(ctx, A2_crd, A2_crd, FID_INDEX, 0);
-  runtime->fill_field<double>(ctx, A_vals, A_vals, FID_VALUE, 0);
   {
-    auto xreg = getRegionToWrite(ctx, runtime, x, x, FID_VALUE);
-    FieldAccessor<READ_WRITE,double,1,coord_t, Realm::AffineAccessor<double, 1, coord_t>> xrw(xreg, FID_VALUE);
+    // TODO (rohany): Parallelize this operation.
+    auto xreg = runtime->map_region(ctx, RegionRequirement(x, WRITE_DISCARD, EXCLUSIVE, x).add_field(FID_VALUE));
+    FieldAccessor<WRITE_DISCARD,double,1,coord_t, Realm::AffineAccessor<double, 1, coord_t>> xrw(xreg, FID_VALUE);
     for (int i = 0; i < m; i++) {
       xrw[i] = i;
     }
     runtime->unmap_region(ctx, xreg);
   }
-  {
-    std::vector<int32_t> a2pos = {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20};
-    auto a2posreg = getRegionToWrite(ctx, runtime, A2_pos, A2_pos, FID_RECT_1);
-    FieldAccessor<READ_WRITE, Rect<1> ,1,coord_t, Realm::AffineAccessor<Rect<1>, 1, coord_t>> a2posrw(a2posreg, FID_RECT_1);
-    for (int i = 0; i < n; i++) {
-      a2posrw[i] = Rect<1>(a2pos[i], a2pos[i+1] - 1);
-    }
-    runtime->unmap_region(ctx, a2posreg);
-  }
-  {
-    std::vector<int32_t> a2crd = {0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5};
-    auto a2crdreg = getRegionToWrite(ctx, runtime, A2_crd, A2_crd, FID_INDEX);
-    FieldAccessor<READ_WRITE,int32_t,1,coord_t, Realm::AffineAccessor<int32_t, 1, coord_t>> a2crdrw(a2crdreg, FID_INDEX);
-    for (int i = 0; i < nnz; i++) {
-      a2crdrw[i] = a2crd[i];
-    }
-    runtime->unmap_region(ctx, a2crdreg);
-  }
-  {
-    std::vector<int32_t> avals = {0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9};
-    auto avalsreg = getRegionToWrite(ctx, runtime, A_vals, A_vals, FID_VALUE);
-    FieldAccessor<READ_WRITE,double,1,coord_t, Realm::AffineAccessor<double, 1, coord_t>> avalsrw(avalsreg, FID_VALUE);
-    for (int i = 0; i < nnz; i++) {
-      avalsrw[i] = avals[i];
-    }
-    runtime->unmap_region(ctx, avalsreg);
-  }
+
+  auto A2_pos = getSubRegion(ctx, runtime, pos, n);
+  auto A2_pos_ispace = A2_pos.get_index_space();
+  auto A2_crd = getSubRegion(ctx, runtime, crd, nnz);
+  auto A2_crd_ispace = A2_crd.get_index_space();
+  auto A_vals = getSubRegion(ctx, runtime, vals, nnz);
+  auto A_vals_ispace = A_vals.get_index_space();
 
   auto pieces = 4;
   auto domain = Domain(Rect<1>(0, pieces - 1));
+
+  // Note: All of these partitioning operators need to use the parent region
+  // which is the "region the task has privileges on" -- for the top level task
+  // that is the region that they created, not the subregion.
 
   // Do a position split -> equal partition of non-zeros.
   if (posSplit) {
@@ -130,20 +373,20 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
       A_vals_col[*itr] = Rect<1>(start, end);
     }
     auto A_vals_partition = runtime->create_index_partition(ctx, A_vals_ispace, domain, A_vals_col, LEGION_DISJOINT_COMPLETE_KIND);
-    auto A_vals_logical_partition = runtime->get_logical_partition(ctx, A_vals, A_vals_partition);
+    auto A_vals_logical_partition = runtime->get_logical_partition(ctx, vals, A_vals_partition);
     auto A2_crd_partition = runtime->create_index_partition(ctx, A2_crd_ispace, domain, A2_crd_col, LEGION_DISJOINT_COMPLETE_KIND);
-    auto A2_crd_logical_partition = runtime->get_logical_partition(ctx, A2_crd, A2_crd_partition);
+    auto A2_crd_logical_partition = runtime->get_logical_partition(ctx, crd, A2_crd_partition);
 
     // Now use the partition of A2_crd to partition A2_pos.
     auto A2_pos_part = runtime->create_partition_by_preimage_range(
       ctx,
       A2_crd_partition,
       A2_pos,
-      A2_pos,
+      pos,
       FID_RECT_1,
       runtime->get_index_partition_color_space_name(A2_crd_partition)
     );
-    auto A2_pos_logical_partition = runtime->get_logical_partition(ctx, A2_pos, A2_pos_part);
+    auto A2_pos_logical_partition = runtime->get_logical_partition(ctx, pos, A2_pos_part);
 
     // Use the partition bounds on A2_pos_logical_partition to partition y.
     for (PointInDomainIterator<1> itr(domain); itr(); itr++) {
@@ -155,9 +398,9 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     auto y_logical_partition = runtime->get_logical_partition(ctx, y, y_partition);
 
     RegionRequirement yReq = RegionRequirement(y_logical_partition, 0, LEGION_REDOP_SUM_FLOAT64, SIMULTANEOUS, y).add_field(FID_VALUE);
-    RegionRequirement A2_pos_req = RegionRequirement(A2_pos_logical_partition, 0, READ_ONLY, EXCLUSIVE, A2_pos).add_field(FID_RECT_1);
-    RegionRequirement A2_crd_req = RegionRequirement(A2_crd_logical_partition, 0, READ_ONLY, EXCLUSIVE, A2_crd).add_field(FID_INDEX);
-    RegionRequirement A_vals_req = RegionRequirement(A_vals_logical_partition, 0, READ_ONLY, EXCLUSIVE, A_vals).add_field(FID_VALUE);
+    RegionRequirement A2_pos_req = RegionRequirement(A2_pos_logical_partition, 0, READ_ONLY, EXCLUSIVE, pos).add_field(FID_RECT_1);
+    RegionRequirement A2_crd_req = RegionRequirement(A2_crd_logical_partition, 0, READ_ONLY, EXCLUSIVE, crd).add_field(FID_INDEX);
+    RegionRequirement A_vals_req = RegionRequirement(A_vals_logical_partition, 0, READ_ONLY, EXCLUSIVE, vals).add_field(FID_VALUE);
     RegionRequirement xReq = RegionRequirement(x, READ_ONLY, EXCLUSIVE, x).add_field(FID_VALUE);
     spmvPosSplitArgs args;
     args.nnz = nnz;
@@ -199,18 +442,17 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
       A2_pos_col[*itr] = A2_pos_rect;
     }
     auto A2_pos_partition = runtime->create_index_partition(ctx, A2_pos_ispace, domain, A2_pos_col, LEGION_DISJOINT_COMPLETE_KIND);
-    auto A2_pos_logical_partition = runtime->get_logical_partition(ctx, A2_pos, A2_pos_partition);
+    auto A2_pos_logical_partition = runtime->get_logical_partition(ctx, pos, A2_pos_partition);
 
-    // TODO (rohany): This has to be mapped in the same way as the loop is meant to be mapped.
     auto A2_crd_part = runtime->create_partition_by_image_range(
         ctx,
         A2_crd_ispace,
         A2_pos_logical_partition,
-        A2_pos,
+        pos,
         FID_RECT_1,
         runtime->get_index_partition_color_space_name(ctx, A2_pos_partition)
     );
-    auto A2_crd_logical_partition = runtime->get_logical_partition(ctx, A2_crd, A2_crd_part);
+    auto A2_crd_logical_partition = runtime->get_logical_partition(ctx, crd, A2_crd_part);
 
     // Use the crd partition to make a partition of the values.
     for (PointInDomainIterator<1> itr(domain); itr(); itr++) {
@@ -220,12 +462,12 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
       A_vals_col[*itr] = Rect<1>(bounds.lo(), bounds.hi());
     }
     auto A_vals_partition = runtime->create_index_partition(ctx, A_vals_ispace, domain, A_vals_col, LEGION_DISJOINT_COMPLETE_KIND);
-    auto A_vals_logical_partition = runtime->get_logical_partition(ctx, A_vals, A_vals_partition);
+    auto A_vals_logical_partition = runtime->get_logical_partition(ctx, vals, A_vals_partition);
 
     RegionRequirement yReq = RegionRequirement(yLogicalPartition, 0, READ_WRITE, EXCLUSIVE, y).add_field(FID_VALUE);
-    RegionRequirement A2_pos_req = RegionRequirement(A2_pos_logical_partition, 0, READ_ONLY, EXCLUSIVE, A2_pos).add_field(FID_RECT_1);
-    RegionRequirement A2_crd_req = RegionRequirement(A2_crd_logical_partition, 0, READ_ONLY, EXCLUSIVE, A2_crd).add_field(FID_INDEX);
-    RegionRequirement A_vals_req = RegionRequirement(A_vals_logical_partition, 0, READ_ONLY, EXCLUSIVE, A_vals).add_field(FID_VALUE);
+    RegionRequirement A2_pos_req = RegionRequirement(A2_pos_logical_partition, 0, READ_ONLY, EXCLUSIVE, pos).add_field(FID_RECT_1);
+    RegionRequirement A2_crd_req = RegionRequirement(A2_crd_logical_partition, 0, READ_ONLY, EXCLUSIVE, crd).add_field(FID_INDEX);
+    RegionRequirement A_vals_req = RegionRequirement(A_vals_logical_partition, 0, READ_ONLY, EXCLUSIVE, vals).add_field(FID_VALUE);
     RegionRequirement xReq = RegionRequirement(x, READ_ONLY, EXCLUSIVE, x).add_field(FID_VALUE);
     spmvArgs args;
     args.n = n; args.pieces = pieces;
@@ -275,7 +517,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     // that is actually more efficient (big-O wise).
   }
 
-  {
+  if (dump) {
     auto yreg = getRegionToWrite(ctx, runtime, y, y, FID_VALUE);
     FieldAccessor<READ_WRITE,double,1,coord_t, Realm::AffineAccessor<double, 1, coord_t>> yrw(yreg, FID_VALUE);
     for (int i = 0; i < n; i++) {
@@ -314,7 +556,7 @@ void spmv(const Task* task, const std::vector<PhysicalRegion>& regions, Context 
   AccessorD A_vals(regions[3], FID_VALUE);
   AccessorD x_vals(regions[4], FID_VALUE);
 
-  for (int32_t i = in * ((n + (pieces - 1)) / pieces); i < i * ((n + (pieces - 1)) / pieces) + ((n + (pieces - 1)) / pieces) - 1; i++) {
+  for (int32_t i = in * ((n + (pieces - 1)) / pieces); i < in * ((n + (pieces - 1)) / pieces) + ((n + (pieces - 1)) / pieces); i++) {
     if (i >= n) {
       continue;
     }
@@ -391,6 +633,16 @@ int main(int argc, char** argv) {
     TaskVariantRegistrar registrar(TID_SPMV_POS_SPLIT, "spmvPos");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     Runtime::preregister_task_variant<spmvPosSplit>(registrar, "spmvPos");
+  }
+  {
+    TaskVariantRegistrar registrar(TID_PRINT_COORD_LIST, "printCoordList");
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    Runtime::preregister_task_variant<printCoordListMatrix>(registrar, "printCoordList");
+  }
+  {
+    TaskVariantRegistrar registrar(TID_PACK_A_CSR, "packACSR");
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    Runtime::preregister_task_variant<packACSR>(registrar, "packACSR");
   }
   return Runtime::start(argc, argv);
 }

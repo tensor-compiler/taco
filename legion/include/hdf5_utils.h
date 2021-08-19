@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 
+#include "legion.h"
+
 // Create an HDF5 file with numElements elements, and the provided fields as individual datasets.
 void generateHDF5(std::string fileName, std::vector<std::string> datasetNames, std::vector<hid_t> datasetSizes, int numElements);
 
@@ -12,3 +14,8 @@ struct HDF5Info {
   size_t numElements;
 };
 HDF5Info getHDF5Info(std::string fileName, std::string fieldName);
+
+// Helper to attach a HDF5 file to a logical region. The returned PhysicalRegion
+// must be explicitly deallocated with runtime->detach_external_resource.
+Legion::PhysicalRegion attachHDF5(Legion::Context ctx, Legion::Runtime *runtime, Legion::LogicalRegion region,
+                                  std::map<Legion::FieldID, const char *> fieldMap, std::string filename);
