@@ -1,5 +1,7 @@
 #include "hdf5_utils.h"
 
+using namespace Legion;
+
 void generateHDF5(std::string fileName, std::vector<std::string> datasetNames, std::vector<hid_t> datasetSizes, int numElements) {
   hid_t file_id = H5Fcreate(fileName.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
   assert(file_id >= 0);
@@ -47,4 +49,10 @@ HDF5Info getHDF5Info(std::string fileName, std::string fieldName) {
   H5Dclose(dset);
   H5Fclose(hdf5file);
   return result;
+}
+
+PhysicalRegion attachHDF5(Context ctx, Runtime *runtime, LogicalRegion region, std::map<FieldID, const char *> fieldMap, std::string filename) {
+  AttachLauncher al(LEGION_EXTERNAL_HDF5_FILE, region, region);
+  al.attach_hdf5(filename.c_str(), fieldMap, LEGION_FILE_READ_ONLY);
+  return runtime->attach_external_resource(ctx, al);
 }
