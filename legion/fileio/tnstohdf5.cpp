@@ -1,10 +1,7 @@
 #include "legion.h"
 #include "realm/cmdline.h"
-
 #include "strings.h"
 #include "hdf5_utils.h"
-
-#include <hdf5.h>
 #include <fstream>
 
 using namespace Legion;
@@ -26,6 +23,7 @@ enum TaskIDs {
 };
 
 enum FieldIDs {
+  FID_DIM,
   FID_VALUE,
   FID_COORD, // This must be the last defined field.
 };
@@ -45,7 +43,7 @@ static int lexComp(const void* a, const void* b) {
 // of the tns file for easier interop with Legion later. It returns flat buffer that
 // is an AOS representation of the coordinates and the value for each entry. The result
 // buffer must be free'd by the user.
-void* readTNSFile(std::string fileName, size_t& order, size_t& nnz) {
+void* readTNSFile(std::string fileName, std::vector<int32_t>& dimensions, size_t& nnz) {
   // fileName must be a relative, sanitized path.
   std::fstream file;
   file.open(fileName, std::fstream::in);
@@ -57,7 +55,8 @@ void* readTNSFile(std::string fileName, size_t& order, size_t& nnz) {
   }
 
   std::vector<std::string> toks = split(line, " ", false /* keepDelim */);
-  order = toks.size() - 1;
+  size_t order = toks.size() - 1;
+  dimensions = std::vector<int32_t>(order);
 
   // The coordinates need to be sorted, otherwise we'll have to deal with the headache
   // of sorting them in legion. In order to do this (and keep the values along with the
@@ -92,7 +91,10 @@ void* readTNSFile(std::string fileName, size_t& order, size_t& nnz) {
     for (size_t i = 0; i < order; i++) {
       int32_t idx = strtol(linePtr, &linePtr, 10);
       assert(idx <= INT_MAX && "Coordinate in file is larger than INT_MAX");
-      *(int32_t*)insert = idx;
+      // .tns coordinates 1 indexed rather than 0 indexed.
+      *(int32_t*)insert = (idx - 1);
+      // The largest value in each dimension is the size of the dimension.
+      dimensions[i] = std::max(dimensions[i], idx);
       // Advance the pointer one int32_t position for the next coordinate.
       insert += sizeof(int32_t);
     }
@@ -124,10 +126,19 @@ void readHDF5Coords(const Task* task, const std::vector<PhysicalRegion> &regions
 
   std::vector<FieldID> fields;
   region.get_fields(fields);
+  size_t order = fields.size() - 1;
+
+  // Create an accessor for the dimensions.
+  AccessorI dimsAcc(regions[1], FID_DIM);
+  std::cout << "Dims: " << std::endl;
+  for (size_t i = 0; i < order; i++) {
+    std::cout << dimsAcc[i] << " ";
+  }
+  std::cout << std::endl;
 
   // Create an accessor for each of the fields corresponding to coordinates.
   std::vector<AccessorI> coords;
-  for (size_t i = 0; i < fields.size() - 1; i++) {
+  for (size_t i = 0; i < order; i++) {
     coords.push_back(AccessorI(region, FID_COORD + i));
   }
 
@@ -163,30 +174,48 @@ void allocateCoordFields(Context ctx, Runtime* runtime, std::vector<FieldID> fie
   }
 }
 
-std::vector<std::string> constructFieldNames(std::vector<FieldID> fields) {
-  std::vector<std::string> result;
+std::map<FieldID, const char*> constructFieldMap(std::vector<FieldID> fields) {
+  std::map<FieldID, const char*> result;
   for (size_t i = 0; i < fields.size(); i++) {
-    // Assume that the fields are laid out as [coord0, coord1, ..., coordN, value].
     if (i == fields.size() - 1) {
-      result.push_back("value");
+      result[fields[i]] = COOValsField;
     } else {
-      std::stringstream ss;
-      ss << "coord" << i;
-      result.push_back(ss.str());
+      result[fields[i]] = COOCoordsFields[i];
     }
   }
   return result;
 }
 
-std::map<FieldID, const char*> constructFieldMap(std::vector<FieldID> fields, std::vector<std::string>& fieldNames) {
-  std::map<FieldID, const char*> result;
-  for (size_t i = 0; i < fields.size(); i++) {
-    result[fields[i]] = fieldNames[i].c_str();
+struct ProgramRegions {
+  LogicalRegion mem;
+  LogicalRegion disk;
+  LogicalRegion memDim;
+  LogicalRegion diskDim;
+};
+ProgramRegions createRegions(Context ctx, Runtime* runtime, size_t order, size_t nnz) {
+  ProgramRegions result;
+  // Create regions for the coord/vals data.
+  {
+    auto fspace = runtime->create_field_space(ctx);
+    auto coordFieldIDs = fieldIDs(order);
+    allocateCoordFields(ctx, runtime, coordFieldIDs, fspace);
+    auto ispace = runtime->create_index_space(ctx, Rect<1>(0, nnz - 1));
+    result.mem = runtime->create_logical_region(ctx, ispace, fspace);
+    result.disk = runtime->create_logical_region(ctx, ispace, fspace);
+  }
+  // Create regions for the dimension data.
+  {
+    auto fspace = runtime->create_field_space(ctx);
+    Legion::FieldAllocator alloc = runtime->create_field_allocator(ctx, fspace);
+    alloc.allocate_field(sizeof(int32_t), FID_DIM);
+    auto ispace = runtime->create_index_space(ctx, Rect<1>(0, order - 1));
+    result.memDim = runtime->create_logical_region(ctx, ispace, fspace);
+    result.diskDim = runtime->create_logical_region(ctx, ispace, fspace);
   }
   return result;
 }
 
-void top_level_task(const Task* task, const std::vector<PhysicalRegion> &regions, Context ctx, Runtime* runtime) {
+void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Context ctx, Runtime* runtime) {
   std::string tnsFilename;
   std::string hdf5Filename;
   bool dumpOnly = false;
@@ -200,25 +229,17 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion> &regions
   assert(!hdf5Filename.empty());
 
   if (dumpOnly) {
-    // Look at the hdf5 file to get information about datasets and nnzs.
-    auto result = getHDF5Info(hdf5Filename, "value");
-    auto order = result.numFields - 1;
-    auto nnz = result.numElements;
+    size_t order, nnz;
+    getCoordListHDF5Meta(hdf5Filename, order, nnz);
+    auto regions = createRegions(ctx, runtime, order, nnz);
+    auto disk = regions.disk;
+    auto diskDim = regions.diskDim;
 
-    // Create a region to represent the in-memory tns data.
-    auto fspace = runtime->create_field_space(ctx);
+    // Attach the regions.
     auto coordFieldIDs = fieldIDs(order);
-    allocateCoordFields(ctx, runtime, coordFieldIDs, fspace);
-    auto ispace = runtime->create_index_space(ctx, Rect<1>(0, nnz - 1));
-    // Create regions for the in-memory and disk versions of the data.
-    auto disk = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(disk, "disk");
-
-    // Attach the region.
-    auto fieldNames = constructFieldNames(coordFieldIDs);
-    auto fieldMap = constructFieldMap(coordFieldIDs, fieldNames);
-    AttachLauncher al(LEGION_EXTERNAL_HDF5_FILE, disk, disk);
-    al.attach_hdf5(hdf5Filename.c_str(), fieldMap, LEGION_FILE_READ_WRITE);
-    auto pdisk = runtime->attach_external_resource(ctx, al);
+    auto fieldMap = constructFieldMap(coordFieldIDs);
+    auto pdisk = attachHDF5(ctx, runtime, disk, fieldMap, hdf5Filename);
+    auto pdiskDim = attachHDF5(ctx, runtime, diskDim, {{FID_DIM, COODimsField}}, hdf5Filename);
 
     // Launch a task to print out the result. This maps the region
     // into CPU memory for us to access directly.
@@ -229,8 +250,14 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion> &regions
     }
     req.add_field(FID_VALUE);
     launcher.add_region_requirement(req);
+    RegionRequirement req2(diskDim, READ_ONLY, EXCLUSIVE, diskDim);
+    req2.add_field(FID_DIM);
+    launcher.add_region_requirement(req2);
     runtime->execute_task(ctx, launcher).wait();
+
+    // Clean up.
     runtime->detach_external_resource(ctx, pdisk).wait();
+    runtime->detach_external_resource(ctx, pdiskDim).wait();
     return;
   }
 
@@ -238,20 +265,19 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion> &regions
   assert(!tnsFilename.empty());
 
   // Read in the .tns file into raw data in memory.
-  size_t order, nnz;
-  auto buf = readTNSFile(tnsFilename, order, nnz);
+  std::vector<int32_t> dimensions;
+  size_t nnz;
+  auto buf = readTNSFile(tnsFilename, dimensions, nnz);
+  size_t order = dimensions.size();
 
-  // Create a region to represent the in-memory tns data.
-  auto fspace = runtime->create_field_space(ctx);
+  auto regions = createRegions(ctx, runtime, order, nnz);
+  auto mem = regions.mem;
+  auto disk = regions.disk;
+  auto memDim = regions.memDim;
+  auto diskDim = regions.diskDim;
   auto coordFieldIDs = fieldIDs(order);
-  allocateCoordFields(ctx, runtime, coordFieldIDs, fspace);
-  auto ispace = runtime->create_index_space(ctx, Rect<1>(0, nnz - 1));
 
-  // Create regions for the in-memory and disk versions of the data.
-  auto mem = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(mem, "in-memory");
-  auto disk = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(disk, "disk");
-
-  PhysicalRegion pmem, pdisk;
+  PhysicalRegion pmem;
   // Get the local CPU memory.
   Memory sysmem = Machine::MemoryQuery(Machine::get_machine())
       .has_affinity_to(runtime->get_executing_processor(ctx))
@@ -264,42 +290,29 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion> &regions
     pmem = runtime->attach_external_resource(ctx, al);
   }
 
+  // Create the HDF5 file.
+  generateCoordListHDF5(hdf5Filename, order, nnz);
+
   // Now, open up and attach the output hdf5 file.
-  {
-    // Create the field map. Allocate all of the field names up front
-    // so that they are live until the actual attach call.
-    auto fieldNames = constructFieldNames(coordFieldIDs);
-    auto fieldMap = constructFieldMap(coordFieldIDs, fieldNames);
-    std::vector<hid_t> hdf5Sizes;
-    for (size_t i = 0; i < order; i++) {
-      // Each of the coordinates is an int32_t.
-      hdf5Sizes.push_back(H5T_NATIVE_INT32_g);
-    }
-    // The value is a double.
-    hdf5Sizes.push_back(H5T_IEEE_F64LE_g);
-
-    // Create the output hdf5 file.
-    generateHDF5(hdf5Filename, fieldNames, hdf5Sizes, nnz);
-
-    AttachLauncher al(LEGION_EXTERNAL_HDF5_FILE, disk, disk);
-    al.attach_hdf5(hdf5Filename.c_str(), fieldMap, LEGION_FILE_READ_WRITE);
-    pdisk = runtime->attach_external_resource(ctx, al);
-  }
+  auto fieldMap = constructFieldMap(coordFieldIDs);
+  auto pdisk = attachHDF5(ctx, runtime, disk, fieldMap, hdf5Filename, LEGION_FILE_READ_WRITE);
 
   // Finally, copy the in-memory instance into the disk instance.
-  CopyLauncher cl;
-  cl.add_copy_requirements(
-      RegionRequirement(mem, READ_ONLY, EXCLUSIVE, mem),
-      RegionRequirement(disk, WRITE_DISCARD, EXCLUSIVE, disk)
-  );
-  // Copy each of the coordinate fields and the value.
-  for (size_t i = 0 ; i < order; i++) {
-    cl.add_src_field(0, coordFieldIDs[i]);
-    cl.add_dst_field(0, coordFieldIDs[i]);
+  {
+    CopyLauncher cl;
+    cl.add_copy_requirements(
+        RegionRequirement(mem, READ_ONLY, EXCLUSIVE, mem),
+        RegionRequirement(disk, WRITE_DISCARD, EXCLUSIVE, disk)
+    );
+    // Copy each of the coordinate fields and the value.
+    for (size_t i = 0 ; i < order; i++) {
+      cl.add_src_field(0, coordFieldIDs[i]);
+      cl.add_dst_field(0, coordFieldIDs[i]);
+    }
+    cl.add_src_field(0, FID_VALUE);
+    cl.add_dst_field(0, FID_VALUE);
+    runtime->issue_copy_operation(ctx, cl);
   }
-  cl.add_src_field(0, FID_VALUE);
-  cl.add_dst_field(0, FID_VALUE);
-  runtime->issue_copy_operation(ctx, cl);
 
   // Detach the external resources to flush any changes made.
   runtime->detach_external_resource(ctx, pmem).wait();
@@ -307,6 +320,27 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion> &regions
 
   // Free the buffer holding the data.
   free(buf);
+
+  // Now, do the same for the dimension data.
+  PhysicalRegion pmemDim;
+  {
+    AttachLauncher al(LEGION_EXTERNAL_INSTANCE, memDim, memDim);
+    al.attach_array_aos(dimensions.data(), false /* column_major */, {FID_DIM}, sysmem);
+    pmemDim = runtime->attach_external_resource(ctx, al);
+  }
+  auto pdiskDim = attachHDF5(ctx, runtime, diskDim, {{FID_DIM, COODimsField}}, hdf5Filename, LEGION_FILE_READ_WRITE);
+  {
+    CopyLauncher cl;
+    cl.add_copy_requirements(
+      RegionRequirement(memDim, READ_ONLY, EXCLUSIVE, memDim),
+      RegionRequirement(diskDim, WRITE_DISCARD, EXCLUSIVE, diskDim)
+    );
+    cl.add_src_field(0, FID_DIM);
+    cl.add_dst_field(0, FID_DIM);
+    runtime->issue_copy_operation(ctx, cl);
+  }
+  runtime->detach_external_resource(ctx, pmemDim).wait();
+  runtime->detach_external_resource(ctx, pdiskDim).wait();
 }
 
 int main(int argc, char** argv) {
