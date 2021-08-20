@@ -375,9 +375,11 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   bool posSplit = false, dump = false;
   std::string filename;
   Realm::CommandLineParser parser;
+  int pieces = 1;
   parser.add_option_bool("-pos", posSplit);
   parser.add_option_string("-file", filename);
   parser.add_option_bool("-dump", dump);
+  parser.add_option_int("-pieces", pieces);
   auto args = Runtime::get_input_args();
   assert(parser.parse_command_line(args.argc, args.argv));
   assert(!filename.empty());
@@ -508,7 +510,6 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto A_vals = A.vals;
   auto A_vals_ispace = A_vals.get_index_space();
 
-  auto pieces = 4;
   auto domain = Domain(Rect<1>(0, pieces - 1));
 
   // Note: All of these partitioning operators need to use the parent region
