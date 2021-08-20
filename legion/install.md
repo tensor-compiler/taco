@@ -18,4 +18,6 @@ cmake ../ -DCMAKE_CXX_FLAGS="--std=c++11" -DCMAKE_BUILD_TYPE=Release -DLegion_NE
 cmake ../ -DCMAKE_CXX_FLAGS="--std=c++11" -DCMAKE_BUILD_TYPE=Release -DLegion_NETWORKS=gasnetex -DCMAKE_INSTALL_PREFIX="$HOME/cmake-install" -DLegion_EMBED_GASNet=true -DGASNet_CONDUIT=ibv -DLegion_USE_OpenMP=true -DLegion_USE_CUDA=true -DLegion_USE_HDF5=true
 ```
 
+TODO (rohany): Fill out how to do HDF5 configuration...
+
 Then, use `find_package(Legion)` to use Legion in example codes.

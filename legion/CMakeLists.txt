@@ -3,6 +3,13 @@ if(OPENMP)
   find_package(OpenMP REQUIRED)
 endif(OPENMP)
 
+option(HDF5 "Use HDF5 with Legion -- requires Legion build with Legion_USE_HDF5=true" OFF)
+# Load in HDF5 if we're allowed to use it.
+if(HDF5)
+  # We need to have HDF5_ROOT set here to do this. 
+  find_package(HDF5 REQUIRED)
+endif()
+
 # Include the headers and supporting source files.
 include_directories(include/ OpenBLAS/install/include "${CMAKE_BINARY_DIR}/include")
 link_directories(OpenBLAS/install/lib)
@@ -97,7 +104,7 @@ endmacro()
 add_app_folder(pummaMM)
 add_app_folder(summaMM)
 add_app_folder(cannonMM)
-add_app_folder(placement-test)
+
 add_app_folder(johnsonMM)
 add_app_folder(solomonikMM)
 add_app_folder(cosma)
@@ -141,5 +148,8 @@ add_executable(spmv SpMV/handwritten.cpp ${LG_SOURCES})
 target_link_libraries(spmv Legion::Legion)
 
 # Utility to preload tns files into hdf5 files for easier ingestion.
-add_executable(tnstohdf5 fileio/tnstohdf5.cpp ${LG_EXTRA_SOURCES})
-target_link_libraries(tnstohdf5 Legion::Legion)
+if(HDF5)
+  add_executable(tnstohdf5 fileio/tnstohdf5.cpp ${LG_EXTRA_SOURCES})
+  target_link_libraries(tnstohdf5 Legion::Legion ${HDF5_LIBRARIES})
+  include_directories(tnstohdf5 PRIVATE ${HDF5_INCLUDE_DIRS})
+endif()

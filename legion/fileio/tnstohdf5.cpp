@@ -3,6 +3,7 @@
 #include "strings.h"
 #include "hdf5_utils.h"
 #include <fstream>
+#include <iomanip>
 
 using namespace Legion;
 
@@ -37,6 +38,98 @@ static int lexComp(const void* a, const void* b) {
     }
   }
   return 0;
+}
+
+void* readMTXFile(std::string fileName, std::vector<int32_t>& dimensions, size_t& nnz) {
+  // fileName must be a relative, sanitized path.
+  std::fstream file;
+  file.open(fileName, std::fstream::in);
+
+  // TODO (rohany): Parse the header.
+
+  std::string line;
+  std::getline(file, line);
+
+  // Skip comments at the top of the file
+  std::string token;
+  do {
+    std::stringstream lineStream(line);
+    lineStream >> token;
+    if (token[0] != '%') {
+      break;
+    }
+  } while (std::getline(file, line));
+
+  size_t order = 2;
+  
+  char* linePtr = (char*)line.data();
+  while (size_t dimension = strtoul(linePtr, &linePtr, 10)) {
+    // taco_uassert(dimension <= INT_MAX) << "Dimension exceeds INT_MAX";
+    dimensions.push_back(static_cast<int>(dimension));
+  }
+  nnz = dimensions[dimensions.size()-1];
+  dimensions.pop_back();
+
+  // The coordinates need to be sorted, otherwise we'll have to deal with the headache
+  // of sorting them in legion. In order to do this (and keep the values along with the
+  // coordinates) without doing a bunch of allocations, we have to drop into lower level code.
+  // To do this, we'll allocate a flat buffer of "structs" where each struct has size
+  // coords * coord_size + val_size. We can write individual elements into this buffer.
+  // Then, we'll do a standard doubling array to grow the buffer as we read in elements.
+  // This flat representation will let us then directly call qsort on the data like TACO.
+  // If this becomes a bottleneck and we need to utilize a parallel sort, we can try and
+  // implement the operation described here:
+  // https://stackoverflow.com/questions/16874183/reusing-stdalgorithms-with-non-standard-containers/16905832
+
+  // TODO (rohany): Dedup this into a class.
+
+  // Set up the constants and buffers.
+  size_t elemSize = order * sizeof(int32_t) + sizeof(double);
+  size_t cnt = 0;
+  // TODO (rohany): Adjust this initial size when loading larger files. It might
+  //  even be a good idea to take this in via a command line parameter to have it
+  //  fit to the correct size if we know it apriori.
+  size_t size = 1;
+  char* buffer = (char*)malloc(elemSize * size);
+
+  // Load data from the tns file.
+  while (std::getline(file, line)) {
+    // If we've hit the buffer capacity, then allocate a fresh buffer.
+    if (cnt == size) {
+      size *= 2;
+      buffer = (char*)realloc(buffer, elemSize * size);
+    }
+    // Get the front of the buffer where we should insert into.
+    char* insert = (elemSize * cnt) + buffer;
+    char* linePtr = (char*)line.data();
+    for (size_t i = 0; i < order; i++) {
+      int32_t idx = strtol(linePtr, &linePtr, 10);
+      assert(idx <= INT_MAX && "Coordinate in file is larger than INT_MAX");
+      // .tns coordinates 1 indexed rather than 0 indexed.
+      *(int32_t*)insert = (idx - 1);
+      // The largest value in each dimension is the size of the dimension.
+      dimensions[i] = std::max(dimensions[i], idx);
+      // Advance the pointer one int32_t position for the next coordinate.
+      insert += sizeof(int32_t);
+    }
+    // After all of the int32_t coordinates, the last position remaining
+    // is for the double.
+    // double val = strtod(linePtr, &linePtr);
+    double val = 1.0;
+    *(double*)insert = val;
+    cnt++;
+  }
+
+  // Clean up.
+  file.close();
+
+  // Now, let's sort the coordinates before dumping them. We'll use the qsort
+  // function with a custom comparator.
+  numIntsToCompare = order;
+  qsort(buffer, cnt, elemSize, lexComp);
+
+  nnz = cnt;
+  return buffer;
 }
 
 // This function performs a direct translation from a tns file into an HDF5 version
@@ -267,7 +360,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Contex
   // Read in the .tns file into raw data in memory.
   std::vector<int32_t> dimensions;
   size_t nnz;
-  auto buf = readTNSFile(tnsFilename, dimensions, nnz);
+  // auto buf = readTNSFile(tnsFilename, dimensions, nnz);
+  auto buf = readMTXFile(tnsFilename, dimensions, nnz);
   size_t order = dimensions.size();
 
   auto regions = createRegions(ctx, runtime, order, nnz);
