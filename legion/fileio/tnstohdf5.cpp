@@ -40,6 +40,54 @@ static int lexComp(const void* a, const void* b) {
   return 0;
 }
 
+// The coordinates need to be sorted, otherwise we'll have to deal with the headache
+// of sorting them in legion. In order to do this (and keep the values along with the
+// coordinates) without doing a bunch of allocations, we have to drop into lower level code.
+// To do this, we'll allocate a flat buffer of "structs" where each struct has size
+// coords * coord_size + val_size. We can write individual elements into this buffer.
+// Then, we'll do a standard doubling array to grow the buffer as we read in elements.
+// This flat representation will let us then directly call qsort on the data like TACO.
+// If this becomes a bottleneck and we need to utilize a parallel sort, we can try and
+// implement the operation described here:
+// https://stackoverflow.com/questions/16874183/reusing-stdalgorithms-with-non-standard-containers/16905832
+class TensorBuffer {
+public:
+  TensorBuffer(size_t order, size_t initialSize) : order(order), count(0), capacity(initialSize) {
+    this->rowSize = order * sizeof(int32_t) + sizeof(double);
+    this->buffer = (char*)malloc(rowSize * initialSize);
+  }
+
+  void addCoordinate(size_t dim, int32_t coord) {
+    char* insert = (this->rowSize * this->count) + this->buffer;
+    insert += dim * sizeof(int32_t);
+    *(int32_t*)insert = coord;
+  }
+
+  void addValue(double value) {
+    char* insert = (this->rowSize * this->count) + this->buffer + (this->order * sizeof(int32_t));
+    *(double*)insert = value;
+  }
+
+  void finalizeEntry() {
+    this->count++;
+    // Maybe resize the buffer for more elements.
+    if (count == capacity) {
+      // Reallocate a bigger buffer of double the size.
+      this->capacity *= 2;
+      this->buffer = (char*)realloc(this->buffer, this->rowSize * this->capacity);
+    }
+  }
+  void* getBuffer() { return this->buffer; }
+  size_t getRowSize() { return this->rowSize; }
+  size_t getCount() { return this->count; }
+private:
+  char* buffer;
+  size_t order;
+  size_t count;
+  size_t capacity;
+  size_t rowSize;
+};
+
 void* readMTXFile(std::string fileName, std::vector<int32_t>& dimensions, size_t& nnz) {
   // fileName must be a relative, sanitized path.
   std::fstream file;
@@ -64,60 +112,36 @@ void* readMTXFile(std::string fileName, std::vector<int32_t>& dimensions, size_t
   
   char* linePtr = (char*)line.data();
   while (size_t dimension = strtoul(linePtr, &linePtr, 10)) {
-    // taco_uassert(dimension <= INT_MAX) << "Dimension exceeds INT_MAX";
+    assert(dimension <= INT_MAX && "Dimension exceeds INT_MAX");
     dimensions.push_back(static_cast<int>(dimension));
   }
   nnz = dimensions[dimensions.size()-1];
   dimensions.pop_back();
 
-  // The coordinates need to be sorted, otherwise we'll have to deal with the headache
-  // of sorting them in legion. In order to do this (and keep the values along with the
-  // coordinates) without doing a bunch of allocations, we have to drop into lower level code.
-  // To do this, we'll allocate a flat buffer of "structs" where each struct has size
-  // coords * coord_size + val_size. We can write individual elements into this buffer.
-  // Then, we'll do a standard doubling array to grow the buffer as we read in elements.
-  // This flat representation will let us then directly call qsort on the data like TACO.
-  // If this becomes a bottleneck and we need to utilize a parallel sort, we can try and
-  // implement the operation described here:
-  // https://stackoverflow.com/questions/16874183/reusing-stdalgorithms-with-non-standard-containers/16905832
-
-  // TODO (rohany): Dedup this into a class.
-
-  // Set up the constants and buffers.
-  size_t elemSize = order * sizeof(int32_t) + sizeof(double);
-  size_t cnt = 0;
-  // TODO (rohany): Adjust this initial size when loading larger files. It might
-  //  even be a good idea to take this in via a command line parameter to have it
-  //  fit to the correct size if we know it apriori.
-  size_t size = 1;
-  char* buffer = (char*)malloc(elemSize * size);
-
-  // Load data from the tns file.
+  // Create a buffer to dump entries into.
+  TensorBuffer buf(order, nnz);
+  // Load data from the file.
   while (std::getline(file, line)) {
-    // If we've hit the buffer capacity, then allocate a fresh buffer.
-    if (cnt == size) {
-      size *= 2;
-      buffer = (char*)realloc(buffer, elemSize * size);
-    }
-    // Get the front of the buffer where we should insert into.
-    char* insert = (elemSize * cnt) + buffer;
     char* linePtr = (char*)line.data();
     for (size_t i = 0; i < order; i++) {
       int32_t idx = strtol(linePtr, &linePtr, 10);
       assert(idx <= INT_MAX && "Coordinate in file is larger than INT_MAX");
-      // .tns coordinates 1 indexed rather than 0 indexed.
-      *(int32_t*)insert = (idx - 1);
-      // The largest value in each dimension is the size of the dimension.
-      dimensions[i] = std::max(dimensions[i], idx);
-      // Advance the pointer one int32_t position for the next coordinate.
-      insert += sizeof(int32_t);
+      // .mtx coordinates 1 indexed rather than 0 indexed.
+      buf.addCoordinate(i, idx - 1);
     }
-    // After all of the int32_t coordinates, the last position remaining
-    // is for the double.
+
+    // TODO (rohany): For quick prototyping, I'm assuming that we're just
+    //  getting pattern matrices right now.
     // double val = strtod(linePtr, &linePtr);
     double val = 1.0;
-    *(double*)insert = val;
-    cnt++;
+    buf.addValue(val);
+    buf.finalizeEntry();
+
+    // Print out a message at checkpoints through the file.
+    auto pct = int((double(buf.getCount()) / double(nnz)) * 100);
+    if (pct % 10 == 0) {
+      printf("Read %ld out of %ld lines of %s.", buf.getCount(), nnz, fileName.c_str());
+    }
   }
 
   // Clean up.
@@ -126,10 +150,8 @@ void* readMTXFile(std::string fileName, std::vector<int32_t>& dimensions, size_t
   // Now, let's sort the coordinates before dumping them. We'll use the qsort
   // function with a custom comparator.
   numIntsToCompare = order;
-  qsort(buffer, cnt, elemSize, lexComp);
-
-  nnz = cnt;
-  return buffer;
+  qsort(buf.getBuffer(), buf.getCount(), buf.getRowSize(), lexComp);
+  return buf.getBuffer();
 }
 
 // This function performs a direct translation from a tns file into an HDF5 version
@@ -151,51 +173,25 @@ void* readTNSFile(std::string fileName, std::vector<int32_t>& dimensions, size_t
   size_t order = toks.size() - 1;
   dimensions = std::vector<int32_t>(order);
 
-  // The coordinates need to be sorted, otherwise we'll have to deal with the headache
-  // of sorting them in legion. In order to do this (and keep the values along with the
-  // coordinates) without doing a bunch of allocations, we have to drop into lower level code.
-  // To do this, we'll allocate a flat buffer of "structs" where each struct has size
-  // coords * coord_size + val_size. We can write individual elements into this buffer.
-  // Then, we'll do a standard doubling array to grow the buffer as we read in elements.
-  // This flat representation will let us then directly call qsort on the data like TACO.
-  // If this becomes a bottleneck and we need to utilize a parallel sort, we can try and
-  // implement the operation described here:
-  // https://stackoverflow.com/questions/16874183/reusing-stdalgorithms-with-non-standard-containers/16905832
-
-  // Set up the constants and buffers.
-  size_t elemSize = order * sizeof(int32_t) + sizeof(double);
-  size_t cnt = 0;
-  // TODO (rohany): Adjust this initial size when loading larger files. It might
-  //  even be a good idea to take this in via a command line parameter to have it
-  //  fit to the correct size if we know it apriori.
-  size_t size = 1;
-  char* buffer = (char*)malloc(elemSize * size);
-
+  // Allocate a buffer for the data.
+  TensorBuffer buf(order, 100000 /* initialSize */);
   // Load data from the tns file.
   do {
-    // If we've hit the buffer capacity, then allocate a fresh buffer.
-    if (cnt == size) {
-      size *= 2;
-      buffer = (char*)realloc(buffer, elemSize * size);
-    }
     // Get the front of the buffer where we should insert into.
-    char* insert = (elemSize * cnt) + buffer;
     char* linePtr = (char*)line.data();
     for (size_t i = 0; i < order; i++) {
       int32_t idx = strtol(linePtr, &linePtr, 10);
       assert(idx <= INT_MAX && "Coordinate in file is larger than INT_MAX");
       // .tns coordinates 1 indexed rather than 0 indexed.
-      *(int32_t*)insert = (idx - 1);
+      buf.addCoordinate(i, idx - 1);
       // The largest value in each dimension is the size of the dimension.
       dimensions[i] = std::max(dimensions[i], idx);
-      // Advance the pointer one int32_t position for the next coordinate.
-      insert += sizeof(int32_t);
     }
     // After all of the int32_t coordinates, the last position remaining
     // is for the double.
     double val = strtod(linePtr, &linePtr);
-    *(double*)insert = val;
-    cnt++;
+    buf.addValue(val);
+    buf.finalizeEntry();
   } while (std::getline(file, line));
 
   // Clean up.
@@ -204,10 +200,10 @@ void* readTNSFile(std::string fileName, std::vector<int32_t>& dimensions, size_t
   // Now, let's sort the coordinates before dumping them. We'll use the qsort
   // function with a custom comparator.
   numIntsToCompare = order;
-  qsort(buffer, cnt, elemSize, lexComp);
+  qsort(buf.getBuffer(), buf.getCount(), buf.getRowSize(), lexComp);
 
-  nnz = cnt;
-  return buffer;
+  nnz = buf.getCount();
+  return buf.getBuffer();
 }
 
 void readHDF5Coords(const Task* task, const std::vector<PhysicalRegion> &regions, Context ctx, Runtime* runtime) {
@@ -309,12 +305,12 @@ ProgramRegions createRegions(Context ctx, Runtime* runtime, size_t order, size_t
 }
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Context ctx, Runtime* runtime) {
-  std::string tnsFilename;
+  std::string tensorFile;
   std::string hdf5Filename;
   bool dumpOnly = false;
 
   Realm::CommandLineParser parser;
-  parser.add_option_string("-tns", tnsFilename);
+  parser.add_option_string("-tns", tensorFile);
   parser.add_option_string("-hdf5", hdf5Filename);
   parser.add_option_bool("-dump", dumpOnly);
   auto args = Runtime::get_input_args();
@@ -355,14 +351,23 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Contex
   }
 
   // At this point, the tns filename must be defined.
-  assert(!tnsFilename.empty());
+  assert(!tensorFile.empty());
 
   // Read in the .tns file into raw data in memory.
   std::vector<int32_t> dimensions;
   size_t nnz;
-  // auto buf = readTNSFile(tnsFilename, dimensions, nnz);
-  auto buf = readMTXFile(tnsFilename, dimensions, nnz);
+  void* buf;
+  // Dispatch to the right file reader.
+  if (endsWith(tensorFile, ".mtx")) {
+    buf = readMTXFile(tensorFile, dimensions, nnz);
+  } else if (endsWith(tensorFile, ".tns")) {
+    buf = readTNSFile(tensorFile, dimensions, nnz);
+  } else {
+    assert(false && "Currently only tns and mtx files are supported");
+  }
   size_t order = dimensions.size();
+
+  std::cout << "Completed reading matrix file." << std::endl;
 
   auto regions = createRegions(ctx, runtime, order, nnz);
   auto mem = regions.mem;
@@ -435,6 +440,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Contex
   }
   runtime->detach_external_resource(ctx, pmemDim).wait();
   runtime->detach_external_resource(ctx, pdiskDim).wait();
+  std::cout << "Complete!" << std::endl;
 }
 
 int main(int argc, char** argv) {
