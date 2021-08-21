@@ -118,6 +118,8 @@ void* readMTXFile(std::string fileName, std::vector<int32_t>& dimensions, size_t
   nnz = dimensions[dimensions.size()-1];
   dimensions.pop_back();
 
+  int cnt = 0;
+
   // Create a buffer to dump entries into.
   TensorBuffer buf(order, nnz);
   // Load data from the file.
@@ -138,9 +140,8 @@ void* readMTXFile(std::string fileName, std::vector<int32_t>& dimensions, size_t
     buf.finalizeEntry();
 
     // Print out a message at checkpoints through the file.
-    auto pct = int((double(buf.getCount()) / double(nnz)) * 100);
-    if (pct % 10 == 0) {
-      printf("Read %ld out of %ld lines of %s.", buf.getCount(), nnz, fileName.c_str());
+    if (buf.getCount() % 1000000 == 0) {
+      printf("Read %ld out of %ld lines of %s.\n", buf.getCount(), nnz, fileName.c_str());
     }
   }
 
@@ -150,7 +151,9 @@ void* readMTXFile(std::string fileName, std::vector<int32_t>& dimensions, size_t
   // Now, let's sort the coordinates before dumping them. We'll use the qsort
   // function with a custom comparator.
   numIntsToCompare = order;
+  std::cout << "Beginning sort." << std::endl;
   qsort(buf.getBuffer(), buf.getCount(), buf.getRowSize(), lexComp);
+  std::cout << "Completed sort." << std::endl;
   return buf.getBuffer();
 }
 
@@ -367,7 +370,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Contex
   }
   size_t order = dimensions.size();
 
-  std::cout << "Completed reading matrix file." << std::endl;
+  std::cout << "Completed reading tensor file." << std::endl;
 
   auto regions = createRegions(ctx, runtime, order, nnz);
   auto mem = regions.mem;
@@ -389,8 +392,12 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Contex
     pmem = runtime->attach_external_resource(ctx, al);
   }
 
+  std::cout << "Attached in-memory data to region." << std::endl;
+
   // Create the HDF5 file.
   generateCoordListHDF5(hdf5Filename, order, nnz);
+
+  std::cout << "Generated HDF5 output file." << std::endl;
 
   // Now, open up and attach the output hdf5 file.
   auto fieldMap = constructFieldMap(coordFieldIDs);
@@ -416,6 +423,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Contex
   // Detach the external resources to flush any changes made.
   runtime->detach_external_resource(ctx, pmem).wait();
   runtime->detach_external_resource(ctx, pdisk).wait();
+
+  std::cout << "Finished attaching main tensor data." << std::endl;
 
   // Free the buffer holding the data.
   free(buf);

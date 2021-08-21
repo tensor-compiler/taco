@@ -5,6 +5,7 @@
 #include "legion/legion_utilities.h"
 
 #include "hdf5_utils.h"
+#include <chrono>
 
 using namespace Legion;
 
@@ -32,8 +33,18 @@ struct spmvArgs {
 
 struct spmvPosSplitArgs {
   int nnz;
+  int pieces;
 };
 
+void benchmarkAsyncCall(Legion::Context ctx, Legion::Runtime* runtime, std::vector<size_t>& times, std::function<void(void)> f) {
+  auto start = runtime->get_current_time(ctx);
+  f();
+  runtime->issue_execution_fence(ctx);
+  auto end = runtime->get_current_time(ctx);
+  auto ms = size_t((end.get<double>() - start.get<double>()) * 1e3);
+  LEGION_PRINT_ONCE(runtime, ctx, stdout, "Execution time: %ld ms.\n", ms);
+  times.push_back(ms);
+}
 
 struct LegionTensor {
   int32_t order;
@@ -170,12 +181,12 @@ void packACSR(const Task* task, const std::vector<PhysicalRegion>& regions, Cont
   }
 
   // The default starting size. Can bump this up for later.
-  int32_t A_capacity = 100;
+  int32_t A_capacity = 1000000;
   int32_t jA = 0;
   auto A_vals_phys = lgMalloc(ctx, runtime, lVals, A_capacity, FID_VALUE);
   AccessorD A_vals(A_vals_phys, FID_VALUE);
 
-  int32_t A2_crd_size = 100;
+  int32_t A2_crd_size = 1000000;
   auto A2_crd_phys = lgMalloc(ctx, runtime, lCrd, A2_crd_size, FID_INDEX);
   AccessorI A2_crd(A2_crd_phys, FID_INDEX);
 
@@ -387,20 +398,11 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   // Load the coordinate list matrix.
   ExternalResourceCollector col(ctx, runtime);
   auto coordList = loadCoordList(ctx, runtime, filename, col);
+  std::cout << "Loaded input matrix." << std::endl;
 
   size_t nnz = Rect<1>(runtime->get_index_space_domain(coordList.vals.get_index_space())).hi + 1;
   int n = coordList.dims[0];
   int m = coordList.dims[1];
-
-  // Let's print out what is in the matrix.
-  // TODO (rohany): Rewrite this.
-//  if (dump) {
-//    RegionRequirement r(coordList, READ_ONLY, EXCLUSIVE, coordList);
-//    r.add_field(FID_COORD_X).add_field(FID_COORD_Y).add_field(FID_VALUE);
-//    TaskLauncher launcher(TID_PRINT_COORD_LIST, TaskArgument());
-//    launcher.add_region_requirement(r);
-//    runtime->execute_task(ctx, launcher).wait();
-//  }
 
   LegionTensor A = initCSR(ctx, runtime);
   // Launch the pack task.
@@ -454,7 +456,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   }
 
   // Let's print out the regions and see what happened.
-  if (dump) {
+  if (dump && false) {
     {
       auto a2posreg = lgMalloc(ctx, runtime, A.indicesParents[1][0], n, FID_RECT_1);
       FieldAccessor<READ_WRITE,Rect<1>,1,coord_t, Realm::AffineAccessor<Rect<1>, 1, coord_t>> a2posrw(a2posreg, FID_RECT_1);
@@ -512,6 +514,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
 
   auto domain = Domain(Rect<1>(0, pieces - 1));
 
+  std::cout << "Target domain: " << domain << std::endl;
+
   // Note: All of these partitioning operators need to use the parent region
   // which is the "region the task has privileges on" -- for the top level task
   // that is the region that they created, not the subregion.
@@ -552,6 +556,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     auto y_partition = runtime->create_index_partition(ctx, yIspace, domain, y_col, LEGION_ALIASED_COMPLETE_KIND);
     auto y_logical_partition = runtime->get_logical_partition(ctx, y, y_partition);
 
+    std::cout << "Partitioned for pos split" << std::endl;
+
     RegionRequirement yReq = RegionRequirement(y_logical_partition, 0, LEGION_REDOP_SUM_FLOAT64, SIMULTANEOUS, y).add_field(FID_VALUE);
     RegionRequirement A2_pos_req = RegionRequirement(A2_pos_logical_partition, 0, READ_ONLY, EXCLUSIVE, A.indicesParents[1][0]).add_field(FID_RECT_1);
     RegionRequirement A2_crd_req = RegionRequirement(A2_crd_logical_partition, 0, READ_ONLY, EXCLUSIVE, A.indicesParents[1][1]).add_field(FID_INDEX);
@@ -559,14 +565,20 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     RegionRequirement xReq = RegionRequirement(x, READ_ONLY, EXCLUSIVE, x).add_field(FID_VALUE);
     spmvPosSplitArgs args;
     args.nnz = nnz;
+    args.pieces = pieces;
     IndexLauncher launcher = IndexLauncher(TID_SPMV_POS_SPLIT, domain, TaskArgument(&args, sizeof(spmvPosSplitArgs)), ArgumentMap());
     launcher.add_region_requirement(yReq);
     launcher.add_region_requirement(A2_pos_req);
     launcher.add_region_requirement(A2_crd_req);
     launcher.add_region_requirement(A_vals_req);
     launcher.add_region_requirement(xReq);
-    auto fm = runtime->execute_index_space(ctx, launcher);
-    fm.wait_all_results();
+    std::vector<size_t> times;
+    benchmarkAsyncCall(ctx, runtime, times, [&]() {
+      for(int i = 0; i < 10; i++) {
+        runtime->execute_index_space(ctx, launcher);
+      }
+    });
+    std::cout << "Executed in " << double(times[0]) / 10.0 << " ms." << std::endl;
   } else {
     // Do a partition across i.
 
@@ -632,8 +644,13 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     launcher.add_region_requirement(A2_crd_req);
     launcher.add_region_requirement(A_vals_req);
     launcher.add_region_requirement(xReq);
-    auto fm = runtime->execute_index_space(ctx, launcher);
-    fm.wait_all_results();
+    std::vector<size_t> times;
+    benchmarkAsyncCall(ctx, runtime, times, [&]() {
+      for(int i = 0; i < 10; i++) {
+        runtime->execute_index_space(ctx, launcher);
+      }
+    });
+    std::cout << "Executed in " << double(times[0]) / 10.0 << " ms." << std::endl;
   }
 
   {
@@ -711,11 +728,9 @@ void spmv(const Task* task, const std::vector<PhysicalRegion>& regions, Context 
   AccessorD A_vals(regions[3], FID_VALUE);
   AccessorD x_vals(regions[4], FID_VALUE);
 
+  #pragma omp parallel for schedule(static)
   for (int32_t i = in * ((n + (pieces - 1)) / pieces); i < in * ((n + (pieces - 1)) / pieces) + ((n + (pieces - 1)) / pieces); i++) {
     if (i >= n) {
-      continue;
-    }
-    if (i >= (in + 1) * ((n + 3) / 4)) {
       continue;
     }
 
@@ -731,6 +746,7 @@ void spmv(const Task* task, const std::vector<PhysicalRegion>& regions, Context 
 void spmvPosSplit(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   spmvPosSplitArgs* args = (spmvPosSplitArgs*)(task->args);
   int nnz = args->nnz;
+  int pieces = args->pieces;
   int fpos0 = task->index_point[0];
 
   typedef ReductionAccessor<SumReduction<double>,true,1,coord_t,Realm::AffineAccessor<double,1,coord_t>> AccessorReducedouble2;
@@ -748,9 +764,11 @@ void spmvPosSplit(const Task* task, const std::vector<PhysicalRegion>& regions, 
   int32_t i_pos = posDom.lo()[0];
   int32_t i = i_pos;
 
-  for (int32_t fpos1 = 0; fpos1 < ((nnz + 3) / 4); fpos1++) {
-    int32_t fposA = fpos0 * ((nnz + 3) / 4) + fpos1;
-    if (fposA >= (fpos0 + 1) * ((nnz + 3) / 4))
+  double loc = 0.0;
+  #pragma omp parallel for schedule(static) private(loc)
+  for (int32_t fpos1 = 0; fpos1 < ((nnz + (pieces - 1)) / pieces); fpos1++) {
+    int32_t fposA = fpos0 * ((nnz + (pieces - 1)) / pieces) + fpos1;
+    if (fposA >= (fpos0 + 1) * ((nnz + (pieces - 1)) / pieces))
       continue;
     if (fposA >= nnz)
       continue;
@@ -760,8 +778,14 @@ void spmvPosSplit(const Task* task, const std::vector<PhysicalRegion>& regions, 
     while (fposA == (A2_pos[i_pos].hi + 1)) {
       i_pos++;
       i = i_pos;
+      // TODO (rohany): This isn't code that TACO can generate right now, but I found
+      //  that it's cheaper to keep the accumulated result in a variable for as long
+      //  as possible, rather than always writing out to the immediately (3x perf diff).
+      loc = 0.0;
+      y_vals[i] <<= loc;
     }
-    y_vals[i] <<= A_vals[fposA] * x_vals[f];
+    // y_vals[i] <<= A_vals[fposA] * x_vals[f];
+    loc += A_vals[fposA] * x_vals[f];
   }
 }
 
@@ -785,8 +809,18 @@ int main(int argc, char** argv) {
     Runtime::preregister_task_variant<spmv>(registrar, "spmv");
   }
   {
+    TaskVariantRegistrar registrar(TID_SPMV, "spmv");
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
+    Runtime::preregister_task_variant<spmv>(registrar, "spmv");
+  }
+  {
     TaskVariantRegistrar registrar(TID_SPMV_POS_SPLIT, "spmvPos");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    Runtime::preregister_task_variant<spmvPosSplit>(registrar, "spmvPos");
+  }
+  {
+    TaskVariantRegistrar registrar(TID_SPMV_POS_SPLIT, "spmvPos");
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     Runtime::preregister_task_variant<spmvPosSplit>(registrar, "spmvPos");
   }
   {

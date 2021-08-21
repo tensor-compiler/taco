@@ -141,8 +141,10 @@ list(REMOVE_DUPLICATES TEST_BINARIES)
 add_custom_target(test-legion COMMAND ctest -R legion DEPENDS ${TEST_BINARIES})
 
 # Add some hand written codes here.
-add_executable(spmv SpMV/handwritten.cpp ${LG_SOURCES})
-target_link_libraries(spmv Legion::Legion)
+add_executable(spmv SpMV/handwritten.cpp ${LG_EXTRA_SOURCES})
+include_directories(spmv PRIVATE ${HDF5_INCLUDE_DIRS})
+target_link_libraries(spmv Legion::Legion ${HDF5_LIBRARIES})
+target_compile_options(spmv PRIVATE ${OpenMP_CXX_FLAGS})
 
 # Utility to preload tns files into hdf5 files for easier ingestion.
 add_executable(tnstohdf5 fileio/tnstohdf5.cpp ${LG_EXTRA_SOURCES})
