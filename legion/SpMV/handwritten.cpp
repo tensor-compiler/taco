@@ -137,6 +137,8 @@ PhysicalRegion lgMalloc(Context ctx, Runtime* runtime, LogicalRegion region, siz
 // Interestingly, with Legion, I don't have to realloc like this. Instead, I can just ask Legion
 // for the next x elements, rather than mapping twice the space! It's going to hold on to the
 // data that I've already written, and I don't need to do offset arithmetic calculations either.
+// TODO (rohany): This seems like a relatively important optimization to do, as Legion wastes a
+//  good bit of time doing the copies of the part of the region we've already written to.
 PhysicalRegion lgRealloc(Context ctx, Runtime* runtime, LogicalRegion region, PhysicalRegion pg, size_t numElems, FieldID fid) {
   runtime->unmap_region(ctx, pg);
   return lgMalloc(ctx, runtime, region, numElems, fid);
