@@ -147,6 +147,6 @@ target_link_libraries(spmv Legion::Legion ${HDF5_LIBRARIES})
 target_compile_options(spmv PRIVATE ${OpenMP_CXX_FLAGS})
 
 # Utility to preload tns files into hdf5 files for easier ingestion.
-add_executable(tnstohdf5 fileio/tnstohdf5.cpp ${LG_EXTRA_SOURCES})
-target_link_libraries(tnstohdf5 Legion::Legion ${HDF5_LIBRARIES})
-include_directories(tnstohdf5 PRIVATE ${HDF5_INCLUDE_DIRS})
+add_executable(tensor_to_hdf5 fileio/tensor_to_hdf5.cpp ${LG_EXTRA_SOURCES})
+target_link_libraries(tensor_to_hdf5 Legion::Legion ${HDF5_LIBRARIES})
+include_directories(tensor_to_hdf5 PRIVATE ${HDF5_INCLUDE_DIRS})

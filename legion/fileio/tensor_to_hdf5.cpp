@@ -10,8 +10,8 @@ using namespace Legion;
 /*
  * This tool is used for converting .tns files into HDF5 files that can easily
  * be loaded into Legion through attach operations. This tool as two uses:
- *   ./bin/tnstohdf5 -tns f1 -hdf5 f2 // dump f1 into f2 as tns
- *   ./bin/tnstohdf5 -hdf5 f -dump // dump the contents of f
+ *   ./bin/tensor_to_hdf5 -tensor f1 -o f2 // dump f1 into f2 as tns
+ *   ./bin/tensor_to_hdf5 -dump f.hdf5 // dump the contents of f
  * The tool dumps the tns into an HDF5 file with the following format:
  *              [coord0 coord1 coord2 ... coordN value]
  * where each coord0 is an int32_t, and value is a double. There are nnz
@@ -117,8 +117,6 @@ void* readMTXFile(std::string fileName, std::vector<int32_t>& dimensions, size_t
   }
   nnz = dimensions[dimensions.size()-1];
   dimensions.pop_back();
-
-  int cnt = 0;
 
   // Create a buffer to dump entries into.
   TensorBuffer buf(order, nnz);
@@ -310,19 +308,18 @@ ProgramRegions createRegions(Context ctx, Runtime* runtime, size_t order, size_t
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Context ctx, Runtime* runtime) {
   std::string tensorFile;
   std::string hdf5Filename;
-  bool dumpOnly = false;
+  std::string dumpFile;
 
   Realm::CommandLineParser parser;
-  parser.add_option_string("-tns", tensorFile);
-  parser.add_option_string("-hdf5", hdf5Filename);
-  parser.add_option_bool("-dump", dumpOnly);
+  parser.add_option_string("-tensor", tensorFile);
+  parser.add_option_string("-o", hdf5Filename);
+  parser.add_option_string("-dump", dumpFile);
   auto args = Runtime::get_input_args();
   assert(parser.parse_command_line(args.argc, args.argv));
-  assert(!hdf5Filename.empty());
 
-  if (dumpOnly) {
+  if (!dumpFile.empty()) {
     size_t order, nnz;
-    getCoordListHDF5Meta(hdf5Filename, order, nnz);
+    getCoordListHDF5Meta(dumpFile, order, nnz);
     auto regions = createRegions(ctx, runtime, order, nnz);
     auto disk = regions.disk;
     auto diskDim = regions.diskDim;
@@ -330,8 +327,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Contex
     // Attach the regions.
     auto coordFieldIDs = fieldIDs(order);
     auto fieldMap = constructFieldMap(coordFieldIDs);
-    auto pdisk = attachHDF5(ctx, runtime, disk, fieldMap, hdf5Filename);
-    auto pdiskDim = attachHDF5(ctx, runtime, diskDim, {{FID_DIM, COODimsField}}, hdf5Filename);
+    auto pdisk = attachHDF5(ctx, runtime, disk, fieldMap, dumpFile);
+    auto pdiskDim = attachHDF5(ctx, runtime, diskDim, {{FID_DIM, COODimsField}}, dumpFile);
 
     // Launch a task to print out the result. This maps the region
     // into CPU memory for us to access directly.
@@ -353,8 +350,9 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Contex
     return;
   }
 
-  // At this point, the tns filename must be defined.
+  // At this point, the tns and hdf5 filenames must be defined.
   assert(!tensorFile.empty());
+  assert(!hdf5Filename.empty());
 
   // Read in the .tns file into raw data in memory.
   std::vector<int32_t> dimensions;
