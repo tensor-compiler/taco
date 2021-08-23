@@ -4,8 +4,10 @@
 #include "hdf5_utils.h"
 #include <fstream>
 #include <iomanip>
+#include "mappers/default_mapper.h"
 
 using namespace Legion;
+using namespace Legion::Mapping;
 
 /*
  * This tool is used for converting .tns files into HDF5 files that can easily
@@ -87,6 +89,46 @@ private:
   size_t capacity;
   size_t rowSize;
 };
+
+// Until Legion can do AOS HDF5 writes (#1136), we need to manually transpose
+// the data into SOA layout for HDF5 copies.
+class HDF5CopyMapper : public DefaultMapper {
+public:
+  HDF5CopyMapper(MapperRuntime* rt, Machine& machine, const Legion::Processor& local) : DefaultMapper(rt, machine, local) {}
+
+  void default_policy_select_constraints(MapperContext ctx,
+                                         LayoutConstraintSet &constraints,
+                                         Memory target_memory,
+                                         const RegionRequirement &req) {
+    // Ensure that regions are mapped in row-major order with an SOA layout.
+    Legion::IndexSpace is = req.region.get_index_space();
+    Legion::Domain domain = runtime->get_index_space_domain(ctx, is);
+    int dim = domain.get_dim();
+    std::vector<Legion::DimensionKind> dimension_ordering(dim + 1);
+    for (int i = 0; i < dim; ++i) {
+      dimension_ordering[dim - i - 1] =
+          static_cast<Legion::DimensionKind>(static_cast<int>(LEGION_DIM_X) + i);
+    }
+    dimension_ordering[dim] = LEGION_DIM_F;
+    constraints.add_constraint(Legion::OrderingConstraint(dimension_ordering, false/*contiguous*/));
+    DefaultMapper::default_policy_select_constraints(ctx, constraints, target_memory, req);
+  }
+
+  void map_copy(const MapperContext ctx,
+                const Copy& copy,
+                const MapCopyInput& input,
+                MapCopyOutput& output) {
+    // There should only be one input and output requirement.
+    output.dst_instances[0] = input.dst_instances[0];
+    runtime->acquire_and_filter_instances(ctx, output.dst_instances[0]);
+    // Map the source instance in SOA format for HDF5 to be happy.
+    default_create_copy_instance<true /* is src*/>(ctx, copy, copy.src_requirements[0], 0, output.src_instances[0]);
+  }
+};
+
+void register_mapper(Machine m, Runtime* runtime, const std::set<Processor>& local_procs) {
+  runtime->replace_default_mapper(new HDF5CopyMapper(runtime->get_mapper_runtime(), m, *local_procs.begin()), Processor::NO_PROC);
+}
 
 void* readMTXFile(std::string fileName, std::vector<int32_t>& dimensions, size_t& nnz) {
   // fileName must be a relative, sanitized path.
@@ -462,5 +504,6 @@ int main(int argc, char** argv) {
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     Runtime::preregister_task_variant<readHDF5Coords>(registrar, "printData");
   }
+  Runtime::add_registration_callback(register_mapper);
   return Runtime::start(argc, argv);
 }
