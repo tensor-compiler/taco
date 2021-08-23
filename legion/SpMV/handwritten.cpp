@@ -8,6 +8,7 @@
 #include <chrono>
 
 using namespace Legion;
+using namespace Legion::Mapping;
 
 enum FieldIDs {
   FID_VALUE,
@@ -36,6 +37,42 @@ struct spmvPosSplitArgs {
   int nnz;
   int pieces;
 };
+
+class SPMVMapper : public DefaultMapper {
+public:
+  SPMVMapper(MapperRuntime* rt, Machine& machine, const Legion::Processor& local) : DefaultMapper(rt, machine, local) {
+    // Record for each OpenMP processor what NUMA region is the closest.
+    for (auto proc : this->local_omps) {
+      Machine::MemoryQuery local(this->machine);
+      local.local_address_space()
+          .only_kind(Memory::SOCKET_MEM)
+          .best_affinity_to(proc)
+          ;
+      if (local.count() > 0) {
+        this->numaDomains[proc] = local.first();
+      }
+    }
+  }
+
+  Memory default_policy_select_target_memory(Legion::Mapping::MapperContext ctx,
+                                             Legion::Processor target_proc,
+                                             const Legion::RegionRequirement &req,
+                                             Legion::MemoryConstraint mc) {
+    // If we are supposed to perform NUMA aware allocations
+    if (target_proc.kind() == Processor::OMP_PROC) {
+      auto it = this->numaDomains.find(target_proc);
+      assert(it != this->numaDomains.end());
+      return it->second;
+    } else {
+      return DefaultMapper::default_policy_select_target_memory(ctx, target_proc, req, mc);
+    }
+  }
+  std::map<Legion::Processor, Legion::Memory> numaDomains;
+};
+
+void register_mapper(Machine m, Runtime* runtime, const std::set<Processor>& local_procs) {
+  runtime->replace_default_mapper(new SPMVMapper(runtime->get_mapper_runtime(), m, *local_procs.begin()), Processor::NO_PROC);
+}
 
 void benchmarkAsyncCall(Legion::Context ctx, Legion::Runtime* runtime, std::vector<size_t>& times, std::function<void(void)> f) {
   auto start = runtime->get_current_time(ctx);
@@ -605,14 +642,16 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     launcher.add_region_requirement(A2_crd_req);
     launcher.add_region_requirement(A_vals_req);
     launcher.add_region_requirement(xReq);
+    // Run one instance to move around data and warm things up.
+    runtime->execute_index_space(ctx, launcher).wait_all_results();
     std::vector<size_t> times;
     benchmarkAsyncCall(ctx, runtime, times, [&]() {
-      for(int i = 0; i < 10; i++) {
+      for(int i = 0; i < 20; i++) {
         runtime->fill_field<double>(ctx, y, y, FID_VALUE, 0);
         runtime->execute_index_space(ctx, launcher);
       }
     });
-    std::cout << "Executed in " << double(times[0]) / 10.0 << " ms." << std::endl;
+    std::cout << "Executed in " << double(times[0]) / 20.0 << " ms." << std::endl;
   } else {
     // Do a partition across i.
 
@@ -678,14 +717,16 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     launcher.add_region_requirement(A2_crd_req);
     launcher.add_region_requirement(A_vals_req);
     launcher.add_region_requirement(xReq);
+    // Run one instance to move around data and warm things up.
+    runtime->execute_index_space(ctx, launcher).wait_all_results();
     std::vector<size_t> times;
     benchmarkAsyncCall(ctx, runtime, times, [&]() {
-      for(int i = 0; i < 10; i++) {
+      for(int i = 0; i < 20; i++) {
         runtime->fill_field<double>(ctx, y, y, FID_VALUE, 0);
         runtime->execute_index_space(ctx, launcher);
       }
     });
-    std::cout << "Executed in " << double(times[0]) / 10.0 << " ms." << std::endl;
+    std::cout << "Executed in " << double(times[0]) / 20.0 << " ms." << std::endl;
   }
 
   {
@@ -880,5 +921,6 @@ int main(int argc, char** argv) {
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     Runtime::preregister_task_variant<attachCoordListTask>(registrar, "attachRegions");
   }
+  Runtime::add_registration_callback(register_mapper);
   return Runtime::start(argc, argv);
 }
