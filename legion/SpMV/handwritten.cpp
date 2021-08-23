@@ -24,6 +24,7 @@ enum TaskIDs {
   TID_SPMV_POS_SPLIT,
   TID_PRINT_COORD_LIST,
   TID_PACK_A_CSR,
+  TID_ATTACH_REGIONS,
 };
 
 struct spmvArgs {
@@ -284,6 +285,24 @@ private:
   std::vector<PhysicalRegion> physicalRegions;
 };
 
+void attachCoordListTask(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
+  std::string filename((char*)task->args, task->arglen);
+  auto dims = regions[0].get_logical_region();
+  auto coo1 = regions[1].get_logical_region();
+  auto coo2 = regions[2].get_logical_region();
+  auto vals = regions[3].get_logical_region();
+
+//  ExternalResourceCollector col(ctx, runtime);
+//  col.attach(attachHDF5(ctx, runtime, dims, {{FID_INDEX, COODimsField}}, filename));
+//  col.attach(attachHDF5(ctx, runtime, coo1, {{FID_INDEX, COOCoordsFields[0]}}, filename));
+//  col.attach(attachHDF5(ctx, runtime, coo2, {{FID_INDEX, COOCoordsFields[1]}}, filename));
+//  col.attach(attachHDF5(ctx, runtime, vals, {{FID_VALUE, COOValsField}}, filename));
+  attachHDF5(ctx, runtime, dims, {{FID_INDEX, COODimsField}}, filename);
+  attachHDF5(ctx, runtime, coo1, {{FID_INDEX, COOCoordsFields[0]}}, filename);
+  attachHDF5(ctx, runtime, coo2, {{FID_INDEX, COOCoordsFields[1]}}, filename);
+  attachHDF5(ctx, runtime, vals, {{FID_VALUE, COOValsField}}, filename);
+}
+
 LegionTensor loadCoordList(Context ctx, Runtime* runtime, std::string filename, ExternalResourceCollector& col) {
   LegionTensor result;
 
@@ -313,11 +332,15 @@ LegionTensor loadCoordList(Context ctx, Runtime* runtime, std::string filename, 
   auto coo2 = runtime->create_logical_region(ctx, coordIspace, fispace);
   auto vals = runtime->create_logical_region(ctx, coordIspace, fvspace);
 
-  // Attach all of the regions.
-  auto dimsDisk = attachHDF5(ctx, runtime, dims, {{FID_INDEX, COODimsField}}, filename);
-  col.attach(attachHDF5(ctx, runtime, coo1, {{FID_INDEX, COOCoordsFields[0]}}, filename));
-  col.attach(attachHDF5(ctx, runtime, coo2, {{FID_INDEX, COOCoordsFields[1]}}, filename));
-  col.attach(attachHDF5(ctx, runtime, vals, {{FID_VALUE, COOValsField}}, filename));
+  // Launch a task to attach all of the regions.
+  {
+    TaskLauncher launcher(TID_ATTACH_REGIONS, TaskArgument(filename.c_str(), filename.length()));
+    launcher.add_region_requirement(RegionRequirement(dims, READ_WRITE, EXCLUSIVE, dims, Mapping::DefaultMapper::VIRTUAL_MAP).add_field(FID_INDEX));
+    launcher.add_region_requirement(RegionRequirement(coo1, READ_WRITE, EXCLUSIVE, coo1, Mapping::DefaultMapper::VIRTUAL_MAP).add_field(FID_INDEX));
+    launcher.add_region_requirement(RegionRequirement(coo2, READ_WRITE, EXCLUSIVE, coo2, Mapping::DefaultMapper::VIRTUAL_MAP).add_field(FID_INDEX));
+    launcher.add_region_requirement(RegionRequirement(vals, READ_WRITE, EXCLUSIVE, vals, Mapping::DefaultMapper::VIRTUAL_MAP).add_field(FID_VALUE));
+    runtime->execute_task(ctx, launcher).wait();
+  }
 
   // Extract the dimensions into a CPU memory instance.
   {
@@ -468,7 +491,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   }
 
   // Let's print out the regions and see what happened.
-  if (dump && false) {
+  if (dump) {
     {
       auto a2posreg = lgMalloc(ctx, runtime, A.indicesParents[1][0], n, FID_RECT_1);
       FieldAccessor<READ_WRITE,Rect<1>,1,coord_t, Realm::AffineAccessor<Rect<1>, 1, coord_t>> a2posrw(a2posreg, FID_RECT_1);
@@ -525,8 +548,6 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto A_vals_ispace = A_vals.get_index_space();
 
   auto domain = Domain(Rect<1>(0, pieces - 1));
-
-  std::cout << "Target domain: " << domain << std::endl;
 
   // Note: All of these partitioning operators need to use the parent region
   // which is the "region the task has privileges on" -- for the top level task
@@ -587,6 +608,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     std::vector<size_t> times;
     benchmarkAsyncCall(ctx, runtime, times, [&]() {
       for(int i = 0; i < 10; i++) {
+        runtime->fill_field<double>(ctx, y, y, FID_VALUE, 0);
         runtime->execute_index_space(ctx, launcher);
       }
     });
@@ -659,6 +681,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     std::vector<size_t> times;
     benchmarkAsyncCall(ctx, runtime, times, [&]() {
       for(int i = 0; i < 10; i++) {
+        runtime->fill_field<double>(ctx, y, y, FID_VALUE, 0);
         runtime->execute_index_space(ctx, launcher);
       }
     });
@@ -780,24 +803,31 @@ void spmvPosSplit(const Task* task, const std::vector<PhysicalRegion>& regions, 
   #pragma omp parallel for schedule(static) private(loc)
   for (int32_t fpos1 = 0; fpos1 < ((nnz + (pieces - 1)) / pieces); fpos1++) {
     int32_t fposA = fpos0 * ((nnz + (pieces - 1)) / pieces) + fpos1;
-    if (fposA >= (fpos0 + 1) * ((nnz + (pieces - 1)) / pieces))
-      continue;
     if (fposA >= nnz)
       continue;
 
     int32_t f = A2_crd[fposA];
     // TODO (rohany): I think that this needs to be a +1 cuz the points are inclusive.
     while (fposA == (A2_pos[i_pos].hi + 1)) {
+      // TODO (rohany): This has to be an atomic write. An easy way to do this should be to
+      //  change the accessor to not have exclusive mode on.
+      y_vals[i] <<= loc;
       i_pos++;
       i = i_pos;
       // TODO (rohany): This isn't code that TACO can generate right now, but I found
       //  that it's cheaper to keep the accumulated result in a variable for as long
       //  as possible, rather than always writing out to the immediately (3x perf diff).
       loc = 0.0;
-      y_vals[i] <<= loc;
     }
-    // y_vals[i] <<= A_vals[fposA] * x_vals[f];
+//    y_vals[i] <<= A_vals[fposA] * x_vals[f];
     loc += A_vals[fposA] * x_vals[f];
+
+    // TODO (rohany): Not sure how to do this tail strategy business. I sort of need
+    //  some code to flush `loc` out to `y_vals[i]` at the final iteration of each
+    //  parallel chunk.
+//    if (fpos1 == ((nnz + (pieces - 1)) / pieces) - 1 && loc != 0) {
+//      y_vals[i] <<= loc;
+//    }
   }
 }
 
@@ -844,6 +874,11 @@ int main(int argc, char** argv) {
     TaskVariantRegistrar registrar(TID_PACK_A_CSR, "packACSR");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     Runtime::preregister_task_variant<packACSR>(registrar, "packACSR");
+  }
+  {
+    TaskVariantRegistrar registrar(TID_ATTACH_REGIONS, "attachRegions");
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    Runtime::preregister_task_variant<attachCoordListTask>(registrar, "attachRegions");
   }
   return Runtime::start(argc, argv);
 }
