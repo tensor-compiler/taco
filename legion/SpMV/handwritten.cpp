@@ -108,9 +108,9 @@ void printCoordListMatrix(const Task* task, const std::vector<PhysicalRegion>& r
   }
 }
 
-LogicalRegion getSubRegion(Context ctx, Runtime* runtime, LogicalRegion region, size_t numElems) {
+LogicalRegion getSubRegion(Context ctx, Runtime* runtime, LogicalRegion region, size_t start, size_t end) {
   // Get a partition of the region of the appropriate size.
-  auto bounds = Rect<1>(0, numElems - 1);
+  auto bounds = Rect<1>(start, end - 1);
   IndexSpaceT<1> colorSpace = runtime->create_index_space(ctx, Rect<1>(0, 0));
   Transform<1,1> transform;
   transform[0][0] = 0;
@@ -128,7 +128,15 @@ LogicalRegion getSubRegion(Context ctx, Runtime* runtime, LogicalRegion region, 
 }
 
 PhysicalRegion lgMalloc(Context ctx, Runtime* runtime, LogicalRegion region, size_t numElems, FieldID fid) {
-  auto subreg = getSubRegion(ctx, runtime, region, numElems);
+  auto subreg = getSubRegion(ctx, runtime, region, 0, numElems);
+  RegionRequirement req(subreg, READ_WRITE, EXCLUSIVE, region, Mapping::DefaultMapper::EXACT_REGION);
+  req.add_field(fid);
+  return runtime->map_region(ctx, req);
+}
+
+PhysicalRegion lgReallocRange(Context ctx, Runtime* runtime, LogicalRegion region, PhysicalRegion pg, size_t curSize, size_t numElems, FieldID fid) {
+  runtime->unmap_region(ctx, pg);
+  auto subreg = getSubRegion(ctx, runtime, region, curSize, numElems);
   RegionRequirement req(subreg, READ_WRITE, EXCLUSIVE, region, Mapping::DefaultMapper::EXACT_REGION);
   req.add_field(fid);
   return runtime->map_region(ctx, req);
@@ -216,13 +224,15 @@ void packACSR(const Task* task, const std::vector<PhysicalRegion>& regions, Cont
         jA_COO++;
       }
       if (A_capacity <= jA) {
-        A_vals_phys = lgRealloc(ctx, runtime, lVals, A_vals_phys, A_capacity * 2, FID_VALUE);
+        // A_vals_phys = lgRealloc(ctx, runtime, lVals, A_vals_phys, A_capacity * 2, FID_VALUE);
+        A_vals_phys = lgReallocRange(ctx, runtime, lVals, A_vals_phys, A_capacity, A_capacity * 2, FID_VALUE);
         A_vals = AccessorD(A_vals_phys, FID_VALUE);
         A_capacity *= 2;
       }
       A_vals[jA] = A_COO_val;
       if (A2_crd_size <= jA) {
-        A2_crd_phys = lgRealloc(ctx, runtime, lCrd, A2_crd_phys, A2_crd_size * 2, FID_INDEX);
+        // A2_crd_phys = lgRealloc(ctx, runtime, lCrd, A2_crd_phys, A2_crd_size * 2, FID_INDEX);
+        A2_crd_phys = lgReallocRange(ctx, runtime, lCrd, A2_crd_phys, A2_crd_size, A2_crd_size * 2, FID_INDEX);
         A2_crd = AccessorI(A2_crd_phys, FID_INDEX);
         A2_crd_size *= 2;
       }
@@ -452,9 +462,9 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     //  the parents of each tensor etc, so the constructed results could be aware of that?
 
     // Use the resulting information to update our LegionTensor.
-    A.indices[1][0] = getSubRegion(ctx, runtime, A.indicesParents[1][0], n);
-    A.indices[1][1] = getSubRegion(ctx, runtime, A.indicesParents[1][1], nnz);
-    A.vals = getSubRegion(ctx, runtime, A.valsParent, nnz);
+    A.indices[1][0] = getSubRegion(ctx, runtime, A.indicesParents[1][0], 0, n);
+    A.indices[1][1] = getSubRegion(ctx, runtime, A.indicesParents[1][1], 0, nnz);
+    A.vals = getSubRegion(ctx, runtime, A.valsParent, 0, nnz);
   }
 
   // Let's print out the regions and see what happened.
