@@ -84,6 +84,14 @@ void benchmarkAsyncCall(Legion::Context ctx, Legion::Runtime* runtime, std::vect
   times.push_back(ms);
 }
 
+void runAsyncCall(Legion::Context ctx, Legion::Runtime* runtime, std::function<void(void)> f) {
+  f();
+  runtime->issue_execution_fence(ctx);
+  runtime->get_current_time(ctx).wait();
+}
+
+
+
 struct LegionTensor {
   int32_t order;
   std::vector<int32_t> dims;
@@ -470,7 +478,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   // Load the coordinate list matrix.
   ExternalResourceCollector col(ctx, runtime);
   auto coordList = loadCoordList(ctx, runtime, filename, col);
-  LEGION_PRINT_ONCE(runtime, ctx, stdout, "Loaded input matrix.");
+  LEGION_PRINT_ONCE(runtime, ctx, stdout, "Loaded input matrix.\n");
 
   size_t nnz = Rect<1>(runtime->get_index_space_domain(coordList.vals.get_index_space())).hi + 1;
   int n = coordList.dims[0];
@@ -527,7 +535,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     A.vals = getSubRegion(ctx, runtime, A.valsParent, 0, nnz);
   }
 
-  LEGION_PRINT_ONCE(runtime, ctx, stdout, "Packed input matrix.");
+  LEGION_PRINT_ONCE(runtime, ctx, stdout, "Packed input matrix.\n");
 
   // Let's print out the regions and see what happened.
   if (dump) {
@@ -628,7 +636,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     auto y_partition = runtime->create_index_partition(ctx, yIspace, domain, y_col, LEGION_ALIASED_COMPLETE_KIND);
     auto y_logical_partition = runtime->get_logical_partition(ctx, y, y_partition);
 
-    LEGION_PRINT_ONCE(runtime, ctx, stdout, "Partitioned for pos split.");
+    LEGION_PRINT_ONCE(runtime, ctx, stdout, "Partitioned for pos split.\n");
 
     RegionRequirement yReq = RegionRequirement(y_logical_partition, 0, LEGION_REDOP_SUM_FLOAT64, SIMULTANEOUS, y).add_field(FID_VALUE);
     RegionRequirement A2_pos_req = RegionRequirement(A2_pos_logical_partition, 0, READ_ONLY, EXCLUSIVE, A.indicesParents[1][0]).add_field(FID_RECT_1);
@@ -644,8 +652,12 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     launcher.add_region_requirement(A2_crd_req);
     launcher.add_region_requirement(A_vals_req);
     launcher.add_region_requirement(xReq);
-    // Run one instance to move around data and warm things up.
-    runtime->execute_index_space(ctx, launcher).wait_all_results();
+    // Run 5 iterations of warmup.
+    runAsyncCall(ctx, runtime, [&]() {
+      for(int i = 0; i < 5; i++) {
+        runtime->execute_index_space(ctx, launcher);
+      }
+    });
     std::vector<size_t> times;
     benchmarkAsyncCall(ctx, runtime, times, [&]() {
       for(int i = 0; i < 20; i++) {
@@ -653,7 +665,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
         runtime->execute_index_space(ctx, launcher);
       }
     });
-    LEGION_PRINT_ONCE(runtime, ctx, stdout, "Executed in %lf ms.", double(times[0]) / 20.0);
+    LEGION_PRINT_ONCE(runtime, ctx, stdout, "Executed in %lf ms.\n", double(times[0]) / 20.0);
   } else {
     // Do a partition across i.
 
@@ -706,7 +718,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     auto A_vals_partition = runtime->create_index_partition(ctx, A_vals_ispace, domain, A_vals_col, LEGION_DISJOINT_COMPLETE_KIND);
     auto A_vals_logical_partition = runtime->get_logical_partition(ctx, A.valsParent, A_vals_partition);
 
-    LEGION_PRINT_ONCE(runtime, ctx, stdout, "Partitioned for i-split.");
+    LEGION_PRINT_ONCE(runtime, ctx, stdout, "Partitioned for i-split.\n");
 
     RegionRequirement yReq = RegionRequirement(yLogicalPartition, 0, READ_WRITE, EXCLUSIVE, y).add_field(FID_VALUE);
     RegionRequirement A2_pos_req = RegionRequirement(A2_pos_logical_partition, 0, READ_ONLY, EXCLUSIVE, A.indicesParents[1][0]).add_field(FID_RECT_1);
@@ -721,8 +733,12 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     launcher.add_region_requirement(A2_crd_req);
     launcher.add_region_requirement(A_vals_req);
     launcher.add_region_requirement(xReq);
-    // Run one instance to move around data and warm things up.
-    runtime->execute_index_space(ctx, launcher).wait_all_results();
+    // Run 5 iterations of warmup.
+    runAsyncCall(ctx, runtime, [&]() {
+      for(int i = 0; i < 5; i++) {
+        runtime->execute_index_space(ctx, launcher);
+      }
+    });
     std::vector<size_t> times;
     benchmarkAsyncCall(ctx, runtime, times, [&]() {
       for(int i = 0; i < 20; i++) {
@@ -730,7 +746,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
         runtime->execute_index_space(ctx, launcher);
       }
     });
-    LEGION_PRINT_ONCE(runtime, ctx, stdout, "Executed in %lf ms.", double(times[0]) / 20.0);
+    LEGION_PRINT_ONCE(runtime, ctx, stdout, "Executed in %lf ms.\n", double(times[0]) / 20.0);
   }
 
   {
