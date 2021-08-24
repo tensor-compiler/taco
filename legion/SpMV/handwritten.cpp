@@ -470,7 +470,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   // Load the coordinate list matrix.
   ExternalResourceCollector col(ctx, runtime);
   auto coordList = loadCoordList(ctx, runtime, filename, col);
-  std::cout << "Loaded input matrix." << std::endl;
+  LEGION_PRINT_ONCE(runtime, ctx, stdout, "Loaded input matrix.");
 
   size_t nnz = Rect<1>(runtime->get_index_space_domain(coordList.vals.get_index_space())).hi + 1;
   int n = coordList.dims[0];
@@ -526,6 +526,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     A.indices[1][1] = getSubRegion(ctx, runtime, A.indicesParents[1][1], 0, nnz);
     A.vals = getSubRegion(ctx, runtime, A.valsParent, 0, nnz);
   }
+
+  LEGION_PRINT_ONCE(runtime, ctx, stdout, "Packed input matrix.");
 
   // Let's print out the regions and see what happened.
   if (dump) {
@@ -626,7 +628,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     auto y_partition = runtime->create_index_partition(ctx, yIspace, domain, y_col, LEGION_ALIASED_COMPLETE_KIND);
     auto y_logical_partition = runtime->get_logical_partition(ctx, y, y_partition);
 
-    std::cout << "Partitioned for pos split" << std::endl;
+    LEGION_PRINT_ONCE(runtime, ctx, stdout, "Partitioned for pos split.");
 
     RegionRequirement yReq = RegionRequirement(y_logical_partition, 0, LEGION_REDOP_SUM_FLOAT64, SIMULTANEOUS, y).add_field(FID_VALUE);
     RegionRequirement A2_pos_req = RegionRequirement(A2_pos_logical_partition, 0, READ_ONLY, EXCLUSIVE, A.indicesParents[1][0]).add_field(FID_RECT_1);
@@ -651,7 +653,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
         runtime->execute_index_space(ctx, launcher);
       }
     });
-    std::cout << "Executed in " << double(times[0]) / 20.0 << " ms." << std::endl;
+    LEGION_PRINT_ONCE(runtime, ctx, stdout, "Executed in %lf ms.", double(times[0]) / 20.0);
   } else {
     // Do a partition across i.
 
@@ -704,6 +706,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     auto A_vals_partition = runtime->create_index_partition(ctx, A_vals_ispace, domain, A_vals_col, LEGION_DISJOINT_COMPLETE_KIND);
     auto A_vals_logical_partition = runtime->get_logical_partition(ctx, A.valsParent, A_vals_partition);
 
+    LEGION_PRINT_ONCE(runtime, ctx, stdout, "Partitioned for i-split.");
+
     RegionRequirement yReq = RegionRequirement(yLogicalPartition, 0, READ_WRITE, EXCLUSIVE, y).add_field(FID_VALUE);
     RegionRequirement A2_pos_req = RegionRequirement(A2_pos_logical_partition, 0, READ_ONLY, EXCLUSIVE, A.indicesParents[1][0]).add_field(FID_RECT_1);
     RegionRequirement A2_crd_req = RegionRequirement(A2_crd_logical_partition, 0, READ_ONLY, EXCLUSIVE, A.indicesParents[1][1]).add_field(FID_INDEX);
@@ -726,7 +730,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
         runtime->execute_index_space(ctx, launcher);
       }
     });
-    std::cout << "Executed in " << double(times[0]) / 20.0 << " ms." << std::endl;
+    LEGION_PRINT_ONCE(runtime, ctx, stdout, "Executed in %lf ms.", double(times[0]) / 20.0);
   }
 
   {
