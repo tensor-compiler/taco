@@ -135,10 +135,35 @@ void* readMTXFile(std::string fileName, std::vector<int32_t>& dimensions, size_t
   std::fstream file;
   file.open(fileName, std::fstream::in);
 
-  // TODO (rohany): Parse the header.
-
+  // Parse the header. The header is structured as follows:
+  //  %%MatrixMarket type format field symmetry
   std::string line;
   std::getline(file, line);
+  std::stringstream lineStream(line);
+  std::string head, type, formats, field, symmetry;
+  lineStream >> head >> type >> formats >> field >> symmetry;
+  assert(head == "%%MatrixMarket" && "Unknown header of MatrixMarket");
+  assert(type == "matrix");
+  assert(formats == "coordinate");
+  enum ValueKind {
+    REAL,
+    PATTERN,
+  };
+  ValueKind valueKind;
+  if (field == "real") {
+    valueKind = REAL;
+  } else if (field == "pattern") {
+    valueKind = PATTERN;
+  } else {
+    assert(false && "unknown field");
+  }
+  bool symmetric = false;
+  if (symmetry == "symmetric") {
+    symmetric = true;
+  } else if (symmetry == "general") { /* Do nothing. */ }
+  else {
+    assert(false && "unknown symmetry");
+  }
 
   // Skip comments at the top of the file
   std::string token;
@@ -157,33 +182,52 @@ void* readMTXFile(std::string fileName, std::vector<int32_t>& dimensions, size_t
     assert(dimension <= INT_MAX && "Dimension exceeds INT_MAX");
     dimensions.push_back(static_cast<int>(dimension));
   }
-  nnz = dimensions[dimensions.size()-1];
+  size_t lines = dimensions[dimensions.size()-1];
   dimensions.pop_back();
 
+  // We'll need 2x the entries for a symmetric matrix.
+  auto bufSize = lines;
+  if (symmetric) {
+    bufSize *= 2;
+  }
+
   // Create a buffer to dump entries into.
-  TensorBuffer buf(order, nnz);
+  TensorBuffer buf(order, bufSize);
   // Load data from the file.
   while (std::getline(file, line)) {
     char* linePtr = (char*)line.data();
-    for (size_t i = 0; i < order; i++) {
-      int32_t idx = strtol(linePtr, &linePtr, 10);
-      assert(idx <= INT_MAX && "Coordinate in file is larger than INT_MAX");
-      // .mtx coordinates 1 indexed rather than 0 indexed.
-      buf.addCoordinate(i, idx - 1);
+    int32_t coordX = strtol(linePtr, &linePtr, 10);
+    assert(coordX <= INT_MAX && "Coordinate in file is larger than INT_MAX");
+    int32_t coordY = strtol(linePtr, &linePtr, 10);
+    assert(coordY <= INT_MAX && "Coordinate in file is larger than INT_MAX");
+    // .mtx coordinates 1 indexed rather than 0 indexed.
+    buf.addCoordinate(0, coordX - 1);
+    buf.addCoordinate(1, coordY - 1);
+    double val;
+    if (valueKind == PATTERN) {
+      val = 1.0;
+    } else {
+      val = strtod(linePtr, &linePtr);
     }
-
-    // TODO (rohany): For quick prototyping, I'm assuming that we're just
-    //  getting pattern matrices right now.
-    // double val = strtod(linePtr, &linePtr);
-    double val = 1.0;
     buf.addValue(val);
     buf.finalizeEntry();
 
+    // For symmetric matrices, add the opposite coordinate.
+    if (symmetric && coordX != coordY) {
+      buf.addCoordinate(0, coordY - 1);
+      buf.addCoordinate(1, coordX - 1);
+      buf.addValue(val);
+      buf.finalizeEntry();
+    }
+
     // Print out a message at checkpoints through the file.
     if (buf.getCount() % 1000000 == 0) {
-      printf("Read %ld out of %ld lines of %s.\n", buf.getCount(), nnz, fileName.c_str());
+      printf("Read %ld out of %ld lines of %s.\n", buf.getCount(), lines, fileName.c_str());
     }
   }
+
+  // Record the total number of coordinates.
+  nnz = buf.getCount();
 
   // Clean up.
   file.close();
