@@ -304,22 +304,30 @@ void packACSR(const Task* task, const std::vector<PhysicalRegion>& regions, Cont
   runtime->unmap_region(ctx, A_vals_phys);
 }
 
-class ExternalResourceCollector {
+class ResourceCollector {
 public:
-  ExternalResourceCollector(Context ctx, Runtime* runtime) : ctx(ctx), runtime(runtime) {}
-  ~ExternalResourceCollector() {
+  ResourceCollector(Context ctx, Runtime* runtime) : ctx(ctx), runtime(runtime) {}
+  ~ResourceCollector() {
     // On destruct, free all of the resources.
     for (auto reg : this->physicalRegions) {
       runtime->detach_external_resource(ctx, reg).wait();
+    }
+    // Destroy all logical regions after freeing external resources.
+    for (auto reg : this->logicalRegions) {
+      runtime->destroy_logical_region(ctx, reg);
     }
   }
   void attach(PhysicalRegion region) {
     this->physicalRegions.push_back(region);
   }
+  void attach(LogicalRegion region) {
+    this->logicalRegions.push_back(region);
+  }
 private:
   Context ctx;
   Runtime* runtime;
   std::vector<PhysicalRegion> physicalRegions;
+  std::vector<LogicalRegion> logicalRegions;
 };
 
 void attachCoordListTask(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
@@ -329,18 +337,31 @@ void attachCoordListTask(const Task* task, const std::vector<PhysicalRegion>& re
   auto coo2 = regions[2].get_logical_region();
   auto vals = regions[3].get_logical_region();
 
-//  ExternalResourceCollector col(ctx, runtime);
-//  col.attach(attachHDF5(ctx, runtime, dims, {{FID_INDEX, COODimsField}}, filename));
-//  col.attach(attachHDF5(ctx, runtime, coo1, {{FID_INDEX, COOCoordsFields[0]}}, filename));
-//  col.attach(attachHDF5(ctx, runtime, coo2, {{FID_INDEX, COOCoordsFields[1]}}, filename));
-//  col.attach(attachHDF5(ctx, runtime, vals, {{FID_VALUE, COOValsField}}, filename));
-  attachHDF5(ctx, runtime, dims, {{FID_INDEX, COODimsField}}, filename);
-  attachHDF5(ctx, runtime, coo1, {{FID_INDEX, COOCoordsFields[0]}}, filename);
-  attachHDF5(ctx, runtime, coo2, {{FID_INDEX, COOCoordsFields[1]}}, filename);
-  attachHDF5(ctx, runtime, vals, {{FID_VALUE, COOValsField}}, filename);
+  // The simple thing here is to create a dummy region for each input region, attach
+  // to the input region, copy from the dummy region to the main region, and then
+  // detach the dummy regions.
+  std::vector<std::map<FieldID, const char*>> fieldMaps = {
+      {{FID_INDEX, COODimsField}},
+      {{FID_INDEX, COOCoordsFields[0]}},
+      {{FID_INDEX, COOCoordsFields[1]}},
+      {{FID_VALUE, COOValsField}},
+  };
+  CopyLauncher cl;
+  ResourceCollector col(ctx, runtime);
+  for (size_t i = 0; i < regions.size(); i++) {
+    auto rg = regions[i].get_logical_region();
+    auto copy = runtime->create_logical_region(ctx, rg.get_index_space(), rg.get_field_space());
+    col.attach(copy);
+    col.attach(attachHDF5(ctx, runtime, copy, fieldMaps[i], filename));
+    cl.add_copy_requirements(
+      RegionRequirement(copy, READ_ONLY, EXCLUSIVE, copy).add_field(fieldMaps[i].begin()->first),
+      RegionRequirement(rg, READ_WRITE, EXCLUSIVE, rg).add_field(fieldMaps[i].begin()->first)
+    );
+  }
+  runtime->issue_copy_operation(ctx, cl);
 }
 
-LegionTensor loadCoordList(Context ctx, Runtime* runtime, std::string filename, ExternalResourceCollector& col) {
+LegionTensor loadCoordList(Context ctx, Runtime* runtime, std::string filename, ResourceCollector& col) {
   LegionTensor result;
 
   // Get out metadata from the file.
@@ -468,7 +489,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   assert(!filename.empty());
 
   // Load the coordinate list matrix.
-  ExternalResourceCollector col(ctx, runtime);
+  ResourceCollector col(ctx, runtime);
   auto coordList = loadCoordList(ctx, runtime, filename, col);
   LEGION_PRINT_ONCE(runtime, ctx, stdout, "Loaded input matrix.");
 
