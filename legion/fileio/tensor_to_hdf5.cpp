@@ -212,17 +212,18 @@ void* readMTXFile(std::string fileName, std::vector<int32_t>& dimensions, size_t
     buf.addValue(val);
     buf.finalizeEntry();
 
+    // Print out a message at checkpoints through the file. Print before adding
+    // symmetric points so that the output looks sane.
+    if (buf.getCount() % 1000000 == 0) {
+      printf("Read %ld out of %ld lines of %s.\n", buf.getCount(), lines, fileName.c_str());
+    }
+
     // For symmetric matrices, add the opposite coordinate.
     if (symmetric && coordX != coordY) {
       buf.addCoordinate(0, coordY - 1);
       buf.addCoordinate(1, coordX - 1);
       buf.addValue(val);
       buf.finalizeEntry();
-    }
-
-    // Print out a message at checkpoints through the file.
-    if (buf.getCount() % 1000000 == 0) {
-      printf("Read %ld out of %ld lines of %s.\n", buf.getCount(), lines, fileName.c_str());
     }
   }
 
