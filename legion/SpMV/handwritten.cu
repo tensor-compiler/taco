@@ -1,4 +1,5 @@
-#inclue "legion.h"
+#include "legion.h"
+#include "mappers/default_mapper.h"
 #include "handwritten.h"
 
 using namespace Legion;
@@ -8,10 +9,10 @@ typedef FieldAccessor<READ_ONLY,Rect<1>,1,coord_t,Realm::AffineAccessor<Rect<1>,
 typedef FieldAccessor<READ_ONLY,double,1,coord_t,Realm::AffineAccessor<double,1,coord_t>> AccessorD;
 typedef FieldAccessor<READ_WRITE,double,1,coord_t,Realm::AffineAccessor<double,1,coord_t>> AccessorWD;
 
-struct args {
+struct kernelArgs {
   int32_t A1_dimension;
   size_t nnz;
-  AccessorD y_vals;
+  AccessorWD y_vals;
   AccessorD x_vals;
   AccessorR A2_pos;
   AccessorI A2_crd;
@@ -37,8 +38,8 @@ __device__ inline void atomicAddWarp(T *output, int index, T val)
   }
 }
 
-__device__ __host__ int taco_binarySearchBefore(AccessorR *array, int arrayStart, int arrayEnd, int target) {
-  if (array[arrayEnd] <= target) {
+__device__ __host__ int taco_binarySearchBefore(AccessorR array, int arrayStart, int arrayEnd, int target) {
+  if (array[arrayEnd].hi <= target) {
     return arrayEnd;
   }
   int lowerBound = arrayStart; // always <= target
@@ -65,7 +66,6 @@ __global__ void taco_binarySearchBeforeBlock(AccessorR array, int * results, int
   if (idx >= num_blocks+1) {
     return;
   }
-
   results[idx] = taco_binarySearchBefore(array, arrayStart, arrayEnd, idx * values_per_block);
 }
 
@@ -76,8 +76,8 @@ __host__ int * taco_binarySearchBeforeBlockLaunch(AccessorR array, int * results
 }
 
 __global__
-void computeDeviceKernel0(args ar, int32_t* i_blockStarts){
-  int A1_dimension = ar.A1_dimension;
+void computeDeviceKernel0(kernelArgs ar, int32_t* i_blockStarts){
+  // int A1_dimension = ar.A1_dimension;
   int nnz = ar.nnz;
   auto A2_pos = ar.A2_pos;
   auto A2_crd = ar.A2_crd;
@@ -153,20 +153,21 @@ struct spmvGPUArgs {
 void spmvGPU(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   auto args = (spmvGPUArgs*)(task->args);
   size_t A1_dimension = args->A1_dimension;
-  auto numBlocks = (nnz + 3583) / 3584;
+  auto numBlocks = (args->nnz + 3583) / 3584;
 
-  AccessorD y_vals(regions[0], FID_VALUE);
+  AccessorWD y_vals(regions[0], FID_VALUE);
   AccessorR A2_pos(regions[1], FID_RECT_1);
   AccessorI A2_crd(regions[2], FID_INDEX);
   AccessorD A_vals(regions[3], FID_VALUE);
   AccessorD x_vals(regions[4], FID_VALUE);
 
-  double initVal = 0;
-  DeferredBuffer<int32_t, 1> i_blockStartsBuf(Memory::Kind::GPU_FB_MEM, DomainT<1>(Rect<1>(0, numBlocks)));
-  int32_t i_blockStarts = i_blockStartsBuf.ptr(0);
-  taco_binarySearchBeforeBlockLaunch(A2_pos, i_blockStarts, (int32_t) 0, A1_dimension, (int32_t) 3584, (int32_t) 512, numBlocks);
+  int32_t initVal = 0;
+  DeferredBuffer<int32_t, 1> i_blockStartsBuf(Memory::Kind::GPU_FB_MEM, DomainT<1>(Rect<1>(0, numBlocks)), &initVal);
+  // DeferredBuffer<int32_t, 1> i_blockStartsBuf(Memory::Kind::Z_COPY_MEM, DomainT<1>(Rect<1>(0, numBlocks)), &initVal);
+  int32_t* i_blockStarts = i_blockStartsBuf.ptr(0);
+  taco_binarySearchBeforeBlockLaunch(A2_pos, i_blockStarts, (int32_t) 0, A1_dimension - 1, (int32_t) 3584, (int32_t) 512, numBlocks);
 
-  args ar;
+  kernelArgs ar;
   ar.A1_dimension = A1_dimension;
   ar.nnz = args->nnz;
   ar.y_vals = y_vals;
@@ -175,7 +176,7 @@ void spmvGPU(const Task* task, const std::vector<PhysicalRegion>& regions, Conte
   ar.A_vals = A_vals;
   ar.x_vals = x_vals;
 
-  computeDeviceKernel0<<<(numBlocks, (32 * 16)>>>(ar, i_blockStarts);
+  computeDeviceKernel0<<<numBlocks, (32 * 16)>>>(ar, i_blockStarts);
 }
 
 void spmvgpu(Legion::Context ctx,
@@ -194,11 +195,24 @@ void spmvgpu(Legion::Context ctx,
   args.nnz = nnz;
   TaskLauncher launcher(TID_SPMV_GPU, TaskArgument(&args, sizeof(spmvGPUArgs)));
   launcher.add_region_requirement(RegionRequirement(y, READ_WRITE, EXCLUSIVE, y).add_field(FID_VALUE));
-  launcher.add_region_requirement(RegionRequirement(A2_pos, READ_ONLY, EXCLUSIVE, A2_pos).add_field(FID_RECT_1));
-  launcher.add_region_requirement(RegionRequirement(A2_crd, READ_ONLY, EXCLUSIVE, A2_crd).add_field(FID_INDEX));
-  launcher.add_region_requirement(RegionRequirement(A_vals, READ_ONLY, EXCLUSIVE, A_vals).add_field(FID_INDEX));
+  launcher.add_region_requirement(RegionRequirement(A2_pos, READ_ONLY, EXCLUSIVE, A2_pos_par, Mapping::DefaultMapper::EXACT_REGION).add_field(FID_RECT_1));
+  launcher.add_region_requirement(RegionRequirement(A2_crd, READ_ONLY, EXCLUSIVE, A2_crd_par, Mapping::DefaultMapper::EXACT_REGION).add_field(FID_INDEX));
+  launcher.add_region_requirement(RegionRequirement(A_vals, READ_ONLY, EXCLUSIVE, A_vals_par, Mapping::DefaultMapper::EXACT_REGION).add_field(FID_VALUE));
   launcher.add_region_requirement(RegionRequirement(x_vals, READ_ONLY, EXCLUSIVE, x_vals).add_field(FID_VALUE));
-  runtime->execute_task(ctx, launcher).wait();
+
+  // Run a few iterations of warmup.
+  runAsyncCall(ctx, runtime, [&]() {
+    for (int i = 0; i < 5; i++) {
+      runtime->execute_task(ctx, launcher);
+    }
+  });
+  std::vector<size_t> times;
+  benchmarkAsyncCall(ctx, runtime, times, [&]() {
+    for (int i = 0; i < 20; i++) {
+      runtime->execute_task(ctx, launcher);
+    }
+  });
+  LEGION_PRINT_ONCE(runtime, ctx, stdout, "Executed in %lf ms.\n", double(times[0]) / 20.0);
 }
 
 

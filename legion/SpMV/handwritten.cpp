@@ -74,8 +74,6 @@ void runAsyncCall(Legion::Context ctx, Legion::Runtime* runtime, std::function<v
   runtime->get_current_time(ctx).wait();
 }
 
-
-
 struct LegionTensor {
   int32_t order;
   std::vector<int32_t> dims;

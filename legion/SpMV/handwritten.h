@@ -1,6 +1,7 @@
 #ifndef HANDWRITTEN_H
 #define HANDWRITTEN_H
 #include "legion.h"
+#include <functional>
 enum FieldIDs {
   FID_VALUE,
   FID_INDEX,
@@ -19,6 +20,10 @@ enum TaskIDs {
   TID_ATTACH_REGIONS,
   TID_SPMV_GPU,
 };
+
+
+void benchmarkAsyncCall(Legion::Context ctx, Legion::Runtime* runtime, std::vector<size_t>& times, std::function<void(void)> f);
+void runAsyncCall(Legion::Context ctx, Legion::Runtime* runtime, std::function<void(void)> f);
 
 
 void registerSPMVGPU();
