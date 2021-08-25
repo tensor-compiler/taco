@@ -15,7 +15,8 @@ struct kernelArgs {
   int fposN;
   size_t nnz;
   int pieces;
-  AccessorWD y_vals;
+  // AccessorWD y_vals;
+  AccessorRD y_vals;
   AccessorD x_vals;
   AccessorR A2_pos;
   AccessorI A2_crd;
@@ -100,15 +101,14 @@ void computeDeviceKernel0(kernelArgs ar, int32_t* i_blockStarts){
   for (int32_t pprecomputed = 0; pprecomputed < (8 - 0); pprecomputed++) {
     precomputed[pprecomputed] = 0.0;
   }
-#pragma unroll 8
+
+  #pragma unroll 8
   for (int32_t thread_nz_pre = 0; thread_nz_pre < 8; thread_nz_pre++) {
     int32_t thread_nz = thread_nz_pre;
-    int32_t thread_nzprecomputed = 0 * precomputed1_dimension + thread_nz;
     int32_t fpos2 = (thread * 8 + thread_nz) + 0;
     int32_t fpos1 = (warp * 256 + fpos2) + 0;
     int32_t fposL = (block * 2048 + fpos1) + 0 / pieces;
-    int32_t fposA = fposN * ((nnz) + (pieces - 1)) / pieces) + fposL;
-    int32_t fposA0 = 0 * A1_dimension + fposA1;
+    int32_t fposA = fposN * (((nnz) + (pieces - 1)) / pieces) + fposL;
     if (fposA >= (fposN + 1) * ((nnz + (pieces - 1)) / pieces - 0 / pieces))
       break;
 
@@ -118,11 +118,8 @@ void computeDeviceKernel0(kernelArgs ar, int32_t* i_blockStarts){
     int32_t f = A2_crd[fposA];
     int32_t j = f;
     int32_t jx = j;
-    int32_t thread_nz_preprecomputed = thread_nz_pre;
     precomputed[thread_nz_pre] = A_vals[fposA] * x_vals[jx];
   }
-  int32_t thread_nz_preprecomputed = thread_nz_pre;
-  int32_t jx = 0 * x1_dimension + j;
   int32_t pA2_begin = i_blockStarts[block];
   int32_t pA2_end = i_blockStarts[(block + 1)];
   int32_t thread_nz = 0;
@@ -137,23 +134,19 @@ void computeDeviceKernel0(kernelArgs ar, int32_t* i_blockStarts){
     int32_t fpos1 = (warp * 256 + fpos2) + 0;
     int32_t fposL = (block * 2048 + fpos1) + 0 / pieces;
     int32_t fposA = fposN * (((nnz) + (pieces - 1)) / pieces) + fposL;
-    int32_t fposA0 = 0 * A1_dimension + fposA1;
     if (fposA >= (fposN + 1) * ((nnz + (pieces - 1)) / pieces - 0 / pieces))
       break;
 
     if (fposA >= nnz)
       break;
 
-    int32_t f = A2_crd[fposA] - (0 * (A2_dimension - 0) + 0);
-    int32_t j = f;
-    int32_t jx = 0 * x1_dimension + j;
+    int32_t f = A2_crd[fposA];
     while (fposA == A2_pos[i_pos].hi + 1) {
       i_pos = i_pos + 1;
       i = i_pos;
     }
     int32_t iy = i;
-    int32_t thread_nzprecomputed = thread_nz;
-    atomicAddWarp(&y_vals[iy], iy, precomputed[thread_nz]);
+    atomicAddWarp(y_vals.ptr(iy), iy, precomputed[thread_nz]);
   }
 }
 
@@ -168,17 +161,14 @@ void spmvGPU(const Task* task, const std::vector<PhysicalRegion>& regions, Conte
 
   auto posDom = runtime->get_index_space_domain(regions[1].get_logical_region().get_index_space());
   auto nnzDom = runtime->get_index_space_domain(regions[3].get_logical_region().get_index_space());
-  auto size = posDom.get_volume();
-  auto blocks = (size + 2047) / 2048;
+  auto size = nnzDom.get_volume();
+  auto numBlocks = (size + 2047) / 2048;
 
   AccessorRD y_vals(regions[0], FID_VALUE, LEGION_REDOP_SUM_FLOAT64);
   AccessorR A2_pos(regions[1], FID_RECT_1);
   AccessorI A2_crd(regions[2], FID_INDEX);
   AccessorD A_vals(regions[3], FID_VALUE);
   AccessorD x_vals(regions[4], FID_VALUE);
-
-  // New partitioned code.
-  int A1_dimension = (int)(A->dimensions[0]);
 
   int32_t initVal = 0;
   DeferredBuffer<int32_t, 1> i_blockStartsBuf(Memory::Kind::GPU_FB_MEM, DomainT<1>(Rect<1>(0, numBlocks)), &initVal);
@@ -197,7 +187,7 @@ void spmvGPU(const Task* task, const std::vector<PhysicalRegion>& regions, Conte
 //  );
 
   kernelArgs ar;
-  ar.A1_dimension = A1_dimension;
+  ar.A1_dimension = args->A1_dimension;
   ar.nnz = args->nnz;
   ar.fposN = fposN;
   ar.pieces = args->pieces;
@@ -209,7 +199,7 @@ void spmvGPU(const Task* task, const std::vector<PhysicalRegion>& regions, Conte
 
 //  for (int32_t fposN = 0; fposN < pieces; fposN++) {
 //    if (((((A2_pos[A1_dimension] + (pieces - 1)) / pieces + 2047) / 2048 - (0 / pieces) / 2048)) > 0) {
-  computeDeviceKernel0<<<blocks, (32 * 8)>>>(ar, i_blockStarts);
+  computeDeviceKernel0<<<numBlocks, (32 * 8)>>>(ar, i_blockStarts);
 //    }
 //  }
 
@@ -282,8 +272,8 @@ void spmvGPU(const Task* task, const std::vector<PhysicalRegion>& regions, Conte
 
 void registerSPMVGPU() {
   {
-    TaskVariantRegistrar registrar(TID_SPMV_POS_SPLIT, "spmvGPU");
+    TaskVariantRegistrar registrar(TID_SPMV_POS_SPLIT, "spmvPos");
     registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
-    Runtime::preregister_task_variant<spmvGPU>(registrar, "spmvGPU");
+    Runtime::preregister_task_variant<spmvGPU>(registrar, "spmvPos");
   }
 }

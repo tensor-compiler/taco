@@ -599,9 +599,10 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   // which is the "region the task has privileges on" -- for the top level task
   // that is the region that they created, not the subregion.
 
-  if (gpu) {
-    spmvgpu(ctx, runtime, n, nnz, y, A2_pos, A.indicesParents[1][0], A2_crd, A.indicesParents[1][1], A_vals, A.valsParent, x);
-  } else if (posSplit) {
+  // if (gpu) {
+  //   spmvgpu(ctx, runtime, n, nnz, y, A2_pos, A.indicesParents[1][0], A2_crd, A.indicesParents[1][1], A_vals, A.valsParent, x);
+  // } else 
+  if (posSplit) {
     // Do a position split -> equal partition of non-zeros.
     // In this case, we want to start with a partition of the crd/values arrays.
     DomainPointColoring A2_crd_col, A_vals_col, y_col;
