@@ -21,6 +21,11 @@ enum TaskIDs {
   TID_SPMV_GPU,
 };
 
+struct spmvPosSplitArgs {
+  int nnz;
+  int pieces;
+  int A1_dimension;
+};
 
 void benchmarkAsyncCall(Legion::Context ctx, Legion::Runtime* runtime, std::vector<size_t>& times, std::function<void(void)> f);
 void runAsyncCall(Legion::Context ctx, Legion::Runtime* runtime, std::function<void(void)> f);

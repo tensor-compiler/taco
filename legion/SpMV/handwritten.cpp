@@ -17,11 +17,6 @@ struct spmvArgs {
   int pieces;
 };
 
-struct spmvPosSplitArgs {
-  int nnz;
-  int pieces;
-};
-
 class SPMVMapper : public DefaultMapper {
 public:
   SPMVMapper(MapperRuntime* rt, Machine& machine, const Legion::Processor& local) : DefaultMapper(rt, machine, local) {
@@ -652,6 +647,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     spmvPosSplitArgs args;
     args.nnz = nnz;
     args.pieces = pieces;
+    args.A1_dimension = n;
     IndexLauncher launcher = IndexLauncher(TID_SPMV_POS_SPLIT, domain, TaskArgument(&args, sizeof(spmvPosSplitArgs)), ArgumentMap());
     launcher.add_region_requirement(yReq);
     launcher.add_region_requirement(A2_pos_req);
