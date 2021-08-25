@@ -7,26 +7,10 @@
 #include "hdf5_utils.h"
 #include <chrono>
 
+#include "handwritten.h"
+
 using namespace Legion;
 using namespace Legion::Mapping;
-
-enum FieldIDs {
-  FID_VALUE,
-  FID_INDEX,
-  FID_RECT_1,
-  FID_COORD_X,
-  FID_COORD_Y,
-};
-
-enum TaskIDs {
-  TID_TOP_LEVEL,
-  TID_PARTITION_A2_CRD,
-  TID_SPMV,
-  TID_SPMV_POS_SPLIT,
-  TID_PRINT_COORD_LIST,
-  TID_PACK_A_CSR,
-  TID_ATTACH_REGIONS,
-};
 
 struct spmvArgs {
   int n;
@@ -484,7 +468,7 @@ LegionTensor initCSR(Context ctx, Runtime* runtime) {
 }
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
-  bool posSplit = false, dump = false;
+  bool posSplit = false, dump = false, gpu = false;
   std::string filename;
   Realm::CommandLineParser parser;
   int pieces = 1;
@@ -492,6 +476,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   parser.add_option_string("-file", filename);
   parser.add_option_bool("-dump", dump);
   parser.add_option_int("-pieces", pieces);
+  parser.add_option_bool("-gpu", gpu);
   auto args = Runtime::get_input_args();
   assert(parser.parse_command_line(args.argc, args.argv));
   assert(!filename.empty());
@@ -621,8 +606,10 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   // which is the "region the task has privileges on" -- for the top level task
   // that is the region that they created, not the subregion.
 
-  // Do a position split -> equal partition of non-zeros.
-  if (posSplit) {
+  if (gpu) {
+    spmvgpu(ctx, runtime, n, nnz, y, A2_pos, A.indicesParents[1][0], A2_crd, A.indicesParents[1][1], A_vals, A.valsParent, x);
+  } else if (posSplit) {
+    // Do a position split -> equal partition of non-zeros.
     // In this case, we want to start with a partition of the crd/values arrays.
     DomainPointColoring A2_crd_col, A_vals_col, y_col;
     for (PointInDomainIterator<1> itr(domain); itr(); itr++) {
@@ -913,6 +900,21 @@ void spmvPosSplit(const Task* task, const std::vector<PhysicalRegion>& regions, 
   }
 }
 
+#ifndef TACO_USE_CUDA
+void registerSPMVGPU() {}
+void spmvgpu(Legion::Context ctx,
+             Legion::Runtime* runtime,
+             int32_t n, size_t nnz,
+             Legion::LogicalRegion y,
+             Legion::LogicalRegion A2_pos,
+             Legion::LogicalRegion A2_pos_par,
+             Legion::LogicalRegion A2_crd,
+             Legion::LogicalRegion A2_crd_par,
+             Legion::LogicalRegion A_vals,
+             Legion::LogicalRegion A_vals_par,
+             Legion::LogicalRegion x_vals) {}
+#endif
+
 
 int main(int argc, char** argv) {
   Runtime::set_top_level_task_id(TID_TOP_LEVEL);
@@ -962,6 +964,7 @@ int main(int argc, char** argv) {
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     Runtime::preregister_task_variant<attachCoordListTask>(registrar, "attachRegions");
   }
+  registerSPMVGPU();
   Runtime::add_registration_callback(register_mapper);
   return Runtime::start(argc, argv);
 }
