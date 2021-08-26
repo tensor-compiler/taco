@@ -1,6 +1,7 @@
 #include "legion.h"
 #include "realm/cmdline.h"
 #include "mappers/default_mapper.h"
+#include "mappers/logging_wrapper.h"
 
 #include "legion/legion_utilities.h"
 
@@ -46,10 +47,23 @@ public:
       return DefaultMapper::default_policy_select_target_memory(ctx, target_proc, req, mc);
     }
   }
+
+  void default_policy_select_target_processors(
+                   MapperContext ctx,
+                   const Task &task,
+                   std::vector<Processor> &target_procs) {
+    if (task.target_proc.kind() == Processor::OMP_PROC) {
+      target_procs.push_back(task.target_proc);
+    } else {
+      DefaultMapper::default_policy_select_target_processors(ctx, task, target_procs);
+    }
+  }
+
   std::map<Legion::Processor, Legion::Memory> numaDomains;
 };
 
 void register_mapper(Machine m, Runtime* runtime, const std::set<Processor>& local_procs) {
+  // runtime->replace_default_mapper(new Mapping::LoggingWrapper(new SPMVMapper(runtime->get_mapper_runtime(), m, *local_procs.begin())), Processor::NO_PROC);
   runtime->replace_default_mapper(new SPMVMapper(runtime->get_mapper_runtime(), m, *local_procs.begin()), Processor::NO_PROC);
 }
 
@@ -708,6 +722,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
       // Manually perform the dependent partition.
       // TODO (rohany): This only works for a single dimension pos array.
 
+      LEGION_PRINT_ONCE(runtime, ctx, stdout, "Performing manual dependent partitioning operation.\n");
       // Launch a task over the partition to get bounds for a new partition.
       IndexLauncher launcher(TID_DEPPART_POS_1D, domain, TaskArgument(), ArgumentMap());
       launcher.add_region_requirement(RegionRequirement(A2_pos_logical_partition, 0, READ_ONLY, EXCLUSIVE, A.indicesParents[1][0]).add_field(FID_RECT_1));
@@ -818,18 +833,6 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   }
 }
 
-Rect<1> partition_A2_crd(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
-  auto A2_pos_rg = regions[0];
-  typedef FieldAccessor<READ_ONLY,int32_t,1,coord_t,Realm::AffineAccessor<int32_t,1,coord_t>> Accessor;
-  Accessor A2_accessor(A2_pos_rg, FID_INDEX);
-  auto A2_index_space = A2_pos_rg.get_logical_region().get_index_space();
-  auto domain = runtime->get_index_space_domain(ctx, A2_index_space);
-  // Assuming I have pieces and n here, I would actually do the lower and upper bounds of A2_pos itself.
-  auto lo = A2_accessor[domain.lo()];
-  auto hi = A2_accessor[domain.hi()] - 1;
-  return {lo, hi};
-}
-
 void spmv(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   spmvArgs* args = (spmvArgs*)(task->args);
   int in = task->index_point[0];
@@ -917,7 +920,8 @@ void spmvPosSplit(const Task* task, const std::vector<PhysicalRegion>& regions, 
 Rect<1> partitionByImageRange1D(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   typedef FieldAccessor<READ_ONLY,Rect<1>,1,coord_t,Realm::AffineAccessor<Rect<1>,1,coord_t>> AccessorR;
   AccessorR a(regions[0], FID_RECT_1);
-  auto dom = DomainT<1>(runtime->get_index_space_domain(regions[0].get_logical_region().get_index_space()));
+  auto ispace = IndexSpaceT<1>(regions[0].get_logical_region().get_index_space());
+  auto dom = DomainT<1>(runtime->get_index_space_domain(ispace));
   return Rect<1>(a[dom.bounds.lo].lo, a[dom.bounds.hi].hi);
 }
 
@@ -944,11 +948,6 @@ int main(int argc, char** argv) {
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_replicable();
     Runtime::preregister_task_variant<top_level_task>(registrar, "top_level");
-  }
-  {
-    TaskVariantRegistrar registrar(TID_PARTITION_A2_CRD, "partition_a2_crd");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    Runtime::preregister_task_variant<Rect<1>, partition_A2_crd>(registrar, "partition_a2_crd");
   }
   {
     TaskVariantRegistrar registrar(TID_SPMV, "spmv");
@@ -988,6 +987,11 @@ int main(int argc, char** argv) {
   {
     TaskVariantRegistrar registrar(TID_DEPPART_POS_1D, "partByImageRange");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    Runtime::preregister_task_variant<Rect<1>, partitionByImageRange1D>(registrar, "partByImageRange");
+  }
+  {
+    TaskVariantRegistrar registrar(TID_DEPPART_POS_1D, "partByImageRange");
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     Runtime::preregister_task_variant<Rect<1>, partitionByImageRange1D>(registrar, "partByImageRange");
   }
   registerSPMVGPU();
