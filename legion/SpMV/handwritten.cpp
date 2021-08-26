@@ -461,7 +461,7 @@ LegionTensor initCSR(Context ctx, Runtime* runtime) {
 }
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
-  bool posSplit = false, dump = false, gpu = false;
+  bool posSplit = false, dump = false, gpu = false, manualDepPart = false;
   std::string filename;
   Realm::CommandLineParser parser;
   int pieces = 1;
@@ -470,6 +470,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   parser.add_option_bool("-dump", dump);
   parser.add_option_int("-pieces", pieces);
   parser.add_option_bool("-gpu", gpu);
+  parser.add_option_bool("-manualDepPart", manualDepPart);
   auto args = Runtime::get_input_args();
   assert(parser.parse_command_line(args.argc, args.argv));
   assert(!filename.empty());
@@ -701,15 +702,33 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     auto A2_pos_partition = runtime->create_index_partition(ctx, A2_pos_ispace, domain, A2_pos_col, LEGION_DISJOINT_COMPLETE_KIND);
     auto A2_pos_logical_partition = runtime->get_logical_partition(ctx, A.indicesParents[1][0], A2_pos_partition);
 
-    auto A2_crd_part = runtime->create_partition_by_image_range(
-        ctx,
-        A2_crd_ispace,
-        A2_pos_logical_partition,
-        A.indicesParents[1][0],
-        FID_RECT_1,
-        runtime->get_index_partition_color_space_name(ctx, A2_pos_partition)
-    );
-    auto A2_crd_logical_partition = runtime->get_logical_partition(ctx, A.indicesParents[1][1], A2_crd_part);
+    IndexPartition A2_crd_part;
+    LogicalPartition A2_crd_logical_partition;
+    if (manualDepPart) {
+      // Manually perform the dependent partition.
+      // TODO (rohany): This only works for a single dimension pos array.
+
+      // Launch a task over the partition to get bounds for a new partition.
+      IndexLauncher launcher(TID_DEPPART_POS_1D, domain, TaskArgument(), ArgumentMap());
+      launcher.add_region_requirement(RegionRequirement(A2_pos_logical_partition, 0, READ_ONLY, EXCLUSIVE, A.indicesParents[1][0]).add_field(FID_RECT_1));
+      auto fm = runtime->execute_index_space(ctx, launcher);
+      for (PointInDomainIterator<1> itr(domain); itr(); itr++) {
+        int i = (*itr)[0];
+        A2_crd_col[*itr] = fm[*itr].get<Rect<1>>();
+      }
+      A2_crd_part = runtime->create_index_partition(ctx, A2_crd_ispace, domain, A2_crd_col, LEGION_DISJOINT_COMPLETE_KIND);
+      A2_crd_logical_partition = runtime->get_logical_partition(ctx, A.indicesParents[1][1], A2_crd_part);
+    } else {
+      A2_crd_part = runtime->create_partition_by_image_range(
+          ctx,
+          A2_crd_ispace,
+          A2_pos_logical_partition,
+          A.indicesParents[1][0],
+          FID_RECT_1,
+          runtime->get_index_partition_color_space_name(ctx, A2_pos_partition)
+      );
+      A2_crd_logical_partition = runtime->get_logical_partition(ctx, A.indicesParents[1][1], A2_crd_part);
+    }
 
     // Use the crd partition to make a partition of the values.
     for (PointInDomainIterator<1> itr(domain); itr(); itr++) {
@@ -895,6 +914,13 @@ void spmvPosSplit(const Task* task, const std::vector<PhysicalRegion>& regions, 
   }
 }
 
+Rect<1> partitionByImageRange1D(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
+  typedef FieldAccessor<READ_ONLY,Rect<1>,1,coord_t,Realm::AffineAccessor<Rect<1>,1,coord_t>> AccessorR;
+  AccessorR a(regions[0], FID_RECT_1);
+  auto dom = DomainT<1>(runtime->get_index_space_domain(regions[0].get_logical_region().get_index_space()));
+  return Rect<1>(a[dom.bounds.lo].lo, a[dom.bounds.hi].hi);
+}
+
 #ifndef TACO_USE_CUDA
 void registerSPMVGPU() {}
 void spmvgpu(Legion::Context ctx,
@@ -958,6 +984,11 @@ int main(int argc, char** argv) {
     TaskVariantRegistrar registrar(TID_ATTACH_REGIONS, "attachRegions");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     Runtime::preregister_task_variant<attachCoordListTask>(registrar, "attachRegions");
+  }
+  {
+    TaskVariantRegistrar registrar(TID_DEPPART_POS_1D, "partByImageRange");
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    Runtime::preregister_task_variant<Rect<1>, partitionByImageRange1D>(registrar, "partByImageRange");
   }
   registerSPMVGPU();
   Runtime::add_registration_callback(register_mapper);

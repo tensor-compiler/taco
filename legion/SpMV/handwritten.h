@@ -19,6 +19,7 @@ enum TaskIDs {
   TID_PACK_A_CSR,
   TID_ATTACH_REGIONS,
   TID_SPMV_GPU,
+  TID_DEPPART_POS_1D,
 };
 
 struct spmvPosSplitArgs {
@@ -29,7 +30,6 @@ struct spmvPosSplitArgs {
 
 void benchmarkAsyncCall(Legion::Context ctx, Legion::Runtime* runtime, std::vector<size_t>& times, std::function<void(void)> f);
 void runAsyncCall(Legion::Context ctx, Legion::Runtime* runtime, std::function<void(void)> f);
-
 
 void registerSPMVGPU();
 void spmvgpu(Legion::Context ctx,
