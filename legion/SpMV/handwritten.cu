@@ -195,6 +195,7 @@ void registerSPMVGPU() {
   {
     TaskVariantRegistrar registrar(TID_SPMV_POS_SPLIT, "spmvPos");
     registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
+    registrar.set_leaf();
     Runtime::preregister_task_variant<spmvGPU>(registrar, "spmvPos");
   }
 }

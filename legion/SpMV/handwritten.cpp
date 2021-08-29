@@ -952,21 +952,25 @@ int main(int argc, char** argv) {
   {
     TaskVariantRegistrar registrar(TID_SPMV, "spmv");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_leaf();
     Runtime::preregister_task_variant<spmv>(registrar, "spmv");
   }
   {
     TaskVariantRegistrar registrar(TID_SPMV, "spmv");
     registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
+    registrar.set_leaf();
     Runtime::preregister_task_variant<spmv>(registrar, "spmv");
   }
   {
     TaskVariantRegistrar registrar(TID_SPMV_POS_SPLIT, "spmvPos");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_leaf();
     Runtime::preregister_task_variant<spmvPosSplit>(registrar, "spmvPos");
   }
   {
     TaskVariantRegistrar registrar(TID_SPMV_POS_SPLIT, "spmvPos");
     registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
+    registrar.set_leaf();
     Runtime::preregister_task_variant<spmvPosSplit>(registrar, "spmvPos");
   }
   {
@@ -987,11 +991,13 @@ int main(int argc, char** argv) {
   {
     TaskVariantRegistrar registrar(TID_DEPPART_POS_1D, "partByImageRange");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_leaf();
     Runtime::preregister_task_variant<Rect<1>, partitionByImageRange1D>(registrar, "partByImageRange");
   }
   {
     TaskVariantRegistrar registrar(TID_DEPPART_POS_1D, "partByImageRange");
     registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
+    registrar.set_leaf();
     Runtime::preregister_task_variant<Rect<1>, partitionByImageRange1D>(registrar, "partByImageRange");
   }
   registerSPMVGPU();
