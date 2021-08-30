@@ -18,6 +18,11 @@ struct spmvArgs {
   int pieces;
 };
 
+enum TraceIDs {
+  TID_POS_SPLIT,
+  TID_I_SPLIT,
+};
+
 class SPMVMapper : public DefaultMapper {
 public:
   SPMVMapper(MapperRuntime* rt, Machine& machine, const Legion::Processor& local) : DefaultMapper(rt, machine, local) {
@@ -673,14 +678,18 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     // Run 5 iterations of warmup.
     runAsyncCall(ctx, runtime, [&]() {
       for(int i = 0; i < 5; i++) {
+        runtime->begin_trace(ctx, TID_POS_SPLIT);
         runtime->execute_index_space(ctx, launcher);
+        runtime->end_trace(ctx, TID_POS_SPLIT);
       }
     });
     std::vector<size_t> times;
     benchmarkAsyncCall(ctx, runtime, times, [&]() {
       for(int i = 0; i < 20; i++) {
         runtime->fill_field<double>(ctx, y, y, FID_VALUE, 0);
+        runtime->begin_trace(ctx, TID_POS_SPLIT);
         runtime->execute_index_space(ctx, launcher);
+        runtime->end_trace(ctx, TID_POS_SPLIT);
       }
     });
     LEGION_PRINT_ONCE(runtime, ctx, stdout, "Executed in %lf ms.\n", double(times[0]) / 20.0);
@@ -773,14 +782,18 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     // Run 5 iterations of warmup.
     runAsyncCall(ctx, runtime, [&]() {
       for(int i = 0; i < 5; i++) {
+        runtime->begin_trace(ctx, TID_I_SPLIT);
         runtime->execute_index_space(ctx, launcher);
+        runtime->end_trace(ctx, TID_I_SPLIT);
       }
     });
     std::vector<size_t> times;
     benchmarkAsyncCall(ctx, runtime, times, [&]() {
       for(int i = 0; i < 20; i++) {
         runtime->fill_field<double>(ctx, y, y, FID_VALUE, 0);
+        runtime->begin_trace(ctx, TID_I_SPLIT);
         runtime->execute_index_space(ctx, launcher);
+        runtime->end_trace(ctx, TID_I_SPLIT);
       }
     });
     LEGION_PRINT_ONCE(runtime, ctx, stdout, "Executed in %lf ms.\n", double(times[0]) / 20.0);
