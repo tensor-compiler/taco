@@ -790,13 +790,16 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     std::vector<size_t> times;
     benchmarkAsyncCall(ctx, runtime, times, [&]() {
       for(int i = 0; i < 20; i++) {
-        runtime->fill_field<double>(ctx, y, y, FID_VALUE, 0);
         runtime->begin_trace(ctx, TID_I_SPLIT);
         runtime->execute_index_space(ctx, launcher);
         runtime->end_trace(ctx, TID_I_SPLIT);
       }
     });
     LEGION_PRINT_ONCE(runtime, ctx, stdout, "Executed in %lf ms.\n", double(times[0]) / 20.0);
+    // Run it one more time with a fill to get a correct answer out if
+    // -dump is used.
+    runtime->fill_field<double>(ctx, y, y, FID_VALUE, 0);
+    runtime->execute_index_space(ctx, launcher);
   }
 
   {
