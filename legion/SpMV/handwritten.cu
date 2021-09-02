@@ -17,7 +17,8 @@ struct kernelArgs {
   int pieces;
   // AccessorWD y_vals;
   AccessorRD y_vals;
-  AccessorD x_vals;
+  // AccessorD x_vals;
+  const double* x_vals;
   AccessorR A2_pos;
   AccessorI A2_crd;
   AccessorD A_vals;
@@ -168,7 +169,9 @@ void spmvGPU(const Task* task, const std::vector<PhysicalRegion>& regions, Conte
   AccessorR A2_pos(regions[1], FID_RECT_1);
   AccessorI A2_crd(regions[2], FID_INDEX);
   AccessorD A_vals(regions[3], FID_VALUE);
-  AccessorD x_vals(regions[4], FID_VALUE);
+  AccessorD x_valsAcc(regions[4], FID_VALUE);
+  auto xDom = runtime->get_index_space_domain(ctx, regions[4].get_logical_region().get_index_space());
+  auto x_vals = x_valsAcc.ptr(xDom.lo()[0]);
 
   // PERFORMANCE NOTE: Larger blocks are better. Doubling the block size led to a 2x performace improvement.
 

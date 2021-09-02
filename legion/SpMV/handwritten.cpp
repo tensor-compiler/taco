@@ -480,7 +480,7 @@ LegionTensor initCSR(Context ctx, Runtime* runtime) {
 }
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
-  bool posSplit = false, dump = false, gpu = false, manualDepPart = false;
+  bool posSplit = false, dump = false, gpu = false, manualDepPart = false, replX = false;
   std::string filename;
   Realm::CommandLineParser parser;
   int pieces = 1;
@@ -490,6 +490,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   parser.add_option_int("-pieces", pieces);
   parser.add_option_bool("-gpu", gpu);
   parser.add_option_bool("-manualDepPart", manualDepPart);
+  parser.add_option_bool("-replicateX", replX);
   auto args = Runtime::get_input_args();
   assert(parser.parse_command_line(args.argc, args.argv));
   assert(!filename.empty());
@@ -592,7 +593,14 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto valFSpace = runtime->create_field_space(ctx);
   allocate_fields<double>(ctx, runtime, valFSpace, FID_VALUE, "vals");
   auto yIspace = runtime->create_index_space(ctx, Rect<1>(0, n - 1));
-  auto xIspace = runtime->create_index_space(ctx, Rect<1>(0, m - 1));
+  IndexSpace xIspace;
+  if (replX) {
+    // If asked to replicate x, then manually create a replicated version of it for each piece.
+    xIspace = runtime->create_index_space(ctx, Rect<1>(0, pieces * m - 1));
+  } else {
+    // Otherwise, just have a single x.
+    xIspace = runtime->create_index_space(ctx, Rect<1>(0, m - 1));
+  }
   auto y = runtime->create_logical_region(ctx, yIspace, valFSpace);
   auto x = runtime->create_logical_region(ctx, xIspace, valFSpace);
   runtime->fill_field<double>(ctx, y, y, FID_VALUE, 0);
@@ -600,8 +608,16 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     // TODO (rohany): Parallelize this operation.
     auto xreg = runtime->map_region(ctx, RegionRequirement(x, WRITE_DISCARD, EXCLUSIVE, x).add_field(FID_VALUE));
     FieldAccessor<WRITE_DISCARD,double,1,coord_t, Realm::AffineAccessor<double, 1, coord_t>> xrw(xreg, FID_VALUE);
-    for (int i = 0; i < m; i++) {
-      xrw[i] = i;
+    if (replX) {
+      for (int p = 0; p < pieces; p++) {
+        for (int i = 0; i < m; i++) {
+          xrw[m * p + i] = i;
+        }
+      }
+    } else {
+      for (int i = 0; i < m; i++) {
+        xrw[i] = i;
+      }
     }
     runtime->unmap_region(ctx, xreg);
   }
@@ -664,7 +680,20 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     RegionRequirement A2_pos_req = RegionRequirement(A2_pos_logical_partition, 0, READ_ONLY, EXCLUSIVE, A.indicesParents[1][0]).add_field(FID_RECT_1);
     RegionRequirement A2_crd_req = RegionRequirement(A2_crd_logical_partition, 0, READ_ONLY, EXCLUSIVE, A.indicesParents[1][1]).add_field(FID_INDEX);
     RegionRequirement A_vals_req = RegionRequirement(A_vals_logical_partition, 0, READ_ONLY, EXCLUSIVE, A.valsParent).add_field(FID_VALUE);
-    RegionRequirement xReq = RegionRequirement(x, READ_ONLY, EXCLUSIVE, x).add_field(FID_VALUE);
+    RegionRequirement xReq;
+    if (replX) {
+      LEGION_PRINT_ONCE(runtime, ctx, stdout, "Launching with replicated x vector.\n");
+      // If we're supposed to replicate x, then create a partition of x for each piece.
+      DomainPointColoring coloring;
+      for (int p = 0; p < pieces; p++) {
+        coloring[p] = Rect<1>(p * m, (p + 1) * m - 1);
+      }
+      auto xPart = runtime->create_index_partition(ctx, xIspace, domain, coloring, LEGION_DISJOINT_COMPLETE_KIND);
+      auto xLogPart = runtime->get_logical_partition(ctx, x, xPart);
+      xReq = RegionRequirement(xLogPart, 0, READ_ONLY, EXCLUSIVE, x).add_field(FID_VALUE);
+    } else {
+      xReq = RegionRequirement(x, READ_ONLY, EXCLUSIVE, x).add_field(FID_VALUE);
+    }
     spmvPosSplitArgs args;
     args.nnz = nnz;
     args.pieces = pieces;
@@ -695,6 +724,9 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     LEGION_PRINT_ONCE(runtime, ctx, stdout, "Executed in %lf ms.\n", double(times[0]) / 20.0);
   } else {
     // Do a partition across i.
+    if (replX) {
+      assert(false && "No replX and non-pos-split");
+    }
 
     // Partition y.
     DomainPointColoring yCol;
@@ -894,7 +926,9 @@ void spmvPosSplit(const Task* task, const std::vector<PhysicalRegion>& regions, 
   AccessorR A2_pos(regions[1], FID_RECT_1);
   AccessorI A2_crd(regions[2], FID_INDEX);
   AccessorD A_vals(regions[3], FID_VALUE);
-  AccessorD x_vals(regions[4], FID_VALUE);
+  AccessorD x_valsAcc(regions[4], FID_VALUE);
+  auto xDom = runtime->get_index_space_domain(ctx, regions[4].get_logical_region().get_index_space());
+  auto x_vals = x_valsAcc.ptr(xDom.lo()[0]);
 
   auto posDom = runtime->get_index_space_domain(regions[1].get_logical_region().get_index_space());
   // Instead of the binary search, use the partition's boundaries.
