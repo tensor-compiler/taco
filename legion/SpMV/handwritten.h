@@ -20,6 +20,7 @@ enum TaskIDs {
   TID_ATTACH_REGIONS,
   TID_SPMV_GPU,
   TID_DEPPART_POS_1D,
+  TID_INIT_X,
 };
 
 struct spmvPosSplitArgs {

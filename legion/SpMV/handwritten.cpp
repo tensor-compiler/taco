@@ -501,8 +501,8 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   LEGION_PRINT_ONCE(runtime, ctx, stdout, "Loaded input matrix.\n");
 
   size_t nnz = Rect<1>(runtime->get_index_space_domain(coordList.vals.get_index_space())).hi + 1;
-  int n = coordList.dims[0];
-  int m = coordList.dims[1];
+  size_t n = coordList.dims[0];
+  size_t m = coordList.dims[1];
 
   LegionTensor A = initCSR(ctx, runtime);
   // Launch the pack task.
@@ -596,7 +596,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   IndexSpace xIspace;
   if (replX) {
     // If asked to replicate x, then manually create a replicated version of it for each piece.
-    xIspace = runtime->create_index_space(ctx, Rect<1>(0, pieces * m - 1));
+    xIspace = runtime->create_index_space(ctx, Rect<1>(0, size_t(pieces) * size_t(m) - 1));
   } else {
     // Otherwise, just have a single x.
     xIspace = runtime->create_index_space(ctx, Rect<1>(0, m - 1));
@@ -604,22 +604,27 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto y = runtime->create_logical_region(ctx, yIspace, valFSpace);
   auto x = runtime->create_logical_region(ctx, xIspace, valFSpace);
   runtime->fill_field<double>(ctx, y, y, FID_VALUE, 0);
-  {
-    // TODO (rohany): Parallelize this operation.
-    auto xreg = runtime->map_region(ctx, RegionRequirement(x, WRITE_DISCARD, EXCLUSIVE, x).add_field(FID_VALUE));
-    FieldAccessor<WRITE_DISCARD,double,1,coord_t, Realm::AffineAccessor<double, 1, coord_t>> xrw(xreg, FID_VALUE);
-    if (replX) {
-      for (int p = 0; p < pieces; p++) {
-        for (int i = 0; i < m; i++) {
-          xrw[m * p + i] = i;
-        }
-      }
-    } else {
-      for (int i = 0; i < m; i++) {
-        xrw[i] = i;
-      }
+
+  auto domain = Domain(Rect<1>(0, pieces - 1));
+
+  // Initialize x.
+  if (replX) {
+    // Create an equal partition of x.
+    DomainPointColoring coloring;
+    for (int p = 0; p < pieces; p++) {
+      coloring[p] = Rect<1>(p * m, (p + 1) * m - 1);
     }
-    runtime->unmap_region(ctx, xreg);
+    auto xPart = runtime->create_index_partition(ctx, xIspace, domain, coloring, LEGION_DISJOINT_COMPLETE_KIND);
+    auto xLogPart = runtime->get_logical_partition(ctx, x, xPart);
+    auto req = RegionRequirement(xLogPart, 0, WRITE_ONLY, EXCLUSIVE, x).add_field(FID_VALUE);
+    IndexLauncher l(TID_INIT_X, domain, TaskArgument(&m, sizeof(m)), ArgumentMap());
+    l.add_region_requirement(req);
+    runtime->execute_index_space(ctx, l);
+  } else {
+    auto req = RegionRequirement(x, WRITE_ONLY, EXCLUSIVE, x).add_field(FID_VALUE);
+    TaskLauncher l(TID_INIT_X, TaskArgument(&m, sizeof(m)));
+    l.add_region_requirement(req);
+    runtime->execute_task(ctx, l);
   }
 
   auto A2_pos = A.indices[1][0];
@@ -628,8 +633,6 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto A2_crd_ispace = A2_crd.get_index_space();
   auto A_vals = A.vals;
   auto A_vals_ispace = A_vals.get_index_space();
-
-  auto domain = Domain(Rect<1>(0, pieces - 1));
 
   // Note: All of these partitioning operators need to use the parent region
   // which is the "region the task has privileges on" -- for the top level task
@@ -912,6 +915,18 @@ void spmv(const Task* task, const std::vector<PhysicalRegion>& regions, Context 
   }
 }
 
+void initX(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
+  typedef FieldAccessor<WRITE_ONLY,double,1,coord_t,Realm::AffineAccessor<double,1,coord_t>> AccessorD;
+  AccessorD xAcc(regions[0], FID_VALUE);
+  auto xDom = runtime->get_index_space_domain(ctx, regions[0].get_logical_region().get_index_space());
+  auto x = xAcc.ptr(xDom.lo()[0]);
+  size_t m = *(size_t*)task->args;
+
+  for (size_t i = 0; i < m; i++) {
+    x[i] = i;
+  }
+}
+
 void spmvPosSplit(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   spmvPosSplitArgs* args = (spmvPosSplitArgs*)(task->args);
   int nnz = args->nnz;
@@ -1049,6 +1064,18 @@ int main(int argc, char** argv) {
     registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
     registrar.set_leaf();
     Runtime::preregister_task_variant<Rect<1>, partitionByImageRange1D>(registrar, "partByImageRange");
+  }
+  {
+    TaskVariantRegistrar registrar(TID_INIT_X, "initX");
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<initX>(registrar, "initX");
+  }
+  {
+    TaskVariantRegistrar registrar(TID_INIT_X, "initX");
+    registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<initX>(registrar, "initX");
   }
   registerSPMVGPU();
   Runtime::add_registration_callback(register_mapper);
