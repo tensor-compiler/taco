@@ -25,7 +25,7 @@ def lgGPUArgs(gpus):
       '-ll:ocpu', '1',
       '-ll:othr', '10',
       '-ll:csize', '150000',
-      '-ll:util', '1',
+      '-ll:util', '4',
       '-dm:replicate', '1',
       '-ll:gpu', str(gpus),
       '-ll:fsize', '15000',
@@ -191,7 +191,7 @@ class PUMMABench(SUMMABench):
         psize = self.problemSize(procs)
         gx = self.getgx(procs)
         return lassenHeader(procs) + \
-               ['bin/pummaMM', '-n', str(psize), '-gx', str(gx), '-gy', str(procs // gx)] + \
+               ['bin/pummaMM', '-n', str(psize), '-gx', str(gx), '-gy', str(procs // gx), '-tm:untrack_valid_regions'] + \
                lgCPUArgs()
 
 class PUMMAGPUBench(SUMMAGPUBench):
