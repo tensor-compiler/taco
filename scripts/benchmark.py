@@ -453,15 +453,30 @@ class LgGPUMTTKRPBench(LgMTTKRPBench):
     def __init__(self, initialProblemSize, gpus):
         super().__init__(initialProblemSize)
         self.gpus = gpus
+        self.sizes = {
+          1: (4, 1, 1),
+          2: (8, 1, 1),
+          4: (8, 2, 1),
+          8: (8, 2, 2),
+          16: (16, 2, 2),
+          32: (16, 4, 2),
+          64: (16, 4, 4),
+          128: (8, 8, 8),
+          256: (16, 8, 8),
+        }
 
     def getCommand(self, procs):
         psize = str(self.problemSize(procs))
         assert(procs in self.sizes)
         x, y, z = self.sizes[procs]
+        # We need to let the mapper backpressure calls to the leaf kernel. However, there's enough memory to run 2 at a time.
+        # For 128 and 256 nodes we can afford to have only 1 reduction run at a time. Maybe 256 nodes it's OK to run 2 at a time?
+        bp = 2
+        if procs >= 128:
+            bp = 1
         return lassenHeader(procs) + [
-            'bin/mttkrp-cuda', '-n', psize, '-gx', str(4 * x), '-gy', str(y), '-gz', str(z), '-lg:eager_alloc_percentage', '50', '-gex:bindcuda', '0',
-            # We need to let the mapper backpressure calls to the leaf kernel. However, there's enough memory to run 2 at a time.
-            '-tm:enable_backpressure', '-tm:backpressure_max_in_flight', '2',
+            'bin/mttkrp-cuda', '-n', psize, '-gx', str(x), '-gy', str(y), '-gz', str(z), '-lg:eager_alloc_percentage', '50', '-gex:bindcuda', '0',
+            '-tm:enable_backpressure', '-tm:backpressure_max_in_flight', str(bp),
         ] + lgGPUArgs(self.gpus)
 
 class LgTTVBench(TTVBench):
