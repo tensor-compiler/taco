@@ -128,7 +128,7 @@ Expr SingletonModeFormat::getAssembledSize(Expr prevSize, Mode mode) const {
 Stmt SingletonModeFormat::getInitCoords(Expr prevSize, 
     std::vector<AttrQueryResult> queries, Mode mode) const {
   Expr crdArray = getCoordArray(mode.getModePack());
-  return Allocate::make(crdArray, prevSize, false, Expr());
+  return Allocate::make(crdArray, prevSize, false, Expr(), true);
 }
 
 ModeFunction SingletonModeFormat::getYieldPos(Expr parentPos, 

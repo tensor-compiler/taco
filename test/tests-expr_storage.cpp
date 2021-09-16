@@ -957,6 +957,23 @@ INSTANTIATE_TEST_CASE_P(bspmv, expr,
            )
 );
 
+INSTANTIATE_TEST_CASE_P(espmv, expr,
+    Values(
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d355a("B",Format({Dense, Dense, Singleton(ModeFormat::UNIQUE)}))(j,i,k) *
+                    d5e("c",Format({Dense}))(k),
+                    {
+                      {
+                        // Dense index
+                        {5}
+                      },
+                    },
+                    {13,41,58,8,97}
+                    )
+           )
+);
+
 INSTANTIATE_TEST_CASE_P(matrix_sum, expr,
     Values(
            TestData(Tensor<double>("a",{},Format()),
