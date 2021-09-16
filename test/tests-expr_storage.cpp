@@ -957,11 +957,13 @@ INSTANTIATE_TEST_CASE_P(bspmv, expr,
            )
 );
 
+Format ell({Dense, Dense, Singleton({ModeFormat::UNIQUE, ModeFormat::PADDED})});
+
 INSTANTIATE_TEST_CASE_P(espmv, expr,
     Values(
            TestData(Tensor<double>("a",{5},Format({Dense})),
                     {i},
-                    d355a("B",Format({Dense, Dense, Singleton(ModeFormat::UNIQUE)}))(j,i,k) *
+                    d355a("B", ell)(j,i,k) *
                     d5e("c",Format({Dense}))(k),
                     {
                       {

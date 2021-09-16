@@ -751,6 +751,9 @@ int main(int argc, char* argv[]) {
           case 'q':
             modeTypes.push_back(ModeFormat::Singleton);
             break;
+          case 'p':
+            modeTypes.push_back(ModeFormat::Singleton(ModeFormat::PADDED));
+            break;
           default:
             return reportError("Incorrect format descriptor", 3);
             break;
