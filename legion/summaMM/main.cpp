@@ -8,11 +8,18 @@ typedef double valType;
 
 // Defined by the generated TACO code.
 void registerTacoTasks();
-LogicalPartition partitionLegion(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gridX, int32_t gridY);
-LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gridX, int32_t gridY);
-LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, int32_t gridX, int32_t gridY);
-LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, int32_t gridX, int32_t gridY);
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, LogicalPartition aPartition, int32_t gridX);
+
+std::vector<LogicalPartition> partitionForplaceLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gridX, int32_t gridY);
+void placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, LogicalPartition aPartition, int32_t gridX, int32_t gridY);
+
+std::vector<LogicalPartition> partitionForplaceLegionB(Context ctx, Runtime* runtime, LogicalRegion b, int32_t gridX, int32_t gridY);
+void placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, LogicalPartition bPartition, int32_t gridX, int32_t gridY);
+
+std::vector<LogicalPartition> partitionForplaceLegionC(Context ctx, Runtime* runtime, LogicalRegion c, int32_t gridX, int32_t gridY);
+void placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, LogicalPartition cPartition, int32_t gridX, int32_t gridY);
+
+std::vector<LogicalPartition> partitionForcomputeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, int32_t gridX, int32_t gridY);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, LogicalPartition aPartition, LogicalPartition bPartition, LogicalPartition cPartition, int32_t gridX, int32_t gridY);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   // Create the regions.
@@ -45,7 +52,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     return;
   }
   if (gy == -1) {
-    std::cout << "Please provide a gris y size with -gy." << std::endl;
+    std::cout << "Please provide a grid y size with -gy." << std::endl;
     return;
   }
 
@@ -58,10 +65,13 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto B = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(B, "B");
   auto C = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(C, "C");
 
-  // Partition all of the tensors.
-  auto aPart = partitionLegion(ctx, runtime, A, gx, gy);
-  auto bPart = partitionLegion(ctx, runtime, B, gx, gy);
-  auto cPart = partitionLegion(ctx, runtime, C, gx, gy);
+  // These partitions are disjoint, so we can fill over them.
+  auto aPart = partitionForplaceLegionA(ctx, runtime, A, gx, gy)[0];
+  auto bPart = partitionForplaceLegionB(ctx, runtime, B, gx, gy)[0];
+  auto cPart = partitionForplaceLegionC(ctx, runtime, C, gx, gy)[0];
+
+  // Get partitions for the computation.
+  auto parts = partitionForcomputeLegion(ctx, runtime, A, B, C, gx, gy);
 
   std::vector<size_t> times;
   // Run the benchmark several times.
@@ -70,13 +80,12 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     tacoFill<valType>(ctx, runtime, B, bPart, 1);
     tacoFill<valType>(ctx, runtime, C, cPart, 1);
 
-    // Place the tensors.
-    auto part = placeLegionA(ctx, runtime, A, gx, gy);
-    placeLegionB(ctx, runtime, B, gx, gy);
-    placeLegionC(ctx, runtime, C, gx, gy);
+    placeLegionA(ctx, runtime, A, aPart, gx, gy);
+    placeLegionB(ctx, runtime, B, bPart, gx, gy);
+    placeLegionC(ctx, runtime, C, cPart, gx, gy);
 
     // Compute on the tensors.
-    benchmark(ctx, runtime, times, [&]() { computeLegion(ctx, runtime, A, B, C, part, gx); });
+    benchmark(ctx, runtime, times, [&]() { computeLegion(ctx, runtime, A, B, C, parts[0], parts[1], parts[2], gx, gy); });
   }
 
   // Get the GFLOPS per node.
