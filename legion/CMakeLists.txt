@@ -125,6 +125,9 @@ add_basic_legion_test(summaMM basic -gx 4 -gy 4 -n 2048)
 add_basic_legion_test(summaMM nondiv1 -gx 4 -gy 4 -n 2047)
 add_basic_legion_test(summaMM nondiv2 -gx 4 -gy 4 -n 2049)
 
+# Tests for PUMMA.
+add_basic_legion_test(pummaMM basic -gx 4 -gy 4 -n 2048)
+
 # Tests for Johnson.
 add_basic_legion_test(johnsonMM basic -n 1024 -gdim 3)
 
