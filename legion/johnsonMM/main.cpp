@@ -9,10 +9,18 @@ typedef double valType;
 // Defined by the generated TACO code.
 void registerTacoTasks();
 LogicalPartition partitionLegion(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gridDim);
-LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gdim);
-LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, int32_t gdim);
-LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, int32_t gdim);
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, int gdim);
+
+std::vector<LogicalPartition> partitionForplaceLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gridDim);
+void placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, LogicalPartition aPartition, int32_t gridDim);
+
+std::vector<LogicalPartition> partitionForplaceLegionB(Context ctx, Runtime* runtime, LogicalRegion b, int32_t gridDim);
+void placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, LogicalPartition bPartition, int32_t gridDim);
+
+std::vector<LogicalPartition> partitionForplaceLegionC(Context ctx, Runtime* runtime, LogicalRegion c, int32_t gridDim);
+void placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, LogicalPartition cPartition, int32_t gridDim);
+
+std::vector<LogicalPartition> partitionForcomputeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, int32_t gridDim);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion a, LogicalRegion b, LogicalRegion c, LogicalPartition aPartition, LogicalPartition bPartition, LogicalPartition cPartition, int32_t gridDim);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   // Create the regions.
@@ -51,6 +59,14 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto bPart = partitionLegion(ctx, runtime, B, gdim);
   auto cPart = partitionLegion(ctx, runtime, C, gdim);
 
+  // Partitions for the placement statements.
+  auto paPart = partitionForplaceLegionA(ctx, runtime, A, gdim)[0];
+  auto pbPart = partitionForplaceLegionB(ctx, runtime, B, gdim)[0];
+  auto pcPart = partitionForplaceLegionC(ctx, runtime, C, gdim)[0];
+
+  // Partitions for the compute statements.
+  auto parts = partitionForcomputeLegion(ctx, runtime, A, B, C, gdim);
+
   std::vector<size_t> times;
   for (int i = 0; i < 11; i++) {
     tacoFill<valType>(ctx, runtime, A, aPart, 0);
@@ -58,14 +74,14 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
     tacoFill<valType>(ctx, runtime, C, cPart, 1);
 
     // Place the tensors.
-    placeLegionA(ctx, runtime, A, gdim);
-    placeLegionB(ctx, runtime, B, gdim);
-    placeLegionC(ctx, runtime, C, gdim);
+    placeLegionA(ctx, runtime, A, paPart, gdim);
+    placeLegionB(ctx, runtime, B, pbPart, gdim);
+    placeLegionC(ctx, runtime, C, pcPart, gdim);
 
     auto bench = [&]() {
-      computeLegion(ctx, runtime, A, B, C, gdim);
+      computeLegion(ctx, runtime, A, B, C, parts[0], parts[1], parts[2], gdim);
       // Call the placement function again to force reduction along each slice of A.
-      placeLegionA(ctx, runtime, A, gdim);
+      placeLegionA(ctx, runtime, A, paPart, gdim);
     };
 
     // Run one iteration of the algorithm to warm up the system.
