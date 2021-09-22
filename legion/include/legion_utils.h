@@ -64,11 +64,13 @@ void initCUDA();
     Runtime::set_top_level_task_id(TID_TOP_LEVEL); \
     {               \
       TaskVariantRegistrar registrar(TID_TOP_LEVEL, "top_level"); \
-      if (TACO_FEATURE_OPENMP) {    \
-        registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC)); \
-      } else {              \
-        registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC)); \
-      }                     \
+      registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC)); \
+      registrar.set_replicable();   \
+      Runtime::preregister_task_variant<top_level_task>(registrar, "top_level"); \
+    }                       \
+    if (TACO_FEATURE_OPENMP) {               \
+      TaskVariantRegistrar registrar(TID_TOP_LEVEL, "top_level"); \
+      registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC)); \
       registrar.set_replicable();   \
       Runtime::preregister_task_variant<top_level_task>(registrar, "top_level"); \
     }                       \
