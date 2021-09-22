@@ -60,13 +60,13 @@ ir::Stmt lowerNoWait(IndexStmt stmt, std::string functionName, Lowerer lowerer=L
 // is true, then the generated code will create no top level partitions and operate only
 // on partitions passed in as arguments.
 ir::Stmt lowerLegion(IndexStmt stmt, std::string functionName,
-                     bool partition=true, bool compute=true, bool waitOnFuture=true,
+                     bool partition=true, bool compute=true, bool waitOnFuture=true, bool setPlacementPrivilege = false,
                      Lowerer lowerer=Lowerer());
 
 // lowerLegionSeparatePartitionCompute lowers an IndexStmt into two separate
 // functions, one that performs all of the partitioning for the statement up front,
 // and another that performs all of the compute given those partitions.
-ir::Stmt lowerLegionSeparatePartitionCompute(IndexStmt stmt, std::string name, bool waitOnFuture=true);
+ir::Stmt lowerLegionSeparatePartitionCompute(IndexStmt stmt, std::string name, bool waitOnFuture = true, bool setPlacementPrivilege = false);
 
 /// Check whether the an index statement can be lowered to C code.  If the
 /// statement cannot be lowered and a `reason` string is provided then it is

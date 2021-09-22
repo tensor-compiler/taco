@@ -57,7 +57,8 @@ public:
   ir::Stmt lower(IndexStmt stmt, std::string name, 
                  bool assemble, bool compute,
                  bool pack, bool unpack,
-                 bool partition, bool waitOnFutureMap);
+                 bool partition, bool waitOnFutureMap,
+                 bool setPlacementPrivilege);
 
 protected:
 
@@ -611,6 +612,12 @@ private:
   std::map<IndexVar, std::shared_ptr<LeafCallInterface>> calls;
 
   bool waitOnFutureMap;
+
+  // setPlacementPrivilege controls whether or not the generated placement code
+  // has a parameter to control the privilege to launch placement tasks with.
+  bool setPlacementPrivilege;
+  // placementPrivilegeVar is the ir::Var to represent the privilege.
+  ir::Expr placementPrivilegeVar;
 
   // LegionLoweringKind controls how the lowerer should generate code
   // for the target statement.

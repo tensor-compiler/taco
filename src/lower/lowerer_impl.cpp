@@ -190,12 +190,19 @@ Stmt
 LowererImpl::lower(IndexStmt stmt, string name,
                    bool assemble, bool compute,
                    bool pack, bool unpack,
-                   bool partition, bool waitOnFutureMap)
+                   bool partition, bool waitOnFutureMap, bool setPlacementPrivilege)
 {
   this->assemble = assemble;
   this->compute = compute;
   this->legion = name.find("Legion") != std::string::npos;
   this->waitOnFutureMap = waitOnFutureMap;
+
+  // Set up control over the privilege for placement operations.
+  this->setPlacementPrivilege = setPlacementPrivilege;
+  if (this->setPlacementPrivilege) {
+    this->placementPrivilegeVar = ir::Var::make("priv", Datatype("Legion::PrivilegeMode"), false, false, true /* parameter */);
+  }
+
   definedIndexVarsOrdered = {};
   definedIndexVars = {};
 
@@ -4649,6 +4656,12 @@ std::vector<ir::Stmt> LowererImpl::createIndexPartitions(
 }
 
 std::pair<ir::Expr, ir::Expr> LowererImpl::getPrivilegeForTensor(Forall forall, const TensorVar& tv) {
+  // If we are supposed to allow control over the generated privilege for placement codes,
+  // return the variable then.
+  if (this->isPlacementCode && this->setPlacementPrivilege) {
+    return std::make_pair(this->placementPrivilegeVar, exclusive);
+  }
+
   // TODO (rohany): Assuming that all tensors have the same type right now.
   auto reduce = ir::Symbol::make(LegionRedopString(tv.getType().getDataType()));
   if (util::contains(this->resultTensors, tv)) {

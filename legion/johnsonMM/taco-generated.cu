@@ -24,32 +24,6 @@ struct task_4Args {
   int32_t gridDim;
 };
 
-LogicalPartition partitionLegion(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gridDim) {
-  int a1_dimension = runtime->get_index_space_domain(get_index_space(a)).hi()[0] + 1;
-  int a2_dimension = runtime->get_index_space_domain(get_index_space(a)).hi()[1] + 1;
-  auto a_index_space = get_index_space(a);
-
-  Point<2> lowerBound = Point<2>(0, 0);
-  Point<2> upperBound = Point<2>((gridDim - 1), (gridDim - 1));
-  auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<2>(lowerBound, upperBound));
-  DomainT<2> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<2>(distFusedIndexSpace));
-  auto aDomain = runtime->get_index_space_domain(ctx, a_index_space);
-  DomainPointColoring aColoring = DomainPointColoring();
-  for (PointInDomainIterator<2> itr = PointInDomainIterator<2>(domain); itr.valid(); itr++) {
-    int32_t in = (*itr)[0];
-    int32_t jn = (*itr)[1];
-    Point<2> aStart = Point<2>((in * ((a1_dimension + (gridDim - 1)) / gridDim) + 0 / gridDim), (jn * ((a2_dimension + (gridDim - 1)) / gridDim) + 0 / gridDim));
-    Point<2> aEnd = Point<2>(TACO_MIN((in * ((a1_dimension + (gridDim - 1)) / gridDim) + ((a1_dimension + (gridDim - 1)) / gridDim - 1)),aDomain.hi()[0]), TACO_MIN((jn * ((a2_dimension + (gridDim - 1)) / gridDim) + ((a2_dimension + (gridDim - 1)) / gridDim - 1)),aDomain.hi()[1]));
-    Rect<2> aRect = Rect<2>(aStart, aEnd);
-    if (!aDomain.contains(aRect.lo) || !aDomain.contains(aRect.hi)) {
-      aRect = aRect.make_empty();
-    }
-    aColoring[(*itr)] = aRect;
-  }
-  auto aPartition = runtime->create_index_partition(ctx, a_index_space, domain, aColoring, LEGION_DISJOINT_COMPLETE_KIND);
-  return runtime->get_logical_partition(ctx, get_logical_region(a), aPartition);
-}
-
 std::vector<LogicalPartition> partitionForplaceLegionA(Context ctx, Runtime* runtime, LogicalRegion a, int32_t gridDim) {
   int a1_dimension = runtime->get_index_space_domain(get_index_space(a)).hi()[0] + 1;
   int a2_dimension = runtime->get_index_space_domain(get_index_space(a)).hi()[1] + 1;
@@ -91,13 +65,13 @@ void task_1(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t kn = getIndexPoint(task, 2);
 }
 
-void placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, LogicalPartition aPartition, int32_t gridDim) {
+void placeLegionA(Context ctx, Runtime* runtime, LogicalRegion a, LogicalPartition aPartition, int32_t gridDim, Legion::PrivilegeMode priv) {
 
   Point<3> lowerBound = Point<3>(0, 0, 0);
   Point<3> upperBound = Point<3>((gridDim - 1), (gridDim - 1), 0);
   auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<3>(lowerBound, upperBound));
   DomainT<3> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<3>(distFusedIndexSpace));
-  RegionRequirement aReq = RegionRequirement(aPartition, 0, READ_ONLY, EXCLUSIVE, get_logical_region(a));
+  RegionRequirement aReq = RegionRequirement(aPartition, 0, priv, EXCLUSIVE, get_logical_region(a));
   aReq.add_field(FID_VAL);
   std::vector<int> dims = std::vector<int>();
   dims.push_back(gridDim);
@@ -157,13 +131,13 @@ void task_2(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
   int32_t jn = getIndexPoint(task, 2);
 }
 
-void placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, LogicalPartition bPartition, int32_t gridDim) {
+void placeLegionB(Context ctx, Runtime* runtime, LogicalRegion b, LogicalPartition bPartition, int32_t gridDim, Legion::PrivilegeMode priv) {
 
   Point<3> lowerBound = Point<3>(0, 0, 0);
   Point<3> upperBound = Point<3>((gridDim - 1), 0, (gridDim - 1));
   auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<3>(lowerBound, upperBound));
   DomainT<3> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<3>(distFusedIndexSpace));
-  RegionRequirement bReq = RegionRequirement(bPartition, 0, READ_ONLY, EXCLUSIVE, get_logical_region(b));
+  RegionRequirement bReq = RegionRequirement(bPartition, 0, priv, EXCLUSIVE, get_logical_region(b));
   bReq.add_field(FID_VAL);
   std::vector<int> dims = std::vector<int>();
   dims.push_back(gridDim);
@@ -194,8 +168,8 @@ std::vector<LogicalPartition> partitionForplaceLegionC(Context ctx, Runtime* run
   auto cDomain = runtime->get_index_space_domain(ctx, c_index_space);
   DomainPointColoring cColoring = DomainPointColoring();
   for (PointInDomainIterator<3> itr = PointInDomainIterator<3>(domain); itr.valid(); itr++) {
-    int32_t in = (*itr)[1];
-    int32_t jn = (*itr)[2];
+    int32_t jn = (*itr)[1];
+    int32_t in = (*itr)[2];
     Point<2> cStart = Point<2>((in * ((c1_dimension + (gridDim - 1)) / gridDim) + 0 / gridDim), (jn * ((c2_dimension + (gridDim - 1)) / gridDim) + 0 / gridDim));
     Point<2> cEnd = Point<2>(TACO_MIN((in * ((c1_dimension + (gridDim - 1)) / gridDim) + ((c1_dimension + (gridDim - 1)) / gridDim - 1)),cDomain.hi()[0]), TACO_MIN((jn * ((c2_dimension + (gridDim - 1)) / gridDim) + ((c2_dimension + (gridDim - 1)) / gridDim - 1)),cDomain.hi()[1]));
     Rect<2> cRect = Rect<2>(cStart, cEnd);
@@ -219,17 +193,17 @@ void task_3(const Task* task, const std::vector<PhysicalRegion>& regions, Contex
 
 
   int32_t kn = getIndexPoint(task, 0);
-  int32_t in = getIndexPoint(task, 1);
-  int32_t jn = getIndexPoint(task, 2);
+  int32_t jn = getIndexPoint(task, 1);
+  int32_t in = getIndexPoint(task, 2);
 }
 
-void placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, LogicalPartition cPartition, int32_t gridDim) {
+void placeLegionC(Context ctx, Runtime* runtime, LogicalRegion c, LogicalPartition cPartition, int32_t gridDim, Legion::PrivilegeMode priv) {
 
   Point<3> lowerBound = Point<3>(0, 0, 0);
   Point<3> upperBound = Point<3>(0, (gridDim - 1), (gridDim - 1));
   auto distFusedIndexSpace = runtime->create_index_space(ctx, Rect<3>(lowerBound, upperBound));
   DomainT<3> domain = runtime->get_index_space_domain(ctx, IndexSpaceT<3>(distFusedIndexSpace));
-  RegionRequirement cReq = RegionRequirement(cPartition, 0, READ_ONLY, EXCLUSIVE, get_logical_region(c));
+  RegionRequirement cReq = RegionRequirement(cPartition, 0, priv, EXCLUSIVE, get_logical_region(c));
   cReq.add_field(FID_VAL);
   std::vector<int> dims = std::vector<int>();
   dims.push_back(gridDim);

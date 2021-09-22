@@ -942,9 +942,9 @@ TEST(distributed, johnsonMM) {
   Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, cDist);
 
   // Each tensor lives on a different face of the processor cube.
-  auto placeALowered = lowerLegionSeparatePartitionCompute(a.getPlacementStatement(), "placeLegionA");
-  auto placeBLowered = lowerLegionSeparatePartitionCompute(b.getPlacementStatement(), "placeLegionB");
-  auto placeCLowered = lowerLegionSeparatePartitionCompute(c.getPlacementStatement(), "placeLegionC");
+  auto placeALowered = lowerLegionSeparatePartitionCompute(a.getPlacementStatement(), "placeLegionA", true /* waitOnFutureMap */, true /* setPlacementPrivilege */);
+  auto placeBLowered = lowerLegionSeparatePartitionCompute(b.getPlacementStatement(), "placeLegionB", true /* waitOnFutureMap */, true /* setPlacementPrivilege */);
+  auto placeCLowered = lowerLegionSeparatePartitionCompute(c.getPlacementStatement(), "placeLegionC", true /* waitOnFutureMap */, true /* setPlacementPrivilege */);
 
   IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
   IndexVar iln("iln"), ill("ill");
@@ -966,7 +966,7 @@ TEST(distributed, johnsonMM) {
       ;
   auto lowered = lowerLegionSeparatePartitionCompute(stmt, "computeLegion", false /* waitOnFuture */);
   // Code-generate all of the placement and compute code.
-  auto all = ir::Block::make({partitionLowered, placeALowered, placeBLowered, placeCLowered, lowered});
+  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
   // Also write it into a file.
@@ -1000,9 +1000,9 @@ TEST(distributed, cuda_johnsonMM) {
   Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, bDist);
   Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, cDist);
 
-  auto placeALowered = lowerLegionSeparatePartitionCompute(a.getPlacementStatement(), "placeLegionA");
-  auto placeBLowered = lowerLegionSeparatePartitionCompute(b.getPlacementStatement(), "placeLegionB");
-  auto placeCLowered = lowerLegionSeparatePartitionCompute(c.getPlacementStatement(), "placeLegionC");
+  auto placeALowered = lowerLegionSeparatePartitionCompute(a.getPlacementStatement(), "placeLegionA", true /* waitOnFutureMap */, true /* setPlacementPrivilege */);
+  auto placeBLowered = lowerLegionSeparatePartitionCompute(b.getPlacementStatement(), "placeLegionB", true /* waitOnFutureMap */, true /* setPlacementPrivilege */);
+  auto placeCLowered = lowerLegionSeparatePartitionCompute(c.getPlacementStatement(), "placeLegionC", true /* waitOnFutureMap */, true /* setPlacementPrivilege */);
 
   IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
   IndexVar iln("iln"), ill("ill"), jln("jln"), jll("jll"), kii("kii"), kio("kio"), kios("kios");
@@ -1020,7 +1020,7 @@ TEST(distributed, cuda_johnsonMM) {
       ;
 
   auto lowered = lowerLegionSeparatePartitionCompute(stmt, "computeLegion", false /* waitOnFuture */);
-  auto all = ir::Block::make({partitionStmt, placeALowered, placeBLowered, placeCLowered, lowered});
+  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
   {
