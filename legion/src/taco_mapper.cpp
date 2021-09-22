@@ -74,6 +74,23 @@ TACOMapper::TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine &mach
       this->numaDomains[proc] = local.first();
     }
   }
+
+  if (this->multipleShardsPerNode) {
+    // If we have GPUs, map each local CPU to a local GPU corresponding to each shard.
+    // If we actually have GPUs, then the number of GPUs should be equal to the number of CPUs.
+    // Note that this makes the most sense to do in map_replicate_task, but that is only executed
+    // on a single mapper! Therefore, we need to do this in initialization so that each mapper has
+    // this data structure populated.
+    if (this->local_gpus.size() > 0) {
+      assert(this->local_cpus.size() == this->local_gpus.size());
+      auto cpu = this->local_cpus.begin();
+      auto gpu = this->local_gpus.begin();
+      // Construct a mapping between each shard and a GPU.
+      for (; cpu != this->local_cpus.end() && gpu != this->local_gpus.end(); cpu++,gpu++) {
+        this->shardCPUGPUMapping[*cpu] = *gpu;
+      }
+    }
+  }
 }
 
 void TACOMapper::select_sharding_functor(const Legion::Mapping::MapperContext ctx,
@@ -161,18 +178,6 @@ void TACOMapper::map_replicate_task(const Legion::Mapping::MapperContext ctx, co
     output.task_mappings[i].target_procs.push_back(allCPUs[i]);
     output.task_mappings[i].chosen_variant = chosen.variant;
     output.control_replication_map[i] = allCPUs[i];
-  }
-
-  // Now if we have GPUs, map each local CPU to a local GPU corresponding to each shard.
-  // If we actually have GPUs, then the number of GPUs should be equal to the number of CPUs.
-  if (this->local_gpus.size() > 0) {
-    assert(this->local_cpus.size() == this->local_gpus.size());
-    auto cpu = this->local_cpus.begin();
-    auto gpu = this->local_gpus.begin();
-    // Construct a mapping between each shard and a GPU.
-    for (; cpu != this->local_cpus.end() && gpu != this->local_gpus.end(); cpu++,gpu++) {
-      this->shardCPUGPUMapping[*cpu] = *gpu;
-    }
   }
 }
 
