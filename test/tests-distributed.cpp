@@ -933,15 +933,15 @@ TEST(distributed, johnsonMM) {
 
   auto aDist = TensorDistributionV2(PlacementGrid(gdim, gdim, gdim | Face(0)));
   auto bDist = TensorDistributionV2(PlacementGrid(gdim, gdim | Face(0), gdim));
-  auto cDist = TensorDistributionV2(PlacementGrid(gdim | Face(0), gdim, gdim));
+  // Note this tricky flip of indices for the placement of C. This is necessary to make sure that
+  // the tiles assigned to each node line up with the tiles used for each step in the computation.
+  auto cDist = TensorDistributionV2(PlacementGrid(gdim | Face(0), gdim | 1, gdim | 0));
 
   Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, aDist);
   Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, bDist);
   Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, cDist);
 
   // Each tensor lives on a different face of the processor cube.
-  // Note that we actually need this disjoint partitioning of the matrices in order to fill them.
-  auto partitionLowered = lower(a.partitionStmt(grid), "partitionLegion", false, true);
   auto placeALowered = lowerLegionSeparatePartitionCompute(a.getPlacementStatement(), "placeLegionA");
   auto placeBLowered = lowerLegionSeparatePartitionCompute(b.getPlacementStatement(), "placeLegionB");
   auto placeCLowered = lowerLegionSeparatePartitionCompute(c.getPlacementStatement(), "placeLegionC");
@@ -983,20 +983,23 @@ TEST(distributed, cuda_johnsonMM) {
   auto gdim = ir::Var::make("gridDim", Int32, false, false, true);
   auto grid = Grid(gdim, gdim);
   auto cube = Grid(gdim, gdim, gdim);
+
   std::vector<TensorDistribution> aDist{
     TensorDistributionV2(PlacementGrid(gdim, gdim, gdim | Face(0)), ParallelUnit::DistributedGPU),
   };
   std::vector<TensorDistribution> bDist{
     TensorDistributionV2(PlacementGrid(gdim, gdim | Face(0), gdim), ParallelUnit::DistributedGPU),
   };
+  // Note this tricky flip of indices for the placement of C. This is necessary to make sure that
+  // the tiles assigned to each node line up with the tiles used for each step in the computation.
   std::vector<TensorDistribution> cDist{
-    TensorDistributionV2(PlacementGrid(gdim | Face(0), gdim, gdim), ParallelUnit::DistributedGPU),
+    TensorDistributionV2(PlacementGrid(gdim | Face(0), gdim | 1, gdim | 0), ParallelUnit::DistributedGPU),
   };
+
   Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, aDist);
   Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, bDist);
   Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, cDist);
 
-  auto partitionStmt = lower(a.partitionStmt(Grid(gdim, gdim)), "partitionLegion", false, true);
   auto placeALowered = lowerLegionSeparatePartitionCompute(a.getPlacementStatement(), "placeLegionA");
   auto placeBLowered = lowerLegionSeparatePartitionCompute(b.getPlacementStatement(), "placeLegionB");
   auto placeCLowered = lowerLegionSeparatePartitionCompute(c.getPlacementStatement(), "placeLegionC");
