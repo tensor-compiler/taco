@@ -31,10 +31,20 @@ public:
                                const SelectShardingFunctorInput &input,
                                SelectShardingFunctorOutput &output) override;
 
+  void select_task_options(const Legion::Mapping::MapperContext ctx,
+                           const Legion::Task& task,
+                                 TaskOptions& output) override;
+
   void map_task(const Legion::Mapping::MapperContext ctx,
                 const Legion::Task &task,
                 const MapTaskInput &input,
                 MapTaskOutput &output) override;
+
+  void map_replicate_task(const Legion::Mapping::MapperContext ctx,
+                          const Legion::Task& task,
+                          const MapTaskInput& input,
+                          const MapTaskOutput& default_output,
+                          MapReplicateTaskOutput& output) override;
 
   void default_policy_select_constraints(Legion::Mapping::MapperContext ctx,
                                          Legion::LayoutConstraintSet &constraints,
@@ -139,6 +149,13 @@ private:
   bool enableBackpressure = false;
   // Denotes how many tasks being backpressured can execute at the same time.
   size_t maxInFlightTasks = 1;
+
+  // multipleShardsPerNode is used to run multiple control replicated shards on the
+  // same node. It is needed in situations where we directly view all of the GPUs/OMPs
+  // on a node as processors in the grid directly.
+  bool multipleShardsPerNode = false;
+  // shardCPUGPUMapping maps the processors running each shard to a GPU to perform work on.
+  std::map<Legion::Processor, Legion::Processor> shardCPUGPUMapping;
 
   // InFlightTask represents a task currently being executed.
   struct InFlightTask {

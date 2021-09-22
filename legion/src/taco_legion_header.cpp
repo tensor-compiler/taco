@@ -1,5 +1,6 @@
 #include "taco_legion_header.h"
 #include "shard.h"
+#include <mutex>
 
 using namespace Legion;
 
@@ -25,6 +26,11 @@ ShardingID shardingID(int offset) {
 }
 
 void registerPlacementShardingFunctor(Context ctx, Runtime* runtime, ShardingID funcID, std::vector<int>& dims) {
+  // If we have multiple shards on the same node, they might all try to register sharding
+  // functors at the same time. Put a lock here to make sure that only one actually does it.
+  static std::mutex mu;
+  std::lock_guard<std::mutex> lock(mu);
+
   auto func = Legion::Runtime::get_sharding_functor(funcID);
   // If the sharding functor already exists, return.
   if (func) { return; }

@@ -58,6 +58,7 @@ TACOMapper::TACOMapper(Legion::Mapping::MapperRuntime *rt, Legion::Machine &mach
       BOOL_ARG("-tm:numa_aware_alloc", this->numaAwareAllocs);
       BOOL_ARG("-tm:enable_backpressure", this->enableBackpressure);
       INT_ARG("-tm:backpressure_max_in_flight", this->maxInFlightTasks);
+      BOOL_ARG("-tm:multiple_shards_per_node", this->multipleShardsPerNode);
 #undef BOOL_ARG
     }
   }
@@ -94,6 +95,17 @@ void TACOMapper::select_sharding_functor(const Legion::Mapping::MapperContext ct
   }
 }
 
+void TACOMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
+                                     const Legion::Task &task,
+                                     TaskOptions &output) {
+  DefaultMapper::select_task_options(ctx, task, output);
+  // Override the default options if we are supposed to run multiple
+  // shards per node.
+  if (this->multipleShardsPerNode && task.get_depth() == 0) {
+    output.replicate = true;
+  }
+}
+
 void TACOMapper::map_task(const Legion::Mapping::MapperContext ctx,
                           const Legion::Task &task,
                           const MapTaskInput &input,
@@ -112,6 +124,55 @@ void TACOMapper::map_task(const Legion::Mapping::MapperContext ctx,
   // Mark that we want profiling from this task if we're supposed to backpressure it.
   if ((task.tag & BACKPRESSURE_TASK) != 0 && this->enableBackpressure) {
     output.task_prof_requests.add_measurement<ProfilingMeasurements::OperationStatus>();
+  }
+}
+
+// map_replicate_task is overridden for situations where we are running
+// multiple target processors per node and need to arrange them into
+// the multi-dimensional grids of our choice. In these cases, we want to
+// use multiple shards per node (i.e. 1 shard per target processor).
+void TACOMapper::map_replicate_task(const Legion::Mapping::MapperContext ctx, const Legion::Task &task,
+                                    const MapTaskInput &input, const MapTaskOutput &default_output,
+                                    MapReplicateTaskOutput &output) {
+  // If we aren't expected to run multiple shards per node, then just
+  // fall back to the default mapper.
+  if (!this->multipleShardsPerNode) {
+    DefaultMapper::map_replicate_task(ctx, task, input, default_output, output);
+    return;
+  }
+
+  // We should only be mapping the top level task.
+  assert((task.get_depth() == 0) && (task.regions.size() == 0));
+  assert(task.target_proc.kind() == Processor::LOC_PROC);
+  auto targetKind = Processor::LOC_PROC;
+  const auto chosen = default_find_preferred_variant(task, ctx, true /* needs tight bound */, true /* cache */, targetKind);
+  assert(chosen.is_replicable);
+  // Collect all LOC_PROC's to put shards on.
+  Legion::Machine::ProcessorQuery cpuQuery(this->machine);
+  cpuQuery.only_kind(targetKind);
+  auto allCPUs = std::vector<Processor>(cpuQuery.begin(), cpuQuery.end());
+  // We also need all of the GPUs so that we can map each shard to its GPU.
+  // const auto remoteGPUs = remote_procs_by_kind(Processor::TOC_PROC);
+
+  // Create a shard for each CPU processor.
+  output.task_mappings.resize(allCPUs.size());
+  output.control_replication_map.resize(allCPUs.size());
+  for (size_t i = 0; i < allCPUs.size(); i++) {
+    output.task_mappings[i].target_procs.push_back(allCPUs[i]);
+    output.task_mappings[i].chosen_variant = chosen.variant;
+    output.control_replication_map[i] = allCPUs[i];
+  }
+
+  // Now if we have GPUs, map each local CPU to a local GPU corresponding to each shard.
+  // If we actually have GPUs, then the number of GPUs should be equal to the number of CPUs.
+  if (this->local_gpus.size() > 0) {
+    assert(this->local_cpus.size() == this->local_gpus.size());
+    auto cpu = this->local_cpus.begin();
+    auto gpu = this->local_gpus.begin();
+    // Construct a mapping between each shard and a GPU.
+    for (; cpu != this->local_cpus.end() && gpu != this->local_gpus.end(); cpu++,gpu++) {
+      this->shardCPUGPUMapping[*cpu] = *gpu;
+    }
   }
 }
 
@@ -201,6 +262,16 @@ std::vector<Legion::Processor> TACOMapper::select_targets_for_task(const Legion:
     }
     kind = targetKind;
   }
+
+  // If we're running with multiple shards per node, then we already have a decomposition of tasks
+  // onto each shard. So, just return the assigned processor. Note that we only do this for tasks
+  // that are being sharded -- i.e. have depth 1 and are index space launches.
+  if (this->multipleShardsPerNode && !this->shardCPUGPUMapping.empty() && task.get_depth() == 1 && task.is_index_space) {
+    auto targetProc = this->shardCPUGPUMapping[task.orig_proc];
+    assert(kind == targetProc.kind());
+    return std::vector<Processor>{targetProc};
+  }
+
   // We always map to the same address space if replication is enabled.
   auto sameAddressSpace = ((task.tag & DefaultMapper::SAME_ADDRESS_SPACE) != 0) || this->replication_enabled;
   if (sameAddressSpace) {
