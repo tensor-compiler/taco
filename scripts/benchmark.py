@@ -33,6 +33,20 @@ def lgGPUArgs(gpus):
       '-ll:bgnumapin', '1',
     ]
 
+def lgGPUMultShardsArgs(gpus):
+    return [
+      '-ll:cpu', '4',
+      '-ll:csize', '150000',
+      '-ll:util', '4',
+      '-dm:replicate', '1',
+      '-ll:gpu', str(gpus),
+      '-ll:fsize', '15000',
+      '-ll:bgwork', '12',
+      '-ll:bgnumapin', '1',
+      '-tm:multiple_shards_per_node',
+    ]
+
+
 def lassenHeader(procs):
     return [
         'jsrun',
@@ -248,8 +262,8 @@ class JohnsonGPUBench(DMMBench):
         assert(self.gpus * procs in self.dims)
         gdim = self.dims[self.gpus * procs]
         return lassenHeader(procs) + \
-               ['bin/johnsonMM-cuda', '-n', str(psize), '-gdim', str(gdim)] + \
-               lgGPUArgs(self.gpus)
+               ['bin/johnsonMM-cuda', '-n', str(psize), '-gdim', str(gdim), '-tm:untrack_valid_regions'] + \
+               lgGPUMultShardsArgs(self.gpus)
 
 class COSMABench(DMMBench):
     def getCommand(self, procs):
