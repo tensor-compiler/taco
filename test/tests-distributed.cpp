@@ -1230,10 +1230,9 @@ TEST(distributed, solomonikMM) {
   Tensor<double> B("B", {dim, dim}, Format{Dense, Dense}, dist);
   Tensor<double> C("C", {dim, dim}, Format{Dense, Dense}, dist);
 
-  auto partition = lower(A.partitionStmt(partGrid), "partitionLegion", false, true);
-  auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
-  auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
-  auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
+  auto placeALowered = lowerLegionSeparatePartitionCompute(A.getPlacementStatement(), "placeLegionA");
+  auto placeBLowered = lowerLegionSeparatePartitionCompute(B.getPlacementStatement(), "placeLegionB");
+  auto placeCLowered = lowerLegionSeparatePartitionCompute(C.getPlacementStatement(), "placeLegionC");
 
   IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl"), k1("k1"), k2("k2"), k1s("k1s");
   A(i, j) = B(i, k) * C(k, j);
@@ -1254,9 +1253,9 @@ TEST(distributed, solomonikMM) {
       // TODO (rohany): See if it makes sense to do a hierarchical decomposition for each NUMA node here.
       .swapLeafKernel(il, gemm)
       ;
-  auto lowered = lower(stmt, "computeLegion", false, true);
+  auto lowered = lowerLegionSeparatePartitionCompute(stmt, "computeLegion", false /* waitOnFutureMap */);
   // Code-generate all of the placement and compute code.
-  auto all = ir::Block::make({partition, placeALowered, placeBLowered, placeCLowered, lowered});
+  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
   {
@@ -1305,10 +1304,9 @@ TEST(distributed, cuda_solomonikMM) {
   Tensor<double> B("B", {dim, dim}, Format{Dense, Dense}, dist);
   Tensor<double> C("C", {dim, dim}, Format{Dense, Dense}, dist);
 
-  auto partition = lower(A.partitionStmt(partGrid), "partitionLegion", false, true);
-  auto placeALowered = lower(A.getPlacementStatement(), "placeLegionA", false, true);
-  auto placeBLowered = lower(B.getPlacementStatement(), "placeLegionB", false, true);
-  auto placeCLowered = lower(C.getPlacementStatement(), "placeLegionC", false, true);
+  auto placeALowered = lowerLegionSeparatePartitionCompute(A.getPlacementStatement(), "placeLegionA");
+  auto placeBLowered = lowerLegionSeparatePartitionCompute(B.getPlacementStatement(), "placeLegionB");
+  auto placeCLowered = lowerLegionSeparatePartitionCompute(C.getPlacementStatement(), "placeLegionC");
 
   IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl"), k1("k1"), k2("k2"), k1s("k1s");
   A(i, j) = B(i, k) * C(k, j);
@@ -1328,9 +1326,9 @@ TEST(distributed, cuda_solomonikMM) {
       .communicate(C(k, j), k1s)
       .swapLeafKernel(il, gemm)
       ;
-  auto lowered = lowerNoWait(stmt, "computeLegion");
+  auto lowered = lowerLegionSeparatePartitionCompute(stmt, "computeLegion", false /* waitOnFutureMap */);
   // Code-generate all of the placement and compute code.
-  auto all = ir::Block::make({partition, placeALowered, placeBLowered, placeCLowered, lowered});
+  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
   {

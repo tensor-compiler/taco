@@ -132,7 +132,7 @@ add_basic_legion_test(pummaMM basic -gx 4 -gy 4 -n 2048)
 add_basic_legion_test(johnsonMM basic -n 1024 -gdim 3)
 
 # Tests for Solomonik-2.5D.
-add_basic_legion_test(solomonikMM basic -n 1024)
+add_basic_legion_test(solomonikMM basic -n 1024 -rpoc 3 -c 2 -rpoc3 2)
 
 # Tests for the matvec-adapt stuff. Run with and without a match.
 add_basic_legion_test(matvec-adapt match -n 1024 -pieces 8 -match)

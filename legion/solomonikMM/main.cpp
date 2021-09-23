@@ -8,11 +8,18 @@ typedef double valType;
 
 // Defined by the generated TACO code.
 void registerTacoTasks();
-LogicalPartition partitionLegion(Context ctx, Runtime* runtime, LogicalRegion A, int32_t rpoc);
-LogicalPartition placeLegionA(Context ctx, Runtime* runtime, LogicalRegion A, int32_t rpoc, int32_t c);
-LogicalPartition placeLegionB(Context ctx, Runtime* runtime, LogicalRegion B, int32_t rpoc, int32_t c);
-LogicalPartition placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t rpoc, int32_t c);
-void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, int32_t rpoc, int32_t c, int32_t rpoc3);
+
+std::vector<LogicalPartition> partitionForplaceLegionA(Context ctx, Runtime* runtime, LogicalRegion A, int32_t rpoc);
+void placeLegionA(Context ctx, Runtime* runtime, LogicalRegion A, LogicalPartition APartition, int32_t rpoc, int32_t c);
+
+std::vector<LogicalPartition> partitionForplaceLegionB(Context ctx, Runtime* runtime, LogicalRegion B, int32_t rpoc);
+void placeLegionB(Context ctx, Runtime* runtime, LogicalRegion B, LogicalPartition BPartition, int32_t rpoc, int32_t c);
+
+std::vector<LogicalPartition> partitionForplaceLegionC(Context ctx, Runtime* runtime, LogicalRegion C, int32_t rpoc);
+void placeLegionC(Context ctx, Runtime* runtime, LogicalRegion C, LogicalPartition CPartition, int32_t rpoc, int32_t c);
+
+std::vector<LogicalPartition> partitionForcomputeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, int32_t rpoc, int32_t c);
+void computeLegion(Context ctx, Runtime* runtime, LogicalRegion A, LogicalRegion B, LogicalRegion C, LogicalPartition APartition, LogicalPartition BPartition, LogicalPartition CPartition, int32_t rpoc, int32_t c, int32_t rpoc3);
 
 void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions, Context ctx, Runtime* runtime) {
   // Create the regions.
@@ -68,26 +75,37 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
   auto C = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(C, "C");
 
   // Partition all tensors.
-  auto aPart = partitionLegion(ctx, runtime, A, rpoc);
-  auto bPart = partitionLegion(ctx, runtime, B, rpoc);
-  auto cPart = partitionLegion(ctx, runtime, C, rpoc);
+  auto aPart = partitionForplaceLegionA(ctx, runtime, A, rpoc)[0];
+  auto bPart = partitionForplaceLegionB(ctx, runtime, B, rpoc)[0];
+  auto cPart = partitionForplaceLegionC(ctx, runtime, C, rpoc)[0];
+
+  auto parts = partitionForcomputeLegion(ctx, runtime, A, B, C, rpoc, c);
 
   std::vector<size_t> times;
   // Run the benchmark several times.
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 11; i++) {
+    // TODO (rohany): We could potentially eliminate these fills to place the data right where
+    //  we need it just like Johnson's algorithm. This would allow us to use larger values of c
+    //  as well which might improve performance.
     tacoFill<valType>(ctx, runtime, A, aPart, 0);
     tacoFill<valType>(ctx, runtime, B, bPart, 1);
     tacoFill<valType>(ctx, runtime, C, cPart, 1);
 
     // Place the tensors.
-    placeLegionA(ctx, runtime, A, rpoc, c);
-    placeLegionB(ctx, runtime, B, rpoc, c);
-    placeLegionC(ctx, runtime, C, rpoc, c);
+    placeLegionA(ctx, runtime, A, aPart, rpoc, c);
+    placeLegionB(ctx, runtime, B, bPart, rpoc, c);
+    placeLegionC(ctx, runtime, C, cPart, rpoc, c);
 
-    benchmark(ctx, runtime, times, [&]() {
-      computeLegion(ctx, runtime, A, B, C, rpoc, c, rpoc3);
-      placeLegionA(ctx, runtime, A, rpoc, c);
-    });
+    auto bench = [&]() {
+      computeLegion(ctx, runtime, A, B, C, parts[0], parts[1], parts[2], rpoc, c, rpoc3);
+      placeLegionA(ctx, runtime, A, aPart, rpoc, c);
+    };
+
+    if (i == 0) {
+      bench();
+    } else {
+      benchmark(ctx, runtime, times, bench);
+    }
   }
 
   // Get the GFLOPS per node.
