@@ -20,7 +20,7 @@ if (Legion_USE_CUDA)
 endif()
 
 # Collect sources that can be also used by tools outside of TACO codes.
-set(LG_EXTRA_SOURCES src/hdf5_utils.cpp src/strings.cpp)
+set(LG_EXTRA_SOURCES src/hdf5_utils.cpp src/string_utils.cpp)
 
 # Optimize these codes.
 SET(CMAKE_CXX_FLAGS "-O3 ${CMAKE_CXX_FLAGS}")

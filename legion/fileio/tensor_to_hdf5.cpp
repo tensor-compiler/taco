@@ -1,6 +1,6 @@
 #include "legion.h"
 #include "realm/cmdline.h"
-#include "strings.h"
+#include "string_utils.h"
 #include "hdf5_utils.h"
 #include <fstream>
 #include <iomanip>
