@@ -293,13 +293,13 @@ class LgCOSMABench(DMMBench):
         super().__init__(initialProblemSize)
         # Mapping from processor / "rank" count to gx,gy,gz decompositions and px,py.
         self.decomp = {
-          4: (1, 2, 2, 2, 2),
-          8: (2, 2, 2, 2, 4),
-          16: (2, 2, 4, 4, 4),
-          32: (2, 4, 4, 4, 8),
-          64: (4, 4, 4, 8, 8),
-          128: (4, 4, 8, 8, 16),
-          256: (4, 8, 8, 16, 16),
+          4: (1, 2, 2),
+          8: (2, 2, 2),
+          16: (2, 2, 4),
+          32: (2, 4, 4),
+          64: (4, 4, 4),
+          128: (4, 4, 8),
+          256: (4, 8, 8),
         }
 
     def getCommand(self, procs):
@@ -322,8 +322,8 @@ class LgCOSMAGPUBench(LgCOSMABench):
         assert(self.gpus * procs in self.decomp)
         decomp = self.decomp[self.gpus * procs]
         return lassenHeader(procs) + \
-               ['bin/cosma-cuda', '-n', psize, '-gx', str(decomp[0]), '-gy', str(decomp[1]), '-gz', str(decomp[2]), '-px', str(decomp[3]), '-py', str(decomp[4])] + \
-               lgGPUArgs(self.gpus)
+               ['bin/cosma-cuda', '-n', psize, '-gx', str(decomp[0]), '-gy', str(decomp[1]), '-gz', str(decomp[2]), '-tm:untrack_valid_regions'] + \
+               lgGPUMultShardsArgs(self.gpus)
 
 class SolomonikGPUBench(DMMBench):
     def __init__(self, initialProblemSize, gpus):

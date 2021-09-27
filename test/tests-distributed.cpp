@@ -1037,30 +1037,21 @@ TEST(distributed, cosma) {
   auto gy = ir::Var::make("gy", Int32, false, false, true);
   auto gz = ir::Var::make("gz", Int32, false, false, true);
   auto cube = Grid(gx, gy, gz);
-  auto px = ir::Var::make("px", Int32, false, false, true);
-  auto py = ir::Var::make("py", Int32, false, false, true);
-  TensorDistribution aDist(TensorDistributionV2(PlacementGrid(px, py)));
-  TensorDistribution bDist(TensorDistributionV2(PlacementGrid(px, py)));
-  TensorDistribution cDist(TensorDistributionV2(PlacementGrid(px, py)));
   // The below is an initial data placement that follows the distribution of the computation. However,
   // this seems to result in an unbalanced initial data distribution that causes OOMs, so I'll start
   // with a standard block distribution over all of the GPUs.
-  /*
   TensorDistribution aDist(TensorDistributionV2(PlacementGrid(gx, gy, gz | Face(0))));
   TensorDistribution bDist(TensorDistributionV2(PlacementGrid(gx, gy | Face(0), gz)));
   // Set this up so that the first dimension is partitioned by the k component.
   TensorDistribution cDist(TensorDistributionV2(PlacementGrid(gx | Face(0), gy | 1, gz | 0)));
-  */
   Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, aDist);
   Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, bDist);
   Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, cDist);
 
-  auto aPartStmt = lower(a.partitionStmt(Grid(gx, gy)), "partitionLegionA", false, true);
-  auto bPartStmt = lower(b.partitionStmt(Grid(gx, gz)), "partitionLegionB", false, true);
-  auto cPartStmt = lower(c.partitionStmt(Grid(gz, gy)), "partitionLegionC", false, true);
-  auto aPlaceLowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
-  auto bPlaceLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
-  auto cPlaceLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
+  auto placeALowered = lowerLegionSeparatePartitionCompute(a.getPlacementStatement(), "placeLegionA", true /* waitOnFutureMap */, true /* emitPrivilege */);
+  auto placeBLowered = lowerLegionSeparatePartitionCompute(b.getPlacementStatement(), "placeLegionB", true /* waitOnFutureMap */, true /* emitPrivilege */);
+  auto placeCLowered = lowerLegionSeparatePartitionCompute(c.getPlacementStatement(), "placeLegionC", true /* waitOnFutureMap */, true /* emitPrivilege */);
+
   IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
   a(i, j) = b(i, k) * c(k, j);
   // The schedule for COSMA is simple, as much of the magic is in how it chooses to
@@ -1075,8 +1066,8 @@ TEST(distributed, cosma) {
                // TODO (rohany): Until we support hierarchical reductions, we can't do this
                //  in a neat manner.
                ;
-  auto lowered = lowerNoWait(stmt, "computeLegion");
-  auto all = ir::Block::make({aPartStmt, bPartStmt, cPartStmt, aPlaceLowered, bPlaceLowered, cPlaceLowered, lowered});
+  auto lowered = lowerLegionSeparatePartitionCompute(stmt, "computeLegion", false /* waitOnFutureMap */);
+  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionC>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
   {
@@ -1093,31 +1084,21 @@ TEST(distributed, cuda_cosma) {
   auto gy = ir::Var::make("gy", Int32, false, false, true);
   auto gz = ir::Var::make("gz", Int32, false, false, true);
   auto cube = Grid(gx, gy, gz);
-  auto px = ir::Var::make("px", Int32, false, false, true);
-  auto py = ir::Var::make("py", Int32, false, false, true);
-  TensorDistribution aDist(TensorDistributionV2(PlacementGrid(px, py), ParallelUnit::DistributedGPU));
-  TensorDistribution bDist(TensorDistributionV2(PlacementGrid(px, py), ParallelUnit::DistributedGPU));
-  TensorDistribution cDist(TensorDistributionV2(PlacementGrid(px, py), ParallelUnit::DistributedGPU));
-  // The below is an initial data placement that follows the distribution of the computation. However,
-  // this seems to result in an unbalanced initial data distribution that causes OOMs, so I'll start
-  // with a standard block distribution over all of the GPUs.
-  /*
+  
   TensorDistribution aDist(TensorDistributionV2(PlacementGrid(gx, gy, gz | Face(0)), ParallelUnit::DistributedGPU));
   TensorDistribution bDist(TensorDistributionV2(PlacementGrid(gx, gy | Face(0), gz), ParallelUnit::DistributedGPU));
   // Set this up so that the first dimension is partitioned by the k component.
   TensorDistribution cDist(TensorDistributionV2(PlacementGrid(gx | Face(0), gy | 1, gz | 0), ParallelUnit::DistributedGPU));
-  */
+  
   Tensor<double> a("a", {dim, dim}, Format{Dense, Dense}, aDist);
   Tensor<double> b("b", {dim, dim}, Format{Dense, Dense}, bDist);
   Tensor<double> c("c", {dim, dim}, Format{Dense, Dense}, cDist);
 
-  auto aPartStmt = lower(a.partitionStmt(Grid(gx, gy)), "partitionLegionA", false, true);
-  auto bPartStmt = lower(b.partitionStmt(Grid(gx, gz)), "partitionLegionB", false, true);
-  auto cPartStmt = lower(c.partitionStmt(Grid(gz, gy)), "partitionLegionC", false, true);
-  auto aPlaceLowered = lower(a.getPlacementStatement(), "placeLegionA", false, true);
-  auto bPlaceLowered = lower(b.getPlacementStatement(), "placeLegionB", false, true);
-  auto cPlaceLowered = lower(c.getPlacementStatement(), "placeLegionC", false, true);
-  IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl");
+  auto placeALowered = lowerLegionSeparatePartitionCompute(a.getPlacementStatement(), "placeLegionA", true /* waitOnFutureMap */, true /* emitPrivilege */);
+  auto placeBLowered = lowerLegionSeparatePartitionCompute(b.getPlacementStatement(), "placeLegionB", true /* waitOnFutureMap */, true /* emitPrivilege */);
+  auto placeCLowered = lowerLegionSeparatePartitionCompute(c.getPlacementStatement(), "placeLegionC", true /* waitOnFutureMap */, true /* emitPrivilege */);
+
+  IndexVar i("i"), j("j"), k("k"), in("in"), il("il"), jn("jn"), jl("jl"), kn("kn"), kl("kl"), ki("ki"), ko("ko");
   a(i, j) = b(i, k) * c(k, j);
   // The schedule for COSMA is simple, as much of the magic is in how it chooses to
   // decompose the problem.
@@ -1129,8 +1110,8 @@ TEST(distributed, cuda_cosma) {
                .communicate(c(k, j), kn)
                .swapLeafKernel(il, gemm)
                ;
-  auto lowered = lowerNoWait(stmt, "computeLegion");
-  auto all = ir::Block::make({aPartStmt, bPartStmt, cPartStmt, aPlaceLowered, bPlaceLowered, cPlaceLowered, lowered});
+  auto lowered = lowerLegionSeparatePartitionCompute(stmt, "computeLegion", false /* waitOnFutureMap */);
+  auto all = ir::Block::make({placeALowered, placeBLowered, placeCLowered, lowered});
   auto codegen = std::make_shared<ir::CodegenLegionCuda>(std::cout, taco::ir::CodeGen::ImplementationGen);
   codegen->compile(all);
   {
