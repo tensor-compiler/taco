@@ -92,6 +92,14 @@ class DMMBench:
     def getCommand(self, procs):
         pass
 
+    # To avoid a deadlock around deferred allocations, we have to manually backpressure leaf tasks
+    # executing in loops on certain node counts.
+    def backpressureArgs(self, procs):
+        if procs in [8, 32, 128]:
+            return ['-tm:enable_backpressure', '-tm:backpressure_max_in_flight', '1', '-ll:defalloc', '0']
+        else:
+            return []
+
 # Inheritable class for TTMC benchmarks.
 class TTMCBench:
     def __init__(self, initialProblemSize):
@@ -198,7 +206,7 @@ class SUMMAGPUBench(SUMMABench):
         gx = self.getgx(procs)
         return lassenHeader(procs) + \
                ['bin/summaMM-cuda', '-n', str(psize), '-gx', str(gx), '-gy', str(procs // gx), '-dm:exact_region', '-tm:untrack_valid_regions'] + \
-               lgGPUArgs(self.gpus)
+               lgGPUArgs(self.gpus) + self.backpressureArgs(procs)
 
 class PUMMABench(SUMMABench):
     def getCommand(self, procs):
@@ -214,7 +222,7 @@ class PUMMAGPUBench(SUMMAGPUBench):
         gx = self.getgx(procs)
         return lassenHeader(procs) + \
                ['bin/pummaMM-cuda', '-n', str(psize), '-gx', str(gx), '-gy', str(procs // gx), '-dm:exact_region', '-tm:untrack_valid_regions'] + \
-               lgGPUArgs(self.gpus)
+               lgGPUArgs(self.gpus) + self.backpressureArgs(procs)
 
 class CannonGPUBench(CannonBench):
     def __init__(self, initialProblemSize, gpus):
@@ -229,7 +237,7 @@ class CannonGPUBench(CannonBench):
         return lassenHeader(procs) + \
                ['bin/cannonMM-cuda', '-n', str(psize), '-gx', str(procs // gy), '-gy', str(gy), \
                 '-dm:exact_region', '-tm:untrack_valid_regions'] + \
-               lgGPUArgs(self.gpus)
+               lgGPUArgs(self.gpus) + self.backpressureArgs(procs)
 
 class JohnsonBench(DMMBench):
     def getCommand(self, procs):
@@ -283,6 +291,7 @@ class COSMAGPUBench(DMMBench):
     def getCommand(self, procs):
         psize = str(self.problemSize(procs))
         cosmaDir = os.getenv('COSMA_DIR')
+        # TODO (rohany): For 128 and 256 nodes, we must manually add `-s 'sm2'` to the command line to avoid OOMs.
         header = ['jsrun', '-b', 'rs', '-c', str(40 // self.gpus), '-r', str(self.gpus), '-n', str(self.gpus * procs), '-g', '1']
         assert(cosmaDir is not None)
         return header + \
@@ -338,6 +347,7 @@ class SolomonikGPUBench(DMMBench):
           64: (8, 1, 8),
           128: (8, 2, 8),
           256: (16, 1, 16),
+          1024: (32, 1, 32),
         }
 
     def getCommand(self, procs):
@@ -346,7 +356,7 @@ class SolomonikGPUBench(DMMBench):
         params = self.params[self.gpus * procs]
         return lassenHeader(procs) + \
                ['bin/solomonikMM-cuda', '-n', psize, '-rpoc', str(params[0]), '-c', str(params[1]), '-rpoc3', str(params[2]), '-tm:untrack_valid_regions'] + \
-               lgGPUArgs(self.gpus)
+               lgGPUArgs(self.gpus) + self.backpressureArgs(procs)
 
 class SCALAPACKBench(SUMMABench):
     def getCommand(self, procs):

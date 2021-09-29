@@ -5006,13 +5006,11 @@ std::vector<ir::Stmt> LowererImpl::lowerSerialTaskLoop(
     taskCallStmts.push_back(ir::Assign::make(tag, ir::BitOr::make(tag, untrackValidRegions)));
   }
 
-  // If this operation is over reductions, we need to serialize the reductions
-  // so they don't all run at the same time. Serialization for task launch loops
-  // with read-write privileges is done by Legion. We do this by attaching a
-  // tag to the task so the mapper knows to backpressure the executions.
-  if (this->performingLegionReduction) {
-    taskCallStmts.push_back(ir::Assign::make(tag, ir::BitOr::make(tag, backpressureTask)));
-  }
+  // We give the option to all looped task launches to backpressure task execution.
+  // In the case of reductions, this is done so that the reductions don't all occur
+  // at the same time and OOM the processor. For read/write tasks, we sometimes need
+  // backpressure on to avoid deadlocks around deferred resource allocation.
+  taskCallStmts.push_back(ir::Assign::make(tag, ir::BitOr::make(tag, backpressureTask)));
 
   // The actual task call.
   auto tcall = ir::Call::make("runtime->execute_task", {ctx, launcher}, Auto);
