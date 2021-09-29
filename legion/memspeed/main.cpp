@@ -76,14 +76,14 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Contex
   // Launch a dummy onto node 1 to create the valid instances.
   {
     IndexLauncher launcher(TID_DUMMY_READ, runtime->get_index_space_domain(cspace), TaskArgument(&node0, sizeof(AddressSpace)), ArgumentMap());
-    launcher.add_region_requirement(RegionRequirement(lpart, 0, WRITE_DISCARD, EXCLUSIVE, reg));
+    launcher.add_region_requirement(RegionRequirement(lpart, 0, WRITE_DISCARD, EXCLUSIVE, reg).add_field(FID_VAL));
     runtime->execute_index_space(ctx, launcher).wait_all_results();
   }
   // Now, launch a task onto each GPU on the other node.
   auto start = runtime->get_current_time(ctx);
   {
     IndexLauncher launcher(TID_DUMMY_READ, runtime->get_index_space_domain(cspace), TaskArgument(&node1, sizeof(AddressSpace)), ArgumentMap());
-    launcher.add_region_requirement(RegionRequirement(lpart, 0, READ_ONLY, EXCLUSIVE, reg));
+    launcher.add_region_requirement(RegionRequirement(lpart, 0, READ_ONLY, EXCLUSIVE, reg).add_field(FID_VAL));
     runtime->execute_index_space(ctx, launcher);
   }
   runtime->issue_execution_fence(ctx);
@@ -91,7 +91,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Contex
   auto s = double((end.get<double>() - start.get<double>()));
   auto totalDataSizeGB = double(size * 4 * sizeof(double)) / 1e9;
   auto gbs = totalDataSizeGB / s;
-  std::cout << "Achieved aggregate GB/s of" << gbs << std::endl;
+  std::cout << "Achieved aggregate GB/s of " << gbs << "." << std::endl;
 }
 
 int main(int argc, char** argv) {
