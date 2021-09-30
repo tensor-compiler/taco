@@ -60,7 +60,7 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>&, Contex
   AddressSpace node1 = 1;
   // Create some data. We'll set this up so that each GPU has a 1G chunk that they will send
   // to each other GPU in the system. I'm assuming the Lassen node architecture, so we'll have
-  // 1G of data for 4 GPUs.
+  // 4G of data for 4 GPUs.
   auto size = 500000000;
   auto fspace = runtime->create_field_space(ctx);
   {
