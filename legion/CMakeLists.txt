@@ -146,6 +146,9 @@ add_custom_target(test-legion COMMAND ctest -R legion DEPENDS ${TEST_BINARIES})
 add_executable(memspeed memspeed/main.cpp)
 target_link_libraries(memspeed Legion::Legion)
 
+add_executable(hier-test hier-part-testing/main.cpp)
+target_link_libraries(hier-test Legion::Legion)
+
 # Add some hand written codes here.
 if(Legion_USE_CUDA)
     cuda_add_executable(spmv SpMV/handwritten.cpp SpMV/handwritten.cu ${LG_EXTRA_SOURCES})
