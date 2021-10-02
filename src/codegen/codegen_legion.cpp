@@ -466,6 +466,12 @@ void CodegenLegion::emitRegisterTasks(std::ostream &out) {
           }
           node->contents.accept(this);
         }
+        void visit(const Call* node) {
+          // Tasks that create partitions aren't leaf tasks either.
+          if (node->func.find("create_index_partition") != std::string::npos) {
+            this->isLeaf = false;
+          }
+        }
         bool isLeaf = true;
       };
       LeafTaskFinder finder;

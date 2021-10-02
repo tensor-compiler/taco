@@ -222,6 +222,7 @@ private:
   std::shared_ptr<Content> content;
 };
 typedef std::vector<Transfer> Transfers;
+bool transfersHaveTensorVar(const Transfers& t, TensorVar& v);
 std::ostream& operator<<(std::ostream&, const Transfer&);
 
 }

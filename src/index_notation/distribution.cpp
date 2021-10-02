@@ -23,6 +23,14 @@ std::ostream& operator<<(std::ostream& o, const Transfer& t) {
   return o;
 }
 
+bool transfersHaveTensorVar(const Transfers& t, TensorVar& v) {
+  for (auto tx : t) {
+    if (tx.getAccess().getTensorVar() == v) {
+      return true;
+    }
+  }
+  return false;
+}
 
 GridPlacement::AxisMatch Face(int face) {
   return GridPlacement::AxisMatch::makeFace(face);

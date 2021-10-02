@@ -631,6 +631,20 @@ private:
   // when the LegionLoweringKind is COMPUTE_ONLY.
   std::map<TensorVar, ir::Expr> computeOnlyPartitions;
 
+  // Maintain a set of all of the defined index variables. Note that we cannot use
+  // the existing definedIndexVarsOrdered because it does not expand the distributed fused
+  // index variables out into their component variables.
+  std::vector<IndexVar> definedIndexVarsExpanded;
+  std::vector<ir::Expr> iterationSpacePointIdentifiers;
+  void pushIterationSpacePointIdentifier() {
+    auto len = definedIndexVarsExpanded.size();
+    auto var = ir::Var::make((std::stringstream() << "pointID" << len).str(), Int64);
+    this->iterationSpacePointIdentifiers.push_back(var);
+  }
+  ir::Expr getIterationSpacePointIdentifier() {
+    return this->iterationSpacePointIdentifiers[this->definedIndexVarsExpanded.size()];
+  }
+
   // Some common Legion expressions and types.
   static inline ir::Expr disjointPart = ir::Symbol::make("LEGION_DISJOINT_COMPLETE_KIND");
   static inline ir::Expr aliasedPart = ir::Symbol::make("LEGION_ALIASED_COMPLETE_KIND");
@@ -649,6 +663,9 @@ private:
   static inline ir::Expr untrackValidRegions = ir::Symbol::make("TACOMapper::UNTRACK_VALID_REGIONS");
   static inline ir::Expr sameAddressSpace = ir::Symbol::make("Mapping::DefaultMapper::SAME_ADDRESS_SPACE");
   static inline ir::Expr backpressureTask = ir::Symbol::make("TACOMapper::BACKPRESSURE_TASK");
+  static inline ir::Expr pidPlacement = ir::Symbol::make("PID_PLACEMENT");
+  static inline ir::Expr pidCompute = ir::Symbol::make("PID_COMPUTE");
+  ir::Expr getPartitionID() { return this->isPlacementCode ? pidPlacement : pidCompute; }
 };
 
 }

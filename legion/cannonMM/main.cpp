@@ -75,13 +75,15 @@ void top_level_task(const Task* task, const std::vector<PhysicalRegion>& regions
 
   auto fspace = runtime->create_field_space(ctx);
   allocate_tensor_fields<valType>(ctx, runtime, fspace);
-  auto ispace = runtime->create_index_space(ctx, Rect<2>({0, 0}, {n - 1, n - 1}));
-  auto A = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(A, "A");
-  auto B = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(B, "B");
-  auto C = runtime->create_logical_region(ctx, ispace, fspace); runtime->attach_name(C, "C");
+  auto aispace = runtime->create_index_space(ctx, Rect<2>({0, 0}, {n - 1, n - 1}));
+  auto bispace = runtime->create_index_space(ctx, Rect<2>({0, 0}, {n - 1, n - 1}));
+  auto cispace = runtime->create_index_space(ctx, Rect<2>({0, 0}, {n - 1, n - 1}));
+  auto A = runtime->create_logical_region(ctx, aispace, fspace); runtime->attach_name(A, "A");
+  auto B = runtime->create_logical_region(ctx, bispace, fspace); runtime->attach_name(B, "B");
+  auto C = runtime->create_logical_region(ctx, cispace, fspace); runtime->attach_name(C, "C");
+
 
   // Partition all of the tensors.
-
   // These partitions are disjoint, so we can fill over them.
   auto aPart = partitionForplaceLegionA(ctx, runtime, A, px, py)[0];
   auto bPart = partitionForplaceLegionB(ctx, runtime, B, px, py)[0];

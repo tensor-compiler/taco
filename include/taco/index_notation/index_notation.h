@@ -795,6 +795,7 @@ public:
   size_t getUnrollFactor() const;
 
   bool isDistributed() const;
+  bool isTask() const;
   const std::vector<Transfer>& getTransfers() const;
   const std::vector<TensorVar>& getComputingOn() const;
 
