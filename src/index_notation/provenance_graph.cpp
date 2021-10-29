@@ -918,7 +918,8 @@ ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
     // No relations defined
     return;
   }
-
+  // q: does a such node impose some restrictions on 
+  // the value of the variable
   SuchThat suchThat = to<SuchThat>(concreteStmt);
   vector<IndexVarRel> relations = suchThat.getPredicate();
 
@@ -927,6 +928,9 @@ ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
     std::vector<IndexVar> children = rel.getNode()->getChildren();
     for (IndexVar parent : parents) {
       nodes.insert(parent);
+      // q: childrelmap maps the 
+      // parent to a constrained iteration
+      // space?
       childRelMap[parent] = rel;
       childrenMap[parent] = children;
     }
@@ -1151,6 +1155,7 @@ bool ProvenanceGraph::isRecoverablePrecompute(taco::IndexVar indexVar, std::set<
     return isRecoverablePrecompute(precomputeChild, defined, producers, consumers);
   }
   for (const IndexVar& child : getChildren(indexVar)) {
+    // q: why is  it !isRecoverablePrecompute?
     if (!defined.count(child) && (isFullyDerived(child) ||
                                   !isRecoverablePrecompute(child, defined, producers, consumers))) {
       return false;
