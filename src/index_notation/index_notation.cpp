@@ -1677,6 +1677,10 @@ IndexStmt IndexStmt::fuse(IndexVar i, IndexVar j, IndexVar f) const {
 }
 
 IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const {
+  
+  i.setBound(bound);
+  i.setBoundType(bound_type);
+  
   IndexVarRel rel = IndexVarRel(new BoundRelNode(i, i1, bound, bound_type));
   string reason;
 
@@ -2029,6 +2033,22 @@ IndexVar::IndexVar(const std::string& name) : content(new Content) {
 
 std::string IndexVar::getName() const {
   return content->name;
+}
+
+size_t& IndexVar::getBound() const {
+  return content->bound;
+}
+
+const BoundType& IndexVar::getBoundType() const {
+  return content->boundType;
+}
+
+void IndexVar::setBound(size_t bound){
+  content->bound = bound;
+}
+
+void IndexVar::setBoundType(BoundType boundType){
+  content->boundType = boundType;
 }
 
 WindowedIndexVar IndexVar::operator()(int lo, int hi, int stride) {

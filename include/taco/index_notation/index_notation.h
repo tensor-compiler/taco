@@ -993,6 +993,14 @@ public:
   /// Returns the name of the index variable.
   std::string getName() const;
 
+  size_t& getBound() const;
+
+  const BoundType& getBoundType() const;
+
+  void setBoundType(BoundType boundType);
+
+  void setBound(size_t bound);
+
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);
 
@@ -1010,6 +1018,8 @@ private:
 
 struct IndexVar::Content {
   std::string name;
+  size_t bound;
+  taco::BoundType boundType;
 };
 
 struct WindowedIndexVar::Content {
