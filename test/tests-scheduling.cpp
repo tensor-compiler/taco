@@ -990,3 +990,51 @@ TEST(scheduling, divide) {
     return stmt.fuse(i, j, f).pos(f, fpos, A(i, j)).divide(fpos, f0, f1, 4).split(f1, i1, i2, 16).split(i2, i3, i4, 8);
   });
 }
+
+TEST(scheduling, posSplitAndDivide) {
+  int dim = 10;
+  Tensor<int> A("A", {dim, dim}, {Dense, Sparse});
+  Tensor<int> x("x", {dim}, Dense);
+
+  auto sparsity = 0.5;
+  srand(59393);
+  for (int i = 0; i < dim; i++) {
+    x.insert({i}, i);
+    for (int j = 0; j < dim; j++) {
+      auto rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < sparsity) {
+        A.insert({i, j},((int)(rand_float * 10 / sparsity)));
+      }
+    }
+  }
+  A.pack();
+  x.pack();
+
+  IndexVar i("i"), j("j"), ipos("ipos"), iposo("iposo"), iposi("iposi");
+  auto test = [&](std::function<IndexStmt(IndexStmt)> f) {
+    Tensor<int> y("y", {dim}, Dense);
+    y(i) = A(i, j) * x(j);
+    auto stmt = f(y.getAssignment().concretize());
+    y.compile(stmt);
+    y.evaluate();
+    Tensor<int> expected("expected", {dim}, Dense);
+    expected(i) = A(i, j) * x(j);
+    expected.evaluate();
+    ASSERT_TRUE(equals(expected, y)) << expected << endl << y << endl;
+  };
+
+  // TODO (rohany): The old split code did not work prior to this commit on large
+  //  problem instances from suitesparse, but I'm not able to reproduce the bug on
+  //  small test cases here.
+  // test([&](IndexStmt stmt) {
+  //   return stmt.pos(j, ipos, A(i, j))
+  //              .split(ipos, iposo, iposi, 12)
+  //              ;
+  // });
+
+  test([&](IndexStmt stmt) {
+    return stmt.pos(j, ipos, A(i, j))
+               .divide(ipos, iposo, iposi, 8)
+               ;
+  });
+}

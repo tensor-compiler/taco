@@ -212,11 +212,16 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
   std::vector<ir::Expr> parentBound = parentIterBounds.at(getParentVar());
   Datatype splitFactorType = parentBound[0].type();
   if (indexVar == getOuterVar()) {
-    ir::Expr minBound = ir::Div::make(parentBound[0], ir::Literal::make(getSplitFactor(), splitFactorType));
-    ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(getSplitFactor()-1, splitFactorType)), ir::Literal::make(getSplitFactor(), splitFactorType));
+    // The outer variable must always range from 0 to the extent of the bounds (chunked up).
+    // This is a noop for the common case where all of our loops start at 0. However, it is
+    // important when doing a pos split, where the resulting bounds may not start at 0,
+    // and instead start at a position like T_pos[i].lo.
+    ir::Expr minBound = 0;
+    auto upper = ir::Sub::make(parentBound[1], parentBound[0]);
+    ir::Expr maxBound = ir::Div::make(ir::Add::make(upper, ir::Literal::make(getSplitFactor() - 1, splitFactorType)),
+                                      ir::Literal::make(getSplitFactor(), splitFactorType));
     return {minBound, maxBound};
-  }
-  else if (indexVar == getInnerVar()) {
+  } else if (indexVar == getInnerVar()) {
     ir::Expr minBound = 0;
     ir::Expr maxBound = ir::Literal::make(getSplitFactor(), splitFactorType);
     return {minBound, maxBound};
@@ -231,7 +236,12 @@ ir::Expr SplitRelNode::recoverVariable(taco::IndexVar indexVar,
   taco_iassert(indexVar == getParentVar());
   taco_iassert(variableNames.count(getParentVar()) && variableNames.count(getOuterVar()) && variableNames.count(getInnerVar()));
   Datatype splitFactorType = variableNames[getParentVar()].type();
-  return ir::Add::make(ir::Mul::make(variableNames[getOuterVar()], ir::Literal::make(getSplitFactor(), splitFactorType)), variableNames[getInnerVar()]);
+  // Include the lower bound of the variable being recovered. Normally, this is 0, but
+  // in the case of a position split it is not.
+  return ir::Add::make(
+      ir::Add::make(ir::Mul::make(variableNames[getOuterVar()], ir::Literal::make(getSplitFactor(), splitFactorType)), variableNames[getInnerVar()]),
+      parentIterBounds[indexVar][0]
+  );
 }
 
 ir::Stmt SplitRelNode::recoverChild(taco::IndexVar indexVar,
@@ -364,11 +374,12 @@ std::vector<ir::Expr> DivideRelNode::deriveIterBounds(taco::IndexVar indexVar,
     ir::Expr minBound = 0;
     ir::Expr maxBound = divFactor;
     return {minBound, maxBound};
-  }
-  else if (indexVar == getInnerVar()) {
-    // The inner loop ranges over a chunk of size parentBound / divFactor.
-    ir::Expr minBound = ir::Div::make(parentBound[0], divFactor);
-    ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(getDivFactor()-1, divFactorType)), divFactor);
+  } else if (indexVar == getInnerVar()) {
+    // The inner loop ranges over a chunk of size parentBound / divFactor. Similarly
+    // to split, the loop must range from 0 to parentBound.
+    ir::Expr minBound = 0;
+    auto upper = ir::Sub::make(parentBound[1], parentBound[0]);
+    ir::Expr maxBound = ir::Div::make(ir::Add::make(upper, ir::Literal::make(getDivFactor()-1, divFactorType)), divFactor);
     return {minBound, maxBound};
   }
   taco_ierror;
@@ -390,7 +401,10 @@ ir::Expr DivideRelNode::recoverVariable(taco::IndexVar indexVar,
   // The bounds for the dimension are adjusted so that dimensions that aren't
   // divisible by divFactor have the last piece included.
   auto bounds = ir::Div::make(ir::Add::make(dimSize, divFactorMinusOne), divFactor);
-  return ir::Add::make(ir::Mul::make(variableNames[getOuterVar()], bounds), variableNames[getInnerVar()]);
+  // We multiply this all together and then add on the base of the parentBounds
+  // to shift up into the range of the parent. This is normally 0, but for cases
+  // like position loops it is not.
+  return ir::Add::make(ir::Add::make(ir::Mul::make(variableNames[getOuterVar()], bounds), variableNames[getInnerVar()]), parentIterBounds[indexVar][0]);
 }
 
 ir::Stmt DivideRelNode::recoverChild(taco::IndexVar indexVar,
