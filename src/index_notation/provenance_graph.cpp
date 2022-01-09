@@ -1320,7 +1320,7 @@ bool ProvenanceGraph::hasExactBound(IndexVar indexVar) const {
   IndexVarRel rel = parentRelMap.at(indexVar);
   if(rel.getRelType() == BOUND)
   {
-    return rel.getNode<BoundRelNode>()->getBoundType() == BoundType::MaxExact;
+    return indexVar.getBoundType() == BoundType::MaxExact;
   }
   // TODO: include non-irregular variables
   return false;
