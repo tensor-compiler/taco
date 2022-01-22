@@ -1678,9 +1678,8 @@ IndexStmt IndexStmt::fuse(IndexVar i, IndexVar j, IndexVar f) const {
 
 IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const {
   
-  i.setBound(bound);
-  i.setBoundType(bound_type);
-  
+  i.bound(bound, bound_type);
+
   IndexVarRel rel = IndexVarRel(new BoundRelNode(i, i1, bound, bound_type));
   string reason;
 
@@ -2049,6 +2048,12 @@ void IndexVar::setBound(size_t bound){
 
 void IndexVar::setBoundType(BoundType boundType){
   content->boundType = boundType;
+}
+
+void IndexVar::bound(size_t bound, BoundType boundType){
+  content->isbound = true; 
+  setBound(bound);
+  setBoundType(boundType);
 }
 
 WindowedIndexVar IndexVar::operator()(int lo, int hi, int stride) {
