@@ -701,6 +701,8 @@ public:
   /// Preconditions:
   /// The precondition for bound is that the computation bounds supplied are 
   /// correct given the inputs that this code will be run on.
+  // IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const;
+
   IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const;
 
   /// The unroll primitive unrolls the corresponding loop by a statically-known
