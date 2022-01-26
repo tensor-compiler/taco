@@ -244,39 +244,6 @@ private:
 
 bool operator==(const FuseRelNode&, const FuseRelNode&);
 
-/// The bound relation allows expressing a constraint or value known at compile-time that allows for compile-time optimizations
-struct BoundRelNode : public IndexVarRelNode {
-  BoundRelNode(IndexVar parentVar, IndexVar boundVar, size_t bound, BoundType boundType);
-
-  const IndexVar& getParentVar() const;
-  const IndexVar& getBoundVar() const;
-  const size_t& getBound() const;
-  const BoundType& getBoundType() const;
-
-  void print(std::ostream& stream) const;
-  bool equals(const BoundRelNode &rel) const;
-  std::vector<IndexVar> getParents() const; // parentVar
-  std::vector<IndexVar> getChildren() const; // boundVar
-  std::vector<IndexVar> getIrregulars() const; // boundVar
-
-  /// Coordinate bounds remain unchanged, only iteration bounds change
-  std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, ProvenanceGraph provGraph) const;
-
-  /// Constrained depending on bound_type
-  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators, ProvenanceGraph provGraph) const;
-
-  /// parentVar = boundVar
-  ir::Expr recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, ProvenanceGraph provGraph) const;
-
-  /// boundVar = parentVar
-  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl, Iterators iterators, ProvenanceGraph provGraph) const;
-private:
-  struct Content;
-  std::shared_ptr<Content> content;
-};
-
-bool operator==(const BoundRelNode&, const BoundRelNode&);
-
 /// The precompute relation allows creating a new precomputeVar that is iterated over for the precompute loop and shares same sizes as parentVar
 /// This allows precomputeVar to be scheduled separately from the parentVar
 struct PrecomputeRelNode : public IndexVarRelNode {
