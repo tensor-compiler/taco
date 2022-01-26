@@ -1005,6 +1005,8 @@ public:
 
   void bound(size_t bound, BoundType boundType);
 
+  bool isBound();
+
   // void setBoundVar(IndexVar boundVar);
 
   friend bool operator==(const IndexVar&, const IndexVar&);
@@ -1026,7 +1028,7 @@ struct IndexVar::Content {
   std::string name;
   size_t bound;
   taco::BoundType boundType;
-  bool isbound = false;
+  bool isbound;
 };
 
 struct WindowedIndexVar::Content {

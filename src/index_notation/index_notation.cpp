@@ -2036,6 +2036,7 @@ IndexVar::IndexVar() : IndexVar(util::uniqueName('i')) {}
 
 IndexVar::IndexVar(const std::string& name) : content(new Content) {
   content->name = name;
+  content->isbound = false; 
 }
 
 std::string IndexVar::getName() const {
@@ -2062,6 +2063,10 @@ void IndexVar::bound(size_t bound, BoundType boundType){
   content->isbound = true; 
   setBound(bound);
   setBoundType(boundType);
+}
+
+bool IndexVar::isBound(){
+  return content->isbound;
 }
 
 WindowedIndexVar IndexVar::operator()(int lo, int hi, int stride) {
