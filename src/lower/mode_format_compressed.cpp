@@ -1,6 +1,6 @@
 #include "taco/lower/mode_format_compressed.h"
 
-#include "ir/ir_generators.h"
+#include "taco/ir/ir_generators.h"
 #include "taco/ir/simplify.h"
 #include "taco/util/strings.h"
 
