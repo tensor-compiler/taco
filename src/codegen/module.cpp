@@ -125,8 +125,15 @@ string Module::compile() {
   }
   else {
     cc = util::getFromEnv(target.compiler_env, target.compiler);
-    cflags = util::getFromEnv("TACO_CFLAGS",
-    "-O3 -ffast-math -std=c99") + " -shared -fPIC";
+#ifdef TACO_DEBUG
+    // In debug mode, compile the generated code with debug symbols and a
+    // low optimization level.
+    string defaultFlags = "-g -O0 -std=c99";
+#else
+    // Otherwise, use the standard set of optimizing flags.
+    string defaultFlags = "-O3 -ffast-math -std=c99";
+#endif
+    cflags = util::getFromEnv("TACO_CFLAGS", defaultFlags) + " -shared -fPIC";
 #if USE_OPENMP
     cflags += " -fopenmp";
 #endif
