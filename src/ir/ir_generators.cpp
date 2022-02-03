@@ -1,4 +1,4 @@
-#include "ir_generators.h"
+#include "taco/ir/ir_generators.h"
 
 #include "taco/ir/ir.h"
 #include "taco/error.h"
