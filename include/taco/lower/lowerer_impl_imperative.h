@@ -9,10 +9,10 @@
 #include <taco/index_notation/index_notation.h>
 
 #include "taco/lower/iterator.h"
-#include "taco/lower/lowerer_impl.h"
 #include "taco/util/scopedset.h"
 #include "taco/util/uncopyable.h"
 #include "taco/ir_tags.h"
+#include "taco/lower/lowerer_impl.h"
 
 namespace taco {
 
@@ -312,7 +312,6 @@ protected:
 
   /// Generate code to initialize result indices.
   ir::Stmt initResultArrays(std::vector<Access> writes, 
-                            std::vector<Access> reads,
                             std::set<Access> reducedAccesses);
 
   /// Generate code to finalize result indices.
@@ -324,14 +323,13 @@ protected:
   ir::Stmt defineScalarVariable(TensorVar var, bool zero);
 
   ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes,
-                            std::vector<Access> reads,
                             std::set<Access> reducedAccesses);
 
   ir::Stmt resizeAndInitValues(const std::vector<Iterator>& appenders,
                                const std::set<Access>& reducedAccesses);
   /**
-   * Generate code to zero-initialize values array in range
-   * [begin * size, (begin + 1) * size).
+   * Generate code to initialize values array in range
+   * [begin * size, (begin + 1) * size) with the fill value.
    */
   ir::Stmt initValues(ir::Expr tensor, ir::Expr initVal, ir::Expr begin, ir::Expr size);
 
@@ -400,6 +398,8 @@ protected:
   /// Check whether the result tensor should be assembled by ungrouped insertion
   bool isAssembledByUngroupedInsertion(TensorVar result);
   bool isAssembledByUngroupedInsertion(ir::Expr result);
+
+  bool isNonFullyInitialized(ir::Expr result);
 
   /// Check whether the statement writes to a result tensor
   bool hasStores(ir::Stmt stmt);
@@ -500,6 +500,8 @@ private:
 
   std::set<TensorVar> assembledByUngroupedInsert;
 
+  std::set<ir::Expr> nonFullyInitializedResults;
+
   /// Map used to hoist temporary workspace initialization
   std::map<Forall, Where> temporaryInitialization;
 
@@ -551,6 +553,12 @@ private:
   std::vector<ir::Stmt> whereConsumers;
   std::vector<TensorVar> whereTemps;
   std::map<TensorVar, const AccessNode *> whereTempsToResult;
+
+  // Map temporary tensorVars to a list of size expressions for each mode
+  std::map<TensorVar, std::vector<ir::Expr>> temporarySizeMap;
+  
+  // List that contains all temporary tensorVars
+  std::vector<TensorVar> temporaries;
 
   bool captureNextLocatePos = false;
   ir::Stmt capturedLocatePos; // used for whereConsumer when want to replicate same locating

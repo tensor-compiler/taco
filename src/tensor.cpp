@@ -784,8 +784,10 @@ vector<void*> packArguments(const TensorBase& tensor) {
 
   // Pack any index sets on the result tensor at the front of the arguments list.
   auto lhs = getNode(tensor.getAssignment().getLhs());
-  if (isa<AccessTensorNode>(lhs)) {
-    auto indexSetModes = to<AccessTensorNode>(lhs)->indexSetModes;
+  // We check isa<AccessNode> rather than isa<AccessTensorNode> to catch cases
+  // where the underlying access is represented with the base AccessNode class.
+  if (isa<AccessNode>(lhs)) {
+    auto indexSetModes = to<AccessNode>(lhs)->indexSetModes;
     for (auto& it : indexSetModes) {
       arguments.push_back(it.second.tensor.getStorage());
     }

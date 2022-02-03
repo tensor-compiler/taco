@@ -33,7 +33,7 @@ class TestDataTypeMethods(unittest.TestCase):
         self.assertEqual(pt.uint64.__repr__(), "pytaco.uint64_t")
 
     def test_dtype_conversion(self):
-        expected_types = [np.bool, np.float32, np.float64,  np.int8, np.int16, np.int32, np.int64,
+        expected_types = [np.bool_, np.float32, np.float64, np.int8, np.int16, np.int32, np.int64,
                           np.uint8, np.uint16, np.uint32, np.uint64]
 
         for i, dt in enumerate(types):
@@ -168,6 +168,11 @@ class TestTensorCreation(unittest.TestCase):
         self.assertTrue(np.array_equal(tensor_copy, self.c_array))
 
     def test_array_copy_C_and_F_style(self):
+        if pt.should_use_cuda_codegen():
+          # `from_array` always performs deep copy when GPU backend is enabled, 
+          # so don't run this test
+          return
+
         # Getting a reference to taco then back to numpy should return the same data with the read only flag set to true
         # only for C and F style arrays. Arrays of different forms will always be copied
         c_copy = pt.from_array(self.c_array, copy=False)

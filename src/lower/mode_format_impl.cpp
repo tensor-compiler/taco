@@ -297,7 +297,8 @@ bool ModeFormatImpl::equals(const ModeFormatImpl& other) const {
           isOrdered == other.isOrdered &&
           isUnique == other.isUnique &&
           isBranchless == other.isBranchless &&
-          isCompact == other.isCompact);
+          isCompact == other.isCompact &&
+          isZeroless == other.isZeroless);
 }
 
 bool operator==(const ModeFormatImpl& a, const ModeFormatImpl& b) {

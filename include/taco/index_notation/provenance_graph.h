@@ -354,6 +354,9 @@ public:
   /// Node is recoverable if children appear in defined
   bool isRecoverable(IndexVar indexVar, std::set<IndexVar> defined) const;
 
+  /// isRecoverable helper method to handle precompute relations and where statements in the provenance graph
+  bool isRecoverablePrecompute(IndexVar indexVar, std::set<IndexVar> defined, std::vector<IndexVar> producers, std::vector<IndexVar> consumers) const;
+
   /// Node is recoverable if at most 1 unknown variable in relationship (parents + siblings)
   bool isChildRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const;
 

@@ -37,6 +37,7 @@ class WindowedIndexVar;
 class IndexSetVar;
 class TensorVar;
 
+class IndexStmt;
 class IndexExpr;
 class Assignment;
 class Access;
@@ -69,6 +70,14 @@ struct SuchThatNode;
 
 class IndexExprVisitorStrict;
 class IndexStmtVisitorStrict;
+
+/// Return true if the index statement is of the given subtype.  The subtypes
+/// are Assignment, Forall, Where, Sequence, and Multi.
+template <typename SubType> bool isa(IndexExpr);
+
+/// Casts the index statement to the given subtype. Assumes S is a subtype and
+/// the subtypes are Assignment, Forall, Where, Sequence, and Multi.
+template <typename SubType> SubType to(IndexExpr);
 
 /// A tensor index expression describes a tensor computation as a scalar
 /// expression where tensors are indexed by index variables (`IndexVar`).  The
@@ -168,6 +177,12 @@ public:
   /// Returns the schedule of the index expression.
   const Schedule& getSchedule() const;
 
+  /// Casts index expression to specified subtype.
+  template <typename SubType>
+  SubType as() {
+    return to<SubType>(*this);
+  }
+
   /// Visit the index expression's sub-expressions.
   void accept(IndexExprVisitorStrict *) const;
 
@@ -210,14 +225,6 @@ IndexExpr operator*(const IndexExpr&, const IndexExpr&);
 /// A(i,j) = B(i,j) / C(i,j);  // Component-wise division
 /// ```
 IndexExpr operator/(const IndexExpr&, const IndexExpr&);
-
-/// Return true if the index statement is of the given subtype.  The subtypes
-/// are Assignment, Forall, Where, Sequence, and Multi.
-template <typename SubType> bool isa(IndexExpr);
-
-/// Casts the index statement to the given subtype. Assumes S is a subtype and
-/// the subtypes are Assignment, Forall, Where, Sequence, and Multi.
-template <typename SubType> SubType to(IndexExpr);
 
 
 /// An index expression that represents a tensor access, such as `A(i,j))`.
@@ -551,6 +558,14 @@ public:
 /// Create a summation index expression.
 Reduction sum(IndexVar i, IndexExpr expr);
 
+/// Return true if the index statement is of the given subtype.  The subtypes
+/// are Assignment, Forall, Where, Multi, and Sequence.
+template <typename SubType> bool isa(IndexStmt);
+
+/// Casts the index statement to the given subtype. Assumes S is a subtype and
+/// the subtypes are Assignment, Forall, Where, Multi, and Sequence.
+template <typename SubType> SubType to(IndexStmt);
+
 /// A an index statement computes a tensor.  The index statements are
 /// assignment, forall, where, multi, and sequence.
 class IndexStmt : public util::IntrusivePtr<const IndexStmtNode> {
@@ -570,6 +585,10 @@ public:
 
   /// Takes any index notation and concretizes unknowns to make it concrete notation
   IndexStmt concretize() const;
+
+  /// Takes any index notation and concretizes unknowns to make it concrete notation
+  /// given a Provenance Graph of indexVars
+  IndexStmt concretizeScheduled(ProvenanceGraph provGraph, std::vector<IndexVar> forallIndexVarList) const;
 
   /// The \code{split} transformation splits (strip-mines) an index
   /// variable into two nested index variables, where the size of the
@@ -670,9 +689,9 @@ public:
   ///
   /// Preconditions:
   /// The index variable supplied to the coord transformation must be in
-  /// position space. The index variable supplied to the pos transformation
-  /// must be in coordinate space. The pos transformation also takes an
-  /// input to indicate which position space to use. This input must appear in the computation
+  /// position space. The index variable supplied to the pos transformation must 
+  /// be in coordinate space. The pos transformation also takes an input to
+  /// indicate which position space to use. This input must appear in the computation
   /// expression and also be indexed by this index variable. In the case that this
   /// index variable is derived from multiple index variables, these variables must appear
   /// directly nested in the mode ordering of this datastructure. This allows for
@@ -698,28 +717,45 @@ public:
   /// to the pos transformation.
   IndexStmt fuse(IndexVar i, IndexVar j, IndexVar f) const;
 
+  /// The precompute transformation is described in kjolstad2019
+  /// allows us to leverage scratchpad memories and
+  /// reorder computations to increase locality
+  IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const;
+
   ///  The precompute transformation is described in kjolstad2019
   ///  allows us to leverage scratchpad memories and
   ///  reorder computations to increase locality
-  IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const;
-
+  IndexStmt precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
+                       std::vector<IndexVar> iw_vars, TensorVar workspace) const;
+  
   /// bound specifies a compile-time constraint on an index variable's
   /// iteration space that allows knowledge of the
   /// size or structured sparsity pattern of the inputs to be
-  /// incorporated during bounds propagatio
+  /// incorporated during bounds propagation
   ///
   /// Preconditions:
-  /// The precondition for bound is that the computation bounds supplied are correct
-  /// given the inputs that this code will be run on.
+  /// The precondition for bound is that the computation bounds supplied are 
+  /// correct given the inputs that this code will be run on.
   IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const;
 
-  /// The unroll
-  /// primitive unrolls the corresponding loop by a statically-known
+  /// The unroll primitive unrolls the corresponding loop by a statically-known
   /// integer number of iterations
   /// Preconditions: unrollFactor is a positive nonzero integer
   IndexStmt unroll(IndexVar i, size_t unrollFactor) const;
 
-  IndexStmt assemble(TensorVar result, AssembleStrategy strategy) const;
+  /// The assemble primitive specifies whether a result tensor should be 
+  /// assembled by appending or inserting nonzeros into the result tensor.
+  /// In the latter case, the transformation inserts additional loops to 
+  /// precompute statistics about the result tensor that are required for 
+  /// preallocating memory and coordinating insertions of nonzeros.
+  IndexStmt assemble(TensorVar result, AssembleStrategy strategy, 
+                     bool separately_schedulable = false) const;
+
+  /// Casts index statement to specified subtype.
+  template <typename SubType>
+  SubType as() {
+    return to<SubType>(*this);
+  }
 };
 
 /// Check if two index statements are isomorphic.
@@ -731,13 +767,6 @@ bool equals(IndexStmt, IndexStmt);
 /// Print the index statement.
 std::ostream& operator<<(std::ostream&, const IndexStmt&);
 
-/// Return true if the index statement is of the given subtype.  The subtypes
-/// are Assignment, Forall, Where, Multi, and Sequence.
-template <typename SubType> bool isa(IndexStmt);
-
-/// Casts the index statement to the given subtype. Assumes S is a subtype and
-/// the subtypes are Assignment, Forall, Where, Multi, and Sequence.
-template <typename SubType> SubType to(IndexStmt);
 
 /// An assignment statement assigns an index expression to the locations in a
 /// tensor given by an lhs access expression.
@@ -751,9 +780,11 @@ public:
   Assignment(Access lhs, IndexExpr rhs, IndexExpr op = IndexExpr());
 
   /// Create an assignment. Can specify an optional operator `op` that turns the
-  /// assignment into a compound assignment, e.g. `+=`.
+  /// assignment into a compound assignment, e.g. `+=`. Additionally, specify
+  /// any modifers on reduction index variables (windows, index sets, etc.).
   Assignment(TensorVar tensor, std::vector<IndexVar> indices, IndexExpr rhs,
-             IndexExpr op = IndexExpr());
+             IndexExpr op = IndexExpr(),
+             const std::map<int, std::shared_ptr<IndexVarIterationModifier>>& modifiers = {});
 
   /// Return the assignment's left-hand side.
   Access getLhs() const;
@@ -1152,6 +1183,10 @@ bool isEinsumNotation(IndexStmt, std::string* reason=nullptr);
 /// notation is printed to.
 bool isReductionNotation(IndexStmt, std::string* reason=nullptr);
 
+/// Check whether the statement is in the reduction index notation dialect
+/// given a schedule described by the Provenance Graph
+bool isReductionNotationScheduled(IndexStmt, ProvenanceGraph, std::string* reason=nullptr);
+
 /// Check whether the statement is in the concrete index notation dialect.
 /// This means every index variable has a forall node, each index variable used
 /// for computation is under a forall node for that variable, there are no reduction
@@ -1169,6 +1204,18 @@ IndexStmt makeReductionNotation(IndexStmt);
 /// replacing reduction nodes by compound assignments, and inserting temporaries
 /// as needed.
 IndexStmt makeConcreteNotation(IndexStmt);
+
+
+/// Convert einsum notation to reduction notation, by applying Einstein's
+/// summation convention to sum non-free/reduction variables over their term
+/// taking into account a schedule given by the Provenance Graph.
+Assignment makeReductionNotationScheduled(Assignment, ProvenanceGraph);
+IndexStmt makeReductionNotationScheduled(IndexStmt, ProvenanceGraph);
+
+/// Convert reduction notation to concrete notation, by inserting forall nodes,
+/// replacing reduction nodes by compound assignments, and inserting temporaries
+/// as needed while taking into account a schedule given by the Provenance Graph.
+IndexStmt makeConcreteNotationScheduled(IndexStmt, ProvenanceGraph, std::vector<IndexVar> forallIndexVars);
 
 /// Returns the results of the index statement, in the order they appear.
 std::vector<TensorVar> getResults(IndexStmt stmt);

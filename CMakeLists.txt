@@ -1,25 +1,37 @@
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.4.0 FATAL_ERROR)
+if(POLICY CMP0048)
+  cmake_policy(SET CMP0048 NEW)
+endif()
 if(POLICY CMP0054)
   cmake_policy(SET CMP0054 NEW)
 endif()
-project(taco)
+project(taco
+  VERSION 0.1
+  LANGUAGES C CXX
+)
 option(CUDA "Build for NVIDIA GPU (CUDA must be preinstalled)" OFF)
 option(PYTHON "Build TACO for python environment" OFF)
 option(OPENMP "Build with OpenMP execution support" OFF)
 option(COVERAGE "Build with code coverage analysis" OFF)
+set(TACO_FEATURE_CUDA 0)
+set(TACO_FEATURE_OPENMP 0)
+set(TACO_FEATURE_PYTHON 0)
 if(CUDA)
   message("-- Searching for CUDA Installation")
   find_package(CUDA REQUIRED)
   add_definitions(-DCUDA_BUILT)
+  set(TACO_FEATURE_CUDA 1)
 endif(CUDA)
 if(OPENMP)
   message("-- Will use OpenMP for parallel execution")
   add_definitions(-DUSE_OPENMP)
+  set(TACO_FEATURE_OPENMP 1)
 endif(OPENMP)
 
 if(PYTHON)
   message("-- Will build Python extension")
   add_definitions(-DPYTHON)
+  set(TACO_FEATURE_PYTHON 1)
 endif(PYTHON)
 
 SET(CMAKE_CONFIGURATION_TYPES "Release;Debug;MinSizeRel;RelWithDebInfo")
@@ -101,7 +113,7 @@ include_directories(${TACO_INCLUDE_DIR})
 
 set(TACO_LIBRARY_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 
-install(DIRECTORY ${TACO_INCLUDE_DIR}/ DESTINATION include)
+install(DIRECTORY ${TACO_INCLUDE_DIR}/ DESTINATION include FILES_MATCHING PATTERN "*.h")
 
 add_subdirectory(src)
 add_subdirectory(test)
@@ -122,6 +134,20 @@ if(GIT_FOUND AND EXISTS "${TACO_PROJECT_DIR}/.git")
       message(FATAL_ERROR "git submodule update --init failed with ${GIT_SUBMOD_RESULT}, please checkout submodules")
     endif()
   endif()
+  # get git revision
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    RESULT_VARIABLE GIT_REVPARSE_RESULT
+    OUTPUT_VARIABLE TACO_GIT_SHORTHASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if(NOT GIT_REVPARSE_RESULT EQUAL "0")
+    message(NOTICE "'git rev-parse --short HEAD' failed with ${GIT_REVPARSE_RESULT}, git version info will be unavailable.")
+    set(TACO_GIT_SHORTHASH "")
+  endif()
+else()
+  set(TACO_GIT_SHORTHASH "")
 endif()
 
 if(NOT EXISTS "${TACO_PROJECT_DIR}/python_bindings/pybind11/CMakeLists.txt")
@@ -156,3 +182,7 @@ if(COVERAGE)
   endif(PYTHON)
   set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES coverage)
 endif(COVERAGE)
+
+string(TIMESTAMP TACO_BUILD_DATE "%Y-%m-%d")
+configure_file("include/taco/version.h.in" "include/taco/version.h" @ONLY)
+install(FILES "${CMAKE_BINARY_DIR}/include/taco/version.h" DESTINATION "include/taco")

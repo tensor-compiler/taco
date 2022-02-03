@@ -45,6 +45,16 @@ IndexStmt scheduleSpMVCPU(IndexStmt stmt, int CHUNK_SIZE=16) {
           .parallelize(i0, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }
 
+IndexStmt schedulePrecompute3D(IndexStmt stmt, IndexExpr precomputedExpr) {
+  TensorVar precomputed("precomputed", Type(Float64, {16, 16, 16}), {Dense, Dense, Dense});
+  return stmt.precompute(precomputedExpr, {i, j, l} , {i, j, l}, precomputed);
+}
+
+IndexStmt schedulePrecompute1D(IndexStmt stmt, IndexExpr precomputedExpr) {
+  TensorVar precomputed("precomputed", Type(Float64, {102}), {Dense});
+  return stmt.precompute(precomputedExpr, i , i, precomputed);
+}
+
 IndexStmt scheduleSpMMCPU(IndexStmt stmt, Tensor<double> A, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
   IndexVar i0("i0"), i1("i1"), kbounded("kbounded"), k0("k0"), k1("k1"), jpos("jpos"), jpos0("jpos0"), jpos1("jpos1");
   return stmt.split(i, i0, i1, CHUNK_SIZE)
@@ -55,15 +65,51 @@ IndexStmt scheduleSpMMCPU(IndexStmt stmt, Tensor<double> A, int CHUNK_SIZE=16, i
           .parallelize(k, ParallelUnit::CPUVector, OutputRaceStrategy::IgnoreRaces);
 }
 
-IndexStmt scheduleSpGEMMCPU(IndexStmt stmt, Tensor<double> C) {
+IndexStmt scheduleSpGEMMCPU(IndexStmt stmt, bool doPrecompute) {
+  Assignment assign = stmt.as<Forall>().getStmt().as<Forall>().getStmt()
+                          .as<Forall>().getStmt().as<Assignment>();
+  TensorVar result = assign.getLhs().getTensorVar();
+
   stmt = reorderLoopsTopologically(stmt);
-  stmt = insertTemporaries(stmt);
-  stmt = stmt.assemble(C.getTensorVar(), AssembleStrategy::Insert);
-  IndexVar qi = to<Forall>(to<Assemble>(stmt).getQueries()).getIndexVar();
+  if (doPrecompute) {
+    IndexVar j = assign.getLhs().getIndexVars()[1];
+    TensorVar w("w", Type(result.getType().getDataType(), 
+                {result.getType().getShape().getDimension(1)}), taco::dense);
+    stmt = stmt.precompute(assign.getRhs(), j, j, w);
+  }
+  stmt = stmt.assemble(result, AssembleStrategy::Insert, true);
+  auto qi_stmt = stmt.as<Assemble>().getQueries();
+  IndexVar qi;
+  if (isa<Where>(qi_stmt)) {
+    qi = qi_stmt.as<Where>().getConsumer().as<Forall>().getIndexVar();
+  } else {
+    qi = qi_stmt.as<Forall>().getIndexVar();
+  }
   stmt = stmt.parallelize(i, ParallelUnit::CPUThread,
                           OutputRaceStrategy::NoRaces)
              .parallelize(qi, ParallelUnit::CPUThread,
                           OutputRaceStrategy::NoRaces);
+
+  return stmt;
+}
+
+IndexStmt scheduleSpAddCPU(IndexStmt stmt) {
+  IndexStmt body = stmt.as<Forall>().getStmt().as<Forall>().getStmt();
+  if (isa<Forall>(body)) {
+    body = body.as<Forall>().getStmt();
+  }
+  Assignment assign = body.as<Assignment>();
+  TensorVar result = assign.getLhs().getTensorVar();
+
+  stmt = reorderLoopsTopologically(stmt);
+  stmt = stmt.assemble(result, AssembleStrategy::Insert, true);
+
+  IndexVar qi = stmt.as<Assemble>().getQueries().as<Forall>().getIndexVar();
+  stmt = stmt.parallelize(i, ParallelUnit::CPUThread,
+                          OutputRaceStrategy::NoRaces)
+             .parallelize(qi, ParallelUnit::CPUThread,
+                          OutputRaceStrategy::NoRaces);
+
   return stmt;
 }
 
@@ -86,6 +132,15 @@ IndexStmt scheduleTTVCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16) {
           .parallelize(chunk, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }
 
+IndexStmt scheduleTTVCPUCSR(IndexStmt stmt) {
+  TensorVar result = stmt.as<Forall>().getStmt().as<Forall>().getStmt()
+                         .as<Forall>().getStmt().as<Assignment>().getLhs()
+                         .getTensorVar();
+  return stmt.assemble(result, AssembleStrategy::Insert)
+             .parallelize(i, ParallelUnit::CPUThread, 
+                          OutputRaceStrategy::NoRaces);
+}
+
 IndexStmt scheduleTTMCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
   IndexVar f("f"), fpos("fpos"), chunk("chunk"), fpos2("fpos2"), kpos("kpos"), kpos1("kpos1"), kpos2("kpos2");
   return stmt.fuse(i, j, f)
@@ -99,9 +154,19 @@ IndexStmt scheduleTTMCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, in
 }
 
 IndexStmt scheduleMTTKRPCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
+  int NUM_J = 1039/20;
   IndexVar i1("i1"), i2("i2");
-  return stmt.split(i, i1, i2, CHUNK_SIZE)
-          .reorder({i1, i2, k, l, j})
+
+  IndexExpr precomputeExpr = stmt.as<Forall>().getStmt().as<Forall>().getStmt()
+                                 .as<Forall>().getStmt().as<Forall>().getStmt()
+                                 .as<Assignment>().getRhs().as<Mul>().getA();
+  TensorVar w("w", Type(Float64, {(size_t)NUM_J}), taco::dense);
+
+  stmt = stmt.split(i, i1, i2, CHUNK_SIZE)
+    .reorder({i1, i2, k, l, j});
+  stmt = stmt.precompute(precomputeExpr, j, j, w);
+
+  return stmt
           .parallelize(i1, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }
 
@@ -532,7 +597,7 @@ TEST(scheduling_eval, spmmCPU) {
   ASSERT_TENSOR_EQ(expected, C);
 }
 
-struct spgemm : public TestWithParam<std::pair<Format,Format>> {};
+struct spgemm : public TestWithParam<std::tuple<Format,Format,bool>> {};
 
 TEST_P(spgemm, scheduling_eval) {
   if (should_use_CUDA_codegen()) {
@@ -540,7 +605,8 @@ TEST_P(spgemm, scheduling_eval) {
   }
 
   Format aFormat, bFormat;
-  std::tie(aFormat, bFormat) = GetParam();
+  bool doPrecompute;
+  std::tie(aFormat, bFormat, doPrecompute) = GetParam();
 
   int NUM_I = 100;
   int NUM_J = 100;
@@ -574,7 +640,7 @@ TEST_P(spgemm, scheduling_eval) {
 
   C(i, k) = A(i, j) * B(j, k);
   IndexStmt stmt = C.getAssignment().concretize();
-  stmt = scheduleSpGEMMCPU(stmt, C);
+  stmt = scheduleSpGEMMCPU(stmt, doPrecompute);
 
   C.compile(stmt);
   C.assemble();
@@ -589,11 +655,130 @@ TEST_P(spgemm, scheduling_eval) {
 }
 
 INSTANTIATE_TEST_CASE_P(spgemm, spgemm,
-                        Values(std::make_pair(CSR, CSR),
-                               std::make_pair(DCSR, CSR),
-                               std::make_pair(DCSR, DCSR),
-                               std::make_pair(CSR, CSC),
-                               std::make_pair(DCSR, DCSC)));
+                        Values(std::make_tuple(CSR, CSR, true),
+                               std::make_tuple(DCSR, CSR, true),
+                               std::make_tuple(DCSR, DCSR, true),
+                               std::make_tuple(CSR, CSC, false),
+                               std::make_tuple(DCSR, DCSC, false)));
+
+TEST(scheduling_eval, spmataddCPU) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+
+  int NUM_I = 1000;
+  int NUM_J = 10;
+  float SPARSITY = .15;
+  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<double> B("B", {NUM_I, NUM_J}, CSR);
+  Tensor<double> C("C", {NUM_I, NUM_J}, CSR);
+  Tensor<double> eA("eA", {NUM_I, NUM_J}, Dense);
+  Tensor<double> eB("eB", {NUM_I, NUM_J}, Dense);
+  Tensor<double> eC("eC", {NUM_I, NUM_J}, Dense);
+
+  srand(75883);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        double val = (double)((int)(rand_float*3/SPARSITY));
+        A.insert({i, j}, val);
+        eA.insert({i, j}, val);
+      }
+    }
+  }
+
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        double val = (double)((int)(rand_float*3/SPARSITY));
+        B.insert({i, j}, val);
+        eB.insert({i, j}, val);
+      }
+    }
+  }
+
+  A.pack();
+  B.pack();
+
+  C(i, j) = A(i, j) + B(i, j);
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = scheduleSpAddCPU(stmt);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  eC(i, j) = eA(i, j) + eB(i, j);
+  eC.compile();
+  eC.assemble();
+  eC.compute();
+  ASSERT_TENSOR_EQ(eC, C);
+}
+
+TEST(scheduling_eval, sptenaddCPU) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+
+  int NUM_I = 100;
+  int NUM_J = 10;
+  int NUM_K = 10;
+  float SPARSITY = .02;
+  Format ecsr({Dense, Compressed(ModeFormat::NOT_UNIQUE), 
+               Singleton(ModeFormat::UNIQUE)});
+  Tensor<double> A("A", {NUM_I, NUM_J, NUM_K}, ecsr);
+  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, ecsr);
+  Tensor<double> C("C", {NUM_I, NUM_J, NUM_K}, ecsr);
+  Tensor<double> eA("eA", {NUM_I, NUM_J, NUM_K}, Dense);
+  Tensor<double> eB("eB", {NUM_I, NUM_J, NUM_K}, Dense);
+  Tensor<double> eC("eC", {NUM_I, NUM_J, NUM_K}, Dense);
+
+  srand(75883);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      for (int k = 0; k < NUM_K; k++) {
+        float rand_float = (float)rand()/(float)(RAND_MAX);
+        if (rand_float < SPARSITY) {
+          double val = (double)((int)(rand_float*3/SPARSITY));
+          A.insert({i, j, k}, val);
+          eA.insert({i, j, k}, val);
+        }
+      }
+    }
+  }
+
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      for (int k = 0; k < NUM_K; k++) {
+        float rand_float = (float)rand()/(float)(RAND_MAX);
+        if (rand_float < SPARSITY) {
+          double val = (double)((int)(rand_float*3/SPARSITY));
+          B.insert({i, j, k}, val);
+          eB.insert({i, j, k}, val);
+        }
+      }
+    }
+  }
+
+  A.pack();
+  B.pack();
+
+  C(i, j, k) = A(i, j, k) + B(i, j, k);
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = scheduleSpAddCPU(stmt);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  eC(i, j, k) = eA(i, j, k) + eB(i, j, k);
+  eC.compile();
+  eC.assemble();
+  eC.compute();
+  ASSERT_TENSOR_EQ(eC, C);
+}
 
 TEST(scheduling_eval, sddmmCPU) {
   if (should_use_CUDA_codegen()) {
@@ -703,6 +888,108 @@ TEST(scheduling_eval, spmvCPU) {
   ASSERT_TENSOR_EQ(expected, y);
 }
 
+TEST(scheduling_eval, precompute2D) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  
+  int NUM_I = 16;
+  int NUM_J = 16;
+  int NUM_K = 16;
+  int NUM_L = 16;
+  float SPARSITY = .3;
+  Tensor<double> A("A", {NUM_I, NUM_J, NUM_K}, Format({Dense, Dense, Dense}));
+  Tensor<double> x("x", {NUM_K, NUM_L}, Format({Dense, Dense}));
+  Tensor<double> y("y", {NUM_I, NUM_J, NUM_L}, Format({Dense, Dense, Dense}));
+
+  srand(120);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      for (int k = 0; k < NUM_K; k++) {
+        float rand_float = (float)rand()/(float)(RAND_MAX);
+        if (rand_float < SPARSITY) {
+          A.insert({i, j, k}, (double) ((int) (rand_float * 3 / SPARSITY)));
+        }
+      }
+    }
+  }
+  for (int k = 0; k < NUM_K; k++) {
+    for (int l = 0; l < NUM_L; l++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      x.insert({k, l}, (double) ((int) (rand_float*3/SPARSITY)));
+    }
+  }
+
+  x.pack();
+  A.pack();
+
+
+  IndexExpr precomputed = A(i, j, k) * x(k, l);
+  y(i, j, l) = precomputed;
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = schedulePrecompute3D(stmt, precomputed);
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<double> expected("expected", {NUM_I, NUM_J, NUM_L}, Format({Dense, Dense, Dense}));
+  expected(i, j, l) = A(i, j, k) * x(k, l);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
+}
+
+TEST(scheduling_eval, precompute1D) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  float SPARSITY = .3;
+  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<double> x("x", {NUM_J}, Format({Dense}));
+  Tensor<double> y("y", {NUM_I}, Format({Dense}));
+
+  srand(120);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, (double) ((int) (rand_float * 3 / SPARSITY)));
+      }
+    }
+  }
+
+  for (int j = 0; j < NUM_J; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    x.insert({j}, (double) ((int) (rand_float*3/SPARSITY)));
+  }
+
+  x.pack();
+  A.pack();
+
+  IndexExpr precomputed = A(i, j) * x(j);
+  y(i) = precomputed;
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = schedulePrecompute1D(stmt, precomputed);
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<double> expected("expected", {NUM_I}, Format({Dense}));
+  expected(i) = A(i, j) * x(j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
+}
+
+
 TEST(scheduling_eval, ttvCPU) {
   if (should_use_CUDA_codegen()) {
     return;
@@ -741,6 +1028,56 @@ TEST(scheduling_eval, ttvCPU) {
   stmt = scheduleTTVCPU(stmt, B);
 
   //printToFile("ttv_cpu", stmt);
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {NUM_I, NUM_J}, {Dense, Dense});
+  expected(i,j) = B(i,j,k) * c(k);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
+}
+
+TEST(scheduling_eval, ttvCPU_CSR) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  int NUM_K = 1057/10;
+  float SPARSITY = .3;
+  Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Sparse});
+  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
+  Tensor<double> c("c", {NUM_K}, Format({Dense}));
+
+  srand(9536);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      for (int k = 0; k < NUM_K; k++) {
+        float rand_float = (float) rand() / (float) (RAND_MAX);
+        if (rand_float < SPARSITY) {
+          B.insert({i, j, k}, (double) ((int) (rand_float * 3 / SPARSITY)));
+        }
+      }
+    }
+  }
+
+  for (int k = 0; k < NUM_K; k++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    c.insert({k}, (double) ((int) (rand_float*3)));
+  }
+
+  B.pack();
+  c.pack();
+
+  A(i,j) = B(i,j,k) * c(k);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  stmt = scheduleTTVCPUCSR(stmt);
 
   A.compile(stmt);
   A.assemble();

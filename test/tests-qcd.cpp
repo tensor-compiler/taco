@@ -34,7 +34,13 @@ TEST(qcd, mul1) {
   tau = z(i) * z(j) * theta(i,j) * theta(i,j);
 
   tau.evaluate();
+  // Using -O0 to compile the generated kernel yields a slightly different
+  // answer than using -O3.
+#ifdef TACO_DEBUG
+  ASSERT_DOUBLE_EQ(0.41212798763234648, getScalarValue(tau));
+#else
   ASSERT_DOUBLE_EQ(0.41212798763234737, getScalarValue(tau));
+#endif
 }
 
 TEST(qcd, mul2) {

@@ -20,3 +20,6 @@ else()
   include(GoogleTest)
   gtest_add_tests(TARGET taco-test)
 endif()
+
+# This will run all *.bats test files in the source test/ folder.
+add_test(NAME taco-cli-test COMMAND ${CMAKE_SOURCE_DIR}/test/bats/bin/bats ${CMAKE_SOURCE_DIR}/test/)

@@ -49,7 +49,11 @@ void IRPrinter::print(Stmt stmt) {
     stmt = to<Scope>(stmt)->scopedStmt;
   }
   if (simplify) {
-    stmt = ir::simplify(stmt);
+    Stmt oldStmt;
+    do {
+      oldStmt = stmt;
+      stmt = ir::simplify(stmt);
+    } while (stmt != oldStmt);
   }
   stmt.accept(this);
 }

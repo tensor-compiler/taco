@@ -32,6 +32,7 @@
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/index_notation/index_notation_nodes.h"
+#include "taco/version.h"
 
 using namespace std;
 using namespace taco;
@@ -197,6 +198,8 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("help", "Print this usage information.");
   cout << endl;
+  printFlag("version", "Print version and build information.");
+  cout << endl;
   printFlag("help=scheduling",
             "Print information on the scheduling directives that can be passed "
             "to '-s'.");
@@ -264,6 +267,24 @@ static void printSchedulingHelp() {
               "IgnoreRaces, NoRaces, Atomics, Temporary, ParallelReduction.");
 }
 
+static void printVersionInfo() {
+  string gitsuffix("");
+  if(strlen(TACO_VERSION_GIT_SHORTHASH) > 0) {
+    gitsuffix = string("+git " TACO_VERSION_GIT_SHORTHASH);
+  }
+  cout << "TACO version: " << TACO_VERSION_MAJOR << "." << TACO_VERSION_MINOR << gitsuffix << endl;
+  if(TACO_FEATURE_OPENMP)
+    cout << "Built with OpenMP support." << endl;
+  if(TACO_FEATURE_PYTHON)
+    cout << "Built with Python support." << endl;
+  if(TACO_FEATURE_CUDA)
+    cout << "Built with CUDA support." << endl;
+  cout << endl;
+  cout << "Built on: " << TACO_BUILD_DATE << endl;
+  cout << "CMake build type: " << TACO_BUILD_TYPE << endl;
+  cout << "Built with compiler: " << TACO_BUILD_COMPILER_ID << " C++ version " << TACO_BUILD_COMPILER_VERSION << endl;
+}
+
 static int reportError(string errorMessage, int errorCode) {
   cerr << "Error: " << errorMessage << endl << endl;
   printUsageInfo();
@@ -277,7 +298,13 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
     os << " \"" << argv[1] << "\"";
   }
   for (int i = 2; i < argc; i++) {
-    os << " " << argv[i];
+    os << " ";
+    std::string arg = argv[i];
+    if (arg.rfind("-s=", 0) == 0) {
+      arg.replace(0, 3, "-s=\"");
+      arg += "\"";
+    }
+    os << arg;
   }
 }
 
@@ -341,7 +368,7 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       stmt = stmt.split(findVar(i), split1, split2, splitFactor);
     } else if (command == "divide") {
       taco_uassert(scheduleCommand.size() == 4)
-          << "'divide' scheduling directive takes 4 parameters: split(i, i1, i2, divFactor)";
+          << "'divide' scheduling directive takes 4 parameters: divide(i, i1, i2, divFactor)";
       string i, i1, i2;
       i = scheduleCommand[0];
       i1 = scheduleCommand[1];
@@ -356,23 +383,37 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       stmt = stmt.divide(findVar(i), divide1, divide2, divideFactor);
     } else if (command == "precompute") {
       string exprStr, i, iw, name;
+      vector<string> i_vars, iw_vars;
+
+      for (auto& s : scheduleCommand) { cout << s << ", ";}
+      cout << endl;
       taco_uassert(scheduleCommand.size() == 3 || scheduleCommand.size() == 4)
         << "'precompute' scheduling directive takes 3 or 4 parameters: "
-        << "precompute(expr, i, iw [, workspace_name])";
+        << "precompute(expr, i, iw [, workspace_name]) or precompute(expr, {i_vars}, "
+           "{iw_vars} [, workspace_name])" << scheduleCommand.size();
+
       exprStr = scheduleCommand[0];
-      i       = scheduleCommand[1];
-      iw      = scheduleCommand[2];
+//      i       = scheduleCommand[1];
+//      iw      = scheduleCommand[2];
+      i_vars  = parser::varListParser(scheduleCommand[1]);
+      iw_vars = parser::varListParser(scheduleCommand[2]);
+
       if (scheduleCommand.size() == 4)
         name  = scheduleCommand[3];
       else
         name  = "workspace";
 
-      IndexVar orig = findVar(i);
-      IndexVar pre;
-      try {
-        pre = findVar(iw);
-      } catch (TacoException &e) {
-        pre = IndexVar(iw);
+      vector<IndexVar> origs;
+      vector<IndexVar> pres;
+      for (auto& i : i_vars) {
+        origs.push_back(findVar(i));
+      }
+      for (auto& iw : iw_vars) {
+        try {
+          pres.push_back(findVar(iw));
+        } catch (TacoException &e) {
+          pres.push_back(IndexVar(iw));
+        }
       }
 
       struct GetExpr : public IndexNotationVisitor {
@@ -429,17 +470,22 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       visitor.setExprStr(exprStr);
       stmt.accept(&visitor);
 
-      Dimension dim;
+      vector<Dimension> dims;
       auto domains = stmt.getIndexVarDomains();
-      auto it = domains.find(orig);
-      if (it != domains.end()) {
-        dim = it->second;
-      } else {
-        dim = Dimension(orig);
+      for (auto& orig : origs) {
+        auto it = domains.find(orig);
+        if (it != domains.end()) {
+          dims.push_back(it->second);
+        } else {
+          dims.push_back(Dimension(orig));
+        }
       }
 
-      TensorVar workspace(name, Type(Float64, {dim}), Dense);
-      stmt = stmt.precompute(visitor.expr, orig, pre, workspace);
+      std::vector<ModeFormatPack> modeFormatPacks(dims.size(), Dense);
+      Format format(modeFormatPacks);
+      TensorVar workspace(name, Type(Float64, dims), format);
+
+      stmt = stmt.precompute(visitor.expr, origs, pres, workspace);
 
     } else if (command == "reorder") {
       taco_uassert(scheduleCommand.size() > 1) << "'reorder' scheduling directive needs at least 2 parameters: reorder(outermost, ..., innermost)";
@@ -533,12 +579,16 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       stmt = stmt.parallelize(findVar(i), parallel_unit, output_race_strategy);
 
     } else if (command == "assemble") {
-      taco_uassert(scheduleCommand.size() == 2) 
-          << "'assemble' scheduling directive takes 2 parameters: "
-          << "assemble(tensor, strategy)";
+      taco_uassert(scheduleCommand.size() == 2 || scheduleCommand.size() == 3) 
+          << "'assemble' scheduling directive takes 2 or 3 parameters: "
+          << "assemble(tensor, strategy [, separately_schedulable])";
 
       string tensor = scheduleCommand[0];
       string strategy = scheduleCommand[1];
+      string schedulable = "false";
+      if (scheduleCommand.size() == 3) {
+        schedulable = scheduleCommand[2];
+      }
 
       TensorVar result;
       for (auto a : getResultAccesses(stmt).first) {
@@ -551,16 +601,27 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
                                      << tensor << "'";
 
       AssembleStrategy assemble_strategy;
-      if (strategy == "append") {
+      if (strategy == "Append") {
         assemble_strategy = AssembleStrategy::Append;
-      } else if (strategy == "insert") {
+      } else if (strategy == "Insert") {
         assemble_strategy = AssembleStrategy::Insert;
       } else {
         taco_uerror << "Assemble strategy not defined.";
         goto end;
       }
 
-      stmt = stmt.assemble(result, assemble_strategy);
+      bool separately_schedulable;
+      if (schedulable == "true") {
+        separately_schedulable = true;
+      } else if (schedulable == "false") {
+        separately_schedulable = false;
+      } else {
+        taco_uerror << "Incorrectly specified whether computation of result "
+                    << "statistics should be separately schedulable.";
+        goto end;
+      }
+
+      stmt = stmt.assemble(result, assemble_strategy, separately_schedulable);
 
     } else {
       taco_uerror << "Unknown scheduling function \"" << command << "\"";
@@ -654,6 +715,10 @@ int main(int argc, char* argv[]) {
         } else {
             printUsageInfo();
         }
+        return 0;
+    }
+    if ("-version" == argName) {
+        printVersionInfo();
         return 0;
     }
     else if ("-f" == argName) {
@@ -1069,13 +1134,12 @@ int main(int argc, char* argv[]) {
   IndexStmt stmt =
       makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
   stmt = reorderLoopsTopologically(stmt);
-  stmt = insertTemporaries(stmt); // TODO: move back down
 
   if (setSchedule) {
     cuda |= setSchedulingCommands(scheduleCommands, parser, stmt);
   }
   else {
-    //stmt = insertTemporaries(stmt);
+    stmt = insertTemporaries(stmt);
     stmt = parallelizeOuterLoop(stmt);
   }
 

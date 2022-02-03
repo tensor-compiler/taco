@@ -121,7 +121,6 @@ protected:
   /// Lower an index variable
   virtual ir::Expr lowerIndexVar(IndexVar indexVar) = 0;
 
-
   /// Lower a concrete index variable statement.
   virtual ir::Stmt lower(IndexStmt stmt);
 

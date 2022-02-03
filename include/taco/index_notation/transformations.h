@@ -89,10 +89,12 @@ class Precompute : public TransformationInterface {
 public:
   Precompute();
   Precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace);
-
+  Precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
+             std::vector<IndexVar> iw_vars, TensorVar workspace);
+  
   IndexExpr getExpr() const;
-  IndexVar geti() const;
-  IndexVar getiw() const;
+  std::vector<IndexVar>& getIVars() const;
+  std::vector<IndexVar>& getIWVars() const;
   TensorVar getWorkspace() const;
 
   /// Apply the precompute optimization to a concrete index statement.
@@ -185,10 +187,12 @@ std::ostream& operator<<(std::ostream&, const Parallelize&);
 
 class SetAssembleStrategy : public TransformationInterface {
 public:
-  SetAssembleStrategy(TensorVar result, AssembleStrategy strategy);
+  SetAssembleStrategy(TensorVar result, AssembleStrategy strategy, 
+                      bool separatelySchedulable);
 
   TensorVar getResult() const;
   AssembleStrategy getAssembleStrategy() const;
+  bool getSeparatelySchedulable() const;
 
   IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 
