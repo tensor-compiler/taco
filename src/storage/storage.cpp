@@ -10,6 +10,7 @@
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
 #include "taco/util/strings.h"
+#include "taco/index_notation/index_notation.h"
 
 using namespace std;
 
@@ -26,11 +27,14 @@ struct TensorStorage::Content {
   Index         index;
   Array         values;
 
-  Content(Datatype componentType, vector<int> dimensions, Format format)
+  Literal       fillValue;
+
+  Content(Datatype componentType, vector<int> dimensions, Format format, Literal fill)
       : componentType(componentType), dimensions(dimensions), format(format),
         index(format) {
     int order = (int)dimensions.size();
 
+    taco_iassert(fill.getDataType() == componentType) << "Fill value must be of same type as data array";
     taco_iassert(order <= INT_MAX && componentType.getNumBits() <= INT_MAX);
     taco_uassert(order == format.getOrder()) <<
         "The number of format mode types (" << format.getOrder() << ") " <<
@@ -53,9 +57,10 @@ struct TensorStorage::Content {
       }
     }
 
+    fillValue = fill;
     tensorData = init_taco_tensor_t(order, componentType.getNumBits(),
-                       dimensionsInt32.data(), modeOrdering.data(),
-                       modeTypes.data());
+                                    dimensionsInt32.data(), modeOrdering.data(),
+                                    modeTypes.data(), fill.getValPtr());
   }
 
   ~Content() {
@@ -63,9 +68,9 @@ struct TensorStorage::Content {
   }
 };
 
-TensorStorage::TensorStorage(Datatype componentType,
-                             const vector<int>& dimensions, Format format)
-    : content(new Content(componentType, dimensions, format)) {
+TensorStorage::TensorStorage(Datatype componentType, const vector<int>& dimensions,
+                             Format format, Literal fillVal)
+    : content(new Content(componentType, dimensions, format, fillVal)) {
 }
 
 const Format& TensorStorage::getFormat() const {
@@ -98,6 +103,10 @@ const Array& TensorStorage::getValues() const {
 
 Array TensorStorage::getValues() {
   return content->values;
+}
+
+Literal TensorStorage::getFillValue() {
+  return content->fillValue;
 }
 
 size_t TensorStorage::getSizeInBytes() {
@@ -162,6 +171,7 @@ TensorStorage::operator struct taco_tensor_t*() const {
   }
 
   tensorData->vals  = (uint8_t*)getValues().getData();
+  tensorData->fill_value = (uint8_t*) content->fillValue.getValPtr();
 
   return content->tensorData;
 }

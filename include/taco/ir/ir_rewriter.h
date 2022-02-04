@@ -44,6 +44,7 @@ protected:
   virtual void visit(const Lte* op);
   virtual void visit(const And* op);
   virtual void visit(const Or* op);
+  virtual void visit(const BinOp* op);
   virtual void visit(const Cast* op);
   virtual void visit(const Call* op);
   virtual void visit(const IfThenElse* op);

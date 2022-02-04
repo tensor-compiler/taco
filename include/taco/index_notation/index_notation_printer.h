@@ -25,8 +25,10 @@ public:
   void visit(const MulNode*);
   void visit(const DivNode*);
   void visit(const CastNode*);
+  void visit(const CallNode*);
   void visit(const CallIntrinsicNode*);
   void visit(const ReductionNode*);
+  void visit(const IndexVarNode*);
 
   // Tensor Expressions
   void visit(const AssignmentNode*);

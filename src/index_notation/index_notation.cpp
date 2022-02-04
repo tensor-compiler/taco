@@ -14,6 +14,7 @@
 #include "taco/type.h"
 #include "taco/format.h"
 
+#include "taco/index_notation/properties.h"
 #include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/schedule.h"
 #include "taco/index_notation/transformations.h"
@@ -21,7 +22,6 @@
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_printer.h"
 #include "taco/ir/ir.h"
-#include "taco/lower/lower.h"
 #include "taco/codegen/module.h"
 #include "taco/tensor.h"
 
@@ -30,6 +30,8 @@
 #include "taco/util/scopedmap.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
+#include "taco/util/functions.h"
+#include "taco/util/env.h"
 
 using namespace std;
 
@@ -108,6 +110,71 @@ std::ostream& operator<<(std::ostream& os, const IndexExpr& expr) {
   return os;
 }
 
+static bool checkRegionDefinitions(const CallNode* anode, const CallNode* bnode) {
+  // Check region definitions
+  if (anode->regionDefinitions.size() != bnode->regionDefinitions.size()) {
+    return false;
+  }
+
+  auto& aDefs = anode->regionDefinitions;
+  auto& bDefs = bnode->regionDefinitions;
+  for (auto itA = aDefs.begin(), itB = bDefs.begin(); itA != aDefs.end(); ++itA, ++itB) {
+    if(itA->first != itB->first) {
+      return false;
+    }
+
+    std::vector<IndexExpr> aArgs;
+    std::vector<IndexExpr> bArgs;
+    for(int idx : itA->first) {
+      taco_iassert((size_t)idx < anode->args.size()); // We already know anode->args.size == bnode->args.size
+      aArgs.push_back(anode->args[idx]);
+      bArgs.push_back(bnode->args[idx]);
+    }
+
+    // TODO lower and check IR
+    if(!util::targetPtrEqual(itA->second, itB->second)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/// Checks if the iteration algebra structure is the same and the ordering of the index expressions
+/// nested under regions is the same for each op node.
+static bool checkIterationAlg(const CallNode* anode, const CallNode* bnode) {
+  // Check IterationAlgebra structures
+  if(!algStructureEqual(anode->iterAlg, bnode->iterAlg)) {
+    return false;
+  }
+
+  struct OrderChecker : public IterationAlgebraVisitor {
+    explicit OrderChecker(const CallNode* op) : op(op) {}
+
+    std::vector<size_t>& check() {
+      op->iterAlg.accept(this);
+      return ordering;
+    }
+
+    using IterationAlgebraVisitor::visit;
+
+    void visit(const RegionNode* region) {
+      const IndexExpr& e = region->expr();
+      auto it = std::find(op->args.begin(), op->args.end(), e);
+      taco_iassert(it != op->args.end()) << "Iteration algebra region expressions must be in arguments";
+      size_t loc = it - op->args.begin();
+      ordering.push_back(loc);
+    }
+
+    std::vector<size_t> ordering;
+    const CallNode* op;
+  };
+
+  std::vector<size_t> aOrdering = OrderChecker(anode).check();
+  std::vector<size_t> bOrdering = OrderChecker(bnode).check();
+  return aOrdering == bOrdering;
+}
+
 struct Isomorphic : public IndexNotationVisitorStrict {
   bool eq = false;
   IndexExpr bExpr;
@@ -167,6 +234,21 @@ struct Isomorphic : public IndexNotationVisitorStrict {
   }
 
   using IndexNotationVisitorStrict::visit;
+
+  void visit(const IndexVarNode* anode) {
+    if(!isa<IndexVarNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+
+    auto bnode = to<IndexVarNode>(bExpr.ptr);
+    if(anode != bnode) {
+      eq = false;
+      return;
+    }
+
+    eq = true;
+  }
 
   void visit(const AccessNode* anode) {
     if (!isa<AccessNode>(bExpr.ptr)) {
@@ -444,6 +526,80 @@ struct Isomorphic : public IndexNotationVisitorStrict {
     }
     eq = true;
   }
+
+  void visit(const CallNode* anode) {
+    if (!isa<CallNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CallNode>(bExpr.ptr);
+
+    // Properties
+    if (anode->properties.size() != bnode->properties.size()) {
+      eq = false;
+      return;
+    }
+
+    for(const auto& a_prop : anode->properties) {
+      bool found = false;
+      for(const auto& b_prop : bnode->properties) {
+        if(a_prop.equals(b_prop)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        eq = false;
+        return;
+      }
+    }
+
+    // Exhausted regions
+    if (anode->definedRegions != bnode->definedRegions) {
+      eq = false;
+      return;
+    }
+
+    // Lower function
+    // TODO: For now just check that the function pointers are the same.
+    // TODO (rawnh): This check is broken. The retrieved function pointers are null
+    //  when attempting to dereference them. The original code attempted to use
+    //  util::targetPtrEqual.
+    if (util::getFromEnv("TACO_ISOMORPHIC_HACK", "0") == "0") {
+      if (&anode->defaultLowerFunc != &bnode->defaultLowerFunc) {
+        eq = false;
+        return;
+      }
+    } else {
+      // If the hack is enabled, check that names are the same.
+      if (anode->name != bnode->name) {
+        eq = false;
+        return;
+      }
+    }
+
+    // Check arguments
+    if (anode->args.size() != bnode->args.size()) {
+      eq = false;
+      return;
+    }
+
+    for (size_t i = 0; i < anode->args.size(); ++i) {
+      if (!check(anode->args[i], bnode->args[i])) {
+        eq = false;
+        return;
+      }
+    }
+
+    // Algebra
+    if (!checkIterationAlg(anode, bnode)) {
+      eq = false;
+      return;
+    }
+
+    // Special definitions
+    eq = checkRegionDefinitions(anode, bnode);
+  }
 };
 
 bool isomorphic(IndexExpr a, IndexExpr b) {
@@ -484,6 +640,21 @@ struct Equals : public IndexNotationVisitorStrict {
   }
 
   using IndexNotationVisitorStrict::visit;
+
+  void visit(const IndexVarNode* anode) {
+    if(!isa<IndexVarNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+
+    auto bnode = to<IndexVarNode>(bExpr.ptr);
+    if(anode != bnode) {
+      eq = false;
+      return;
+    }
+
+    eq = true;
+  }
 
   void visit(const AccessNode* anode) {
     if (!isa<AccessNode>(bExpr.ptr)) {
@@ -591,6 +762,69 @@ struct Equals : public IndexNotationVisitorStrict {
       return;
     }
     eq = true;
+  }
+
+  void visit(const CallNode* anode) {
+    if (!isa<CallNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CallNode>(bExpr.ptr);
+
+    // Properties
+    if (anode->properties.size() != bnode->properties.size()) {
+      eq = false;
+      return;
+    }
+
+    for(const auto& a_prop : anode->properties) {
+      bool found = false;
+      for(const auto& b_prop : bnode->properties) {
+        if(a_prop.equals(b_prop)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        eq = false;
+        return;
+      }
+    }
+
+    // Exhausted regions
+    if (anode->definedRegions != bnode->definedRegions) {
+      eq = false;
+      return;
+    }
+
+    // Lower function
+    // TODO: For now just check that the function pointers are the same.
+    if(!util::targetPtrEqual(anode->defaultLowerFunc, bnode->defaultLowerFunc)) {
+      eq = false;
+      return;
+    }
+
+    // Check arguments
+    if (anode->args.size() != bnode->args.size()) {
+      eq = false;
+      return;
+    }
+
+    for (size_t i = 0; i < anode->args.size(); ++i) {
+      if (!equals(anode->args[i], bnode->args[i])) {
+        eq = false;
+        return;
+      }
+    }
+
+    // Algebra
+    if (!checkIterationAlg(anode, bnode)) {
+      eq = false;
+      return;
+    }
+
+    // Special definitions
+    eq = checkRegionDefinitions(anode, bnode);
   }
 
   void visit(const CallIntrinsicNode* anode) {
@@ -846,6 +1080,46 @@ int Access::getStride(int mode) const {
   return getNode(*this)->windowedModes.at(mode).stride;
 }
 
+bool operator==(const Access& a, const Access& b) {
+  // Short-circuit for when the Access pointers are the same.
+  if (getNode(a) == getNode(b)) {
+    return true;
+  }
+  if (a.getTensorVar() != b.getTensorVar()) {
+    return false;
+  }
+  if (a.getIndexVars() != b.getIndexVars()) {
+    return false;
+  }
+  if (getNode(a)->windowedModes != getNode(b)->windowedModes) {
+    return false;
+  }
+  if (getNode(a)->indexSetModes != getNode(b)->indexSetModes) {
+    return false;
+  }
+  return true;
+}
+
+bool operator<(const Access& a, const Access& b) {
+  // First branch on tensorVar.
+  if (a.getTensorVar() != b.getTensorVar()) {
+    return a.getTensorVar() < b.getTensorVar();
+  }
+
+  // Then branch on the indexVars used in the access.
+  if (a.getIndexVars() != b.getIndexVars()) {
+    return a.getIndexVars() < b.getIndexVars();
+  }
+
+  // Branch on the windows.
+  if (getNode(a)->windowedModes < getNode(b)->windowedModes) {
+    return getNode(a)->windowedModes < getNode(b)->windowedModes;
+  }
+
+  // Finally, branch on the index set.
+  return getNode(a)->indexSetModes < getNode(b)->indexSetModes;
+}
+
 bool Access::hasIndexSetModes() const {
   return !getNode(*this)->indexSetModes.empty();
 }
@@ -984,7 +1258,7 @@ Literal::Literal(std::complex<float> val) : Literal(new LiteralNode(val)) {
 Literal::Literal(std::complex<double> val) : Literal(new LiteralNode(val)) {
 }
 
-IndexExpr Literal::zero(Datatype type) {
+Literal Literal::zero(Datatype type) {
   switch (type.getKind()) {
     case Datatype::Bool:        return Literal(false);
     case Datatype::UInt8:       return Literal(uint8_t(0));
@@ -1002,7 +1276,7 @@ IndexExpr Literal::zero(Datatype type) {
     default:                    taco_ierror << "unsupported type";
   };
 
-  return IndexExpr();
+  return Literal();
 }
 
 template <typename T> T Literal::getVal() const {
@@ -1024,6 +1298,10 @@ template float Literal::getVal() const;
 template double Literal::getVal() const;
 template std::complex<float> Literal::getVal() const;
 template std::complex<double> Literal::getVal() const;
+
+void* Literal::getValPtr() {
+  return getNode(*this)->val;
+}
 
 template <> bool isa<Literal>(IndexExpr e) {
   return isa<LiteralNode>(e.ptr);
@@ -1209,6 +1487,50 @@ template <> Cast to<Cast>(IndexExpr e) {
   return Cast(to<CastNode>(e.ptr));
 }
 
+// class Call, most construction should happen from tensor_operator.h
+Call::Call(const CallNode* n) : IndexExpr(n) {
+}
+
+Call::Call(const CallNode *n, std::string name) : IndexExpr(n), name(name) {
+}
+
+const std::vector<IndexExpr>& Call::getArgs() const {
+  return getNode(*this)->args;
+}
+
+const CallNode::OpImpl Call::getFunc() const {
+  return getNode(*this)->defaultLowerFunc;
+}
+
+const IterationAlgebra& Call::getAlgebra() const {
+  return getNode(*this)->iterAlg;
+}
+
+const std::vector<Property>& Call::getProperties() const {
+  return getNode(*this)->properties;
+}
+
+const std::string Call::getName() const {
+  return getNode(*this)->name;
+}
+
+const std::map<std::vector<int>, CallNode::OpImpl> Call::getDefs() const {
+  return getNode(*this)->regionDefinitions;
+}
+
+const std::vector<int>& Call::getDefinedArgs() const {
+  return getNode(*this)->definedRegions;
+}
+
+
+template <> bool isa<Call>(IndexExpr e) {
+  return isa<CallNode>(e.ptr);
+}
+
+template <> Call to<Call>(IndexExpr e) {
+  taco_iassert(isa<Call>(e));
+  return Call(to<CallNode>(e.ptr));
+}
 
 // class CallIntrinsic
 CallIntrinsic::CallIntrinsic(const CallIntrinsicNode* n) : IndexExpr(n) {
@@ -1610,9 +1932,9 @@ IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
   // check access is correct
   ProvenanceGraph provGraph = ProvenanceGraph(*this);
   vector<IndexVar> underivedParentAncestors = provGraph.getUnderivedAncestors(i);
-  int max_mode = 0;
+  size_t max_mode = 0;
   for (IndexVar underived : underivedParentAncestors) {
-    int mode_index = 0; // which of the access index vars match?
+    size_t mode_index = 0; // which of the access index vars match?
     for (auto var : access.getIndexVars()) {
       if (var == underived) {
         break;
@@ -2014,12 +2336,23 @@ template <> SuchThat to<SuchThat>(IndexStmt s) {
 // class IndexVar
 IndexVar::IndexVar() : IndexVar(util::uniqueName('i')) {}
 
-IndexVar::IndexVar(const std::string& name) : content(new Content) {
-  content->name = name;
+IndexVar::IndexVar(const std::string& name) : IndexVar(name, Datatype::Int32) {}
+
+IndexVar::IndexVar(const std::string& name, const Datatype& type) : IndexVar(new IndexVarNode(name, type)) {}
+
+IndexVar::IndexVar(const IndexVarNode* n) : IndexExpr(n) {}
+
+template <> bool isa<IndexVar>(IndexExpr e) {
+  return isa<IndexVarNode>(e.ptr);
+}
+
+template <> IndexVar to<IndexVar>(IndexExpr e) {
+  taco_iassert(isa<IndexVar>(e));
+  return IndexVar(to<IndexVarNode>(e.ptr));
 }
 
 std::string IndexVar::getName() const {
-  return content->name;
+  return getNode(*this)->getName();
 }
 
 WindowedIndexVar IndexVar::operator()(int lo, int hi, int stride) {
@@ -2035,11 +2368,27 @@ IndexSetVar IndexVar::operator()(std::vector<int>& indexSet) {
 }
 
 bool operator==(const IndexVar& a, const IndexVar& b) {
-  return a.content == b.content;
+  return *getNode(a) == *getNode(b);
 }
 
 bool operator<(const IndexVar& a, const IndexVar& b) {
-  return a.content < b.content;
+  return *getNode(a) < *getNode(b);
+}
+
+bool operator!=(const IndexVar& a , const IndexVar& b) {
+  return *getNode(a) != *getNode(b);
+}
+
+bool operator>=(const IndexVar& a, const IndexVar& b) {
+  return *getNode(a) >= *getNode(b);
+}
+
+bool operator<=(const IndexVar& a, const IndexVar& b) {
+  return *getNode(a) <= *getNode(b);
+}
+
+bool operator>(const IndexVar& a , const IndexVar& b) {
+  return *getNode(a) > *getNode(b);
 }
 
 std::ostream& operator<<(std::ostream& os, const std::shared_ptr<IndexVarInterface>& var) {
@@ -2113,6 +2462,7 @@ struct TensorVar::Content {
   Type type;
   Format format;
   Schedule schedule;
+  Literal fill;
 };
 
 TensorVar::TensorVar() : content(nullptr) {
@@ -2122,28 +2472,29 @@ static Format createDenseFormat(const Type& type) {
   return Format(vector<ModeFormatPack>(type.getOrder(), ModeFormat(Dense)));
 }
 
-TensorVar::TensorVar(const Type& type)
-: TensorVar(type, createDenseFormat(type)) {
+TensorVar::TensorVar(const Type& type, const Literal& fill)
+: TensorVar(type, createDenseFormat(type), fill) {
 }
 
-TensorVar::TensorVar(const std::string& name, const Type& type)
-: TensorVar(-1, name, type, createDenseFormat(type)) {
+TensorVar::TensorVar(const std::string& name, const Type& type, const Literal& fill)
+: TensorVar(-1, name, type, createDenseFormat(type), fill) {
 }
 
-TensorVar::TensorVar(const Type& type, const Format& format)
-    : TensorVar(-1, util::uniqueName('A'), type, format) {
+TensorVar::TensorVar(const Type& type, const Format& format, const Literal& fill)
+    : TensorVar(-1, util::uniqueName('A'), type, format, fill) {
 }
 
-TensorVar::TensorVar(const string& name, const Type& type, const Format& format)
-    : TensorVar(-1, name, type, format) {
+TensorVar::TensorVar(const string& name, const Type& type, const Format& format, const Literal& fill)
+    : TensorVar(-1, name, type, format, fill) {
 }
 
-TensorVar::TensorVar(const int& id, const string& name, const Type& type, const Format& format)
+TensorVar::TensorVar(const int& id, const string& name, const Type& type, const Format& format, const Literal& fill)
     : content(new Content) {
   content->id = id;
   content->name = name;
   content->type = type;
   content->format = format;
+  content->fill = fill.defined()? fill : Literal::zero(type.getDataType());
 }
 
 int TensorVar::getId() const {
@@ -2181,6 +2532,14 @@ const Schedule& TensorVar::getSchedule() const {
   content->schedule.clearPrecomputes();
   getSchedule.schedule = content->schedule;
   return content->schedule;
+}
+
+const Literal& TensorVar::getFill() const {
+  return content->fill;
+}
+
+void TensorVar::setFill(const Literal &fill) {
+  content->fill = fill;
 }
 
 void TensorVar::setName(std::string name) {
@@ -2466,11 +2825,20 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
         // non underived variables may appear in temporaries, but we don't check these
-        if (!boundVars.contains(var) && provGraph.isUnderived(var) && (provGraph.isFullyDerived(var) || !provGraph.isRecoverable(var, definedVars))) {
+        if (!boundVars.contains(var) && provGraph.isUnderived(var) &&
+           (provGraph.isFullyDerived(var) || !provGraph.isRecoverable(var, definedVars))) {
           *reason = "all variables in concrete notation must be bound by a "
                     "forall statement";
           isConcrete = false;
         }
+      }
+    }),
+    std::function<void(const IndexVarNode*)>([&](const IndexVarNode* op) {
+      IndexVar var(op);
+      if (!boundVars.contains(var) && provGraph.isUnderived(var) &&
+         (provGraph.isFullyDerived(var) || !provGraph.isRecoverable(var, definedVars)))  {
+        *reason = "index variables used in compute statements must be nested under a forall";
+        isConcrete = false;
       }
     }),
     std::function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op, Matcher* ctx) {
@@ -2672,14 +3040,20 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
       // that's not a reduction
       vector<IndexVar> topLevelReductions;
       IndexExpr rhs = node->rhs;
+      IndexExpr reductionOp;
       while (isa<Reduction>(rhs)) {
         Reduction reduction = to<Reduction>(rhs);
+        // Hack: explicit reductions with user defined functions shouldn't be rewritten.
+        if (util::getFromEnv("TACO_CONCRETIZE_HACK", "0") != "0" && isa<Call>(reduction.getOp())) {
+          break;
+        }
         topLevelReductions.push_back(reduction.getVar());
         rhs = reduction.getExpr();
+        reductionOp = reduction.getOp();
       }
 
       if (rhs != node->rhs) {
-        stmt = Assignment(node->lhs, rhs, Add());
+        stmt = Assignment(node->lhs, rhs, reductionOp);
         for (auto& i : util::reverse(topLevelReductions)) {
           stmt = forall(i, stmt);
         }
@@ -2938,6 +3312,45 @@ vector<TensorVar> getArguments(IndexStmt stmt) {
   return result;
 }
 
+bool allForFreeLoopsBeforeAllReductionLoops(IndexStmt stmt) {
+
+    struct LoopOrderGetter : IndexNotationVisitor {
+
+      std::vector<IndexVar> loopOrder;
+      std::set<IndexVar> freeVars;
+
+      using IndexNotationVisitor::visit;
+
+      void visit(const AssignmentNode *op) {
+        for (const auto &var : op->lhs.getIndexVars()) {
+          freeVars.insert(var);
+        }
+        IndexNotationVisitor::visit(op);
+      }
+
+      void visit(const ForallNode *op) {
+        loopOrder.push_back(op->indexVar);
+        IndexNotationVisitor::visit(op);
+      }
+    };
+
+
+    LoopOrderGetter getter;
+    getter.visit(stmt);
+
+    bool seenReductionVar = false;
+    for (auto &var : getter.loopOrder) {
+      if (util::contains(getter.freeVars, var)) {
+        if (seenReductionVar) {
+          // A reduction loop came before a loop over a free var
+          return false;
+        }
+      } else {
+        seenReductionVar = true;
+      }
+    }
+    return true;
+  }
 
 std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt) {
   map<Forall, Where> temporaryLocs;
@@ -3283,6 +3696,10 @@ private:
     expr = op;
   }
 
+  void visit(const IndexVarNode* op) {
+    expr = op;
+  }
+
   template <class T>
   IndexExpr visitUnaryOp(const T *op) {
     IndexExpr a = rewrite(op->a);
@@ -3384,6 +3801,62 @@ private:
     else {
       expr = new CastNode(a, op->getDataType());
     }
+  }
+
+  void visit(const CallNode* op) {
+    std::vector<IndexExpr> args;
+    std::vector<IndexExpr> rewrittenArgs;
+    std::vector<int> definedArgs;
+    bool rewritten = false;
+
+    Annihilator annihilator = findProperty<Annihilator>(op->properties);
+
+    // TODO: Check exhausted default against result default
+    for(int argIdx = 0; argIdx < (int) op->args.size(); ++argIdx) {
+      IndexExpr arg = op->args[argIdx];
+      IndexExpr rewrittenArg = rewrite(arg);
+      rewrittenArgs.push_back(rewrittenArg);
+
+      if (rewrittenArg.defined()) {
+        definedArgs.push_back(argIdx);
+      } else {
+        // TODO: fill value instead of 0
+        rewrittenArg = Literal::zero(arg.getDataType());
+      }
+
+      args.push_back(rewrittenArg);
+      if (arg != rewrittenArg) {
+        rewritten = true;
+      }
+    }
+
+    if(annihilator.defined()) {
+      IndexExpr e = annihilator.annihilates(args);
+      if(e.defined()) {
+        expr = e;
+        return;
+      }
+    }
+
+    Identity identity = findProperty<Identity>(op->properties);
+    if(identity.defined()) {
+      IndexExpr e = identity.simplify(args);
+      if(e.defined()) {
+        expr = e;
+        return;
+      }
+    }
+
+    if (rewritten) {
+      const std::map<IndexExpr, IndexExpr> subs = util::zipToMap(op->args, rewrittenArgs);
+      IterationAlgebra newAlg = replaceAlgIndexExprs(op->iterAlg, subs);
+      expr = new CallNode(op->name, args, op->defaultLowerFunc, newAlg, op->properties,
+                          op->regionDefinitions, definedArgs);
+    }
+    else {
+      expr = op;
+    }
+
   }
 
   void visit(const CallIntrinsicNode* op) {
@@ -3520,6 +3993,150 @@ IndexStmt zero(IndexStmt stmt, const std::set<Access>& zeroed) {
   return Zero(zeroed).rewrite(stmt);
 }
 
+// Attempts to infer the fill value of a given expression. If we cannot infer the value, an empty expression
+// is returned
+struct fillValueInferrer : IndexExprRewriterStrict {
+  public:
+    virtual void visit(const AccessNode* op) {
+      expr = op->tensorVar.getFill();
+    };
+
+    virtual void visit(const LiteralNode* op) {
+      expr = op;
+    }
+
+    virtual void visit(const NegNode* op) {
+      IndexExpr a = rewrite(op->a);
+      if(equals(a, Literal::zero(a.getDataType()))) {
+        expr = a;
+        return;
+      }
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const AddNode* op) {
+      IndexExpr a = rewrite(op->a);
+      IndexExpr b = rewrite(op->b);
+
+      if(equals(a, Literal::zero(a.getDataType())) && isa<Literal>(b)) {
+        expr = b;
+        return;
+      }
+
+      if(equals(b, Literal::zero(b.getDataType())) && isa<Literal>(a)) {
+        expr = a;
+        return;
+      }
+
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const SubNode* op) {
+      IndexExpr a = rewrite(op->a);
+      IndexExpr b = rewrite(op->b);
+
+      if(equals(b, Literal::zero(b.getDataType())) && isa<Literal>(a)) {
+        expr = a;
+        return;
+      }
+
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const MulNode* op) {
+      IndexExpr a = rewrite(op->a);
+      IndexExpr b = rewrite(op->b);
+
+      if(equals(a, Literal::zero(a.getDataType()))) {
+        expr = a;
+        return;
+      }
+
+      if(equals(b, Literal::zero(b.getDataType()))) {
+        expr = b;
+        return;
+      }
+
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const DivNode* op) {
+      IndexExpr a = rewrite(op->a);
+      IndexExpr b = rewrite(op->b);
+
+      if(equals(a, Literal::zero(a.getDataType()))) {
+        expr = a;
+        return;
+      }
+
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const SqrtNode* op) {
+      IndexExpr a = rewrite(op->a);
+      if(equals(a, Literal::zero(a.getDataType()))) {
+        expr = a;
+        return;
+      }
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const CastNode* op) {
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const CallNode* op) {
+      Annihilator annihilator = findProperty<Annihilator>(op->properties);
+      if(annihilator.defined()) {
+        IndexExpr e = annihilator.annihilates(op->args);
+        if(e.defined()) {
+          expr = e;
+          return;
+        }
+      }
+
+      Identity identity = findProperty<Identity>(op->properties);
+      if(identity.defined()) {
+        IndexExpr e = identity.simplify(op->args);
+        if(e.defined()) {
+          expr = e;
+          return;
+        }
+      }
+
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const CallIntrinsicNode*) {
+      // TODO Implement or remove this
+      taco_not_supported_yet;
+    }
+
+    virtual void visit(const ReductionNode*) {
+      expr = IndexExpr();
+    }
+
+    virtual void visit(const IndexVarNode*) {
+      expr = IndexExpr();
+    }
+  };
+
+
+IndexExpr inferFill(IndexExpr expr) {
+  return fillValueInferrer().rewrite(expr);
+}
+
+bool hasNoForAlls(IndexStmt stmt) {
+
+  bool noForAlls = true;
+  match(stmt,
+        std::function<void(const ForallNode*)>([&](const ForallNode* op) {
+          noForAlls = false;
+        })
+  );
+  return noForAlls;
+}
+
 IndexStmt generatePackStmt(TensorVar tensor, 
                            std::string otherName, Format otherFormat, 
                            std::vector<IndexVar> indexVars, 
@@ -3552,5 +4169,4 @@ IndexStmt generatePackCOOStmt(TensorVar tensor,
 
   return generatePackStmt(tensor, tensorName + "_COO", bufferFormat, indexVars, otherIsOnRight);
 }
-
 }

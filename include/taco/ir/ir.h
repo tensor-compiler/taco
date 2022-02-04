@@ -42,6 +42,7 @@ enum class IRNodeType {
   Lte,
   And,
   Or,
+  BinOp,
   Cast,
   Call,
   IfThenElse,
@@ -78,6 +79,7 @@ enum class TensorProperty {
   ModeTypes,
   Indices,
   Values,
+  FillValue,
   ValuesSize
 };
 
@@ -233,6 +235,14 @@ struct Literal : public ExprNode<Literal> {
   T getValue() const {
     taco_iassert(taco::type<T>() == type);
     return *static_cast<const T*>(value.get());
+  }
+
+  Expr promote(Datatype dt) const {
+    taco_iassert(max_type(dt, type) == dt);
+    if(type == dt) {
+      return Literal::make(getTypedVal(), dt);
+    }
+    return Expr();
   }
 
   TypedComponentVal getTypedVal() const {
@@ -461,6 +471,20 @@ struct Or : public ExprNode<Or> {
   static Expr make(Expr a, Expr b);
 
   static const IRNodeType _type_info = IRNodeType::Or;
+};
+
+/** [Sparse Array Programming] Generic Binary Op for Ufuncs**/
+struct BinOp : public ExprNode<BinOp> {
+  Expr a;
+  Expr b;
+  std::string strStart = "";
+  std::string strMid = "";
+  std::string strEnd = "";
+
+  static Expr make(Expr a, Expr b, std::string op);
+  static Expr make(Expr a, Expr b, std::string strStart, std::string strMid, std::string strEnd);
+
+  static const IRNodeType _type_info = IRNodeType::BinOp;
 };
 
 /** Type cast. */

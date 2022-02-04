@@ -231,6 +231,14 @@ void IRPrinter::visit(const Or* op) {
   printBinOp(op->a, op->b, keywordString("||"), Precedence::LOR);
 }
 
+void IRPrinter::visit(const BinOp* op) {
+  stream << op->strStart;
+  op->a.accept(this);
+  stream << op->strMid;
+  op->b.accept(this);
+  stream << op->strEnd;
+}
+
 void IRPrinter::visit(const Cast* op) {
   stream << "(" << keywordString(util::toString(op->type)) << ")";
   parentPrecedence = Precedence::CAST;

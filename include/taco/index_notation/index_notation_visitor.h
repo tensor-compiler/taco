@@ -20,10 +20,12 @@ struct MulNode;
 struct DivNode;
 struct SqrtNode;
 struct CastNode;
+struct CallNode;
 struct CallIntrinsicNode;
 struct UnaryExprNode;
 struct BinaryExprNode;
 struct ReductionNode;
+struct IndexVarNode;
 
 struct AssignmentNode;
 struct YieldNode;
@@ -51,8 +53,10 @@ public:
   virtual void visit(const DivNode*) = 0;
   virtual void visit(const SqrtNode*) = 0;
   virtual void visit(const CastNode*) = 0;
+  virtual void visit(const CallNode*) = 0;
   virtual void visit(const CallIntrinsicNode*) = 0;
   virtual void visit(const ReductionNode*) = 0;
+  virtual void visit(const IndexVarNode*) = 0;
 };
 
 class IndexStmtVisitorStrict {
@@ -98,10 +102,12 @@ public:
   virtual void visit(const DivNode* node);
   virtual void visit(const SqrtNode* node);
   virtual void visit(const CastNode* node);
+  virtual void visit(const CallNode* node);
   virtual void visit(const CallIntrinsicNode* node);
   virtual void visit(const UnaryExprNode* node);
   virtual void visit(const BinaryExprNode* node);
   virtual void visit(const ReductionNode* node);
+  virtual void visit(const IndexVarNode* node);
 
   // Index Statments
   virtual void visit(const AssignmentNode* node);
@@ -167,11 +173,13 @@ private:
   RULE(MulNode)
   RULE(DivNode)
   RULE(CastNode)
+  RULE(CallNode)
   RULE(CallIntrinsicNode)
   RULE(ReductionNode)
 
   RULE(BinaryExprNode)
   RULE(UnaryExprNode)
+  RULE(IndexVarNode)
 
   RULE(AssignmentNode)
   RULE(YieldNode)

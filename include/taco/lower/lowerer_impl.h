@@ -37,6 +37,7 @@ class Mul;
 class Div;
 class Sqrt;
 class Cast;
+class Call;
 class CallIntrinsic;
 
 class MergeLattice;
@@ -114,6 +115,11 @@ protected:
   /// Lower an intrinsic function call expression.
   virtual ir::Expr lowerCallIntrinsic(CallIntrinsic call) = 0;
 
+  /// Lower a call expression.
+  virtual ir::Expr lowerTensorOp(Call call) = 0;
+
+  /// Lower an index variable
+  virtual ir::Expr lowerIndexVar(IndexVar indexVar) = 0;
 
   /// Lower a concrete index variable statement.
   virtual ir::Stmt lower(IndexStmt stmt);

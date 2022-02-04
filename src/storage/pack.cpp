@@ -5,6 +5,7 @@
 #include "taco/format.h"
 #include "taco/error.h"
 #include "taco/ir/ir.h"
+#include "taco/index_notation/index_notation.h"
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
@@ -19,12 +20,14 @@ namespace taco {
     if (cbegin < cend) {                                                  \
       memcpy(&values[valuesIndex], &vals[cbegin*dataType.getNumBytes()], dataType.getNumBytes()); \
     }                                                                     \
-    else {                                                                 \
+    else if (fill == nullptr){                                                                 \
       memset(&values[valuesIndex], 0, dataType.getNumBytes());             \
+    } else {                                                               \
+      memcpy(&values[valuesIndex], fill, dataType.getNumBytes());           \
     }                                                                       \
     valuesIndex += dataType.getNumBytes();                                \
   } else {                                                               \
-    valuesIndex = packTensor(dimensions, coords, vals, cbegin, (cend), modeTypes, i+1, \
+    valuesIndex = packTensor(dimensions, coords, vals, fill, cbegin, (cend), modeTypes, i+1, \
     indices, values, dataType, valuesIndex);                             \
   }                                                                      \
 }
@@ -56,7 +59,7 @@ static TypedIndexVector getUniqueEntries(TypedIndexVector v,
 /// [0,2] index arrays.
 static int packTensor(const vector<int>& dimensions,
                       const vector<TypedIndexVector>& coords,
-                      char* vals,
+                      char* vals, const void* fill,
                       size_t begin, size_t end,
                       const vector<ModeFormat>& modeTypes, size_t i,
                       std::vector<std::vector<TypedIndexVector>>* indices,
@@ -119,16 +122,19 @@ TensorStorage pack(Datatype                             componentType,
                    const std::vector<int>&              dimensions,
                    const Format&                        format,
                    const std::vector<TypedIndexVector>& coordinates,
-                   const void *                         values) {
+                   const void *                         values,
+                   const Literal&                       fill) {
+
   taco_iassert(dimensions.size() == (size_t)format.getOrder());
   taco_iassert(coordinates.size() == (size_t)format.getOrder());
   taco_iassert(sameSize(coordinates));
   taco_iassert(dimensions.size() > 0) << "Scalar packing not supported";
+  taco_iassert(fill.getDataType() == componentType) << "Component type must match value type";
 
   size_t order = dimensions.size();
   size_t numCoordinates = coordinates[0].size();
 
-  TensorStorage storage(componentType, dimensions, format);
+  TensorStorage storage(componentType, dimensions, format, fill);
 
   // Create vectors to store pointers to indices/index sizes
   vector<vector<TypedIndexVector>> indices;
@@ -155,7 +161,8 @@ TensorStorage pack(Datatype                             componentType,
   }
 
   void* vals = malloc(maxSize * componentType.getNumBytes());
-  int actual_size = packTensor(dimensions, coordinates, (char *) values, 0,
+  const void* fillData = storage.getFillValue().defined()? storage.getFillValue().getValPtr() : nullptr;
+  int actual_size = packTensor(dimensions, coordinates, (char *) values, fillData, 0,
                                numCoordinates, format.getModeFormats(), 0,
                                &indices, (char *)vals, componentType, 0);
   vals = realloc(vals, actual_size);

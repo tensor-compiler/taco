@@ -61,6 +61,8 @@ public:
   std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode, 
                                   int level) const override;
 
+  ir::Expr getWidth(Mode mode) const override;
+
 protected:
   ir::Expr getPosArray(ModePack pack) const;
   ir::Expr getCoordArray(ModePack pack) const;
