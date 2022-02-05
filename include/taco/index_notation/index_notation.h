@@ -705,6 +705,9 @@ public:
 
   IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const;
 
+
+  IndexStmt bound(IndexVar i,  size_t bound, BoundType bound_type) const;
+
   /// The unroll primitive unrolls the corresponding loop by a statically-known
   /// integer number of iterations
   /// Preconditions: unrollFactor is a positive nonzero integer

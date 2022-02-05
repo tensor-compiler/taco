@@ -271,7 +271,8 @@ IndexStmt scheduleSDDMMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*
   IndexVar f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), nnz("nnz");
   IndexVar dense_val_unbounded("dense_val_unbounded"), dense_val("dense_val"), thread("thread");
   IndexVar thread_nz("thread_nz");
-  return stmt.reorder({i, k, j})
+
+  stmt = stmt.reorder({i, k, j})
           .fuse(i, k, f)
           .pos(f, fpos, B(i,k))
           .split(fpos, block, fpos1, NNZ_PER_TB)
@@ -283,6 +284,22 @@ IndexStmt scheduleSDDMMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*
           .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
           .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::Atomics)
           .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::ParallelReduction);
+
+          ir::IRPrinter irp = ir::IRPrinter(cout);
+             
+          cout << stmt << endl;
+          
+          std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+          ir::Stmt compute = lower(stmt, "compute",  false, true);
+          
+          irp.print(compute);
+          cout << endl;
+          
+          codegen->compile(compute, false);
+
+  return stmt;
+
+          
 }
 
 IndexStmt scheduleTTMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256, int CO_FACTOR=4) {
