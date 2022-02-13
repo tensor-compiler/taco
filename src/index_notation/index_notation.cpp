@@ -1699,6 +1699,8 @@ IndexStmt IndexStmt::fuse(IndexVar i, IndexVar j, IndexVar f) const {
 // }
 
 IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const {
+
+  taco_uerror << "Depericated Bound: bounding " << i.getName() << "ignoring "  << i1.getName() << endl;
   
   i.bound(bound, bound_type);
 
