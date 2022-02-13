@@ -10,7 +10,9 @@
 
 using namespace taco;
 
-TEST(bound, test_1) {
+
+
+TEST(bound, bound_and_rebound) {
   
   Tensor<double> A("A", {16}, Format{Dense});
   Tensor<double> B("B", {16}, Format{Dense});
@@ -31,43 +33,8 @@ TEST(bound, test_1) {
 
   IndexStmt stmt = A.getAssignment().concretize();
   TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
-  stmt = stmt.bound(i, 16, BoundType::MaxExact)
-             .split(i, i0, i1, 4);
-   
-  A.compile(stmt);
-  A.assemble();
-  A.compute();
-
-  Tensor<double> expected("expected", {16}, Format{Dense});
-  expected(i) = B(i) * C(i);
-  expected.compile();
-  expected.assemble();
-  expected.compute();
-  ASSERT_TENSOR_EQ(expected, A);
-}
-
-TEST(bound, test_2) {
-  
-  Tensor<double> A("A", {16}, Format{Dense});
-  Tensor<double> B("B", {16}, Format{Dense});
-  Tensor<double> C("C", {16}, Format{Dense});
-
-  for (int i = 0; i < 16; i++) {
-      A.insert({i}, (double) i);
-      B.insert({i}, (double) i);
-  }
-
-  A.pack();
-  B.pack();
-
-  IndexVar i("i");
-  IndexVar i0("i0"), i1("i1");
-  IndexExpr precomputedExpr = B(i) * C(i);
-  A(i) = precomputedExpr;
-
-  IndexStmt stmt = A.getAssignment().concretize();
-  TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
-  stmt = stmt.bound(i, 16, BoundType::MaxExact)
+  stmt = stmt.bound(i, 18, BoundType::MaxExact)
+             .bound(i, 16, BoundType::MaxExact)
              .split(i, i0, i1, 5)
              .precompute(precomputedExpr, i1, i1, precomputed);
    
@@ -82,6 +49,45 @@ TEST(bound, test_2) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, A);
 }
+
+
+// TEST(bound, bound_and_fuse) {
+  
+//   Tensor<double> A("A", {16}, Format{Dense});
+//   Tensor<double> B("B", {16}, Format{Dense});
+//   Tensor<double> C("C", {16}, Format{Dense});
+
+//   for (int i = 0; i < 16; i++) {
+//       A.insert({i}, (double) i);
+//       B.insert({i}, (double) i);
+//   }
+
+//   A.pack();
+//   B.pack();
+
+//   IndexVar i("i");
+//   IndexVar i0("i0"), i1("i1");
+//   IndexExpr precomputedExpr = B(i) * C(i);
+//   A(i) = precomputedExpr;
+
+//   IndexStmt stmt = A.getAssignment().concretize();
+//   TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
+//   stmt = stmt.bound(i, 16, BoundType::MaxExact)
+//              .split(i, i0, i1, 5)
+//              .fuse()
+//              .precompute(precomputedExpr, i1, i1, precomputed);
+   
+//   A.compile(stmt.concretize());
+//   A.assemble();
+//   A.compute();
+
+//   Tensor<double> expected("expected", {16}, Format{Dense});
+//   expected(i) = B(i) * C(i);
+//   expected.compile();
+//   expected.assemble();
+//   expected.compute();
+//   ASSERT_TENSOR_EQ(expected, A);
+// }
 
 TEST(bound, bound_and_split) {
   
