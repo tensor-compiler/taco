@@ -244,11 +244,40 @@ TEST(bound, bound_throw_assert) {
    for (int i = 0; i < 3; i++) {
       A.insert({i}, (double) i);
   }
+  A.pack();
 
   IndexVar i0("i0"), i1("i1");
 
   IndexStmt stmt = A.getAssignment().concretize();
 
   ASSERT_THROW(stmt.bound(i0, i1, 4, BoundType::MaxExact), taco::TacoException);
+
+}
+
+TEST(bound, split_bound_illegal) {
+  Tensor<double> A("A", {176}, Format{Dense});
+  Tensor<double> B("B", {176}, Format{Dense});
+  Tensor<double> C("C", {176}, Format{Dense});
+
+  for (int i = 0; i < 176; i++) {
+      A.insert({i}, (double) i);
+      B.insert({i}, (double) i);
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i");
+  IndexVar i0("i0"), i1("i1");
+  IndexExpr precomputedExpr = B(i) * C(i);
+  A(i) = precomputedExpr;
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
+
+  ASSERT_THROW(stmt.bound(i, 176, BoundType::MaxExact)
+             .split(i, i0, i1, 4)
+             .bound(i1, 2, BoundType::MaxExact)
+             .precompute(precomputedExpr, i1, i1, precomputed), taco::TacoException);
 
 }

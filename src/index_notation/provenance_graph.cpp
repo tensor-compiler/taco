@@ -208,6 +208,12 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
     taco_iassert(parentCoordBounds.count(getParentVar()) == 1);
     std::vector<ir::Expr> parentCoordBound = parentCoordBounds.at(getParentVar());
 
+    if (indexVar == getInnerVar()){
+      if (indexVar.getBound() != getSplitFactor()){
+        taco_uerror << "Bounded a split inner varibale with illegal bound, real bound: "<< getSplitFactor() << endl;
+      }
+    }
+
     if (indexVar.getBoundType() == BoundType::MaxExact) {
       return {parentCoordBound[0], ir::Literal::make(indexVar.getBound(), parentCoordBound[1].type())};
     }
