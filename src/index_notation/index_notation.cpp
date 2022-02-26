@@ -1709,10 +1709,9 @@ IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BoundType boun
 }
 
 
-IndexStmt IndexStmt::bound(IndexVar i,  size_t bound, BoundType bound_type) const {
-  
-  i.bound(bound, bound_type);
+IndexStmt IndexStmt::bound(IndexVar i,  size_t bound, BoundType bound_type) const {  
 
+  i.bound(bound, bound_type);
   return *this; 
 
 }

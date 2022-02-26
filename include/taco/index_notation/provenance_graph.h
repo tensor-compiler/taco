@@ -357,6 +357,8 @@ public:
   /// does the index variable have an exact bound known at compile-time
   bool hasExactBound(IndexVar indexVar) const;
 
+  void printGraph(void) const;
+
   /// Once indexVar is defined what new variables become recoverable
   /// returned in order of recovery (ie if parent being recovered allows its parent to also be recovered then parent comes first)
   std::vector<IndexVar> newlyRecoverableParents(IndexVar indexVar, std::set<IndexVar> previouslyDefined) const;
@@ -377,6 +379,8 @@ public:
   /// isDivided returns whether or not the target IndexVar was divided through
   /// a `.divide` scheduling operation.
   bool isDivided(IndexVar indexVar) const;
+
+
 
 private:
   std::map<IndexVar, IndexVarRel> childRelMap;

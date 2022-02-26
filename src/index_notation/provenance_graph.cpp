@@ -201,6 +201,14 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
                                                      std::map<taco::IndexVar, taco::ir::Expr> variableNames,
                                                      Iterators iterators, ProvenanceGraph provGraph) const {
 
+  cout << "derive iter bounds for split" << endl;
+
+
+  taco_iassert(indexVar == getOuterVar() || indexVar == getInnerVar());
+  taco_iassert(parentIterBounds.size() == 1);
+  taco_iassert(parentIterBounds.count(getParentVar()) == 1);
+
+
 
   // taco::IndexVar parent = getParentVar();
   if (indexVar.isBound()){
@@ -210,7 +218,7 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
 
     if (indexVar == getInnerVar()){
       if (indexVar.getBound() != getSplitFactor()){
-        taco_uerror << "Bounded a split inner varibale with illegal bound, real bound: "<< getSplitFactor() << endl;
+        taco_uerror << "Bounded a split inner varibale with bound: " << indexVar.getBound() << " real bound: " << getSplitFactor() << endl;
       }
     }
 
@@ -224,15 +232,14 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
 
   }
 
-  taco_iassert(indexVar == getOuterVar() || indexVar == getInnerVar());
-  taco_iassert(parentIterBounds.size() == 1);
-  taco_iassert(parentIterBounds.count(getParentVar()) == 1);
-
   std::vector<ir::Expr> parentBound = parentIterBounds.at(getParentVar());
   Datatype splitFactorType = parentBound[0].type();
   if (indexVar == getOuterVar()) {
+    // cout << "OUTER VAR" << endl;
     ir::Expr minBound = ir::Div::make(parentBound[0], ir::Literal::make(getSplitFactor(), splitFactorType));
     ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(getSplitFactor()-1, splitFactorType)), ir::Literal::make(getSplitFactor(), splitFactorType));
+    // cout << "Provenance graph : "<< provGraph << endl;
+    // cout << "PARENT BOUND[1]: "<< parentBound[1] << endl;
     return {minBound, maxBound};
   }
   else if (indexVar == getInnerVar()) {
@@ -1216,8 +1223,15 @@ std::vector<ir::Expr> ProvenanceGraph::deriveIterBounds(IndexVar indexVar, std::
   // for split: outer: Div(expr, splitfactor), Div(expr, splitfactor), inner: 0, splitfactor
   // what about for reordered split: same loop bounds just reordered loops (this might change for different tail strategies)
 
+  // cout << "in derive iter bounds prov graph" << endl;
+  // cout << "INDEX VAR:" << indexVar << endl;
   if (isUnderived(indexVar)) {
+    // cout << "underived" << endl;
     taco_iassert(underivedBounds.count(indexVar) == 1);
+
+    // for (size_t i = 0; i< underivedBounds[indexVar].size(); i++){
+    //   cout <<  underivedBounds[indexVar][i] << endl;
+    // }
     return underivedBounds[indexVar];
   }
 
@@ -1230,6 +1244,7 @@ std::vector<ir::Expr> ProvenanceGraph::deriveIterBounds(IndexVar indexVar, std::
   std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds;
   std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds;
   for (const IndexVar& parent : getParents(indexVar)) {
+    //  cout << "in the for loop" << endl;
     parentIterBounds[parent] = deriveIterBounds(parent, derivedVarOrder, underivedBounds, variableNames, iterators);
     vector<IndexVar> underivedParentAncestors = getUnderivedAncestors(parent);
     // TODO: this is okay for now because we don't need parentCoordBounds for fused taco_iassert(underivedParentAncestors.size() == 1);
@@ -1238,6 +1253,7 @@ std::vector<ir::Expr> ProvenanceGraph::deriveIterBounds(IndexVar indexVar, std::
   }
 
   IndexVarRel rel = parentRelMap.at(indexVar);
+
   return rel.getNode()->deriveIterBounds(indexVar, parentIterBounds, parentCoordBounds, variableNames, iterators, *this);
 }
 
@@ -1406,4 +1422,23 @@ bool ProvenanceGraph::isDivided(IndexVar indexVar) const {
   return false;
 }
 
+
+void ProvenanceGraph::printGraph() const {
+  
+  for (const auto &item : parentsMap){
+    cout << "PARENT: " << item.first;  
+    if (item.second.size() > 0){
+      cout << " type of parent: " << parentRelMap.at(item.second[0]);
+    }
+    cout << endl;
+    for (auto child : item.second){
+      cout << "  ";
+      cout << "CHILD : " << child << " of type : " << childRelMap.at(item.first) << endl;
+    }
+  }
 }
+
+}
+
+
+

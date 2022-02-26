@@ -275,9 +275,12 @@ TEST(bound, split_bound_illegal) {
   IndexStmt stmt = A.getAssignment().concretize();
   TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
 
-  ASSERT_THROW(stmt.bound(i, 176, BoundType::MaxExact)
+  stmt = stmt.bound(i, 17, BoundType::MaxExact)
              .split(i, i0, i1, 4)
              .bound(i1, 2, BoundType::MaxExact)
-             .precompute(precomputedExpr, i1, i1, precomputed), taco::TacoException);
+             .precompute(precomputedExpr, i1, i1, precomputed);
+
+
+  ASSERT_THROW(A.compile(stmt.concretize()), taco::TacoException);
 
 }
