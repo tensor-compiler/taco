@@ -277,6 +277,7 @@ class ProvenanceGraph {
 public:
   ProvenanceGraph() {}
   ProvenanceGraph(IndexStmt concreteStmt);
+  
 
   /// Returns the children of a given index variable, {} if no children or if indexVar is not in graph
   std::vector<IndexVar> getChildren(IndexVar indexVar) const;
@@ -357,7 +358,9 @@ public:
   /// does the index variable have an exact bound known at compile-time
   bool hasExactBound(IndexVar indexVar) const;
 
-  void printGraph(void) const;
+  void printGraphParent(void) const;
+
+   void printGraphChild(void) const;
 
   /// Once indexVar is defined what new variables become recoverable
   /// returned in order of recovery (ie if parent being recovered allows its parent to also be recovered then parent comes first)
@@ -388,6 +391,9 @@ private:
 
   std::map<IndexVar, std::vector<IndexVar>> parentsMap;
   std::map<IndexVar, std::vector<IndexVar>> childrenMap;
+
+  std::map<IndexVar, std::vector<std::pair<IndexVar, IndexVarRel>>> childrenRelMap;
+  std::map<IndexVar, std::vector<std::pair<IndexVar, IndexVarRel>>> parentsRelMap;
 
   std::set<IndexVar> nodes;
 };

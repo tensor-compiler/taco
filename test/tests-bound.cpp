@@ -113,10 +113,15 @@ TEST(bound, bound_and_split) {
   stmt = stmt.bound(i, 17, BoundType::MaxExact)
              .split(i, i0, i1, 4)
              .precompute(precomputedExpr, i1, i1, precomputed);
+
+
+ 
    
   A.compile(stmt.concretize());
   A.assemble();
   A.compute();
+
+
 
   Tensor<double> expected("expected", {17}, Format{Dense});
   expected(i) = B(i) * C(i);

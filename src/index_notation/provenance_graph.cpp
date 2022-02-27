@@ -201,9 +201,6 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
                                                      std::map<taco::IndexVar, taco::ir::Expr> variableNames,
                                                      Iterators iterators, ProvenanceGraph provGraph) const {
 
-  cout << "derive iter bounds for split" << endl;
-
-
   taco_iassert(indexVar == getOuterVar() || indexVar == getInnerVar());
   taco_iassert(parentIterBounds.size() == 1);
   taco_iassert(parentIterBounds.count(getParentVar()) == 1);
@@ -922,12 +919,21 @@ ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
       // space?
       childRelMap[parent] = rel;
       childrenMap[parent] = children;
+
+      for (IndexVar child : children){
+        childrenRelMap[parent].push_back(make_pair(child, rel));
+      }
     }
 
     for (IndexVar child : children) {
       nodes.insert(child);
       parentRelMap[child] = rel;
       parentsMap[child] = parents;
+
+      for (IndexVar parent : parents){
+        parentsRelMap[child].push_back(make_pair(parent, rel));
+      }
+
     }
   }
 }
@@ -1423,17 +1429,24 @@ bool ProvenanceGraph::isDivided(IndexVar indexVar) const {
 }
 
 
-void ProvenanceGraph::printGraph() const {
+void ProvenanceGraph::printGraphParent() const {
   
-  for (const auto &item : parentsMap){
-    cout << "PARENT: " << item.first;  
-    if (item.second.size() > 0){
-      cout << " type of parent: " << parentRelMap.at(item.second[0]);
-    }
-    cout << endl;
+  for (const auto &item : childrenRelMap){
+    cout << "PARENT: " << item.first << endl;
     for (auto child : item.second){
       cout << "  ";
-      cout << "CHILD : " << child << " of type : " << childRelMap.at(item.first) << endl;
+      cout << "CHILD : " << child.first <<  " type of : " << child.second << endl;
+    }
+  }
+}
+
+void ProvenanceGraph::printGraphChild() const {
+  
+  for (const auto &item : parentsRelMap){
+    cout << "CHILD: " << item.first << endl;
+    for (auto child : item.second){
+      cout << "  ";
+      cout << "PARENT : " << child.first <<  " type of : " << child.second << endl;
     }
   }
 }
