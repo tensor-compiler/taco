@@ -920,6 +920,10 @@ ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
       childRelMap[parent] = rel;
       childrenMap[parent] = children;
 
+      if (rel.getRelType() != PRECOMPUTE && childrenRelMap[parent].size() > 0){
+        taco_uerror << " Cannot attach two relation types to one node " << endl;
+      }
+
       for (IndexVar child : children){
         childrenRelMap[parent].push_back(make_pair(child, rel));
       }
