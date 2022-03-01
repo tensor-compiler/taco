@@ -102,8 +102,8 @@ static void printUsageInfo() {
   printFlag("f=<tensor>:<format>",
             "Specify the format of a tensor in the expression. Formats are "
             "specified per dimension using d (dense), s (sparse), "
-            "u (sparse, not unique), q (singleton), or c (singleton, not unique). "
-            "All formats default to dense. "
+            "u (sparse, not unique), q (singleton), c (singleton, not unique), "
+            "or j (jagged). All formats default to dense. "
             "The ordering of modes can also be optionally specified as a "
             "comma-delimited list of modes in the order they should be stored. "
             "Examples: A:ds (i.e., CSR), B:ds:1,0 (i.e., CSC), c:d (i.e., "
