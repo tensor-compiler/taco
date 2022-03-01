@@ -751,6 +751,9 @@ int main(int argc, char* argv[]) {
           case 'q':
             modeTypes.push_back(ModeFormat::Singleton);
             break;
+          case 'j':
+            modeTypes.push_back(ModeFormat::Jagged);
+            break;
           default:
             return reportError("Incorrect format descriptor", 3);
             break;
@@ -1267,6 +1270,17 @@ int main(int argc, char* argv[]) {
     }
 
     generatedPack.insert(tensor);
+
+    bool canEmitPack = true;
+    for (const auto& modeFormat : tensor.getFormat().getModeFormats()) {
+      if (!modeFormat.hasAppend() && !modeFormat.hasInsert()) {
+        canEmitPack = false;
+        break;
+      }
+    }
+    if (!canEmitPack) {
+      continue;
+    }
 
     std::string tensorName = tensor.getName();
     std::vector<IndexVar> indexVars = a.getIndexVars();

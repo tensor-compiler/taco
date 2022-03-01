@@ -87,12 +87,14 @@ public:
   static ModeFormat dense;       /// e.g., first mode in CSR
   static ModeFormat compressed;  /// e.g., second mode in CSR
   static ModeFormat singleton;   /// e.g., second mode in COO
+  static ModeFormat jagged;      /// e.g., second mode in jagged matrix format
 
   static ModeFormat sparse;      /// alias for compressed
   static ModeFormat Dense;       /// alias for dense
   static ModeFormat Compressed;  /// alias for compressed
   static ModeFormat Sparse;      /// alias for compressed
   static ModeFormat Singleton;   /// alias for singleton
+  static ModeFormat Jagged;      /// alias for jagged
 
   /// Properties of a mode format
   enum Property {
@@ -188,11 +190,13 @@ extern const ModeFormat Dense;
 extern const ModeFormat Compressed;
 extern const ModeFormat Sparse;
 extern const ModeFormat Singleton;
+extern const ModeFormat Jagged;
 
 extern const ModeFormat dense;
 extern const ModeFormat compressed;
 extern const ModeFormat sparse;
 extern const ModeFormat singleton;
+extern const ModeFormat jagged;
 
 extern const Format CSR;
 extern const Format CSC;

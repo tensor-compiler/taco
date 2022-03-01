@@ -52,6 +52,9 @@ struct TensorStorage::Content {
         modeTypes[i] = taco_mode_sparse;
       } else if (modeType.getName() == Singleton.getName()) {
         modeTypes[i] = taco_mode_sparse;
+      } else if (modeType.getName() == Jagged.getName()) {
+        // FixMe: Replace `taco_mode_sparse` with dedicated value for jagged format
+        modeTypes[i] = taco_mode_sparse;
       } else {
         taco_not_supported_yet;
       }
