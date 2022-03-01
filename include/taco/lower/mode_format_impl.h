@@ -124,8 +124,9 @@ public:
 
   /// The coordinate iteration capability's iterator function computes a range
   /// [result[0], result[1]) of coordinates to iterate over.
-  /// `coord_iter_bounds(i_{1}, ..., i_{k−1}) -> begin_{k}, end_{k}`
-  virtual ModeFunction coordIterBounds(std::vector<ir::Expr> parentCoords,
+  /// `coord_iter_bounds(p_{k-1}, i_{1}, ..., i_{k−1}) -> begin_{k}, end_{k}`
+  virtual ModeFunction coordIterBounds(ir::Expr parentPos,
+                                       std::vector<ir::Expr> parentCoords,
                                        Mode mode) const;
 
   /// The coordinate iteration capability's access function maps a coordinate
@@ -135,6 +136,7 @@ public:
   virtual ModeFunction coordIterAccess(ir::Expr parentPos,
                                        std::vector<ir::Expr> coords,
                                        Mode mode) const;
+
 
   virtual ModeFunction coordBounds(ir::Expr parentPos, Mode mode) const;
 

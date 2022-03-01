@@ -263,9 +263,9 @@ bool Iterator::isYieldPosPure() const {
   return getMode().defined() && getMode().getModeFormat().isYieldPosPure();
 }
 
-ModeFunction Iterator::coordBounds(const std::vector<ir::Expr>& coords) const {
+ModeFunction Iterator::coordBounds(const ir::Expr& parentPos, const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeFormat().impl->coordIterBounds(coords, getMode());
+  return getMode().getModeFormat().impl->coordIterBounds(parentPos, coords, getMode());
 }
 
 ModeFunction Iterator::coordBounds(const ir::Expr& parentPos) const {
@@ -273,10 +273,10 @@ ModeFunction Iterator::coordBounds(const ir::Expr& parentPos) const {
   return getMode().getModeFormat().impl->coordBounds(parentPos, getMode());
 }
 
-ModeFunction Iterator::coordAccess(const std::vector<ir::Expr>& coords) const {
+ModeFunction Iterator::coordAccess(const ir::Expr& parentPos, const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeFormat().impl->coordIterAccess(getParent().getPosVar(),
-                                                   coords, getMode());
+  return getMode().getModeFormat().impl->coordIterAccess(parentPos, coords,
+                                                         getMode());
 }
 
 ModeFunction Iterator::posBounds(const ir::Expr& parentPos) const {

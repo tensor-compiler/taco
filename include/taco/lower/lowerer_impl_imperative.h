@@ -334,7 +334,7 @@ protected:
   ir::Stmt initValues(ir::Expr tensor, ir::Expr initVal, ir::Expr begin, ir::Expr size);
 
   /// Declare position variables and initialize them with a locate.
-  ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
+  std::pair<ir::Stmt,std::vector<ir::Expr>> declLocatePosVars(std::vector<Iterator> iterators);
 
   /// Emit loops to reduce duplicate coordinates.
   ir::Stmt reduceDuplicateCoordinates(ir::Expr coordinate, 

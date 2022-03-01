@@ -169,8 +169,9 @@ std::vector<AttrQuery> ModeFormatImpl::attrQueries(
 }
                                                   
 
-ModeFunction ModeFormatImpl::coordIterBounds(vector<Expr> coords,
-                                           Mode mode) const {
+ModeFunction ModeFormatImpl::coordIterBounds(ir::Expr parentPos,
+                                             vector<Expr> coords,
+                                             Mode mode) const {
   return ModeFunction();
 }
 
