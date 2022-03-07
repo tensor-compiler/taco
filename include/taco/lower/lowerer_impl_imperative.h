@@ -493,6 +493,8 @@ private:
   bool compute;
   bool loopOrderAllowsShortCircuit = false;
 
+  std::vector<TensorVar> results;
+
   std::set<TensorVar> needCompute;
 
   int markAssignsAtomicDepth = 0;
@@ -577,8 +579,11 @@ private:
   /// Map from tensor accesses to variables storing reduced values.
   std::map<Access, ir::Expr> reducedValueVars;
 
-  /// Set of locate-capable iterators that can be legally accessed.
+  /// Set of locate iterators that can be legally accessed.
   util::ScopedSet<Iterator> accessibleIterators;
+
+  /// Set of iterators that need to be accessed with locate.
+  util::ScopedSet<Iterator> locateIterators;
 
   /// Visitor methods can add code to emit it to the function header.
   std::vector<ir::Stmt> header;

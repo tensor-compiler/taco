@@ -31,7 +31,9 @@ public:
   Stmt lower(IndexStmt stmt) {
     this->stmt = Stmt();
     impl->accessibleIterators.scope();
+    impl->locateIterators.scope();
     IndexStmtVisitorStrict::visit(stmt);
+    impl->locateIterators.unscope();
     impl->accessibleIterators.unscope();
     return this->stmt;
   }
@@ -241,7 +243,7 @@ LowererImplImperative::lower(IndexStmt stmt, string name,
   loopOrderAllowsShortCircuit = allForFreeLoopsBeforeAllReductionLoops(stmt);
 
   // Create result and parameter variables
-  vector<TensorVar> results = getResults(stmt);
+  results = getResults(stmt);
   vector<TensorVar> arguments = getArguments(stmt);
   vector<TensorVar> temporaries = getTemporaries(stmt);
 
@@ -692,7 +694,9 @@ Stmt LowererImplImperative::lowerForall(Forall forall)
     for (auto& iters : iterators.levelIterators()) {
       // Collect all level iterators that have locate and iterate over
       // the recovered index variable.
-      if (iters.second.getIndexVar() == varToRecover && iters.second.hasLocate()) {
+      if (iters.second.getIndexVar() == varToRecover &&
+          iters.second.hasLocate() &&
+          !util::contains(results, iters.first.getAccess().getTensorVar())) {
         itersForVar.push_back(iters.second);
       }
     }
@@ -3360,6 +3364,12 @@ Stmt LowererImplImperative::initValues(Expr tensor, Expr initVal, Expr begin, Ex
 }
 
 std::pair<Stmt,std::vector<Expr>> LowererImplImperative::declLocatePosVars(vector<Iterator> locators) {
+  for (const auto& locator : locators) {
+    if (locator.hasLocate()) {
+      locateIterators.insert(locator);
+    }
+  }
+
   vector<Stmt> result;
   vector<Expr> validChecks;
   for (Iterator& locator : locators) {
@@ -3367,7 +3377,7 @@ std::pair<Stmt,std::vector<Expr>> LowererImplImperative::declLocatePosVars(vecto
 
     bool doLocate = true;
     for (Iterator ancestorIterator = locator.getParent();
-         !ancestorIterator.isRoot() && ancestorIterator.hasLocate();
+         !ancestorIterator.isRoot() && locateIterators.contains(ancestorIterator);
          ancestorIterator = ancestorIterator.getParent()) {
       if (!accessibleIterators.contains(ancestorIterator)) {
         doLocate = false;
@@ -3408,7 +3418,7 @@ std::pair<Stmt,std::vector<Expr>> LowererImplImperative::declLocatePosVars(vecto
           break;
         }
         locateIterator = locateIterator.getChild();
-      } while (locateIterator.hasLocate() && 
+      } while (locateIterators.contains(locateIterator) &&
                accessibleIterators.contains(locateIterator));
     }
   }
