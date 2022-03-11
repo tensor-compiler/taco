@@ -488,6 +488,8 @@ protected:
   /// loop iterator variable should be incremented when the guard is fired.
   ir::Stmt strideBoundsGuard(Iterator iterator, ir::Expr access, bool incrementPosVar);
 
+  util::ScopedSet<Iterator> accessibleIterators;
+
 private:
   bool assemble;
   bool compute;
@@ -578,7 +580,7 @@ private:
   std::map<Access, ir::Expr> reducedValueVars;
 
   /// Set of locate-capable iterators that can be legally accessed.
-  util::ScopedSet<Iterator> accessibleIterators;
+
 
   /// Visitor methods can add code to emit it to the function header.
   std::vector<ir::Stmt> header;
