@@ -10,14 +10,26 @@
 #include "codegen/codegen.h"
 #include "taco/lower/lower.h"
 #include "op_factory.h"
+#include "taco/lower/lowerer_impl_c.h"
+#include "taco/lower/lowerer_impl_cuda.h"
+#include "taco/lower/lowerer_impl_imperative.h"
 
 using namespace taco;
 const IndexVar i("i"), j("j"), k("k"), l("l"), m("m"), n("n");
 int WARP_SIZE = 32;
 
-void printToCout(IndexStmt stmt) {
+enum Platform {
+    c,
+    cuda
+};
+
+void printToCout(IndexStmt stmt, Platform platform=c) {
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute", false, true);
+  ir::Stmt compute;
+    switch (platform) {
+        case c: compute = lower(stmt, "compute", false, true, false, false, Lowerer(new LowererImplC())); break;
+        case cuda: compute = lower(stmt, "compute", false, true, false, false, Lowerer(new LowererImplCUDA())); break;
+    }
   codegen->compile(compute, true);
 }
 
@@ -428,7 +440,8 @@ TEST(scheduling_eval, test_spmvCPU_temp) {
   IndexStmt stmt = y.getAssignment().concretize();
   stmt = stmt.parallelize(i, ParallelUnit::CPUThread, OutputRaceStrategy::Atomics);
 
-  //printToFile("test_spmvCPU_temp", stmt);
+  //set_CUDA_codegen_enabled(1);
+  printToCout(stmt, Platform(cuda));
 
   y.compile(stmt);
   y.assemble();

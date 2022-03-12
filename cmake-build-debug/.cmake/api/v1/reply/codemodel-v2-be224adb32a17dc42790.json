@@ -1,0 +1,205 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3,
+						4
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-80c35a89e71fcc05a0b4.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4.0"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"build" : "src",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-src-Debug-b1ed034fe315973a00fc.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4.0"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "src",
+					"targetIndexes" : 
+					[
+						1
+					]
+				},
+				{
+					"build" : "test",
+					"jsonFile" : "directory-test-Debug-451c0598f41488bb20b9.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4.0"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "test",
+					"targetIndexes" : 
+					[
+						2,
+						3
+					]
+				},
+				{
+					"build" : "tools",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-tools-Debug-dbed3b70f7bdd5bb451e.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4.0"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "tools",
+					"targetIndexes" : 
+					[
+						4
+					]
+				},
+				{
+					"build" : "apps",
+					"childIndexes" : 
+					[
+						5
+					],
+					"jsonFile" : "directory-apps-Debug-76fddd1453400e648719.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4.0"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "apps"
+				},
+				{
+					"build" : "apps/tensor_times_vector",
+					"jsonFile" : "directory-apps.tensor_times_vector-Debug-0f9a8e629be7aed69a2d.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.8.12"
+					},
+					"parentIndex" : 4,
+					"projectIndex" : 1,
+					"source" : "apps/tensor_times_vector",
+					"targetIndexes" : 
+					[
+						5
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"childIndexes" : 
+					[
+						1
+					],
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4
+					],
+					"name" : "taco",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						5
+					],
+					"name" : "tensor_times_vector",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						5
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "src::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-src-Debug-962ca0d82f886e361309.json",
+					"name" : "src",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "taco::@145eef247bfb46b6828c",
+					"jsonFile" : "target-taco-Debug-8bd57ebc8160cc0fd5c9.json",
+					"name" : "taco",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "taco-gtest::@36f028580bb02cc8272a",
+					"jsonFile" : "target-taco-gtest-Debug-7947a6c84e487a4991f5.json",
+					"name" : "taco-gtest",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "taco-test::@36f028580bb02cc8272a",
+					"jsonFile" : "target-taco-test-Debug-739e70dd559657a4c531.json",
+					"name" : "taco-test",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "taco-tool::@b9a00e55f22b3d77656c",
+					"jsonFile" : "target-taco-tool-Debug-acb02dc48eac8b470300.json",
+					"name" : "taco-tool",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "tensor_times_vector::@83aeefedd7c945dabd1b",
+					"jsonFile" : "target-tensor_times_vector-Debug-d42707e1cd9fd09d0efa.json",
+					"name" : "tensor_times_vector",
+					"projectIndex" : 1
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/Users/zhang/Desktop/taco/cmake-build-debug",
+		"source" : "/Users/zhang/Desktop/taco"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}

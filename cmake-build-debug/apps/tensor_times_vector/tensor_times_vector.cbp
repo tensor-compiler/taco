@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6"/>
+	<Project>
+		<Option title="tensor_times_vector"/>
+		<Option makefile_is_custom="1"/>
+		<Option compiler="clang"/>
+		<Option virtualFolders="CMake Files\;CMake Files\include\;CMake Files\include\taco\;CMake Files\src\;CMake Files\test\;CMake Files\tools\;CMake Files\apps\;CMake Files\apps\tensor_times_vector\;"/>
+		<Build>
+			<Target title="all">
+				<Option working_dir="/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j16 -f &quot;/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector/Makefile&quot;  VERBOSE=1 all"/>
+					<CompileFile command="/usr/bin/make -j16 -f &quot;/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j16 -f &quot;/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j16 -f &quot;/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="tensor_times_vector">
+				<Option output="/Users/zhang/Desktop/taco/cmake-build-debug/bin/taco-tensor_times_vector" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/Users/zhang/Desktop/taco/cmake-build-debug/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="clang"/>
+				<Compiler>
+					<Add option="-DTACO_DEBUG"/>
+					<Add option="-DTACO_ASSERTS"/>
+					<Add option="-DTACO_DARWIN"/>
+					<Add directory="/Users/zhang/Desktop/taco/include"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/Library/Developer/CommandLineTools/usr/bin/../include/c++/v1"/>
+					<Add directory="/Library/Developer/CommandLineTools/usr/lib/clang/11.0.3/include"/>
+					<Add directory="/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include"/>
+					<Add directory="/Library/Developer/CommandLineTools/usr/include"/>
+					<Add directory="/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j16 -f &quot;/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector/Makefile&quot;  VERBOSE=1 tensor_times_vector"/>
+					<CompileFile command="/usr/bin/make -j16 -f &quot;/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j16 -f &quot;/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j16 -f &quot;/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="tensor_times_vector/fast">
+				<Option output="/Users/zhang/Desktop/taco/cmake-build-debug/bin/taco-tensor_times_vector" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/Users/zhang/Desktop/taco/cmake-build-debug/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="clang"/>
+				<Compiler>
+					<Add option="-DTACO_DEBUG"/>
+					<Add option="-DTACO_ASSERTS"/>
+					<Add option="-DTACO_DARWIN"/>
+					<Add directory="/Users/zhang/Desktop/taco/include"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/Library/Developer/CommandLineTools/usr/bin/../include/c++/v1"/>
+					<Add directory="/Library/Developer/CommandLineTools/usr/lib/clang/11.0.3/include"/>
+					<Add directory="/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include"/>
+					<Add directory="/Library/Developer/CommandLineTools/usr/include"/>
+					<Add directory="/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j16 -f &quot;/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector/Makefile&quot;  VERBOSE=1 tensor_times_vector/fast"/>
+					<CompileFile command="/usr/bin/make -j16 -f &quot;/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j16 -f &quot;/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j16 -f &quot;/Users/zhang/Desktop/taco/cmake-build-debug/apps/tensor_times_vector/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="/Users/zhang/Desktop/taco/apps/tensor_times_vector/tensor_times_vector.cpp">
+			<Option target="tensor_times_vector"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/include/taco/version.h.in">
+			<Option virtualFolder="CMake Files\include\taco\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/src/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\src\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/expr_factory.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/expr_factory.h">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/op_factory.h">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/test-iteration_algebra.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/test-typedcomponent-memory.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/test.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/test.h">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/test_properties.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/test_tensors.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/test_tensors.h">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-api.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-copyprop.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-error.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-expr-reduction.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-expr.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-expr_storage.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-format-mm-permute.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-format.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-index.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-index_notation.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-indexexpr.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-indexstmt.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-io.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-lower.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-merge_lattice.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-parafac.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-qcd.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-regression.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-schedule-parser.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-scheduling-eval.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-scheduling.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-storage.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-storage_alloc.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-tensor.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-tensor_types.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-transformation.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-transpose.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-type.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-windowing.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/test/tests-workspaces.cpp">
+			<Option virtualFolder="CMake Files\test\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/tools/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\tools\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/apps/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\apps\"/>
+		</Unit>
+		<Unit filename="/Users/zhang/Desktop/taco/apps/tensor_times_vector/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\apps\tensor_times_vector\"/>
+		</Unit>
+	</Project>
+</CodeBlocks_project_file>

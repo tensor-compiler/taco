@@ -13,10 +13,6 @@ namespace taco {
         LowererImplC();
         virtual ~LowererImplC() = default;
 
-        /// Lower an index statement to an IR function.
-//        ir::Stmt lower(IndexStmt stmt, std::string name,
-//                       bool assemble, bool compute, bool pack, bool unpack);
-
     private:
         class Visitor;
         friend class Visitor;

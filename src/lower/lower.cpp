@@ -35,11 +35,10 @@ namespace taco {
 
 
 // class Lowerer
-//Lowerer::Lowerer() : impl(new LowererImplImperative()) {
-//}
-Lowerer::Lowerer() :impl(new LowererImplC()) {
-
+Lowerer::Lowerer() : impl(new LowererImplImperative()) {
 }
+//Lowerer::Lowerer() :impl(new LowererImplC()) {
+//}
 Lowerer::Lowerer(LowererImpl* impl) : impl(impl) {
 }
 
