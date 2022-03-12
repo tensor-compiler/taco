@@ -15,7 +15,7 @@
 // if taco starts using a tweak number, add  here
 
 // For non-git builds, this will be an empty string.
-#define TACO_VERSION_GIT_SHORTHASH "a9c46089"
+#define TACO_VERSION_GIT_SHORTHASH "f1d9650d"
 
 #define TACO_FEATURE_OPENMP 0
 #define TACO_FEATURE_PYTHON 0
