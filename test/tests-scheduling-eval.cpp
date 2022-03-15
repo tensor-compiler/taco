@@ -27,8 +27,12 @@ void printToCout(IndexStmt stmt, Platform platform=c) {
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt compute;
     switch (platform) {
-        case c: compute = lower(stmt, "compute", false, true, false, false, Lowerer(new LowererImplC())); break;
-        case cuda: compute = lower(stmt, "compute", false, true, false, false, Lowerer(new LowererImplCUDA())); break;
+        case c:
+            compute = lower(stmt, "compute", false, true, false, false, Lowerer(new LowererImplC()));
+            break;
+        case cuda:
+            compute = lower(stmt, "compute", false, true, false, false, Lowerer(new LowererImplCUDA()));
+            break;
     }
   codegen->compile(compute, true);
 }
@@ -441,7 +445,7 @@ TEST(scheduling_eval, test_spmvCPU_temp) {
   stmt = stmt.parallelize(i, ParallelUnit::CPUThread, OutputRaceStrategy::Atomics);
 
   //set_CUDA_codegen_enabled(1);
-  printToCout(stmt, Platform(cuda));
+  printToCout(stmt, Platform(c));
 
   y.compile(stmt);
   y.assemble();
@@ -453,6 +457,41 @@ TEST(scheduling_eval, test_spmvCPU_temp) {
   expected.assemble();
   expected.compute();
   ASSERT_TENSOR_EQ(expected, y);
+}
+
+TEST(scheduling_eval, spmvGPU_temp) {
+    int NUM_I = 1021/10;
+    int NUM_J = 1039/10;
+    float SPARSITY = .01;
+    Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+    Tensor<double> x("x", {NUM_J}, Format({Dense}));
+    Tensor<double> y("y", {NUM_I}, Format({Dense}));
+
+    srand(94353);
+    for (int i = 0; i < NUM_I; i++) {
+        for (int j = 0; j < NUM_J; j++) {
+            float rand_float = (float)rand()/(float)(RAND_MAX);
+            if (rand_float < SPARSITY) {
+                A.insert({i, j}, (double) ((int) (rand_float * 3 / SPARSITY)));
+            }
+        }
+    }
+
+    for (int j = 0; j < NUM_J; j++) {
+        float rand_float = (float)rand()/(float)(RAND_MAX);
+        x.insert({j}, (double) ((int) (rand_float*3/SPARSITY)));
+    }
+
+    x.pack();
+    A.pack();
+    IndexExpr precomputed = A(i, j) * x(j);
+    y(i) = precomputed;
+
+    IndexStmt stmt = y.getAssignment().concretize();
+    stmt = scheduleSpMVGPU(stmt, A, precomputed);
+    set_CUDA_codegen_enabled(1);
+    printToCout(stmt, Platform(cuda));
+
 }
 
 TEST(scheduling_eval, test_sptvCPU_temp) {

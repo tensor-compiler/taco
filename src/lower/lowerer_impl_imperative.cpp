@@ -2202,6 +2202,7 @@ vector<Stmt> LowererImplImperative::codeToInitializeDenseAcceleratorArrays(Where
 
 }
 
+
 // Returns true if the following conditions are met:
 // 1) The temporary is a dense vector
 // 2) There is only one value on the right hand side of the consumer

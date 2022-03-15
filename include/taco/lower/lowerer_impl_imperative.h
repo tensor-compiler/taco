@@ -331,7 +331,7 @@ protected:
    * Generate code to initialize values array in range
    * [begin * size, (begin + 1) * size) with the fill value.
    */
-  ir::Stmt initValues(ir::Expr tensor, ir::Expr initVal, ir::Expr begin, ir::Expr size);
+  virtual ir::Stmt initValues(ir::Expr tensor, ir::Expr initVal, ir::Expr begin, ir::Expr size);
 
   /// Declare position variables and initialize them with a locate.
   ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
@@ -358,17 +358,17 @@ protected:
 
   /// Returns true iff the temporary used in the where statement is dense and sparse iteration over that
   /// temporary can be automaticallty supported by the compiler.
-  std::pair<bool,bool> canAccelerateDenseTemp(Where where);
+  virtual std::pair<bool,bool> canAccelerateDenseTemp(Where where);
 
   /// Initializes a temporary workspace
-  std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
-  std::vector<ir::Stmt> codeToInitializeTemporaryParallel(Where where, ParallelUnit parallelUnit);
-  std::vector<ir::Stmt> codeToInitializeLocalTemporaryParallel(Where where, ParallelUnit parallelUnit);
+  virtual std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
+  virtual std::vector<ir::Stmt> codeToInitializeTemporaryParallel(Where where, ParallelUnit parallelUnit);
+  virtual std::vector<ir::Stmt> codeToInitializeLocalTemporaryParallel(Where where, ParallelUnit parallelUnit);
   /// Gets the size of a temporary tensorVar in the where statement
   ir::Expr getTemporarySize(Where where);
 
   /// Initializes helper arrays to give dense workspaces sparse acceleration
-  std::vector<ir::Stmt> codeToInitializeDenseAcceleratorArrays(Where where, bool parallel = false);
+  virtual std::vector<ir::Stmt> codeToInitializeDenseAcceleratorArrays(Where where, bool parallel = false);
 
   /// Recovers a derived indexvar from an underived variable.
   ir::Stmt codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar indexVar, bool emitVarDecl);
@@ -489,13 +489,37 @@ protected:
   ir::Stmt strideBoundsGuard(Iterator iterator, ir::Expr access, bool incrementPosVar);
 
   util::ScopedSet<Iterator> accessibleIterators;
+  int inParallelLoopDepth = 0;
+  /// Map used to hoist parallel temporary workspaces. Maps workspace shared by all threads to where statement
+  std::map<Where, TensorVar> whereToTemporaryVar;
+  std::map<Where, ir::Expr> whereToIndexListAll;
+  std::map<Where, ir::Expr> whereToIndexListSizeAll;
+  std::map<Where, ir::Expr> whereToBitGuardAll;
+    /// Map form temporary to indexList var if accelerating dense workspace
+    std::map<TensorVar, ir::Expr> tempToIndexList;
 
-private:
+    /// Map form temporary to indexListSize if accelerating dense workspace
+    std::map<TensorVar, ir::Expr> tempToIndexListSize;
+
+    /// Map form temporary to bitGuard var if accelerating dense workspace
+    std::map<TensorVar, ir::Expr> tempToBitGuard;
+
+    std::set<TensorVar> needCompute;
+
+    struct TemporaryArrays {
+        ir::Expr values;
+    };
+    std::map<TensorVar, TemporaryArrays> temporaryArrays;
+    std::set<TensorVar> guardedTemps;
+    ProvenanceGraph provGraph;
+    bool emitUnderivedGuards = true;
+
+
   bool assemble;
   bool compute;
   bool loopOrderAllowsShortCircuit = false;
 
-  std::set<TensorVar> needCompute;
+  // std::set<TensorVar> needCompute;
 
   int markAssignsAtomicDepth = 0;
   ParallelUnit atomicParallelUnit;
@@ -507,15 +531,17 @@ private:
   /// Map used to hoist temporary workspace initialization
   std::map<Forall, Where> temporaryInitialization;
 
+  /*
   /// Map used to hoist parallel temporary workspaces. Maps workspace shared by all threads to where statement
   std::map<Where, TensorVar> whereToTemporaryVar;
   std::map<Where, ir::Expr> whereToIndexListAll;
   std::map<Where, ir::Expr> whereToIndexListSizeAll;
   std::map<Where, ir::Expr> whereToBitGuardAll;
+   */
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
-
+/*
   struct TemporaryArrays {
     ir::Expr values;
   };
@@ -531,7 +557,7 @@ private:
   std::map<TensorVar, ir::Expr> tempToBitGuard;
 
   std::set<TensorVar> guardedTemps;
-
+*/
   /// Map from result tensors to variables tracking values array capacity.
   std::map<ir::Expr, ir::Expr> capacityVars;
 
@@ -548,7 +574,7 @@ private:
   Iterators iterators;
 
   /// Keep track of relations between IndexVars
-  ProvenanceGraph provGraph;
+  // ProvenanceGraph provGraph;
 
   bool ignoreVectorize = false; // already being taken into account
 
@@ -565,9 +591,9 @@ private:
   bool captureNextLocatePos = false;
   ir::Stmt capturedLocatePos; // used for whereConsumer when want to replicate same locating
 
-  bool emitUnderivedGuards = true;
+  // bool emitUnderivedGuards = true;
 
-  int inParallelLoopDepth = 0;
+  // int inParallelLoopDepth = 0;
 
   std::map<ParallelUnit, ir::Expr> parallelUnitSizes;
   std::map<ParallelUnit, IndexVar> parallelUnitIndexVars;
@@ -587,6 +613,9 @@ private:
 
   /// Visitor methods can add code to emit it to the function footer.
   std::vector<ir::Stmt> footer;
+
+
+private:
 
   class Visitor;
   friend class Visitor;

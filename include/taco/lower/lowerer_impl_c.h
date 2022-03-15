@@ -13,6 +13,24 @@ namespace taco {
         LowererImplC();
         virtual ~LowererImplC() = default;
 
+    protected:
+        std::vector<ir::Stmt> codeToInitializeDenseAcceleratorArrays(Where where, bool parallel = false);
+        std::vector<ir::Stmt> codeToInitializeTemporaryParallel(Where where, ParallelUnit parallelUnit);
+        std::vector<ir::Stmt> codeToInitializeTemporary(Where where);
+        std::pair<bool,bool> canAccelerateDenseTemp(Where where);
+        std::vector<ir::Stmt> codeToInitializeLocalTemporaryParallel(Where where, ParallelUnit parallelUnit);
+        /**
+         * Generate code to initialize values array in range
+         * [begin * size, (begin + 1) * size) with the fill value.
+         */
+        ir::Stmt initValues(ir::Expr tensor, ir::Expr initVal, ir::Expr begin, ir::Expr size);
+        ir::Stmt lowerWhere(Where where);
+        ir::Stmt lowerForall(Forall forall);
+
+        /// Lower a forall that needs to be cloned so that one copy does not have guards
+        /// used for vectorized and unrolled loops
+        ir::Stmt lowerForallCloned(Forall forall);
+
     private:
         class Visitor;
         friend class Visitor;
