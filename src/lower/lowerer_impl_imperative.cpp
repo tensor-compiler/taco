@@ -643,7 +643,7 @@ LowererImplImperative::splitAppenderAndInserters(const vector<Iterator>& results
   return {appenders, inserters};
 }
 
-
+/*
 Stmt LowererImplImperative::lowerForall(Forall forall)
 {
   bool hasExactBound = provGraph.hasExactBound(forall.getIndexVar());
@@ -895,7 +895,10 @@ Stmt LowererImplImperative::lowerForall(Forall forall)
                        loops,
                        temporaryValuesInitFree[1]);
 }
-
+*/
+Stmt LowererImplImperative::lowerForall(Forall forall) { return lowerForallCloned(forall); }
+Stmt LowererImplImperative::lowerForallCloned(Forall foraall) { return Stmt();}
+/*
 Stmt LowererImplImperative::lowerForallCloned(Forall forall) {
   // want to emit guards outside of loop to prevent unstructured loop exits
 
@@ -1003,7 +1006,7 @@ Stmt LowererImplImperative::lowerForallCloned(Forall forall) {
   // return guarded loops
   return Block::make(Block::make(guardRecoverySteps), IfThenElse::make(guardCondition, unvectorizedLoop, vectorizedLoop));
 }
-
+*/
 Stmt LowererImplImperative::searchForFusedPositionStart(Forall forall, Iterator posIterator) {
   vector<Stmt> searchForUnderivedStart;
   vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(forall.getIndexVar());
@@ -2126,6 +2129,9 @@ Expr LowererImplImperative::getTemporarySize(Where where) {
   return Expr();
 }
 
+
+vector<Stmt> LowererImplImperative::codeToInitializeDenseAcceleratorArrays(Where where, bool parallel) { vector<Stmt> decl; return decl;}
+/*
 vector<Stmt> LowererImplImperative::codeToInitializeDenseAcceleratorArrays(Where where, bool parallel) {
   // if parallel == true, need to initialize dense accelerator arrays as size*numThreads
   // and rename all dense accelerator arrays to name + '_all'
@@ -2201,7 +2207,7 @@ vector<Stmt> LowererImplImperative::codeToInitializeDenseAcceleratorArrays(Where
   }
 
 }
-
+*/
 
 // Returns true if the following conditions are met:
 // 1) The temporary is a dense vector
@@ -2216,6 +2222,8 @@ vector<Stmt> LowererImplImperative::codeToInitializeDenseAcceleratorArrays(Where
 //       the sort. CUB support is built into CUDA 11 but not prior versions of
 //       CUDA so in that case, we'd probably need to include the CUB headers in
 //       the generated code.
+std::pair<bool,bool> LowererImplImperative::canAccelerateDenseTemp(Where where) { return std::make_pair(true, true);}
+/*
 std::pair<bool,bool> LowererImplImperative::canAccelerateDenseTemp(Where where) {
   // TODO: TEMPORARY -- Needs to be removed
   if(should_use_CUDA_codegen()) {
@@ -2268,10 +2276,12 @@ std::pair<bool,bool> LowererImplImperative::canAccelerateDenseTemp(Where where) 
   // Only need to sort the workspace if the result needs to be ordered
   return std::make_pair(true, varFmt.isOrdered());
 }
-
+*/
 // Code to initialize the local temporary workspace from the shared workspace
 // in codeToInitializeTemporaryParallel for a SINGLE parallel unit
 // (e.g.) the local workspace that each thread uses
+vector<Stmt> LowererImplImperative::codeToInitializeLocalTemporaryParallel(Where where, ParallelUnit parallelUnit) { vector<Stmt> decls; return decls; }
+/*
 vector<Stmt> LowererImplImperative::codeToInitializeLocalTemporaryParallel(Where where, ParallelUnit parallelUnit) {
   TensorVar temporary = where.getTemporary();
   vector<Stmt> decls;
@@ -2336,10 +2346,12 @@ vector<Stmt> LowererImplImperative::codeToInitializeLocalTemporaryParallel(Where
   }
   return decls;
 }
-
+*/
 // Code to initialize a temporary workspace that is SHARED across ALL parallel units.
 // New temporaries are denoted by temporary.getName() + '_all'
 // Currently only supports CPUThreads
+vector<Stmt> LowererImplImperative::codeToInitializeTemporaryParallel(Where where, ParallelUnit parallelUnit) { vector<Stmt> decl; return decl;}
+/*
 vector<Stmt> LowererImplImperative::codeToInitializeTemporaryParallel(Where where, ParallelUnit parallelUnit) {
   TensorVar temporary = where.getTemporary();
   // For the parallel case, need to hoist up a workspace shared by all threads
@@ -2386,7 +2398,9 @@ vector<Stmt> LowererImplImperative::codeToInitializeTemporaryParallel(Where wher
 
   return {initializeTemporary, freeTemporary};
 }
-
+*/
+vector<Stmt> LowererImplImperative::codeToInitializeTemporary(Where where) {vector<Stmt> decl; return  decl;}
+/*
 vector<Stmt> LowererImplImperative::codeToInitializeTemporary(Where where) {
   TensorVar temporary = where.getTemporary();
 
@@ -2440,7 +2454,9 @@ vector<Stmt> LowererImplImperative::codeToInitializeTemporary(Where where) {
   }
   return {initializeTemporary, freeTemporary};
 }
-
+*/
+Stmt LowererImplImperative::lowerWhere(Where where) { return Stmt(); }
+/*
 Stmt LowererImplImperative::lowerWhere(Where where) {
   TensorVar temporary = where.getTemporary();
   bool accelerateDenseWorkSpace, sortAccelerator;
@@ -2532,7 +2548,7 @@ Stmt LowererImplImperative::lowerWhere(Where where) {
   whereTempsToResult.erase(where.getTemporary());
   return Block::make(initializeTemporary, producer, markAssignsAtomicDepth > 0 ? capturedLocatePos : ir::Stmt(), consumer,  freeTemporary);
 }
-
+*/
 
 Stmt LowererImplImperative::lowerSequence(Sequence sequence) {
   Stmt definition = lower(sequence.getDefinition());
@@ -3272,7 +3288,8 @@ Stmt LowererImplImperative::resizeAndInitValues(const std::vector<Iterator>& app
   return result.empty() ? Stmt() : Block::make(result);
 }
 
-
+Stmt LowererImplImperative::initValues(Expr tensor, Expr initVal, Expr begin, Expr size) { return Stmt(); }
+/*
 Stmt LowererImplImperative::initValues(Expr tensor, Expr initVal, Expr begin, Expr size) {
   Expr lower = simplify(ir::Mul::make(begin, size));
   Expr upper = simplify(ir::Mul::make(ir::Add::make(begin, 1), size));
@@ -3290,7 +3307,7 @@ Stmt LowererImplImperative::initValues(Expr tensor, Expr initVal, Expr begin, Ex
   }
   return For::make(p, lower, upper, 1, zeroInit, parallel);
 }
-
+*/
 Stmt LowererImplImperative::declLocatePosVars(vector<Iterator> locators) {
   vector<Stmt> result;
   for (Iterator& locator : locators) {

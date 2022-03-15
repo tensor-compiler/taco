@@ -411,9 +411,7 @@ IndexStmt exampleScheduleSPMVPosIteration(IndexStmt stmt, Tensor<double> A) {
 }
 
 TEST(scheduling_eval, test_spmvCPU_temp) {
-  if (should_use_CUDA_codegen()) {
-    return;
-  }
+
   int NUM_I = 1021/10;
   int NUM_J = 1039/10;
   float SPARSITY = .3;
