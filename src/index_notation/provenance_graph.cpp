@@ -205,16 +205,14 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
   taco_iassert(parentIterBounds.size() == 1);
   taco_iassert(parentIterBounds.count(getParentVar()) == 1);
 
-
-
-  // taco::IndexVar parent = getParentVar();
   if (indexVar.isBound()){
-
+    // if the variable has been bounded, derive iteration bounds using existing bound
     taco_iassert(parentCoordBounds.count(getParentVar()) == 1);
     std::vector<ir::Expr> parentCoordBound = parentCoordBounds.at(getParentVar());
 
     if (indexVar == getInnerVar()){
       if (indexVar.getBound() != getSplitFactor()){
+        // check that bound and split factor do not conflict
         taco_uerror << "Bounded a split inner varibale with bound: " << indexVar.getBound() << " real bound: " << getSplitFactor() << endl;
       }
     }
@@ -232,11 +230,8 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
   std::vector<ir::Expr> parentBound = parentIterBounds.at(getParentVar());
   Datatype splitFactorType = parentBound[0].type();
   if (indexVar == getOuterVar()) {
-    // cout << "OUTER VAR" << endl;
     ir::Expr minBound = ir::Div::make(parentBound[0], ir::Literal::make(getSplitFactor(), splitFactorType));
     ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(getSplitFactor()-1, splitFactorType)), ir::Literal::make(getSplitFactor(), splitFactorType));
-    // cout << "Provenance graph : "<< provGraph << endl;
-    // cout << "PARENT BOUND[1]: "<< parentBound[1] << endl;
     return {minBound, maxBound};
   }
   else if (indexVar == getInnerVar()) {
@@ -891,6 +886,7 @@ bool operator==(const PrecomputeRelNode& a, const PrecomputeRelNode& b) {
 }
 
 // class ProvenanceGraph
+// class ProvenanceGraph
 ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
   // Add all nodes (not all nodes may be scheduled)
   match(concreteStmt,
@@ -904,8 +900,7 @@ ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
     // No relations defined
     return;
   }
-  // q: does a such node impose some restrictions on 
-  // the value of the variable
+
   SuchThat suchThat = to<SuchThat>(concreteStmt);
   vector<IndexVarRel> relations = suchThat.getPredicate();
 
@@ -914,30 +909,14 @@ ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
     std::vector<IndexVar> children = rel.getNode()->getChildren();
     for (IndexVar parent : parents) {
       nodes.insert(parent);
-      // q: childrelmap maps the 
-      // parent to a constrained iteration
-      // space?
       childRelMap[parent] = rel;
       childrenMap[parent] = children;
-
-      if (rel.getRelType() != PRECOMPUTE && childrenRelMap[parent].size() > 0){
-        taco_uerror << " Cannot attach two relation types to one node " << endl;
-      }
-
-      for (IndexVar child : children){
-        childrenRelMap[parent].push_back(make_pair(child, rel));
-      }
     }
 
     for (IndexVar child : children) {
       nodes.insert(child);
       parentRelMap[child] = rel;
       parentsMap[child] = parents;
-
-      for (IndexVar parent : parents){
-        parentsRelMap[child].push_back(make_pair(parent, rel));
-      }
-
     }
   }
 }
@@ -1154,7 +1133,6 @@ bool ProvenanceGraph::isRecoverablePrecompute(taco::IndexVar indexVar, std::set<
     return isRecoverablePrecompute(precomputeChild, defined, producers, consumers);
   }
   for (const IndexVar& child : getChildren(indexVar)) {
-    // q: why is  it !isRecoverablePrecompute?
     if (!defined.count(child) && (isFullyDerived(child) ||
                                   !isRecoverablePrecompute(child, defined, producers, consumers))) {
       return false;
@@ -1431,30 +1409,6 @@ bool ProvenanceGraph::isDivided(IndexVar indexVar) const {
   }
   return false;
 }
-
-
-void ProvenanceGraph::printGraphParent() const {
-  
-  for (const auto &item : childrenRelMap){
-    cout << "PARENT: " << item.first << endl;
-    for (auto child : item.second){
-      cout << "  ";
-      cout << "CHILD : " << child.first <<  " type of : " << child.second << endl;
-    }
-  }
-}
-
-void ProvenanceGraph::printGraphChild() const {
-  
-  for (const auto &item : parentsRelMap){
-    cout << "CHILD: " << item.first << endl;
-    for (auto child : item.second){
-      cout << "  ";
-      cout << "PARENT : " << child.first <<  " type of : " << child.second << endl;
-    }
-  }
-}
-
 }
 
 

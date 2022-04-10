@@ -1998,31 +1998,9 @@ IndexStmt IndexStmt::fuse(IndexVar i, IndexVar j, IndexVar f) const {
   return transformed;
 }
 
-// IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const {
-  
-//   i.bound(bound, bound_type);
-
-//   IndexVarRel rel = IndexVarRel(new BoundRelNode(i, i1, bound, bound_type));
-//   string reason;
-
-//   // Add predicate to concrete index notation
-//   IndexStmt transformed = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
-//   if (!transformed.defined()) {
-//     taco_uerror << reason;
-//   }
-
-//   // Replace all occurrences of i with i1
-//   transformed = Transformation(ForAllReplace({i}, {i1})).apply(transformed, &reason);
-//   if (!transformed.defined()) {
-//     taco_uerror << reason;
-//   }
-
-//   return transformed;
-// }
-
 IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const {
 
-  taco_uerror << "Depericated Bound: bounding " << i.getName() << "ignoring "  << i1.getName() << endl;
+  cout << "Depericated Bound: bounding " << i.getName() << " ignoring "  << i1.getName() << endl;
   
   i.bound(bound, bound_type);
 
@@ -2370,7 +2348,9 @@ IndexVar::IndexVar(const std::string& name) : IndexVar(name, Datatype::Int32) {}
 
 IndexVar::IndexVar(const std::string& name, const Datatype& type) : IndexVar(new IndexVarNode(name, type)) {}
 
-IndexVar::IndexVar(const IndexVarNode* n) : IndexExpr(n) {}
+IndexVar::IndexVar(const IndexVarNode* n) : IndexExpr(n), content(new Content) {
+    content->isbound = false;
+}
 
 template <> bool isa<IndexVar>(IndexExpr e) {
   return isa<IndexVarNode>(e.ptr);

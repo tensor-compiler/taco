@@ -392,9 +392,6 @@ private:
   std::map<IndexVar, std::vector<IndexVar>> parentsMap;
   std::map<IndexVar, std::vector<IndexVar>> childrenMap;
 
-  std::map<IndexVar, std::vector<std::pair<IndexVar, IndexVarRel>>> childrenRelMap;
-  std::map<IndexVar, std::vector<std::pair<IndexVar, IndexVarRel>>> parentsRelMap;
-
   std::set<IndexVar> nodes;
 };
 

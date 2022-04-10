@@ -1038,7 +1038,6 @@ public:
   /// Returns the name of the index variable.
   std::string getName() const;
 
-<<<<<<< HEAD
   size_t& getBound() const;
 
   const BoundType& getBoundType() const;
@@ -1051,11 +1050,7 @@ public:
 
   bool isBound();
 
-  // void setBoundVar(IndexVar boundVar);
-
-=======
   // Need these to overshadow the comparisons in for the IndexExpr instrusive pointer
->>>>>>> d0654a84137169883973c40a951dfdb89883fd9c
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);
   friend bool operator!=(const IndexVar&, const IndexVar&);
