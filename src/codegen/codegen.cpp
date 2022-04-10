@@ -244,6 +244,10 @@ string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
   } else if (op->property == TensorProperty::ValuesSize) {
     ret << "int " << varname << " = " << tensor->name << "->vals_size;\n";
     return ret.str();
+  } else if (op->property == TensorProperty::FillValue) {
+    ret << printType(tensor->type, false) << " " << varname << " = ";
+    ret << "*((" <<printType(tensor->type, true) << ")(" << tensor->name << "->fill_value));\n";
+    return ret.str();
   }
 
   string tp;
@@ -281,6 +285,8 @@ string CodeGen::packTensorProperty(string varname, Expr tnsr,
   } else if (property == TensorProperty::ValuesSize) {
     ret << tensor->name << "->vals_size = " << varname << ";\n";
     return ret.str();
+  } else if (property == TensorProperty::FillValue) {
+    return "";
   }
 
   string tp;

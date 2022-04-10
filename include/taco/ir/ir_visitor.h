@@ -24,6 +24,7 @@ struct Gte;
 struct Lte;
 struct And;
 struct Or;
+struct BinOp;
 struct Cast;
 struct Call;
 struct IfThenElse;
@@ -76,6 +77,7 @@ public:
   virtual void visit(const Lte*) = 0;
   virtual void visit(const And*) = 0;
   virtual void visit(const Or*) = 0;
+  virtual void visit(const BinOp*) = 0;
   virtual void visit(const Cast*) = 0;
   virtual void visit(const Call*) = 0;
   virtual void visit(const IfThenElse*) = 0;
@@ -131,6 +133,7 @@ public:
   virtual void visit(const Lte* op);
   virtual void visit(const And* op);
   virtual void visit(const Or* op);
+  virtual void visit(const BinOp* op);
   virtual void visit(const Cast* op);
   virtual void visit(const Call* op);
   virtual void visit(const IfThenElse* op);

@@ -11,7 +11,7 @@
 
 #include "taco/ir/ir.h"
 #include "taco/ir/simplify.h"
-#include "ir/ir_generators.h"
+#include "taco/ir/ir_generators.h"
 #include "taco/ir/ir_printer.h"
 
 #include "taco/lower/lowerer_impl.h"
@@ -59,7 +59,7 @@ ir::Stmt lower(IndexStmt stmt, std::string name,
   // if (!messages.empty()) {
   //   std::cerr << "Verifier messages:\n" << messages << "\n";
   // }
-  
+
   return lowered;
 }
 

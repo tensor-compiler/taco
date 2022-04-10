@@ -10,6 +10,12 @@
 
 using namespace taco;
 
+template<typename T>
+void testFill(T fillVal) {
+  Tensor<T> a({2,2}, fillVal);
+  ASSERT_TRUE(equals(a.getFillValue(), Literal((T) fillVal)));
+}
+
 TEST(tensor, double_scalar) {
   Tensor<double> a(4.2);
   ASSERT_DOUBLE_EQ(4.2, a.begin()->second);
@@ -80,6 +86,25 @@ TEST(tensor, duplicates_scalar) {
   auto val = a.begin();
   ASSERT_EQ(val->second, 3.0);
   ASSERT_TRUE(++val == a.end());
+}
+
+TEST(tensor, scalar_type_correct) {
+  Tensor<int> a;
+  ASSERT_EQ(a.getComponentType(), Int32);
+}
+
+TEST(tensor, non_zero_fill) {
+  testFill<char>(3);
+  testFill<int>(34762);
+  testFill<uint16_t>((1 << 10));
+  testFill<uint32_t>((1 << 30));
+  testFill<uint64_t>((1ULL << 42));
+  testFill<int16_t>((1 << 10));
+  testFill<int32_t>(-1);
+  testFill<int64_t>((1ULL << 42));
+  testFill<float>(std::numeric_limits<float>::min());
+  testFill<double>(std::numeric_limits<double>::max());
+  testFill<double>(std::numeric_limits<double>::infinity());
 }
 
 TEST(tensor, transpose) {

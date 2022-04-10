@@ -12,16 +12,19 @@
 #include "mode_access.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
+#include "taco/index_notation/iteration_algebra.h"
 #include "taco/util/scopedmap.h"
 
 using namespace std;
 
 namespace taco {
 
-class MergeLatticeBuilder : public IndexNotationVisitorStrict {
+class MergeLatticeBuilder : public IndexNotationVisitorStrict, public IterationAlgebraVisitorStrict {
 public:
-  MergeLatticeBuilder(IndexVar i, Iterators iterators, ProvenanceGraph provGraph, std::set<IndexVar> definedIndexVars, std::map<TensorVar, const AccessNode *> whereTempsToResult = {})
-      : i(i), iterators(iterators), provGraph(provGraph), definedIndexVars(definedIndexVars), whereTempsToResult(whereTempsToResult) {}
+  MergeLatticeBuilder(IndexVar i, Iterators iterators, ProvenanceGraph provGraph, std::set<IndexVar> definedIndexVars,
+                      std::map<TensorVar, const AccessNode *> whereTempsToResult = {})
+                      : i(i), iterators(iterators), provGraph(provGraph), definedIndexVars(definedIndexVars),
+                        whereTempsToResult(whereTempsToResult) {}
 
   MergeLattice build(IndexStmt stmt) {
     stmt.accept(this);
@@ -32,6 +35,13 @@ public:
 
   MergeLattice build(IndexExpr expr) {
     expr.accept(this);
+    MergeLattice l = lattice;
+    lattice = MergeLattice({});
+    return l;
+  }
+
+  MergeLattice build(IterationAlgebra alg) {
+    alg.accept(this);
     MergeLattice l = lattice;
     lattice = MergeLattice({});
     return l;
@@ -73,13 +83,114 @@ private:
   std::set<IndexVar> definedIndexVars;
   map<TensorVar,MergeLattice> latticesOfTemporaries;
   std::map<TensorVar, const AccessNode *> whereTempsToResult;
+  map<Access, MergePoint> seenMergePoints;
 
   MergeLattice modeIterationLattice() {
     return MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
   }
 
+  void visit(const RegionNode* node) {
+    if(!node->expr().defined()) {
+      // Region is empty so return empty lattice
+      lattice = MergeLattice({});
+      return;
+    }
+
+    lattice = build(node->expr());
+  }
+
+  void visit(const ComplementNode* node) {
+    taco_iassert(isa<Region>(node->a)) << "Demorgan's rule must be applied before lowering.";
+    lattice = build(node->a);
+
+    vector<MergePoint> points = flipPoints(lattice.points());
+
+    // Otherwise, all tensors are sparse
+    points = includeMissingProducerPoints(points);
+
+    // Add dimension point
+    Iterator dimIter = iterators.modeIterator(i);
+    points = includeDimensionIterator(points, dimIter);
+
+    bool needsDimPoint = true;
+    for(const auto& point: points) {
+      if(point.locators().empty() && point.iterators().size() == 1 && point.iterators()[0] == dimIter) {
+        needsDimPoint = false;
+        break;
+      }
+    }
+
+    if(needsDimPoint) {
+      points.push_back(MergePoint({dimIter}, {}, {}));
+    }
+
+    lattice = MergeLattice(points);
+  }
+
+  void visit(const IntersectNode* node) {
+    MergeLattice a = build(node->a);
+    MergeLattice b = build(node->b);
+
+    if (a.points().size() > 0 && b.points().size() > 0) {
+      lattice = intersectLattices(a, b);
+    } else {
+      // If any side of an intersection is empty, the entire intersection must be empty
+      lattice = MergeLattice({});
+    }
+  }
+
+  void visit(const UnionNode* node) {
+    MergeLattice a = build(node->a);
+    MergeLattice b = build(node->b);
+    if (a.points().size() > 0 && b.points().size() > 0) {
+      lattice = unionLattices(a, b);
+    }
+      // Scalar operands
+    else if (a.points().size() > 0) {
+      lattice = a;
+    }
+    else if (b.points().size() > 0) {
+      lattice = b;
+    }
+  }
+
+  void visit(const IndexVarNode* varNode) {
+    // There are a few cases here...
+
+    // 1) If var in the expression is the same as the var being lowered, we need to return a lattice
+    //    with one point that iterates over the universe of the current dimension.
+    //    Why: TACO needs to know if it needs to generate merge loops to deal with computing the current index var.
+    //      Eg. b(i) + i where b is sparse. To preserve semantics, we need to merge the sparse iteration set of b
+    //      with the implied dense space of i.
+    //      Question: What if the user WANTS i to be 'sparse'? Just define a func where + is an intersection =)
+    // 2) The vars differ. This case actually has 2 subcases...
+    //    a) The loop variable ('i' in this builder) is derived from the variable used in the expression
+    //       ('var' defined below). In this case, return a mode iterator over the derived var ('i' in the builder)
+    //       so taco can generate the correct merge loops for this level.
+    //    b) The loop variable is not derived from the variable used in the expression. In this case, we just return
+    //        an empty lattice as there is nothing that needs to be merged =)
+    // TODO: Add these cases to the test suite....
+    IndexVar var(varNode);
+    taco_iassert(provGraph.isUnderived(var));
+    if (var == i) {
+      lattice = MergeLattice({MergePoint({Iterator(var)}, {}, {})});
+    } else {
+      if (provGraph.isDerivedFrom(i, var)) {
+        lattice = MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+      } else {
+        lattice = MergeLattice({});
+      }
+    }
+  }
+
   void visit(const AccessNode* access)
   {
+    // TODO: Case where Access is used in computation but not iteration algebra
+    if(seenMergePoints.find(access) != seenMergePoints.end()) {
+      lattice = MergeLattice({seenMergePoints.at(access)});
+      return;
+    }
+
     if (util::contains(latticesOfTemporaries, access->tensorVar)) {
       // If the accessed tensor variable is a temporary with an associated merge
       // lattice then we return that lattice.
@@ -148,6 +259,8 @@ private:
                          : MergePoint(pointIterators, {}, {});
       lattice = MergeLattice({point});
     }
+
+    seenMergePoints.insert({access, lattice.points()[0]});
   }
 
   void visit(const LiteralNode* node) {
@@ -161,63 +274,19 @@ private:
   }
 
   void visit(const AddNode* node) {
-    MergeLattice a = build(node->a);
-    MergeLattice b = build(node->b);
-    if (a.points().size() > 0 && b.points().size() > 0) {
-      lattice = unionLattices(a, b);
-    }
-    // Scalar operands
-    else if (a.points().size() > 0) {
-      lattice = a;
-    }
-    else if (b.points().size() > 0) {
-      lattice = b;
-    }
+    lattice = build(new UnionNode(Region(node->a), Region(node->b)));
   }
 
   void visit(const SubNode* expr) {
-    MergeLattice a = build(expr->a);
-    MergeLattice b = build(expr->b);
-    if (a.points().size() > 0 && b.points().size() > 0) {
-      lattice = unionLattices(a, b);
-    }
-    // Scalar operands
-    else if (a.points().size() > 0) {
-      lattice = a;
-    }
-    else if (b.points().size() > 0) {
-      lattice = b;
-    }
+    lattice = build(new UnionNode(Region(expr->a), Region(expr->b)));
   }
 
   void visit(const MulNode* expr) {
-    MergeLattice a = build(expr->a);
-    MergeLattice b = build(expr->b);
-    if (a.points().size() > 0 && b.points().size() > 0) {
-      lattice = intersectLattices(a, b);
-    }
-    // Scalar operands
-    else if (a.points().size() > 0) {
-      lattice = a;
-    }
-    else if (b.points().size() > 0) {
-      lattice = b;
-    }
+    lattice = build(new IntersectNode(Region(expr->a), Region(expr->b)));
   }
 
   void visit(const DivNode* expr) {
-    MergeLattice a = build(expr->a);
-    MergeLattice b = build(expr->b);
-    if (a.points().size() > 0 && b.points().size() > 0) {
-      lattice = intersectLattices(a, b);
-    }
-    // Scalar operands
-    else if (a.points().size() > 0) {
-      lattice = a;
-    }
-    else if (b.points().size() > 0) {
-      lattice = b;
-    }
+    lattice = build(new IntersectNode(Region(expr->a), Region(expr->b)));
   }
 
   void visit(const SqrtNode* expr) {
@@ -226,6 +295,34 @@ private:
 
   void visit(const CastNode* expr) {
     lattice = build(expr->a);
+  }
+
+  void visit(const CallNode* expr) {
+    taco_iassert(expr->iterAlg.defined()) << "Algebra must be defined" << endl;
+    lattice = build(expr->iterAlg);
+
+    // Now we need to store regions that should be kept when applying optimizations.
+    // Can't remove regions described by special regions since the lowerer must emit checks for those in
+    // all cases.
+    const auto regionDefs = expr->regionDefinitions;
+    const vector<IndexExpr> inputs = expr->args;
+    set<set<Iterator>> regionsToKeep;
+
+    for(auto& it : regionDefs) {
+      vector<int> region = it.first;
+      set<Iterator> regionToKeep;
+      for(auto idx : region) {
+        match(inputs[idx],
+              function<void(const AccessNode*)>([&](const AccessNode* n) {
+                  set<Iterator> tensorRegion = seenMergePoints.at(n).tensorRegion();
+                  regionToKeep.insert(tensorRegion.begin(), tensorRegion.end());
+              })
+        );
+      }
+      regionsToKeep.insert(regionToKeep);
+    }
+
+    lattice = MergeLattice(lattice.points(), regionsToKeep);
   }
 
   void visit(const CallIntrinsicNode* expr) {
@@ -298,9 +395,10 @@ private:
       vector<MergePoint> points;
       for (auto &point : lattice.points()) {
         points.push_back(MergePoint(point.iterators(), point.locators(),
-                                    vector<Iterator>(resultIterators.begin(), resultIterators.end())));
+                                    vector<Iterator>(resultIterators.begin(), resultIterators.end()),
+                                    point.isOmitter()));
       }
-      lattice = MergeLattice(points);
+      lattice = MergeLattice(points, lattice.getTensorRegionsToKeep());
     }
   }
 
@@ -341,6 +439,98 @@ private:
     taco_not_supported_yet;
   }
 
+  vector<MergePoint>
+  enumerateChildrenPoints(const MergePoint& point, const map<set<Iterator>, MergePoint>& originalPoints,
+                          set<set<Iterator>>& seen) {
+    set<Iterator> pointIters(point.iterators().begin(), point.iterators().end());
+    set<Iterator> pointLocs(point.locators().begin(), point.locators().end());
+
+    set<Iterator> regions = point.tensorRegion();
+    set<Iterator> currentRegion = point.tensorRegion();
+
+    vector<MergePoint> result;
+    for(const auto& tensorIt: regions) {
+      currentRegion.erase(tensorIt);
+
+      if(util::contains(seen, currentRegion)) {
+        currentRegion.insert(tensorIt);
+        continue;
+      }
+
+      if(util::contains(originalPoints, currentRegion)) {
+        result.push_back(originalPoints.at(currentRegion));
+      }
+      else if(!currentRegion.empty()){
+        MergePoint mp({}, {}, {});
+        for(const auto& it: currentRegion) {
+          mp = unionPoints(mp, seenMergePoints.at(iterators.modeAccess(it).getAccess()));
+        }
+
+        vector<Iterator> newIters;
+        vector<Iterator> newLocators = mp.locators();
+        for(const auto& it: mp.iterators()) {
+          if(util::contains(pointLocs, it)) {
+            newLocators.push_back(it);
+          }
+          else {
+            newIters.push_back(it);
+          }
+        }
+
+        result.push_back(MergePoint(newIters, newLocators, point.results()));
+      }
+
+      seen.insert(currentRegion);
+      currentRegion.insert(tensorIt);
+    }
+    return result;
+  }
+
+  vector<MergePoint>
+  includeMissingProducerPoints(const vector<MergePoint>& points) {
+    if(points.empty()) return points;
+
+    map<set<Iterator>, MergePoint> originalPoints;
+    set<set<Iterator>> seen;
+    for(const auto& point: points) {
+      originalPoints.insert({point.tensorRegion(), point});
+    }
+
+    vector<MergePoint> frontier = {points[0]};
+    vector<MergePoint> exactLattice;
+
+    while(!frontier.empty()) {
+      vector<MergePoint> nextFrontier;
+      for (const auto &frontierPoint: frontier) {
+        exactLattice.push_back(frontierPoint);
+        util::append(nextFrontier, enumerateChildrenPoints(frontierPoint, originalPoints, seen));
+      }
+
+      frontier = nextFrontier;
+    }
+
+    return exactLattice;
+  }
+
+  static vector<MergePoint>
+  includeDimensionIterator(const vector<MergePoint>& points, const Iterator& dimIter) {
+    vector<MergePoint> results;
+    for (auto& point : points) {
+      vector<Iterator> iterators = point.iterators();
+      if (!any(iterators, [](Iterator it){ return it.isDimensionIterator(); })) {
+        taco_iassert(point.iterators().size() > 0);
+        results.push_back(MergePoint(combine(iterators, {dimIter}),
+                                     point.locators(),
+                                     point.results(),
+                                     point.isOmitter()));
+      }
+      else {
+        results.push_back(point);
+      }
+    }
+    return results;
+  }
+
   /**
    * The intersection of two lattices is the result of merging all the
    * combinations of merge points from the two lattices.
@@ -355,13 +545,74 @@ private:
     bool locateLeft = locateFromLeft(left, right);
 
     // Append all combinations of a and b merge points
-    for (auto& leftPoint : left.points()) {
-      for (auto& rightPoint : right.points()) {
-        points.push_back(intersectPoints(leftPoint, rightPoint, locateLeft));
+    struct pointSort {
+      bool operator()(const MergePoint& a, const MergePoint& b) {
+        size_t left_size  = a.iterators().size() + a.locators().size();
+        size_t right_size = b.iterators().size() + b.locators().size();
+        return left_size > right_size;
+      }
+    } pointSorter;
+
+    // Append all combinations of the merge points of a and b
+    auto sorted_apoint = left.points();
+    auto sorted_bpoint = right.points();
+    std::sort(sorted_apoint.begin(), sorted_apoint.end(), pointSorter);
+    std::sort(sorted_bpoint.begin(), sorted_bpoint.end(), pointSorter);
+
+    set<Iterator> apoint_root_set;
+    if (!sorted_apoint.empty())
+      apoint_root_set = sorted_apoint.begin()->tensorRegion();
+
+    set<Iterator>bpoint_root_set;
+    if (!sorted_bpoint.empty())
+      bpoint_root_set = sorted_bpoint.begin()->tensorRegion();
+
+
+    for (auto& apoint : sorted_apoint) {
+      for (auto& bpoint : sorted_bpoint) {
+        bool hasIntersection = true;
+
+        auto apoint_set = apoint.tensorRegion();
+        auto bpoint_set = bpoint.tensorRegion();
+
+        for (auto& it : apoint_set) {
+          if (!std::count(bpoint_set.begin(), bpoint_set.end(), it) &&
+              std::count(bpoint_root_set.begin(), bpoint_root_set.end(), it)) {
+            hasIntersection = false;
+          }
+        }
+        for (auto& it : bpoint_set) {
+          if (!std::count(apoint_set.begin(), apoint_set.end(), it) &&
+              std::count(apoint_root_set.begin(), apoint_root_set.end(), it)) {
+            hasIntersection = false;
+          }
+        }
+        if (hasIntersection)
+          points.push_back(intersectPoints(apoint, bpoint, locateLeft));
       }
     }
+    std::sort(points.begin(), points.end(), pointSorter);
 
-    return MergeLattice(points);
+    // Correctness: ensures that points produced on BOTH the left and the
+    //              right lattices are produced in the final intersection.
+    //              Needed since some subPoints may omit leading to erroneous
+    //              omit intersection points.
+    points = correctPointTypesAfterIntersect(left.points(), right.points(), points);
+
+    // Correctness: Deduplicate regions that are described by multiple lattice
+    //              points and resolves conflicts arising between omitters and
+    //              producers
+     points = removeDuplicatedTensorRegions(points, true);
+     
+    // Optimization: Removed a subLattice of points if the entire subLattice is
+    //               made of only omitters
+    // points = removeUnnecessaryOmitterPoints(points);
+
+    set<set<Iterator>> toKeep = left.getTensorRegionsToKeep();
+    set<set<Iterator>> toKeepRight = right.getTensorRegionsToKeep();
+
+    toKeep.insert(toKeepRight.begin(), toKeepRight.end());
+    return MergeLattice(points, toKeep);
   }
 
   /**
@@ -372,10 +623,49 @@ private:
   {
     vector<MergePoint> points;
 
+    struct pointSort {
+      bool operator()(const MergePoint& a, const MergePoint& b) {
+        size_t left_size  = a.iterators().size() + a.locators().size();
+        size_t right_size = b.iterators().size() + b.locators().size();
+        return left_size > right_size;
+      }
+    } pointSorter;
+
     // Append all combinations of the merge points of a and b
-    for (auto& apoint : left.points()) {
-      for (auto& bpoint : right.points()) {
-        points.push_back(unionPoints(apoint, bpoint));
+    auto sorted_apoint = left.points();
+    auto sorted_bpoint = right.points();
+    std::sort(sorted_apoint.begin(), sorted_apoint.end(), pointSorter);
+    std::sort(sorted_bpoint.begin(), sorted_bpoint.end(), pointSorter);
+
+    set<Iterator> apoint_root_set;
+    if (!sorted_apoint.empty())
+      apoint_root_set = sorted_apoint.begin()->tensorRegion();
+
+    set<Iterator>bpoint_root_set;
+    if (!sorted_bpoint.empty())
+      bpoint_root_set = sorted_bpoint.begin()->tensorRegion();
+
+    for (auto& apoint : sorted_apoint) {
+      for (auto& bpoint : sorted_bpoint) {
+        bool hasIntersection = true;
+
+        auto apoint_set = apoint.tensorRegion();
+        auto bpoint_set = bpoint.tensorRegion();
+
+        for (auto& it : apoint_set) {
+          if (!std::count(bpoint_set.begin(), bpoint_set.end(), it) &&
+              std::count(bpoint_root_set.begin(), bpoint_root_set.end(), it)) {
+            hasIntersection = false;
+          }
+        }
+        for (auto& it : bpoint_set) {
+          if (!std::count(apoint_set.begin(), apoint_set.end(), it) &&
+              std::count(apoint_root_set.begin(), apoint_root_set.end(), it)) {
+            hasIntersection = false;
+          }
+        }
+        if (hasIntersection)
+          points.push_back(unionPoints(apoint, bpoint));
       }
     }
 
@@ -385,6 +675,17 @@ private:
     // Append the merge points of b
     util::append(points, right.points());
 
+    std::sort(points.begin(), points.end(), pointSorter);
+
+    // Correctness: This ensures that points omitted on BOTH the left and the
+    //              right lattices are omitted in the Union. Needed since some
+    //              subpoints may produce leading to erroneous producer regions
+    points = correctPointTypesAfterUnion(left.points(), right.points(), points);
+
+    // Correctness: Deduplicate regions that are described by multiple lattice
+    //              points and resolves conflicts arising between omitters and
+    //              producers
+    points = removeDuplicatedTensorRegions(points, false);
 
     // Optimization: insert a dimension iterator if one of the iterators in the
     //               iterate set is not ordered.
@@ -394,17 +695,14 @@ private:
     //               are subsets of some other iterator.
     points = moveLocateSubsetIteratorsToLocateSet(points);
 
-    // Optimization: remove lattice points that lack any of the full iterators
-    //               of the first point, since when a full iterator exhausts we
-    //               have iterated over the whole space.
-    points = removePointsThatLackFullIterators(points);
+    // Optimization: Removes a subLattice of points if the entire subLattice is
+    //               made of only omitters
+    // points = removeUnnecessaryOmitterPoints(points);
+    set<set<Iterator>> toKeep = left.getTensorRegionsToKeep();
+    set<set<Iterator>> toKeepRight = right.getTensorRegionsToKeep();
 
-    // Optimization: remove lattice points whose iterators are identical to the
-    //               iterators of an earlier point, since we have already iterated
-    //               over this sub-space.
-    points = removePointsWithIdenticalIterators(points);
-
-    return MergeLattice(points);
+    toKeep.insert(toKeepRight.begin(), toKeepRight.end());
+    return MergeLattice(points, toKeep);
   }
 
   /**
@@ -438,7 +736,7 @@ private:
 
     vector<Iterator> results = combine(left.results(),   right.results());
 
-    return MergePoint(iterators, locators, results);
+    return MergePoint(iterators, locators, results, left.isOmitter() || right.isOmitter());
   }
 
   /**
@@ -449,6 +747,7 @@ private:
    */
   static MergePoint unionPoints(MergePoint left, MergePoint right)
   {
+
     vector<Iterator> iterators= combine(left.iterators(),right.iterators());
     vector<Iterator> locaters = combine(left.locators(), right.locators());
     vector<Iterator> results  = combine(left.results(),  right.results());
@@ -456,7 +755,7 @@ private:
     // Remove duplicate iterators.
     iterators = deduplicateDimensionIterators(iterators);
 
-    return MergePoint(iterators, locaters, results);
+    return MergePoint(iterators, locaters, results, left.isOmitter() && right.isOmitter());
   }
 
   static bool locateFromLeft(MergeLattice left, MergeLattice right)
@@ -490,7 +789,7 @@ private:
   }
 
   static vector<MergePoint>
-  insertDimensionIteratorIfNotOrdered(vector<MergePoint> points)
+  insertDimensionIteratorIfNotOrdered(const vector<MergePoint>& points)
   {
     vector<MergePoint> results;
     for (auto& point : points) {
@@ -501,7 +800,8 @@ private:
         Iterator dimension(iterators[0].getIndexVar());
         results.push_back(MergePoint(combine(iterators, {dimension}),
                                      point.locators(),
-                                     point.results()));
+                                     point.results(),
+                                     point.isOmitter()));
       }
       else {
         results.push_back(point);
@@ -511,7 +811,7 @@ private:
   }
 
   static vector<MergePoint>
-  moveLocateSubsetIteratorsToLocateSet(vector<MergePoint> points)
+  moveLocateSubsetIteratorsToLocateSet(const vector<MergePoint>& points)
   {
     vector<Iterator> full = filter(points[0].iterators(),
                                    [](Iterator it){ return it.isFull(); });
@@ -534,45 +834,8 @@ private:
                                        });
       result.push_back(MergePoint(iterators,
                                   combine(point.locators(), locators),
-                                  point.results()));
-    }
-    return result;
-  }
-
-  static vector<MergePoint>
-  removePointsThatLackFullIterators(vector<MergePoint> points)
-  {
-    vector<MergePoint> result;
-    vector<Iterator> fullIterators = filter(points[0].iterators(),
-                                            [](Iterator it){return it.isFull();});
-    for (auto& point : points) {
-      bool missingFullIterator = false;
-      for (auto& fullIterator : fullIterators) {
-        if (!util::contains(point.iterators(), fullIterator)) {
-          missingFullIterator = true;
-          break;
-        }
-      }
-      if (!missingFullIterator) {
-        result.push_back(point);
-      }
-    }
-    return result;
-  }
-
-  static vector<MergePoint>
-  removePointsWithIdenticalIterators(vector<MergePoint> points)
-  {
-    vector<MergePoint> result;
-    set<set<Iterator>> iteratorSets;
-    for (auto& point : points) {
-      set<Iterator> iteratorSet(point.iterators().begin(), 
-                                point.iterators().end());
-      if (util::contains(iteratorSets, iteratorSet)) {
-        continue;
-      }
-      result.push_back(point);
-      iteratorSets.insert(iteratorSet);
+                                  point.results(),
+                                  point.isOmitter()));
     }
     return result;
   }
@@ -597,11 +860,145 @@ private:
     }
     return deduplicates;
   }
+
+  static vector<Iterator>
+  removeDimensionIterators(const vector<Iterator>& iterators)
+  {
+    vector<Iterator> result;
+
+    // Remove all but one of the dense iterators, which are all the same.
+    for (auto& iterator : iterators) {
+      if (!iterator.isDimensionIterator()) {
+        result.push_back(iterator);
+      }
+    }
+    return result;
+  }
+
+
+  static vector<MergePoint>
+  flipPoints(const vector<MergePoint>& points) {
+    vector<MergePoint> flippedPoints;
+    for(const auto& mp: points) {
+      MergePoint flippedPoint(mp.iterators(), mp.locators(), mp.results(), !mp.isOmitter());
+      flippedPoints.push_back(flippedPoint);
+    }
+    return flippedPoints;
+  }
+
+  static set<set<Iterator>>
+  getProducerOrOmitterRegions(const std::vector<MergePoint>& points, bool getOmitters) {
+    set<set<Iterator>> result;
+
+    for(const auto& point: points) {
+      if(point.isOmitter() == getOmitters) {
+        set<Iterator> region = point.tensorRegion();
+        result.insert(region);
+      }
+    }
+    return result;
+  }
+
+  static vector<MergePoint>
+  correctPointTypes(const vector<MergePoint>& left, const vector<MergePoint>& right,
+                    const vector<MergePoint>& points, bool preserveOmit) {
+    vector<MergePoint> result;
+    set<set<Iterator>> leftSet = getProducerOrOmitterRegions(left, preserveOmit);
+    set<set<Iterator>> rightSet = getProducerOrOmitterRegions(right, preserveOmit);
+
+    for (auto& point : points) {
+      set<Iterator> iteratorSet = point.tensorRegion();
+
+      MergePoint newPoint = point;
+      if(util::contains(leftSet, iteratorSet) && util::contains(rightSet, iteratorSet)) {
+        // Both regions produce/omit, so we ensure that this is preserved
+        newPoint = MergePoint(point.iterators(), point.locators(), point.results(), preserveOmit);
+      }
+      result.push_back(newPoint);
+    }
+
+    return result;
+  }
+
+  static vector<MergePoint>
+  correctPointTypesAfterIntersect(const vector<MergePoint>& left, const vector<MergePoint>& right,
+                                  const vector<MergePoint>& points) {
+    return correctPointTypes(left, right, points, false);
+  }
+
+  static vector<MergePoint>
+  correctPointTypesAfterUnion(const vector<MergePoint>& left, const vector<MergePoint>& right,
+                              const vector<MergePoint>& points) {
+    return correctPointTypes(left, right, points, true);
+  }
+
+  static vector<MergePoint>
+  removeDuplicatedTensorRegions(const vector<MergePoint>& points, bool preserveOmitters) {
+
+    set<set<Iterator>> producerRegions = getProducerOrOmitterRegions(points, false);
+    set<set<Iterator>> omitterRegions = getProducerOrOmitterRegions(points, true);
+
+    vector<MergePoint> result;
+
+    set<set<Iterator>> regionSets;
+    for (auto& point : points) {
+      set<Iterator> region = point.tensorRegion();
+
+      if(util::contains(regionSets, region)) {
+        continue;
+      }
+
+      MergePoint p = point;
+      if(util::contains(producerRegions, region) && util::contains(omitterRegions, region)) {
+        // If a region is marked as both produce and omit resolve the ambiguity based on the preserve
+        // omitters flag.
+        p = MergePoint(point.iterators(), point.locators(), point.results(), preserveOmitters);
+      }
+
+      result.push_back(p);
+      regionSets.insert(region);
+    }
+
+    return result;
+  }
+
+  static vector<MergePoint>
+  removeUnnecessaryOmitterPoints(const vector<MergePoint>& points) {
+    vector<MergePoint> filteredPoints;
+
+    MergeLattice l(points);
+    set<set<Iterator>> removed;
+
+    for(const auto& point : points) {
+
+      if(util::contains(removed, point.tensorRegion())) {
+        continue;
+      }
+
+      MergeLattice subLattice = l.subLattice(point);
+
+      if(util::all(subLattice.points(), [](const MergePoint p) {return p.isOmitter();})) {
+        for(const auto& p : subLattice.points()) {
+          removed.insert(p.tensorRegion());
+        }
+      }
+    }
+
+    for(const auto& point : points) {
+      if(!util::contains(removed, point.tensorRegion())) {
+        filteredPoints.push_back(point);
+      }
+    }
+
+    return filteredPoints;
+  }
+
 };
 
 
 // class MergeLattice
-MergeLattice::MergeLattice(vector<MergePoint> points) : points_(points)
+MergeLattice::MergeLattice(vector<MergePoint> points, set<set<Iterator>> regionsToKeep) : points_(points),
+                                                                                          regionsToKeep(regionsToKeep)
 {
 }
 
@@ -609,6 +1006,7 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators, ProvenanceGr
 {
   // Can emit merge lattice once underived ancestor can be recovered
   IndexVar indexVar = forall.getIndexVar();
+
   MergeLatticeBuilder builder(indexVar, iterators, provGraph, definedIndexVars, whereTempsToResult);
 
   vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(indexVar);
@@ -619,7 +1017,59 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators, ProvenanceGr
   }
 
   MergeLattice lattice = builder.build(forall.getStmt());
-  return lattice;
+
+  // Can't remove points if lattice contains omitters since we lose merge cases during lowering.
+  if(lattice.anyModeIteratorIsLeaf() && lattice.needExplicitZeroChecks()) {
+    return lattice;
+  }
+
+  // Loop lattice and case lattice are identical so simplify here
+  return lattice.getLoopLattice();
+}
+
+std::vector<MergePoint>
+MergeLattice::removePointsThatLackFullIterators(const std::vector<MergePoint>& points)
+{
+  vector<MergePoint> result;
+  vector<Iterator> fullIterators = filter(points[0].iterators(),
+                                          [](Iterator it){return it.isFull();});
+  for (auto& point : points) {
+    bool missingFullIterator = false;
+    for (auto& fullIterator : fullIterators) {
+      if (!util::contains(point.iterators(), fullIterator)) {
+        missingFullIterator = true;
+        break;
+      }
+    }
+    if (!missingFullIterator) {
+      result.push_back(point);
+    }
+  }
+  return result;
+}
+
+std::vector<MergePoint>
+MergeLattice::removePointsWithIdenticalIterators(const std::vector<MergePoint>& points)
+{
+  vector<MergePoint> result;
+  set<set<Iterator>> producerIteratorSets;
+  for (auto& point : points) {
+    set<Iterator> iteratorSet(point.iterators().begin(),
+                              point.iterators().end());
+    if (util::contains(producerIteratorSets, iteratorSet)) {
+      continue;
+    }
+    result.push_back(point);
+    producerIteratorSets.insert(iteratorSet);
+  }
+  return result;
+}
+
+bool MergeLattice::needExplicitZeroChecks() {
+  if(util::any(points(), [](const MergePoint& mp) {return mp.isOmitter();})) {
+    return true;
+  }
+  return !getTensorRegionsToKeep().empty();
 }
 
 MergeLattice MergeLattice::subLattice(MergePoint lp) const {
@@ -649,12 +1099,20 @@ const vector<Iterator>& MergeLattice::iterators() const {
   return points()[0].iterators();
 }
 
+const vector<Iterator>& MergeLattice::locators() const {
+  // The iterators merged by a lattice are those merged by the first point
+  taco_iassert(points().size() > 0) << "No merge points in the merge lattice";
+  return points()[0].locators();
+}
+
 set<Iterator> MergeLattice::exhausted(MergePoint point) {
-  set<Iterator> notExhaustedIters(point.iterators().begin(),
-                                  point.iterators().end());
+  set<Iterator> notExhaustedIters = point.tensorRegion();
 
   set<Iterator> exhausted;
-  for (auto& iterator : iterators()) {
+  vector<Iterator> modeIterators = combine(iterators(), locators());
+  modeIterators = filter(modeIterators, [](const Iterator& it) {return it.isModeIterator();});
+
+  for (auto& iterator : modeIterators) {
     if (!util::contains(notExhaustedIters, iterator)) {
       exhausted.insert(iterator);
     }
@@ -672,6 +1130,11 @@ bool MergeLattice::exact() const {
   // A lattice is full if any merge point iterates over only full iterators
   // or if each sparse iterator is uniquely iterated by some lattice point.
   set<Iterator> uniquelyMergedIterators;
+
+  if (util::any(points(), [](const MergePoint& m) {return m.isOmitter();})) {
+    return false;
+  }
+
   for (auto& point : this->points()) {
     if (all(point.iterators(), [](Iterator it) {return it.isFull();})) {
       return true;
@@ -692,13 +1155,74 @@ bool MergeLattice::exact() const {
   return true;
 }
 
+bool MergeLattice::anyModeIteratorIsLeaf() const {
+  if(points().empty()) {
+    return false;
+  }
+  vector<Iterator> latticeIters = util::combine(iterators(), locators());
+  return util::any(latticeIters, [](const Iterator& it) {return it.isModeIterator() && it.isLeaf();});
+}
+
+std::vector<Iterator> MergeLattice::retrieveRegionIteratorsToOmit(const MergePoint &point) const {
+  vector<Iterator> omittedIterators;
+  set<Iterator> pointRegion = point.tensorRegion();
+  set<Iterator> seen;
+  const size_t levelOfPoint = pointRegion.size();
+
+  if(point.isOmitter()) {
+    seen = set<Iterator>(pointRegion.begin(), pointRegion.end());
+    omittedIterators = vector<Iterator>(seen.begin(), seen.end());
+  }
+
+  // Look at all points above
+  for(const auto& mp: points()) {
+    if((mp.tensorRegion().size() > levelOfPoint) && mp.isOmitter()) {
+      // Grab the omitted tensors
+      set<Iterator> parentRegion = mp.tensorRegion();
+      std::vector<Iterator> parentItersToOmit;
+      set_difference(parentRegion.begin(), parentRegion.end(),
+                     pointRegion.begin(), pointRegion.end(),
+                     back_inserter(parentItersToOmit));
+
+      // Add iterators not in present point to the iterators to omit
+      for(const auto& it : parentItersToOmit) {
+        if(!util::contains(seen, it)) {
+          seen.insert(it);
+          omittedIterators.push_back(it);
+        }
+      }
+    }
+  }
+
+  return omittedIterators;
+}
+
+set<set<Iterator>> MergeLattice::getTensorRegionsToKeep() const {
+  return regionsToKeep;
+}
+
+MergeLattice MergeLattice::getLoopLattice() const {
+  std::vector<MergePoint> p = removePointsThatLackFullIterators(points());
+  return removePointsWithIdenticalIterators(p);
+}
+
 ostream& operator<<(ostream& os, const MergeLattice& ml) {
   return os << util::join(ml.points(), ", ");
 }
 
 bool operator==(const MergeLattice& a, const MergeLattice& b) {
-  auto& apoints = a.points();
-  auto& bpoints = b.points();
+  auto apoints = a.points();
+  auto bpoints = b.points();
+  struct pointSort {
+    bool operator()(const MergePoint& a, const MergePoint& b) {
+      size_t left_size  = a.iterators().size() + a.locators().size();
+      size_t right_size = b.iterators().size() + b.locators().size();
+      return left_size > right_size;
+    }
+  } pointSorter;
+
+  std::sort(apoints.begin(), apoints.end(), pointSorter);
+  std::sort(bpoints.begin(), bpoints.end(), pointSorter);
   if (apoints.size() != bpoints.size()) {
     return false;
   }
@@ -720,19 +1244,23 @@ struct MergePoint::Content {
   std::vector<Iterator> iterators;
   std::vector<Iterator> locators;
   std::vector<Iterator> results;
+  bool omitPoint;
 };
 
 MergePoint::MergePoint(const vector<Iterator>& iterators,
                        const vector<Iterator>& locators,
-                       const vector<Iterator>& results) : content_(new Content) {
-  taco_uassert(all(iterators,
+                       const vector<Iterator>& results,
+                       bool omitPoint) : content_(new Content) {
+  taco_uassert(iterators.size() <= 1 ||
+               all(iterators,
                    [](Iterator it){ return it.hasLocate() || it.isOrdered(); }))
       << "Merge points do not support iterators that do not have locate and "
       << "that are not ordered.";
 
-  content_->iterators = iterators;
-  content_->locators = locators;
-  content_->results = results;
+  content_->iterators = util::removeDuplicates(iterators);
+  content_->locators = util::removeDuplicates(locators);
+  content_->results = util::removeDuplicates(results);
+  content_->omitPoint = omitPoint;
 }
 
 const vector<Iterator>& MergePoint::iterators() const {
@@ -800,6 +1328,18 @@ const std::vector<Iterator>& MergePoint::results() const {
   return content_->results;
 }
 
+const std::set<Iterator> MergePoint::tensorRegion() const {
+  std::vector<Iterator> iterators = filter(content_->iterators,
+                                    [](Iterator it) {return !it.isDimensionIterator();});
+
+  append(iterators, content_->locators);
+  return set<Iterator>(iterators.begin(), iterators.end());
+}
+
+bool MergePoint::isOmitter() const {
+  return content_->omitPoint;
+}
+
 ostream& operator<<(ostream& os, const MergePoint& mlp) {
   os << "[";
   os << util::join(mlp.iterators(), ", ");
@@ -811,6 +1351,14 @@ ostream& operator<<(ostream& os, const MergePoint& mlp) {
   os << "|";
   if (mlp.results().size() > 0) os << " ";
   os << util::join(mlp.results(),   ", ");
+
+  os << "|";
+  if(mlp.isOmitter()) {
+    os << " O ";
+  } else {
+    os << " P ";
+  }
+
   os << "]";
   return os;
 }
@@ -831,6 +1379,7 @@ bool operator==(const MergePoint& a, const MergePoint& b) {
   if (!compare(a.iterators(), b.iterators())) return false;
   if (!compare(a.locators(), b.locators())) return false;
   if (!compare(a.results(), b.results())) return false;
+  if ((a.isOmitter() != b.isOmitter())) return false;
   return true;
 }
 

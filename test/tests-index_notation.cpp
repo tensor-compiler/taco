@@ -1,5 +1,7 @@
 #include "test.h"
+#include "taco/index_notation/tensor_operator.h"
 #include "taco/index_notation/index_notation.h"
+#include "op_factory.h"
 
 using namespace taco;
 
@@ -252,3 +254,28 @@ INSTANTIATE_TEST_CASE_P(separate_reductions, concrete,
                                   forall(k,
                                          tk += c(k))),
                             forall(j, tj += b(j))))));
+
+
+
+Func scOr("Or", OrImpl(), {Annihilator((bool)1), Identity((bool)0)});
+Func scAnd("And", AndImpl(), {Annihilator((bool)0), Identity((bool)0)});
+
+Func bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
+INSTANTIATE_TEST_CASE_P(tensorOpConcrete, concrete,
+              Values(ConcreteTest(a(i) = Reduction(scOr(), j, bfsMaskOp(scAnd(B(i, j), c(j)), c(i))),
+                                  forall(i,
+                                         forall(j,
+                                                Assignment(a(i), bfsMaskOp(scAnd(B(i, j), c(j)), c(i)), scOr())
+                                         )))));
+
+// funcIsomorphic ensures that the isomorphic function can proceed without error
+// on IndexExpr's that contain `Func`'s.
+TEST(notation, funcIsomorphic) {
+  int dim = 10;
+  Func xorOp("xor", GeneralAdd(), xorGen());
+  Tensor<int> A("A", {dim});
+  Tensor<int> B("B", {dim});
+  IndexVar i;
+  auto indexExpr = xorOp(A(i), B(i));
+  ASSERT_TRUE(isomorphic(indexExpr, indexExpr));
+}

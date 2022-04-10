@@ -183,6 +183,8 @@ std::complex<double> Literal::getComplexValue() const {
   return 0.0;
 }
 
+
+
 template <typename T> bool compare(const Literal* literal, double val) {
       return literal->getValue<T>() == static_cast<T>(val);
 }
@@ -474,6 +476,24 @@ Expr And::make(Expr a, Expr b) {
   andnode->a = a;
   andnode->b = b;
   return andnode;
+}
+
+Expr BinOp::make(Expr a, Expr b, std::string op) {
+  BinOp *binopnode = new BinOp;
+  binopnode->strMid = op;
+  binopnode->a = a;
+  binopnode->b = b;
+  return binopnode;
+}
+
+Expr BinOp::make(Expr a, Expr b, std::string strStart, std::string strMid, std::string strEnd) {
+  BinOp *binopnode = new BinOp;
+  binopnode->strStart = strStart;
+  binopnode->strMid = strMid;
+  binopnode->strEnd = strEnd;
+  binopnode->a = a;
+  binopnode->b = b;
+  return binopnode;
 }
 
 Expr Cast::make(Expr a, Datatype newType) {
@@ -871,6 +891,9 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
     case TensorProperty::ValuesSize:
       gp->name = tensorVar->name + "_vals_size";
       break;
+    case TensorProperty::FillValue:
+      gp->name = tensorVar->name + "_fill_value";
+      break;
   }
   
   return gp;
@@ -919,6 +942,8 @@ template<> void ExprNode<And>::accept(IRVisitorStrict *v)
     const { v->visit((const And*)this); }
 template<> void ExprNode<Or>::accept(IRVisitorStrict *v)
     const { v->visit((const Or*)this); }
+template<> void ExprNode<BinOp>::accept(IRVisitorStrict *v)
+    const { v->visit((const BinOp*)this); }
 template<> void ExprNode<Cast>::accept(IRVisitorStrict *v)
     const { v->visit((const Cast*)this); }
 template<> void ExprNode<Call>::accept(IRVisitorStrict *v)
