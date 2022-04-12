@@ -963,8 +963,13 @@ Stmt LowererImplImperative::lowerForallCloned(Forall forall) {
   }
 
   // Build guards
+  cout << "before  loop" << endl;
+
   Expr guardCondition;
   for (auto var : varsWithGuard) {
+
+    cout << "Var = " << var << endl;
+
     std::vector<ir::Expr> iterBounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
 
     Expr minGuard = Lt::make(minVarValues[var], iterBounds[0]);

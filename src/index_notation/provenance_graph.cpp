@@ -1299,12 +1299,8 @@ bool ProvenanceGraph::isCoordVariable(taco::IndexVar indexVar) const {
 }
 
 bool ProvenanceGraph::hasExactBound(IndexVar indexVar) const {
-  if (isUnderived(indexVar)) {
-    return false;
-  }
 
-  IndexVarRel rel = parentRelMap.at(indexVar);
-  if(rel.getRelType() == BOUND)
+  if(indexVar.isBound())
   {
     return indexVar.getBoundType() == BoundType::MaxExact;
   }
