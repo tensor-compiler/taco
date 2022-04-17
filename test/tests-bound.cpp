@@ -51,44 +51,6 @@ TEST(bound, bound_and_rebound) {
 }
 
 
-// TEST(bound, bound_and_fuse) {
-  
-//   Tensor<double> A("A", {16}, Format{Dense});
-//   Tensor<double> B("B", {16}, Format{Dense});
-//   Tensor<double> C("C", {16}, Format{Dense});
-
-//   for (int i = 0; i < 16; i++) {
-//       A.insert({i}, (double) i);
-//       B.insert({i}, (double) i);
-//   }
-
-//   A.pack();
-//   B.pack();
-
-//   IndexVar i("i");
-//   IndexVar i0("i0"), i1("i1");
-//   IndexExpr precomputedExpr = B(i) * C(i);
-//   A(i) = precomputedExpr;
-
-//   IndexStmt stmt = A.getAssignment().concretize();
-//   TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
-//   stmt = stmt.bound(i, 16, BoundType::MaxExact)
-//              .split(i, i0, i1, 5)
-//              .fuse()
-//              .precompute(precomputedExpr, i1, i1, precomputed);
-   
-//   A.compile(stmt.concretize());
-//   A.assemble();
-//   A.compute();
-
-//   Tensor<double> expected("expected", {16}, Format{Dense});
-//   expected(i) = B(i) * C(i);
-//   expected.compile();
-//   expected.assemble();
-//   expected.compute();
-//   ASSERT_TENSOR_EQ(expected, A);
-// }
-
 TEST(bound, bound_and_split) {
   
   Tensor<double> A("A", {17}, Format{Dense});
@@ -179,17 +141,6 @@ TEST(bound, bound_normal_1) {
   expected.compute();
 
   ASSERT_TENSOR_EQ(expected, A);
-
-//  ir::IRPrinter irp = ir::IRPrinter(cout);
-//    
-//  cout << stmt << endl;
-//
-//  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-//  ir::Stmt compute = lower(stmt, "compute",  false, true);
-//  
-//  irp.print(compute);
-//  cout << endl;
-//  codegen->compile(compute, false);
 }
 
 
@@ -229,17 +180,6 @@ TEST(bound, bound_normal_2) {
   expected.compute();
 
   ASSERT_TENSOR_EQ(expected, A);
-
-//  ir::IRPrinter irp = ir::IRPrinter(cout);
-//    
-//  cout << stmt << endl;
-//
-//  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-//  ir::Stmt compute = lower(stmt, "compute",  false, true);
-//  
-//  irp.print(compute);
-//  cout << endl;
-//  codegen->compile(compute, false);
 }
 
 
@@ -282,10 +222,8 @@ TEST(bound, split_bound_illegal) {
 
   stmt = stmt.bound(i, 17, BoundType::MaxExact)
              .split(i, i0, i1, 4)
-             .bound(i1, 2, BoundType::MaxExact)
-             .precompute(precomputedExpr, i1, i1, precomputed);
-
-
+             .bound(i1, 2, BoundType::MaxExact);
+             
   ASSERT_THROW(A.compile(stmt.concretize()), taco::TacoException);
 
 }

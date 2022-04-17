@@ -205,36 +205,23 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
   taco_iassert(parentIterBounds.size() == 1);
   taco_iassert(parentIterBounds.count(getParentVar()) == 1);
 
-  if (indexVar.isBound()){
-    // if the variable has been bounded, derive iteration bounds using existing bound
-    taco_iassert(parentCoordBounds.count(getParentVar()) == 1);
-    std::vector<ir::Expr> parentCoordBound = parentCoordBounds.at(getParentVar());
-
-    if (indexVar == getInnerVar()){
-      if (indexVar.getBound() != getSplitFactor()){
-        // check that bound and split factor do not conflict
-        taco_uerror << "Bounded a split inner varibale with bound: " << indexVar.getBound() << " real bound: " << getSplitFactor() << endl;
-      }
-    }
-
-    if (indexVar.getBoundType() == BoundType::MaxExact) {
-      return {parentCoordBound[0], ir::Literal::make(indexVar.getBound(), parentCoordBound[1].type())};
-    }
-    else {
-      taco_not_supported_yet;
-    }
-    return {};
-
-  }
-
   std::vector<ir::Expr> parentBound = parentIterBounds.at(getParentVar());
+  std::vector<ir::Expr> parentCoordBound = parentCoordBounds.at(getParentVar());
   Datatype splitFactorType = parentBound[0].type();
+
+  
   if (indexVar == getOuterVar()) {
     ir::Expr minBound = ir::Div::make(parentBound[0], ir::Literal::make(getSplitFactor(), splitFactorType));
     ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(getSplitFactor()-1, splitFactorType)), ir::Literal::make(getSplitFactor(), splitFactorType));
+    if (isa<Literal>(maxBound) && indexVar.isBound() && !isValue(maxBound, indexVar.getBound())){
+      taco_uerror << "Bounded a split outer varibale with bound: " << indexVar.getBound() << " real bound: " << maxBound << endl;
+    }
     return {minBound, maxBound};
   }
   else if (indexVar == getInnerVar()) {
+    if (indexVar.isBound() && (indexVar.getBound() != getSplitFactor())){
+      taco_uerror << "Bounded a split inner varibale with bound: " << indexVar.getBound() << " real bound: " << getSplitFactor() << endl;
+    }
     ir::Expr minBound = 0;
     ir::Expr maxBound = ir::Literal::make(getSplitFactor(), splitFactorType);
     return {minBound, maxBound};
