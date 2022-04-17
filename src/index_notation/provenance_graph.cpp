@@ -213,14 +213,14 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
   if (indexVar == getOuterVar()) {
     ir::Expr minBound = ir::Div::make(parentBound[0], ir::Literal::make(getSplitFactor(), splitFactorType));
     ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(getSplitFactor()-1, splitFactorType)), ir::Literal::make(getSplitFactor(), splitFactorType));
-    if (isa<Literal>(maxBound) && indexVar.isBound() && !isValue(maxBound, indexVar.getBound())){
-      taco_uerror << "Bounded a split outer varibale with bound: " << indexVar.getBound() << " real bound: " << maxBound << endl;
+    if (isa<Literal>(ir::simplify(maxBound)) && indexVar.isBound() && !isValue(ir::simplify(maxBound), indexVar.getBound())){
+      taco_uerror << "Bounded a split outer variable with bound: " << indexVar.getBound() << " real bound: " << maxBound << endl;
     }
     return {minBound, maxBound};
   }
   else if (indexVar == getInnerVar()) {
     if (indexVar.isBound() && (indexVar.getBound() != getSplitFactor())){
-      taco_uerror << "Bounded a split inner varibale with bound: " << indexVar.getBound() << " real bound: " << getSplitFactor() << endl;
+      taco_uerror << "Bounded a split inner variable with bound: " << indexVar.getBound() << " real bound: " << getSplitFactor() << endl;
     }
     ir::Expr minBound = 0;
     ir::Expr maxBound = ir::Literal::make(getSplitFactor(), splitFactorType);
@@ -357,21 +357,6 @@ std::vector<ir::Expr> DivideRelNode::deriveIterBounds(taco::IndexVar indexVar,
                                                      std::map<taco::IndexVar, taco::ir::Expr> variableNames,
                                                      Iterators iterators, ProvenanceGraph provGraph) const {
 
-  if (indexVar.isBound()){
-
-    taco_iassert(parentCoordBounds.count(getParentVar()) == 1);
-    std::vector<ir::Expr> parentCoordBound = parentCoordBounds.at(getParentVar());
-
-    if (indexVar.getBoundType() == BoundType::MaxExact) {
-      return {parentCoordBound[0], ir::Literal::make(indexVar.getBound(), parentCoordBound[1].type())};
-    }
-    else {
-      taco_not_supported_yet;
-    }
-    return {};
-
-  }
-
   taco_iassert(indexVar == getOuterVar() || indexVar == getInnerVar());
   taco_iassert(parentIterBounds.size() == 1);
   taco_iassert(parentIterBounds.count(getParentVar()) == 1);
@@ -384,10 +369,16 @@ std::vector<ir::Expr> DivideRelNode::deriveIterBounds(taco::IndexVar indexVar,
     // ranges from 0 to divFactor.
     ir::Expr minBound = 0;
     ir::Expr maxBound = divFactor;
+    if (isa<Literal>(ir::simplify(maxBound)) && indexVar.isBound() && !isValue(ir::simplify(maxBound), indexVar.getBound())){
+      taco_uerror << "Bounded a DIVIDE outer variable with bound: " << indexVar.getBound() << " real bound: " << maxBound << endl;
+    }
     return {minBound, maxBound};
   }
+
   else if (indexVar == getInnerVar()) {
-    // The inner loop ranges over a chunk of size parentBound / divFactor.
+    if (indexVar.isBound() && (indexVar.getBound() != getDivFactor())){
+       taco_uerror << "Bounded a divide inner variable with bound: " << indexVar.getBound() << " real bound: " << getDivFactor() << endl;
+    }
     ir::Expr minBound = ir::Div::make(parentBound[0], divFactor);
     ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(getDivFactor()-1, divFactorType)), divFactor);
     return {minBound, maxBound};
@@ -703,23 +694,20 @@ std::vector<ir::Expr> FuseRelNode::deriveIterBounds(taco::IndexVar indexVar,
                                                      std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                                      std::map<taco::IndexVar, taco::ir::Expr> variableNames,
                                                      Iterators iterators, ProvenanceGraph provGraph) const {
-  if (indexVar.isBound()){
-
-    std::vector<ir::Expr> parentCoordBound = combineParentBounds(parentIterBounds[getOuterParentVar()], parentIterBounds[getInnerParentVar()]);
-
-    if (indexVar.getBoundType() == BoundType::MaxExact) {
-      return {parentCoordBound[0], ir::Literal::make(indexVar.getBound(), parentCoordBound[1].type())};
-    }
-    else {
-      taco_not_supported_yet;
-    }
-    return {};
-
-  }
-
+  
   taco_iassert(indexVar == getFusedVar());
   taco_iassert(parentIterBounds.count(getOuterParentVar()) && parentIterBounds.count(getInnerParentVar()));
-  return combineParentBounds(parentIterBounds[getOuterParentVar()], parentIterBounds[getInnerParentVar()]);
+  std::vector<ir::Expr> parentCoordBound = combineParentBounds(parentIterBounds[getOuterParentVar()], parentIterBounds[getInnerParentVar()]);
+
+  if (indexVar.isBound()){
+    //check if max bound matches
+    if (isa<Literal>(ir::simplify(parentCoordBound[1])) && indexVar.isBound() && !isValue(ir::simplify(parentCoordBound[1]), indexVar.getBound())){
+      taco_uerror << "Bounded a fuse index variable with bound: " << indexVar.getBound() << " real bound: " << parentCoordBound[1] << endl;
+    }
+
+  }
+  return parentCoordBound;
+
 }
 
 ir::Expr FuseRelNode::recoverVariable(taco::IndexVar indexVar,
@@ -827,6 +815,10 @@ std::vector<ir::Expr> PrecomputeRelNode::deriveIterBounds(taco::IndexVar indexVa
                                                      std::map<taco::IndexVar, taco::ir::Expr> variableNames,
                                                      Iterators iterators,
                                                      ProvenanceGraph provGraph) const {
+
+  taco_iassert(indexVar == getPrecomputeVar());
+  taco_iassert(parentIterBounds.count(getParentVar()) == 1);
+
   if (indexVar.isBound()){
 
     taco_iassert(parentCoordBounds.count(getParentVar()) == 1);
@@ -842,8 +834,6 @@ std::vector<ir::Expr> PrecomputeRelNode::deriveIterBounds(taco::IndexVar indexVa
 
   }
 
-  taco_iassert(indexVar == getPrecomputeVar());
-  taco_iassert(parentIterBounds.count(getParentVar()) == 1);
   std::vector<ir::Expr> parentIterBound = parentIterBounds.at(getParentVar());
   return parentIterBound;
 }
