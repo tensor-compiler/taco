@@ -718,7 +718,6 @@ std::vector<ir::Expr> FuseRelNode::deriveIterBounds(taco::IndexVar indexVar,
                                                      Iterators iterators, ProvenanceGraph provGraph) const {
   if (indexVar.isBound()){
 
-    taco_iassert(parentCoordBounds.count(getParentVar()) == 1);
     std::vector<ir::Expr> parentCoordBound = combineParentBounds(parentIterBounds[getOuterParentVar()], parentIterBounds[getInnerParentVar()]);
 
     if (indexVar.getBoundType() == BoundType::MaxExact) {
