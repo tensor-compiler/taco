@@ -213,7 +213,7 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
   if (indexVar == getOuterVar()) {
     ir::Expr minBound = ir::Div::make(parentBound[0], ir::Literal::make(getSplitFactor(), splitFactorType));
     ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(getSplitFactor()-1, splitFactorType)), ir::Literal::make(getSplitFactor(), splitFactorType));
-    if (isa<Literal>(ir::simplify(maxBound)) && indexVar.isBound() && !isValue(ir::simplify(maxBound), indexVar.getBound())){
+    if ( ir::isa<ir::Literal>(ir::simplify(maxBound)) && indexVar.isBound() && !ir::to<ir::Literal>(ir::simplify(maxBound))->equalsScalar(indexVar.getBound()) ){
       taco_uerror << "Bounded a split outer variable with bound: " << indexVar.getBound() << " real bound: " << maxBound << endl;
     }
     return {minBound, maxBound};
@@ -369,7 +369,7 @@ std::vector<ir::Expr> DivideRelNode::deriveIterBounds(taco::IndexVar indexVar,
     // ranges from 0 to divFactor.
     ir::Expr minBound = 0;
     ir::Expr maxBound = divFactor;
-    if (isa<Literal>(ir::simplify(maxBound)) && indexVar.isBound() && !isValue(ir::simplify(maxBound), indexVar.getBound())){
+    if (ir::isa<ir::Literal>(ir::simplify(maxBound)) && indexVar.isBound() && !ir::to<ir::Literal>(ir::simplify(maxBound))->equalsScalar(indexVar.getBound()) ){
       taco_uerror << "Bounded a DIVIDE outer variable with bound: " << indexVar.getBound() << " real bound: " << maxBound << endl;
     }
     return {minBound, maxBound};
@@ -701,7 +701,7 @@ std::vector<ir::Expr> FuseRelNode::deriveIterBounds(taco::IndexVar indexVar,
 
   if (indexVar.isBound()){
     //check if max bound matches
-    if (isa<Literal>(ir::simplify(parentCoordBound[1])) && indexVar.isBound() && !isValue(ir::simplify(parentCoordBound[1]), indexVar.getBound())){
+    if (ir::isa<ir::Literal>(ir::simplify(parentCoordBound[1])) && !ir::to<ir::Literal>(ir::simplify(parentCoordBound[1]))->equalsScalar(indexVar.getBound())){
       taco_uerror << "Bounded a fuse index variable with bound: " << indexVar.getBound() << " real bound: " << parentCoordBound[1] << endl;
     }
 
