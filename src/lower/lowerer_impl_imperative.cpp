@@ -748,11 +748,15 @@ Stmt LowererImplImperative::lowerForall(Forall forall)
       // Find the iteration bounds of the inner variable -- that is the size
       // that the outer loop was broken into.
       auto bounds = this->provGraph.deriveIterBounds(inner, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+      auto parentBounds = this->provGraph.deriveIterBounds(varToRecover, this->definedIndexVarsOrdered, this->underivedBounds, this->indexVarToExprMap, this->iterators);
       // Use the difference between the bounds to find the size of the loop.
       auto dimLen = ir::Sub::make(bounds[1], bounds[0]);
       // For a variable f divided into into f1 and f2, the guard ensures that
       // for iteration f, f should be within f1 * dimLen and (f1 + 1) * dimLen.
-      auto guard = ir::Gte::make(this->indexVarToExprMap[varToRecover], ir::Mul::make(ir::Add::make(this->indexVarToExprMap[outer], 1), dimLen));
+      // Additionally, similarly to the recovery of variables in the DivideRelNode,
+      // we also need to include the lower bound of the original variable here.
+      auto upper = ir::Add::make(ir::Mul::make(ir::Add::make(this->indexVarToExprMap[outer], 1), dimLen), parentBounds[0]);
+      auto guard = ir::Gte::make(this->indexVarToExprMap[varToRecover], ir::simplify(upper));
       recoverySteps.push_back(IfThenElse::make(guard, ir::Continue::make()));
     }
   }
