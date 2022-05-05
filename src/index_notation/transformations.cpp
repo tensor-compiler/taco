@@ -329,12 +329,13 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
               }
             })
       );
-
+/*
       if (!a.getReductionVars().empty()) {
         a = Assignment(a.getLhs(), a.getRhs(), Add());
       } else {
         a = Assignment(a.getLhs(), a.getRhs());
       }
+*/
       return a;
     }
 

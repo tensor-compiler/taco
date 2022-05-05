@@ -435,7 +435,7 @@ TEST(workspaces, precompute3D_renamedIVars_TspV) {
 
 }
 
-TEST(workspaces, DISABLED_tile_dotProduct_1) {
+TEST(workspaces, tile_dotProduct_1) {
   // FIXME: Disabled because currently the precompute algorithm does not appropriately
   //        find the correct forall substmt to next the WhereNode in after i has been 
   //        split into i0 and i1. As an example, the first precompute below is incorrect
