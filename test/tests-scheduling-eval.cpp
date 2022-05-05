@@ -77,7 +77,8 @@ IndexStmt scheduleSpGEMMCPU(IndexStmt stmt, bool doPrecompute) {
                 {result.getType().getShape().getDimension(1)}), taco::dense);
     stmt = stmt.precompute(assign.getRhs(), j, j, w);
   }
-  stmt = stmt.assemble(result, AssembleStrategy::Insert, true);
+  //stmt = stmt.assemble(result, AssembleStrategy::Insert, true);
+    stmt = stmt.assemble(result, AssembleStrategy::Append, true);
   auto qi_stmt = stmt.as<Assemble>().getQueries();
   IndexVar qi;
   if (isa<Where>(qi_stmt)) {
