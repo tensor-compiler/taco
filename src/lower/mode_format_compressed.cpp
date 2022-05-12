@@ -17,8 +17,8 @@ CompressedModeFormat::CompressedModeFormat(bool isFull, bool isOrdered,
                                            bool isUnique, bool isZeroless, 
                                            long long allocSize) :
     ModeFormatImpl("compressed", isFull, isOrdered, isUnique, false, true,
-                   isZeroless, false, true, false, false, true, true, true, 
-                   false), 
+                   isZeroless, false, false, true, false, false, true, true,  
+                   true, false), 
     allocSize(allocSize) {
 }
 

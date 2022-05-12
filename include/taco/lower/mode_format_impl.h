@@ -106,9 +106,10 @@ class ModeFormatImpl {
 public:
   ModeFormatImpl(std::string name, bool isFull, bool isOrdered, bool isUnique, 
                  bool isBranchless, bool isCompact, bool isZeroless, 
-                 bool hasCoordValIter, bool hasCoordPosIter, bool hasLocate, 
-                 bool hasInsert, bool hasAppend, bool hasSeqInsertEdge, 
-                 bool hasInsertCoord, bool isYieldPosPure);
+		 bool isPadded, bool hasCoordValIter, bool hasCoordPosIter, 
+		 bool hasLocate, bool hasInsert, bool hasAppend, 
+		 bool hasSeqInsertEdge, bool hasInsertCoord, 
+		 bool isYieldPosPure);
 
   virtual ~ModeFormatImpl();
 
@@ -246,6 +247,7 @@ public:
   const bool isBranchless;
   const bool isCompact;
   const bool isZeroless;
+  const bool isPadded;
   
   const bool hasCoordValIter;
   const bool hasCoordPosIter;

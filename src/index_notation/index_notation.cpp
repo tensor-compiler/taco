@@ -4155,6 +4155,22 @@ IndexStmt generatePackStmt(TensorVar tensor,
     packStmt = forall(indexVars[mode], packStmt);
   }
 
+  bool doAppend = true;
+  const Format lhsFormat = otherIsOnRight ? format : otherFormat;
+  for (int i = lhsFormat.getOrder() - 1; i >= 0; --i) {
+    const auto modeFormat = lhsFormat.getModeFormats()[i];
+    if (modeFormat.isBranchless() && i != 0) {
+      const auto parentModeFormat = lhsFormat.getModeFormats()[i - 1];
+      if (parentModeFormat.isUnique() || !parentModeFormat.hasAppend()) {
+        doAppend = false;
+        break;
+      }
+    }
+  }
+  if (!doAppend) {
+    packStmt = packStmt.assemble(otherIsOnRight ? tensor : other, AssembleStrategy::Insert);
+  }
+
   return packStmt; 
 }
 

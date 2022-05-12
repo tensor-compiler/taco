@@ -1391,24 +1391,28 @@ Stmt LowererImplImperative::lowerForallPosition(Forall forall, Iterator iterator
     endBound = endBounds[1];
   }
 
-  LoopKind kind = LoopKind::Serial;
-  if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
-    kind = LoopKind::Vectorized;
-  }
-  else if (forall.getParallelUnit() != ParallelUnit::NotParallel
-           && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
-    kind = LoopKind::Runtime;
+  Stmt loop = Block::make(strideGuard, declareCoordinate, boundsGuard, body);
+  if (iterator.isBranchless() && iterator.isCompact() && 
+      (iterator.getParent().isRoot() || iterator.getParent().isUnique())) {
+    loop = Block::make(VarDecl::make(iterator.getPosVar(), startBound), loop);
+  } else {
+    LoopKind kind = LoopKind::Serial;
+    if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
+      kind = LoopKind::Vectorized;
+    }
+    else if (forall.getParallelUnit() != ParallelUnit::NotParallel && 
+	     forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && 
+	     !ignoreVectorize) {
+      kind = LoopKind::Runtime;
+    }
+
+    loop = For::make(iterator.getPosVar(), startBound, endBound, 1, loop, kind,
+                     ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(), 
+		     ignoreVectorize ? 0 : forall.getUnrollFactor());
   }
 
   // Loop with preamble and postamble
-  return Block::blanks(
-                       boundsCompute,
-                       For::make(iterator.getPosVar(), startBound, endBound, 1,
-                                 Block::make(strideGuard, declareCoordinate, boundsGuard, body),
-                                 kind,
-                                 ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
-                       posAppend);
-
+  return Block::blanks(boundsCompute, loop, posAppend);
 }
 
 Stmt LowererImplImperative::lowerForallFusedPosition(Forall forall, Iterator iterator,
