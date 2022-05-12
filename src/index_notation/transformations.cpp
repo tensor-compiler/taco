@@ -1052,8 +1052,11 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       const auto resultTensor = resultAccess.getTensorVar();
       
       if (resultTensor != result) {
+        // TODO: Should check that annihilator of original reduction op equals
+        // fill value of original result
         Access lhs = to<Access>(rewrite(op->lhs));
-        stmt = (rhs != op->rhs) ? Assignment(lhs, rhs, op->op) : op;
+        IndexExpr reduceOp = op->op.defined() ? Add() : IndexExpr();
+        stmt = (rhs != op->rhs) ? Assignment(lhs, rhs, reduceOp) : op;
         return;
       }
 
@@ -1063,7 +1066,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
         return;
       }
 
-      queryResults[resultTensor] = 
+      queryResults[resultTensor] =
           std::vector<std::vector<TensorVar>>(resultTensor.getOrder());
 
       const auto indices = resultAccess.getIndexVars();
@@ -1082,16 +1085,16 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
         parentCoords.push_back(indices[modeOrdering[i]]);
         childCoords.erase(childCoords.begin());
 
-        for (const auto& query: 
+        for (const auto& query:
             modeFormats[i].getAttrQueries(parentCoords, childCoords)) {
           const auto& groupBy = query.getGroupBy();
 
           // TODO: support multiple aggregations in single query
-          taco_iassert(query.getAttrs().size() == 1); 
+          taco_iassert(query.getAttrs().size() == 1);
 
           std::vector<Dimension> queryDims;
           for (const auto& coord : groupBy) {
-            const auto pos = std::find(groupBy.begin(), groupBy.end(), coord) 
+            const auto pos = std::find(groupBy.begin(), groupBy.end(), coord)
                            - groupBy.begin();
             const auto dim = resultTensor.getType().getShape().getDimension(pos);
             queryDims.push_back(dim);
@@ -1102,7 +1105,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
               case AttrQuery::COUNT:
               {
                 std::vector<IndexVar> dedupCoords = groupBy;
-                dedupCoords.insert(dedupCoords.end(), attr.params.begin(), 
+                dedupCoords.insert(dedupCoords.end(), attr.params.begin(),
                                    attr.params.end());
                 std::vector<Dimension> dedupDims(dedupCoords.size());
                 TensorVar dedupTmp(modeName + "_dedup", Type(Bool, dedupDims));
@@ -1111,7 +1114,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
 
                 const auto resultName = modeName + "_" + attr.label;
                 TensorVar queryResult(resultName, Type(Int32, queryDims));
-                epilog = Assignment(queryResult(groupBy), 
+                epilog = Assignment(queryResult(groupBy),
                                     Cast(dedupTmp(dedupCoords), Int()), Add());
                 for (const auto& coord : util::reverse(dedupCoords)) {
                   epilog = forall(coord, epilog);
@@ -1147,6 +1150,56 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       }
 
       expr = op;
+    }
+
+    void visit(const CallNode* op) {
+      std::vector<IndexExpr> args;
+      bool rewritten = false;
+      for(auto& arg : op->args) {
+        IndexExpr rewrittenArg = rewrite(arg);
+        args.push_back(rewrittenArg);
+        if (arg != rewrittenArg) {
+          rewritten = true;
+        }
+      }
+
+      if (rewritten) {
+        const std::map<IndexExpr, IndexExpr> subs = util::zipToMap(op->args, args);
+        IterationAlgebra newAlg = replaceAlgIndexExprs(op->iterAlg, subs);
+
+        struct InferSymbolic : public IterationAlgebraVisitorStrict {
+          IndexExpr ret;
+
+          IndexExpr infer(IterationAlgebra alg) {
+            ret = IndexExpr();
+            alg.accept(this);
+            return ret;
+          }
+          virtual void visit(const RegionNode* op) {
+            ret = op->expr();
+          }
+
+          virtual void visit(const ComplementNode* op) {
+            taco_not_supported_yet;
+          }
+
+          virtual void visit(const IntersectNode* op) {
+            IndexExpr lhs = infer(op->a);
+            IndexExpr rhs = infer(op->b);
+            ret = lhs * rhs;
+          }
+
+          virtual void visit(const UnionNode* op) {
+            IndexExpr lhs = infer(op->a);
+            IndexExpr rhs = infer(op->b);
+            ret = lhs + rhs;
+          }
+        };
+        expr = InferSymbolic().infer(newAlg);
+      }
+      else {
+        expr = op;
+      }
     }
   };
   LowerAttrQuery queryLowerer(getResult(), queryResults, insertedResults);

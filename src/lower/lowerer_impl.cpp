@@ -7,7 +7,7 @@
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/provenance_graph.h"
 #include "taco/ir/ir.h"
-#include "ir/ir_generators.h"
+#include "taco/ir/ir_generators.h"
 #include "taco/ir/ir_visitor.h"
 #include "taco/ir/simplify.h"
 #include "taco/lower/iterator.h"
@@ -58,9 +58,11 @@ private:
   void visit(const SqrtNode* node)          { expr = impl->lowerSqrt(node); }
   void visit(const CastNode* node)          { expr = impl->lowerCast(node); }
   void visit(const CallIntrinsicNode* node) { expr = impl->lowerCallIntrinsic(node); }
+  void visit(const CallNode* node)          { expr = impl->lowerTensorOp(node); }
   void visit(const ReductionNode* node)  {
     taco_ierror << "Reduction nodes not supported in concrete index notation";
   }
+  void visit(const IndexVarNode* node)          { expr = impl->lowerIndexVar(node); }
 };
 
 LowererImpl::LowererImpl() : visitor(new Visitor(this)) {

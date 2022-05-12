@@ -51,6 +51,7 @@ const string cHeaders =
   "  taco_mode_t* mode_types;    // mode storage types\n"
   "  uint8_t***   indices;       // tensor index data (per mode)\n"
   "  uint8_t*     vals;          // tensor values\n"
+  "  uint8_t*     fill_value;    // tensor fill value\n"
   "  int32_t      vals_size;     // values array size\n"
   "} taco_tensor_t;\n"
   "#endif\n"
@@ -482,8 +483,9 @@ void CodeGen_C::visit(const Min* op) {
     op->operands[0].accept(this);
     return;
   }
+  const auto opString = op->type.isFloat() ? "fmin" : "TACO_MIN";
   for (size_t i=0; i<op->operands.size()-1; i++) {
-    stream << "TACO_MIN(";
+    stream << opString << "(";
     op->operands[i].accept(this);
     stream << ",";
   }

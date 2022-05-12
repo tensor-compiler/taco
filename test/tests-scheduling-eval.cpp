@@ -9,6 +9,7 @@
 #include "taco/index_notation/transformations.h"
 #include "codegen/codegen.h"
 #include "taco/lower/lower.h"
+#include "op_factory.h"
 
 using namespace taco;
 const IndexVar i("i"), j("j"), k("k"), l("l"), m("m"), n("n");
@@ -27,7 +28,7 @@ void printToFile(string filename, IndexStmt stmt) {
   mkdir(file_path.c_str(), 0777);
 
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  ir::Stmt compute = lower(stmt, "compute",  true, true);
   codegen->compile(compute, true);
 
   ofstream source_file;
@@ -1585,6 +1586,38 @@ TEST(scheduling_eval, mttkrpGPU) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
+TEST(scheduling_eval, indexVarSplit) {  
+  
+  Tensor<int> a("A", {4, 4}, dense);
+  Tensor<int> b("B", {4, 4}, compressed);
+
+  Tensor<int> expected("C", a.getDimensions(), Dense);
+  const int n = a.getDimensions()[0];
+  const int m = a.getDimensions()[1];
+
+  for(int i = 0; i < n; ++i) {
+    b.insert({i, i}, 2);
+  }
+  b.pack();
+
+  a(i, j) = b(i, j) * (i * m + j);
+  IndexStmt stmt = a.getAssignment().concretize();
+  IndexVar j0("j0"), j1("j1");
+  stmt = stmt.split(j, j0, j1, 2);
+
+  a.compile(stmt);
+  a.assemble();
+  a.compute();
+
+  for(int i = 0; i < n; ++i) {
+    int flattened_idx = i * m + i;
+    expected.insert({i, i}, 2 * flattened_idx);
+  }
+  expected.pack();
+
+  ASSERT_TENSOR_EQ(expected, a);
+}
+
 TEST(generate_evaluation_files, DISABLED_cpu) {
   if (should_use_CUDA_codegen()) {
     return;
@@ -2143,4 +2176,76 @@ TEST(generate_figures, DISABLED_cpu) {
     source_file << source.str();
     source_file.close();
   }
+}
+
+TEST(scheduling_eval, DISABLED_bfsPullScheduled) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  constexpr int numVertices = 10;
+  int NUM_I = numVertices;
+  int NUM_J = numVertices;
+  float SPARSITY = .3;
+
+  Tensor<uint16_t> A("A", {NUM_I, NUM_J}, CSC);
+  Tensor<uint16_t> x("x", {NUM_J}, {Sparse});
+  Tensor<uint16_t> m("mask", {NUM_J}, {Dense});
+  Tensor<uint16_t> y("y", {NUM_I}, {Dense});
+  Tensor<int> step("step");
+
+  uint16_t one = 1;
+  uint16_t zero = 0;
+
+  Func scOr("Or", OrImpl(), {Annihilator(one), Identity(zero)});
+  Func scAnd("And", AndImpl(), {Annihilator(zero), Identity(one)});
+  Func bfsMaskOp("bfsMask", BfsLower(), BfsMaskAlg());
+
+  srand(120);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, one);
+      }
+    }
+  }
+
+  for (int j = 0; j < NUM_J; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    if (rand_float < SPARSITY) {
+      x.insert({j}, one);
+    } else {
+      x.insert({j}, zero);
+    }
+  }
+
+  x.pack();
+  A.pack();
+  m.pack();
+
+  y(i) = Reduction(scOr(), j, scAnd(A(i, j), x(j)));
+  IndexStmt stmt = y.getAssignment().concretize();
+
+  stmt = stmt.reorder(i,j)
+             .parallelize(j, taco::ParallelUnit::CPUThread, taco::OutputRaceStrategy::Atomics);
+  printToFile("bfs_push", stmt);
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<uint16_t> s("s", {NUM_J}, {Sparse});
+  Tensor<uint16_t> d("d", {NUM_J}, {dense});
+
+  Func sparsifyOp("sparsify", identityFunc(), ComplementUnion());
+  s(i) = sparsifyOp(d(i), i);
+  IndexStmt sparsify = s.getAssignment().concretize();
+  printToFile("sparsify", sparsify);
+
+
+  Tensor<uint16_t> expected("expected", {NUM_I}, {Dense});
+  expected(i) = Reduction(scOr(), j, bfsMaskOp(scAnd(A(i, j), x(j)), m(i)));
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
 }

@@ -9,7 +9,9 @@
 #include <set>
 #include <map>
 #include <utility>
+#include <functional>
 
+#include "taco/util/name_generator.h"
 #include "taco/format.h"
 #include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
@@ -21,6 +23,7 @@
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/ir_tags.h"
 #include "taco/index_notation/provenance_graph.h"
+#include "taco/index_notation/properties.h"
 
 namespace taco {
 
@@ -39,6 +42,8 @@ class IndexExpr;
 class Assignment;
 class Access;
 
+class IterationAlgebra;
+
 struct AccessNode;
 struct IndexVarIterationModifier;
 struct LiteralNode;
@@ -49,8 +54,10 @@ struct SubNode;
 struct MulNode;
 struct DivNode;
 struct CastNode;
+struct CallNode;
 struct CallIntrinsicNode;
 struct ReductionNode;
+struct IndexVarNode;
 
 struct AssignmentNode;
 struct YieldNode;
@@ -231,7 +238,7 @@ public:
   Access() = default;
   Access(const Access&) = default;
   Access(const AccessNode*);
-  Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={}, 
+  Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={},
          const std::map<int, std::shared_ptr<IndexVarIterationModifier>>& modifiers={},
          bool isAccessingStructure=false);
 
@@ -296,6 +303,11 @@ public:
   Assignment operator+=(const IndexExpr&);
 
   typedef AccessNode Node;
+
+  // Equality and comparison are overridden on Access to perform a deep
+  // comparison of the access rather than a pointer check.
+  friend bool operator==(const Access& a, const Access& b);
+  friend bool operator<(const Access& a, const Access &b);
 };
 
 
@@ -323,10 +335,13 @@ public:
   Literal(std::complex<float>);
   Literal(std::complex<double>);
 
-  static IndexExpr zero(Datatype);
+  static Literal zero(Datatype);
 
   /// Returns the literal value.
   template <typename T> T getVal() const;
+
+  /// Returns an untyped pointer to the literal value
+  void* getValPtr();
 
   typedef LiteralNode Node;
 };
@@ -447,6 +462,26 @@ public:
   typedef CastNode Node;
 };
 
+/// A call to an operator
+class Call: public IndexExpr {
+public:
+  Call() = default;
+  Call(const CallNode*);
+  Call(const CallNode*, std::string name);
+
+  const std::vector<IndexExpr>& getArgs() const;
+  const std::function<ir::Expr(const std::vector<ir::Expr>&)> getFunc() const;
+  const IterationAlgebra& getAlgebra() const;
+  const std::vector<Property>& getProperties() const;
+  const std::string getName() const;
+  const std::map<std::vector<int>, std::function<ir::Expr(const std::vector<ir::Expr>&)>> getDefs() const;
+  const std::vector<int>& getDefinedArgs() const;
+
+  typedef CallNode Node;
+
+private:
+  std::string name;
+};
 
 /// A call to an intrinsic.
 /// ```
@@ -466,6 +501,8 @@ public:
 
   typedef CallIntrinsicNode Node;
 };
+
+std::ostream& operator<<(std::ostream&, const IndexVar&);
 
 /// Create calls to various intrinsics.
 IndexExpr mod(IndexExpr, IndexExpr);
@@ -982,17 +1019,27 @@ private:
 
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.
-class IndexVar : public util::Comparable<IndexVar>, public IndexVarInterface {
+class IndexVar : public IndexExpr, public IndexVarInterface {
+
 public:
   IndexVar();
   ~IndexVar() = default;
   IndexVar(const std::string& name);
+  IndexVar(const std::string& name, const Datatype& type);
+  IndexVar(const IndexVarNode *);
 
   /// Returns the name of the index variable.
   std::string getName() const;
 
+  // Need these to overshadow the comparisons in for the IndexExpr instrusive pointer
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);
+  friend bool operator!=(const IndexVar&, const IndexVar&);
+  friend bool operator>=(const IndexVar&, const IndexVar&);
+  friend bool operator<=(const IndexVar&, const IndexVar&);
+  friend bool operator>(const IndexVar&, const IndexVar&);
+
+  typedef IndexVarNode Node;
 
   /// Indexing into an IndexVar returns a window into it.
   WindowedIndexVar operator()(int lo, int hi, int stride = 1);
@@ -1049,11 +1096,12 @@ SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
 class TensorVar : public util::Comparable<TensorVar> {
 public:
   TensorVar();
-  TensorVar(const Type& type);
-  TensorVar(const std::string& name, const Type& type);
-  TensorVar(const Type& type, const Format& format);
-  TensorVar(const std::string& name, const Type& type, const Format& format);
-  TensorVar(const int &id, const std::string& name, const Type& type, const Format& format);
+  TensorVar(const Type& type, const Literal& fill = Literal());
+  TensorVar(const std::string& name, const Type& type, const Literal& fill = Literal());
+  TensorVar(const Type& type, const Format& format, const Literal& fill = Literal());
+  TensorVar(const std::string& name, const Type& type, const Format& format, const Literal& fill = Literal());
+  TensorVar(const int &id, const std::string& name, const Type& type, const Format& format,
+            const Literal& fill = Literal());
 
   /// Returns the ID of the tensor variable.
   int getId() const;
@@ -1073,6 +1121,12 @@ public:
   /// Returns the schedule of the tensor var, which describes how to compile
   /// and execute it's expression.
   const Schedule& getSchedule() const;
+
+  /// Gets the fill value of the tensor variable. May be left undefined.
+  const Literal& getFill() const;
+
+  /// Set the fill value of the tensor variable
+  void setFill(const Literal& fill);
 
   /// Set the name of the tensor variable.
   void setName(std::string name);
@@ -1134,7 +1188,8 @@ bool isReductionNotation(IndexStmt, std::string* reason=nullptr);
 bool isReductionNotationScheduled(IndexStmt, ProvenanceGraph, std::string* reason=nullptr);
 
 /// Check whether the statement is in the concrete index notation dialect.
-/// This means every index variable has a forall node, there are no reduction
+/// This means every index variable has a forall node, each index variable used
+/// for computation is under a forall node for that variable, there are no reduction
 /// nodes, and that every reduction variable use is nested inside a compound
 /// assignment statement.  You can optionally pass in a pointer to a string
 /// that the reason why it is not concrete notation is printed to.
@@ -1168,7 +1223,12 @@ std::vector<TensorVar> getResults(IndexStmt stmt);
 /// Returns the input tensors to the index statement, in the order they appear.
 std::vector<TensorVar> getArguments(IndexStmt stmt);
 
-/// Returns the temporaries in the index statement, in the order they appear.
+/// Returns true iff all of the loops over free variables come before all of the loops over
+/// reduction variables. Therefore, this returns true if the reduction controlled by the loops
+/// does not a scatter.
+bool allForFreeLoopsBeforeAllReductionLoops(IndexStmt stmt);
+
+  /// Returns the temporaries in the index statement, in the order they appear.
 std::vector<TensorVar> getTemporaries(IndexStmt stmt);
 
 /// Returns the attribute query results in the index statement, in the order 
@@ -1220,7 +1280,15 @@ IndexExpr zero(IndexExpr, const std::set<Access>& zeroed);
 /// zero and then propagating and removing zeroes.
 IndexStmt zero(IndexStmt, const std::set<Access>& zeroed);
 
-/// Create an `other` tensor with the given name and format, 
+/// Infers the fill value of the input expression by applying properties if possible. If unable
+/// to successfully infer the fill value of the result, returns the empty IndexExpr
+IndexExpr inferFill(IndexExpr);
+
+/// Returns true if there are no forall nodes in the indexStmt. Used to check
+/// if the last loop is being lowered.
+bool hasNoForAlls(IndexStmt);
+
+/// Create an `other` tensor with the given name and format,
 /// and return tensor(indexVars) = other(indexVars) if otherIsOnRight,
 /// and otherwise returns other(indexVars) = tensor(indexVars).
 IndexStmt generatePackStmt(TensorVar tensor,

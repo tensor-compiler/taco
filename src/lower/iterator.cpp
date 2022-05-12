@@ -56,12 +56,12 @@ Iterator::Iterator(std::shared_ptr<Content> content) : content(content) {
 
 Iterator::Iterator(IndexVar indexVar, bool isFull) : content(new Content) {
   content->indexVar = indexVar;
-  content->coordVar = Var::make(indexVar.getName(), Int());
-  content->posVar = Var::make(indexVar.getName() + "_pos", Int());
+  content->coordVar = Var::make(indexVar.getName(), indexVar.getDataType());
+  content->posVar = Var::make(indexVar.getName() + "_pos", indexVar.getDataType());
 
   if (!isFull) {
-    content->beginVar = Var::make(indexVar.getName() + "_begin", Int());
-    content->endVar = Var::make(indexVar.getName() + "_end", Int());
+    content->beginVar = Var::make(indexVar.getName() + "_begin", indexVar.getDataType());
+    content->endVar = Var::make(indexVar.getName() + "_end", indexVar.getDataType());
   }
 }
 
@@ -87,12 +87,12 @@ Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
   if (useNameForPos) {
     posNamePrefix = name;
   }
-  content->posVar   = Var::make(name,            Int());
-  content->endVar   = Var::make("p" + modeName + "_end",   Int());
-  content->beginVar = Var::make("p" + modeName + "_begin", Int());
+  content->posVar   = Var::make(name,            indexVar.getDataType());
+  content->endVar   = Var::make("p" + modeName + "_end",   indexVar.getDataType());
+  content->beginVar = Var::make("p" + modeName + "_begin", indexVar.getDataType());
 
-  content->coordVar = Var::make(name, Int());
-  content->segendVar = Var::make(modeName + "_segend", Int());
+  content->coordVar = Var::make(name, indexVar.getDataType());
+  content->segendVar = Var::make(modeName + "_segend", indexVar.getDataType());
   content->validVar = Var::make("v" + modeName, Bool);
 }
 
@@ -504,7 +504,6 @@ struct Iterators::Content {
   map<IndexVar,Iterator>   modeIterators;
 };
 
-
 Iterators::Iterators()
   : content(new Content)
 {
@@ -521,10 +520,12 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 {
   ProvenanceGraph provGraph = ProvenanceGraph(stmt);
   set<IndexVar> underivedAdded;
+  set<IndexVar> computeVars;
   // Create dimension iterators
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](auto n, auto m) {
-      content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !provGraph.hasCoordBounds(n->indexVar) && provGraph.isCoordVariable(n->indexVar))});
+      content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !provGraph.hasCoordBounds(n->indexVar)
+                                                                              && provGraph.isCoordVariable(n->indexVar))});
       for (const IndexVar& underived : provGraph.getUnderivedAncestors(n->indexVar)) {
         if (!underivedAdded.count(underived)) {
           content->modeIterators.insert({underived, underived});
@@ -541,6 +542,9 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
       }
 
       m->match(n->stmt);
+    }),
+    function<void(const IndexVarNode*)>([&](const IndexVarNode* var) {
+
     })
   );
 
@@ -554,7 +558,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
     }),
     function<void(const AssignmentNode*, Matcher*)>([&](auto n, auto m) {
       m->match(n->rhs);
-      m->match(n->lhs);
+      m->match(n->lhs); 
     })
   );
 
@@ -650,7 +654,7 @@ Iterator Iterators::levelIterator(ModeAccess modeAccess) const
   taco_iassert(content != nullptr);
   taco_iassert(util::contains(content->levelIterators, modeAccess))
       << "Cannot find " << modeAccess << " in "
-      << util::join(content->levelIterators);
+      << util::join(content->levelIterators) << "\n" << modeAccess.getAccess();
   return content->levelIterators.at(modeAccess);
 }
 

@@ -73,3 +73,12 @@ TEST(indexexpr, div) {
   ASSERT_TRUE(equals(div.getA(), b(i)));
   ASSERT_TRUE(equals(div.getB(), Literal(2)));
 }
+
+TEST(indexexpr, indexvar) {
+  IndexExpr expr = i;
+  ASSERT_TRUE(isa<IndexVar>(expr));
+  ASSERT_TRUE(isa<IndexVarNode>(expr.ptr));
+  IndexVar var = to<IndexVar>(expr);
+  ASSERT_EQ(type<int>(), var.getDataType());
+  ASSERT_EQ("i", var.getName());
+}
