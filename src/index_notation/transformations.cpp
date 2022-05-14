@@ -331,7 +331,7 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
       );
         IndexSetRel rel = a.getIndexSetRel();
         switch (rel) {
-            case none: a = Assignment(a.getLhs(), a.getRhs());break; // =
+            case none: a = Assignment(a.getLhs(), a.getRhs(), Add());break; // =
             case rcl:  a = Assignment(a.getLhs(), a.getRhs(), Add());break; // +=
             case lcr: a = Assignment(a.getLhs(), a.getRhs());break; // =
             case inter: a = Assignment(a.getLhs(), a.getRhs(), Add());break; // +=
