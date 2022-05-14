@@ -71,6 +71,9 @@ struct SuchThatNode;
 class IndexExprVisitorStrict;
 class IndexStmtVisitorStrict;
 
+enum IndexSetRel {
+    equal, none, lcr, rcl, inter
+};
 /// Return true if the index statement is of the given subtype.  The subtypes
 /// are Assignment, Forall, Where, Sequence, and Multi.
 template <typename SubType> bool isa(IndexExpr);
@@ -802,6 +805,9 @@ public:
 
   /// Return the reduction index variables i nthe assign
   std::vector<IndexVar> getReductionVars() const;
+
+  /// Return the set relation of indexVars in lhs and rhd
+  IndexSetRel getIndexSetRel() const;
 
   typedef AssignmentNode Node;
 };

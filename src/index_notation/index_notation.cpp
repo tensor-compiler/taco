@@ -2093,6 +2093,50 @@ std::vector<IndexVar> Assignment::getReductionVars() const {
   return reductionVars;
 }
 
+IndexSetRel Assignment::getIndexSetRel() const {
+    vector<IndexVar> freeVars = getLhs().getIndexVars();
+    set<IndexVar> lseen(freeVars.begin(), freeVars.end());
+    vector<IndexVar> RVars ;
+    match(getRhs(),
+          std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+              for (auto& var : op->indexVars) {
+                  RVars.push_back(var);
+              }
+          }));
+    set<IndexVar> rseen(RVars.begin(), RVars.end());
+    IndexSetRel rel = equal;
+    std::vector<IndexVar> v_inter;
+    int lnum = lseen.size();
+    int rnum = rseen.size();
+    int rcl_num = 0;
+    for (auto & var : rseen){
+        if (util::contains(lseen, var)) {
+            rcl_num += 1;
+        }
+    }
+    if (rcl_num == 0) {
+        rel = none;
+    }
+    else if ((rcl_num<lnum) && (rcl_num == rnum)){
+        rel = lcr;
+    }
+    else if ((rcl_num<lnum) && (rcl_num<rnum)){
+        rel = inter;
+    } else if ((rcl_num == lnum) && (rcl_num == rnum)){
+        rel = equal;
+    } else if ((rcl_num == lnum) && (rcl_num<rnum)) {
+        rel = rcl;
+    }
+    else {
+        rel = none;
+    }
+
+    if (lnum == 0 && rel == none) {
+        rel = rcl;
+    }
+    return rel;
+}
+
 template <> bool isa<Assignment>(IndexStmt s) {
   return isa<AssignmentNode>(s.ptr);
 }

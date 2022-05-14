@@ -329,13 +329,14 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
               }
             })
       );
-/*
-      if (!a.getReductionVars().empty()) {
-        a = Assignment(a.getLhs(), a.getRhs(), Add());
-      } else {
-        a = Assignment(a.getLhs(), a.getRhs());
-      }
-*/
+        IndexSetRel rel = a.getIndexSetRel();
+        switch (rel) {
+            case none: a = Assignment(a.getLhs(), a.getRhs());break; // =
+            case rcl:  a = Assignment(a.getLhs(), a.getRhs(), Add());break; // +=
+            case lcr: a = Assignment(a.getLhs(), a.getRhs());break; // =
+            case inter: a = Assignment(a.getLhs(), a.getRhs(), Add());break; // +=
+            case equal: a = Assignment(a.getLhs(), a.getRhs());break; // = OR +=
+        }
       return a;
     }
 
@@ -458,12 +459,96 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
       IndexNotationRewriter::visit(node);
     }
   };
+    struct RedundentVisitor: public IndexNotationVisitor {
+        using IndexNotationVisitor::visit;
 
+        std::vector<Assignment>& to_change;
+        std::vector<IndexVar> ctx_stack;
+        std::vector<int> num_stack;
+        int ctx_num;
+        const ProvenanceGraph& provGraph;
+
+        RedundentVisitor(std::vector<Assignment>& to_change, const ProvenanceGraph& provGraph):to_change(to_change), provGraph(provGraph),ctx_num(0){}
+
+        void visit(const ForallNode* node) {
+            Forall foralli(node);
+            IndexVar var = foralli.getIndexVar();
+            ctx_stack.push_back(var);
+            if (! num_stack.empty()) {
+                num_stack.back()++;
+                ctx_num++;
+            }
+            IndexNotationVisitor::visit(node);
+        }
+        void visit(const WhereNode* node) {
+            num_stack.push_back(0);
+            IndexNotationVisitor::visit(node->consumer);
+            ctx_num = num_stack.back();
+            for (int i = 0; i < ctx_num; i++){
+                ctx_stack.pop_back();
+            }
+            num_stack.pop_back();
+            num_stack.push_back(0);
+            IndexNotationVisitor::visit(node->producer);
+            ctx_num = num_stack.back();
+            for (int i = 0; i < ctx_num; i++){
+                ctx_stack.pop_back();
+            }
+            num_stack.pop_back();
+        }
+        void visit(const AssignmentNode* node) {
+            Assignment a(node->lhs, node->rhs, node->op);
+            vector<IndexVar> freeVars = a.getLhs().getIndexVars();
+            set<IndexVar> seen(freeVars.begin(), freeVars.end());
+            bool has_sibling = false;
+            match(a.getRhs(),
+                  std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+                      for (auto& var : op->indexVars) {
+                          for (auto& svar : ctx_stack) {
+                              if ((provGraph.getUnderivedAncestors(var)[0] == provGraph.getUnderivedAncestors(svar)[0]) && svar != var) {
+                                  has_sibling = true;
+                              }
+                          }
+                      }
+                  }));
+            bool is_equal = (a.getIndexSetRel() == equal);
+
+            if (is_equal && has_sibling) {
+                to_change.push_back(a);
+            }
+        }
+    };
+
+    struct RedundentRewriter: public IndexNotationRewriter {
+        using IndexNotationRewriter::visit;
+        std::set<Assignment> to_change;
+        RedundentRewriter(std::vector<Assignment>& to_change):to_change(to_change.begin(),to_change.end()){}
+
+        void visit(const AssignmentNode* node) {
+            Assignment a(node->lhs, node->rhs, node->op);
+            for (auto & v: to_change) {
+                if ((v.getLhs() == a.getLhs()) && (v.getRhs() == a.getRhs()) ) {
+                    stmt = Assignment(a.getLhs(), a.getRhs(), Add());
+                    return;
+                }
+            }
+            IndexNotationRewriter::visit(node);
+        }
+
+
+    };
   PrecomputeRewriter rewriter;
   rewriter.precompute = *this;
   rewriter.provGraph = provGraph;
   rewriter.forallIndexVarList = forallIndexVars;
   stmt = rewriter.rewrite(stmt);
+
+
+    std::vector<Assignment> to_change;
+    RedundentVisitor findVisitor(to_change, provGraph);
+    stmt.accept(&findVisitor);
+    RedundentRewriter ReRewriter(to_change);
+    stmt = ReRewriter.rewrite(stmt);
 
   return stmt;
 }
