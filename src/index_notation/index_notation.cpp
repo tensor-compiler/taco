@@ -1907,6 +1907,15 @@ IndexStmt IndexStmt::reorder(std::vector<IndexVar> reorderedvars) const {
   return transformed;
 }
 
+IndexStmt IndexStmt::mergeby(IndexVar i, MergeStrategy strategy) const {
+  string reason;
+  IndexStmt transformed = SetMergeStrategy(i, strategy).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
 IndexStmt IndexStmt::parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy) const {
   string reason;
   IndexStmt transformed = Parallelize(i, parallel_unit, output_race_strategy).apply(*this, &reason);
@@ -2017,7 +2026,7 @@ IndexStmt IndexStmt::unroll(IndexVar i, size_t unrollFactor) const {
 
     void visit(const ForallNode* node) {
       if (node->indexVar == i) {
-        stmt = Forall(i, rewrite(node->stmt), node->parallel_unit, node->output_race_strategy, unrollFactor);
+        stmt = Forall(i, rewrite(node->stmt), node->merge_strategy, node->parallel_unit, node->output_race_strategy, unrollFactor);
       }
       else {
         IndexNotationRewriter::visit(node);
@@ -2125,11 +2134,11 @@ Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt)
-    : Forall(indexVar, stmt, ParallelUnit::NotParallel, OutputRaceStrategy::IgnoreRaces) {
+    : Forall(indexVar, stmt, MergeStrategy::TwoFinger, ParallelUnit::NotParallel, OutputRaceStrategy::IgnoreRaces) {
 }
 
-Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor)
-        : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor)) {
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, MergeStrategy merge_strategy, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor)
+        : Forall(new ForallNode(indexVar, stmt, merge_strategy, parallel_unit, output_race_strategy, unrollFactor)) {
 }
 
 IndexVar Forall::getIndexVar() const {
@@ -2148,6 +2157,10 @@ OutputRaceStrategy Forall::getOutputRaceStrategy() const {
   return getNode(*this)->output_race_strategy;
 }
 
+MergeStrategy Forall::getMergeStrategy() const {
+  return getNode(*this)->merge_strategy;
+}
+
 size_t Forall::getUnrollFactor() const {
   return getNode(*this)->unrollFactor;
 }
@@ -2156,8 +2169,8 @@ Forall forall(IndexVar i, IndexStmt stmt) {
   return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor) {
-  return Forall(i, stmt, parallel_unit, output_race_strategy, unrollFactor);
+Forall forall(IndexVar i, IndexStmt stmt, MergeStrategy merge_strategy, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor) {
+  return Forall(i, stmt, merge_strategy, parallel_unit, output_race_strategy, unrollFactor);
 }
 
 template <> bool isa<Forall>(IndexStmt s) {
@@ -3938,7 +3951,7 @@ private:
       stmt = op;
     }
     else {
-      stmt = new ForallNode(op->indexVar, body, op->parallel_unit, op->output_race_strategy, op->unrollFactor);
+      stmt = new ForallNode(op->indexVar, body, op->merge_strategy, op->parallel_unit, op->output_race_strategy, op->unrollFactor);
     }
   }
 

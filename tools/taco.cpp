@@ -497,6 +497,24 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
 
       stmt = stmt.reorder(reorderedVars);
 
+    } else if (command == "mergeby") {
+      taco_uassert(scheduleCommand.size() == 2) << "'mergeby' scheduling directive takes 2 parameters: mergeby(i, strategy)";
+      string i, strat;
+      MergeStrategy strategy;
+
+      i = scheduleCommand[0];
+      strat = scheduleCommand[1];
+      if (strat == "TwoFinger") {
+        strategy = MergeStrategy::TwoFinger;
+      } else if (strat == "Gallop") {
+        strategy = MergeStrategy::Gallop;
+      } else {
+        taco_uerror << "Merge strategy not defined.";
+        goto end;
+      }
+
+      stmt = stmt.mergeby(findVar(i), strategy);
+
     } else if (command == "bound") {
       taco_uassert(scheduleCommand.size() == 4) << "'bound' scheduling directive takes 4 parameters: bound(i, i1, bound, type)";
       string i, i1, type;
