@@ -398,8 +398,8 @@ struct YieldNode : public IndexStmtNode {
 };
 
 struct ForallNode : public IndexStmtNode {
-  ForallNode(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy  output_race_strategy, size_t unrollFactor = 0)
-      : indexVar(indexVar), stmt(stmt), parallel_unit(parallel_unit), output_race_strategy(output_race_strategy), unrollFactor(unrollFactor) {}
+  ForallNode(IndexVar indexVar, IndexStmt stmt, MergeStrategy merge_strategy, ParallelUnit parallel_unit, OutputRaceStrategy  output_race_strategy, size_t unrollFactor = 0)
+      : indexVar(indexVar), stmt(stmt), merge_strategy(merge_strategy), parallel_unit(parallel_unit), output_race_strategy(output_race_strategy), unrollFactor(unrollFactor) {}
 
   void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
@@ -407,6 +407,7 @@ struct ForallNode : public IndexStmtNode {
 
   IndexVar indexVar;
   IndexStmt stmt;
+  MergeStrategy merge_strategy;
   ParallelUnit parallel_unit;
   OutputRaceStrategy  output_race_strategy;
   size_t unrollFactor = 0;

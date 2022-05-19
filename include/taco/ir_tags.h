@@ -33,6 +33,13 @@ enum class AssembleStrategy {
 };
 extern const char *AssembleStrategy_NAMES[];
 
+/// MergeStrategy::TwoFinger merges iterators by incrementing one at a time
+/// MergeStrategy::Galloping merges iterators by exponential search (galloping)
+enum class MergeStrategy {
+  TwoFinger, Gallop
+};
+extern const char *MergeStrategy_NAMES[];
+
 }
 
 #endif //TACO_IR_TAGS_H
