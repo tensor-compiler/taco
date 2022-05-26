@@ -965,6 +965,7 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
     TensorVar packedTensor(Type(ctype, Shape(dims)), format);
 
     // Define packing and iterator routines in index notation.
+    // TODO: Use `generatePackCOOStmt` function to generate pack routine.
     std::vector<IndexVar> indexVars(format.getOrder());
     IndexStmt packStmt = (packedTensor(indexVars) = bufferTensor(indexVars));
     IndexStmt iterateStmt = Yield(indexVars, packedTensor(indexVars));
@@ -972,6 +973,21 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
       int mode = format.getModeOrdering()[i];
       packStmt = forall(indexVars[mode], packStmt);
       iterateStmt = forall(indexVars[mode], iterateStmt);
+    }
+
+    bool doAppend = true;
+    for (int i = format.getOrder() - 1; i >= 0; --i) {
+      const auto modeFormat = format.getModeFormats()[i];
+      if (modeFormat.isBranchless() && i != 0) {
+        const auto parentModeFormat = format.getModeFormats()[i - 1];
+        if (parentModeFormat.isUnique() || !parentModeFormat.hasAppend()) {
+          doAppend = false;
+          break;
+        }
+      }
+    }
+    if (!doAppend) {
+      packStmt = packStmt.assemble(packedTensor, AssembleStrategy::Insert);
     }
 
     // Lower packing and iterator code.

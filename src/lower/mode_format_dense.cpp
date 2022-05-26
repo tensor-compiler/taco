@@ -11,7 +11,7 @@ DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true, false) {
 DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique, 
                                  const bool isZeroless) : 
     ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, isZeroless, 
-                   false, false, true, true, false, false, false, true) {
+                   true, false, false, true, true, false, false, false, true) {
 }
 
 ModeFormat DenseModeFormat::copy(
