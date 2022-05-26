@@ -526,6 +526,7 @@ namespace taco {
                 if (is_none && has_sibling && ctx_num > 1) {
                     to_change.push_back(a);
                 }
+                /*
                 bool has_outside = false;
                 for (auto & var : seen) {
                     if (var!=ctx_stack.back()){
@@ -536,6 +537,7 @@ namespace taco {
                 if (is_none && has_sibling && ctx_num == 1 && has_outside) {
                     to_change.push_back(a);
                 }
+                 */
             }
         };
 
