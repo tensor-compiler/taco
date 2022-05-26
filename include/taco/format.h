@@ -97,7 +97,8 @@ public:
   /// Properties of a mode format
   enum Property {
     FULL, NOT_FULL, ORDERED, NOT_ORDERED, UNIQUE, NOT_UNIQUE, BRANCHLESS,
-    NOT_BRANCHLESS, COMPACT, NOT_COMPACT, ZEROLESS, NOT_ZEROLESS
+    NOT_BRANCHLESS, COMPACT, NOT_COMPACT, ZEROLESS, NOT_ZEROLESS, PADDED, 
+    NOT_PADDED
   };
 
   /// Instantiates an undefined mode format
@@ -129,6 +130,7 @@ public:
   bool isBranchless() const;
   bool isCompact() const;
   bool isZeroless() const;
+  bool isPadded() const;
 
   /// Returns true if a mode format has a specific capability, false otherwise
   bool hasCoordValIter() const;
