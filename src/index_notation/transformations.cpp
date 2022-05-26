@@ -331,7 +331,7 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
       );
         IndexSetRel rel = a.getIndexSetRel();
         switch (rel) {
-            case none: a = Assignment(a.getLhs(), a.getRhs(), Add());break; // =
+            case none: a = Assignment(a.getLhs(), a.getRhs());break; // =
             case rcl:  a = Assignment(a.getLhs(), a.getRhs(), Add());break; // +=
             case lcr: a = Assignment(a.getLhs(), a.getRhs());break; // =
             case inter: a = Assignment(a.getLhs(), a.getRhs(), Add());break; // +=
@@ -346,10 +346,16 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
                                      const IndexExpr& e,
                                      map<IndexVar, IndexVar> substitutions) {
 
-      auto assignment = ws(iw_vars) = replace(e, substitutions);
-      if (!assignment.getReductionVars().empty())
-        assignment = Assignment(assignment.getLhs(), assignment.getRhs(), Add());
-      return assignment;
+        auto a = ws(iw_vars) = replace(e, substitutions);
+        IndexSetRel rel = a.getIndexSetRel();
+        switch (rel) {
+            case none: a = Assignment(a.getLhs(), a.getRhs());break; // =
+            case rcl:  a = Assignment(a.getLhs(), a.getRhs(), Add());break; // +=
+            case lcr: a = Assignment(a.getLhs(), a.getRhs());break; // =
+            case inter: a = Assignment(a.getLhs(), a.getRhs(), Add());break; // +=
+            case equal: a = Assignment(a.getLhs(), a.getRhs());break;// = OR +=
+        }
+        return a;
     }
 
     IndexStmt generateForalls(IndexStmt stmt, vector<IndexVar> indexVars) {
@@ -459,7 +465,7 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
       IndexNotationRewriter::visit(node);
     }
   };
-    struct RedundentVisitor: public IndexNotationVisitor {
+    struct RedundantVisitor: public IndexNotationVisitor {
         using IndexNotationVisitor::visit;
 
         std::vector<Assignment>& to_change;
@@ -468,7 +474,7 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
         int ctx_num;
         const ProvenanceGraph& provGraph;
 
-        RedundentVisitor(std::vector<Assignment>& to_change, const ProvenanceGraph& provGraph):to_change(to_change), provGraph(provGraph),ctx_num(0){}
+        RedundantVisitor(std::vector<Assignment>& to_change, const ProvenanceGraph& provGraph):to_change(to_change), provGraph(provGraph),ctx_num(0){}
 
         void visit(const ForallNode* node) {
             Forall foralli(node);
@@ -512,17 +518,31 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
                       }
                   }));
             bool is_equal = (a.getIndexSetRel() == equal);
+            bool is_none = (a.getIndexSetRel() == none);
 
             if (is_equal && has_sibling) {
+                to_change.push_back(a);
+            }
+            if (is_none && has_sibling && ctx_num > 1) {
+                to_change.push_back(a);
+            }
+            bool has_outside = false;
+            for (auto & var : seen) {
+                if (var!=ctx_stack.back()){
+                    has_outside = true;
+                    break;
+                }
+            }
+            if (is_none && has_sibling && ctx_num == 1 && has_outside) {
                 to_change.push_back(a);
             }
         }
     };
 
-    struct RedundentRewriter: public IndexNotationRewriter {
+    struct RedundantRewriter: public IndexNotationRewriter {
         using IndexNotationRewriter::visit;
         std::set<Assignment> to_change;
-        RedundentRewriter(std::vector<Assignment>& to_change):to_change(to_change.begin(),to_change.end()){}
+        RedundantRewriter(std::vector<Assignment>& to_change):to_change(to_change.begin(),to_change.end()){}
 
         void visit(const AssignmentNode* node) {
             Assignment a(node->lhs, node->rhs, node->op);
@@ -545,9 +565,9 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
 
 
     std::vector<Assignment> to_change;
-    RedundentVisitor findVisitor(to_change, provGraph);
+    RedundantVisitor findVisitor(to_change, provGraph);
     stmt.accept(&findVisitor);
-    RedundentRewriter ReRewriter(to_change);
+    RedundantRewriter ReRewriter(to_change);
     stmt = ReRewriter.rewrite(stmt);
 
   return stmt;
