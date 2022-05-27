@@ -624,18 +624,15 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
             if (is_equal && has_sibling) {
                 to_change.push_back(a);
             }
-            if (is_none && has_sibling && ctx_num > 1) {
-                to_change.push_back(a);
-            }
-
-            bool has_outside = false;
+            bool has_outside = true;
             for (auto & var : seen) {
-                if (var!=ctx_stack.back()){
-                    has_outside = true;
-                    break;
+                for (auto &svar: ctx_stack) {
+                    if (svar != ctx_stack.back() && var != svar) {
+                        has_outside = false;
+                    }
                 }
             }
-            if (is_none && has_sibling && ctx_num == 1 && has_outside) {
+            if (is_none && has_outside) {
                 to_change.push_back(a);
             }
         }
