@@ -601,8 +601,6 @@ public:
   /// variable, a \textit{tail strategy} is employed such as emitting a variable
   /// sized loop that handles remaining iterations.
   /// Preconditions: splitFactor is a positive nonzero integer
-  IndexStmt splitUpDown(IndexVar i, IndexVar i1, IndexVar i2, bool split_up, size_t splitFactor) const;
-  
   IndexStmt split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const; // TODO: TailStrategy
 
   /// The divide transformation splits one index variable into

@@ -1816,15 +1816,6 @@ IndexStmt IndexStmt::concretize() const {
   return stmt;
 }
 
-IndexStmt IndexStmt::splitUpDown(IndexVar i, IndexVar i1, IndexVar i2, bool split_up, size_t splitFactor) const {
-
-  if (split_up){
-    return split(i, i1, i2, splitFactor);
-  }
-  return divide(i, i1, i2, splitFactor);
-  
-}
-
 IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const {
   IndexVarRel rel = IndexVarRel(new SplitRelNode(i, i1, i2, splitFactor));
   string reason;
