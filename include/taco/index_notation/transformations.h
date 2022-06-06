@@ -23,6 +23,7 @@ class AddSuchThatBoundMap;
 class Parallelize;
 class TopoReorder;
 class SetAssembleStrategy;
+class SetMergeStrategy;
 
 /// A transformation is an optimization that transforms a statement in the
 /// concrete index notation into a new statement that computes the same result
@@ -38,6 +39,7 @@ public:
   Transformation(AddSuchThatPredicates);
   Transformation(AddSuchThatBoundMap);
   Transformation(SetAssembleStrategy);
+  Transformation(SetMergeStrategy);
 
   IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 
@@ -229,6 +231,25 @@ private:
 
 /// Print a SetAssembleStrategy command.
 std::ostream &operator<<(std::ostream &, const SetAssembleStrategy&);
+
+class SetMergeStrategy : public TransformationInterface {
+public:
+  SetMergeStrategy(IndexVar i, MergeStrategy strategy);
+
+  IndexVar geti() const;
+  MergeStrategy getMergeStrategy() const;
+
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
+
+  void print(std::ostream &os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+/// Print a SetMergeStrategy command.
+std::ostream &operator<<(std::ostream &, const SetMergeStrategy&);
 
 // Autoscheduling functions
 

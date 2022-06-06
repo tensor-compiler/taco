@@ -1054,59 +1054,84 @@ TEST(scheduling, divide) {
   });
 }
 
+TEST(scheduling, mergeby) {
+  auto dim = 256;
+  float sparsity = 0.1;
+  Tensor<int> A("A", {dim, dim}, {Sparse, Sparse});
+  Tensor<int> B("B", {dim, dim}, {Dense, Sparse});
+  Tensor<int> x("x", {dim}, Sparse);
+  IndexVar i("i"), i1("i1"), i2("i2"), ipos("ipos"), j("j"), f("f"), fpos("fpos"), f0("f0"), f1("f1");
 
-// TEST(scheduling, splitUpDown) {
-//   auto dim = 256;
-//   float sparsity = 0.1;
-//   Tensor<int> A("A", {dim, dim}, {Dense, Sparse});
-//   Tensor<int> x("x", {dim}, Dense);
-//   IndexVar i("i"), i1("i1"), i2("i2"), j("j"), f("f"), fpos("fpos"), f0("f0"), f1("f1");
+  srand(59393);
+  for (int i = 0; i < dim; i++) {
+    for (int j = 0; j < dim; j++) {
+      auto rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < sparsity) {
+        A.insert({i, j},((int)(rand_float * 10 / sparsity)));
+        B.insert({i, j},((int)(rand_float * 10 / sparsity)));
+      }
+    }
+  }
 
-//   srand(59393);
-//   for (int i = 0; i < dim; i++) {
-//     for (int j = 0; j < dim; j++) {
-//       auto rand_float = (float)rand()/(float)(RAND_MAX);
-//       if (rand_float < sparsity) {
-//         A.insert({i, j},((int)(rand_float * 10 / sparsity)));
-//       }
-//     }
-//   }
+  for (int j = 0; j < dim; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    x.insert({j}, ((int)(rand_float*10)));
+  }
 
-//   for (int j = 0; j < dim; j++) {
-//     float rand_float = (float)rand()/(float)(RAND_MAX);
-//     x.insert({j}, ((int)(rand_float*10)));
-//   }
+  x.pack(); A.pack(); B.pack();
 
-//   x.pack(); A.pack();
+  auto test = [&](std::function<IndexStmt(IndexStmt)> f) {
+    Tensor<int> y("y", {dim}, Dense);
+    y(i) = A(i, j) * B(i, j) * x(j);
+    auto stmt = f(y.getAssignment().concretize());
+    y.compile(stmt);
+    y.evaluate();
+    Tensor<int> expected("expected", {dim}, Dense);
+    expected(i) = A(i, j) * B(i, j) * x(j);
+    expected.evaluate();
+    ASSERT_TRUE(equals(expected, y)) << expected << endl << y << endl;
+  };
 
-//   auto test = [&](std::function<IndexStmt(IndexStmt)> f) {
-//     Tensor<int> y("y", {dim}, Dense);
-//     y(i) = A(i, j) * x(j);
-//     auto stmt = f(y.getAssignment().concretize());
-//     y.compile(stmt);
-//     y.evaluate();
-//     Tensor<int> expected("expected", {dim}, Dense);
-//     expected(i) = A(i, j) * x(j);
-//     expected.evaluate();
-//     ASSERT_TRUE(equals(expected, y)) << expected << endl << y << endl;
-//   };
+  // Test that a simple mergeby works.
+  test([&](IndexStmt stmt) {
+    return stmt.mergeby(j, MergeStrategy::Gallop);
+  });
 
-//   // Test that a simple divide works.
-//   test([&](IndexStmt stmt) {
-//     return stmt.splitUpDown(i, i1, i2, 2, false);
-//   });
+  // Testing Two Finger merge.
+  test([&](IndexStmt stmt) {
+    return stmt.mergeby(j, MergeStrategy::TwoFinger);
+  });
 
-//   // Test when the divide factor doesn't divide the dimension evenly.
-//   test([&](IndexStmt stmt) {
-//     return stmt.splitUpDown(i, i1, i2, 3, false);
-//   });
+  // Merging a dimension with a dense iterator with Gallop should be no-op.
+  test([&](IndexStmt stmt) {
+    return stmt.mergeby(i, MergeStrategy::Gallop);
+  });
 
-//   // Test a more complicated case where we fuse loops and then divide them.
-//   test([&](IndexStmt stmt) {
-//     return stmt.fuse(i, j, f).pos(f, fpos, A(i, j)).splitUpDown(fpos, f0, f1, 2, false).splitUpDown(f1, i1, i2, 4, true);
-//   });
-//   test([&](IndexStmt stmt) {
-//     IndexVar i3, i4;
-//     return stmt.fuse(i, j, f).pos(f, fpos, A(i, j)).splitUpDown(fpos, f0, f1, 4, false).splitUpDown(f1, i1, i2, 16, true).splitUpDown(i2, i3, i4, 8, true);
-//   });
-// }
+  // Test interaction between mergeby and other directives
+  test([&](IndexStmt stmt) {
+    return stmt.mergeby(i, MergeStrategy::Gallop).split(i, i1, i2, 16);
+  });
+
+  test([&](IndexStmt stmt) {
+    return stmt.mergeby(i, MergeStrategy::Gallop).split(i, i1, i2, 32).unroll(i1, 4);
+  });
+
+  test([&](IndexStmt stmt) {
+    return stmt.mergeby(i, MergeStrategy::Gallop).pos(i, ipos, A(i,j));
+  });
+
+  test([&](IndexStmt stmt) {
+    return stmt.mergeby(i, MergeStrategy::Gallop).parallelize(i, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
+  });
+}
+
+TEST(scheduling, mergeby_gallop_error) {
+  Tensor<double> x("x", {8}, Format({Sparse}));
+  Tensor<double> y("y", {8}, Format({Dense}));
+  Tensor<double> z("z", {8}, Format({Sparse}));
+  IndexVar i("i"), ipos("ipos");
+  y(i) = x(i) + z(i);
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  ASSERT_THROW(stmt.mergeby(i, MergeStrategy::Gallop), taco::TacoException);
+}

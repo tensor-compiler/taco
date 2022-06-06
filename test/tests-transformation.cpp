@@ -239,15 +239,15 @@ INSTANTIATE_TEST_CASE_P(parallelize, apply,
                         Values(
                                 TransformationTest(Parallelize(i),
                                                    forall(i, w(i) = b(i)),
-                                                   forall(i, w(i) = b(i), ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)
+                                                   forall(i, w(i) = b(i), MergeStrategy::TwoFinger, ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)
                                 ),
                                 TransformationTest(Parallelize(i),
                                                    forall(i, forall(j, W(i,j) = A(i,j))),
-                                                   forall(i, forall(j, W(i,j) = A(i,j)), ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)
+                                                   forall(i, forall(j, W(i,j) = A(i,j)), MergeStrategy::TwoFinger, ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)
                                 ),
                                 TransformationTest(Parallelize(j),
                                                    forall(i, forall(j, W(i,j) = A(i,j))),
-                                                   forall(i, forall(j, W(i,j) = A(i,j), ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces))
+                                                   forall(i, forall(j, W(i,j) = A(i,j), MergeStrategy::TwoFinger, ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces))
                                 )
                         )
 );
@@ -264,8 +264,8 @@ INSTANTIATE_TEST_CASE_P(misc, reorderLoopsTopologically, Values(
   NotationTest(forall(i, w(i) = b(i)),
                   forall(i, w(i) = b(i))),
 
-  NotationTest(forall(i, w(i) = b(i), ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces),
-                  forall(i, w(i) = b(i), ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)),
+  NotationTest(forall(i, w(i) = b(i), MergeStrategy::TwoFinger, ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces),
+                  forall(i, w(i) = b(i), MergeStrategy::TwoFinger, ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)),
 
   NotationTest(forall(i, forall(j, W(i,j) = A(i,j))),
                   forall(i, forall(j, W(i,j) = A(i,j)))),

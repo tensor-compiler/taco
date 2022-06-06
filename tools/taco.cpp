@@ -102,8 +102,8 @@ static void printUsageInfo() {
   printFlag("f=<tensor>:<format>",
             "Specify the format of a tensor in the expression. Formats are "
             "specified per dimension using d (dense), s (sparse), "
-            "u (sparse, not unique), q (singleton), or c (singleton, not unique). "
-            "All formats default to dense. "
+            "u (sparse, not unique), q (singleton), c (singleton, not unique), "
+            "or p (singleton, padded). All formats default to dense. "
             "The ordering of modes can also be optionally specified as a "
             "comma-delimited list of modes in the order they should be stored. "
             "Examples: A:ds (i.e., CSR), B:ds:1,0 (i.e., CSC), c:d (i.e., "
@@ -497,6 +497,24 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
 
       stmt = stmt.reorder(reorderedVars);
 
+    } else if (command == "mergeby") {
+      taco_uassert(scheduleCommand.size() == 2) << "'mergeby' scheduling directive takes 2 parameters: mergeby(i, strategy)";
+      string i, strat;
+      MergeStrategy strategy;
+
+      i = scheduleCommand[0];
+      strat = scheduleCommand[1];
+      if (strat == "TwoFinger") {
+        strategy = MergeStrategy::TwoFinger;
+      } else if (strat == "Gallop") {
+        strategy = MergeStrategy::Gallop;
+      } else {
+        taco_uerror << "Merge strategy not defined.";
+        goto end;
+      }
+
+      stmt = stmt.mergeby(findVar(i), strategy);
+
     } else if (command == "bound") {
       taco_uassert(scheduleCommand.size() == 3) << "'bound' scheduling directive takes 3 parameters: bound(i, bound, type)";
       string i, i1, type;
@@ -750,6 +768,9 @@ int main(int argc, char* argv[]) {
             break;
           case 'q':
             modeTypes.push_back(ModeFormat::Singleton);
+            break;
+          case 'p':
+            modeTypes.push_back(ModeFormat::Singleton(ModeFormat::PADDED));
             break;
           default:
             return reportError("Incorrect format descriptor", 3);

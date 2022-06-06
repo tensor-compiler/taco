@@ -149,7 +149,7 @@ TEST(notation, isomorphic) {
   ASSERT_FALSE(isomorphic(forall(i, forall(j, A(i,j) = B(i,j) + C(i,j))),
                           forall(i, forall(j, A(j,i) = B(j,i) + C(j,i)))));
   ASSERT_FALSE(isomorphic(forall(i, forall(j, A(i,j) = B(i,j) + C(i,j),
-                                 ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)),
+                                 MergeStrategy::TwoFinger, ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces)),
                           forall(j, forall(i, A(j,i) = B(j,i) + C(j,i)))));
   ASSERT_TRUE(isomorphic(sum(j, B(i,j) + C(i,j)), sum(i, B(j,i) + C(j,i))));
   ASSERT_FALSE(isomorphic(sum(j, B(i,j) + C(i,j)), sum(j, B(j,i) + C(j,i))));

@@ -34,6 +34,10 @@ Transformation::Transformation(ForAllReplace forallreplace)
         : transformation(new ForAllReplace(forallreplace)) {
 }
 
+Transformation::Transformation(SetMergeStrategy setmergestrategy)
+        : transformation(new SetMergeStrategy(setmergestrategy)) {
+}
+
 Transformation::Transformation(Parallelize parallelize)
         : transformation(new Parallelize(parallelize)) {
 }
@@ -135,6 +139,103 @@ std::ostream& operator<<(std::ostream& os, const Reorder& reorder) {
   return os;
 }
 
+struct SetMergeStrategy::Content {
+  IndexVar i_var;
+  MergeStrategy strategy;
+};
+
+SetMergeStrategy::SetMergeStrategy(IndexVar i, MergeStrategy strategy) : content(new Content) {
+  content->i_var = i;
+  content->strategy = strategy;
+}
+
+IndexVar SetMergeStrategy::geti() const {
+  return content->i_var;
+}
+
+MergeStrategy SetMergeStrategy::getMergeStrategy() const {
+  return content->strategy;
+}
+
+IndexStmt SetMergeStrategy::apply(IndexStmt stmt, string* reason) const {
+  INIT_REASON(reason);
+
+  string r;
+  if (!isConcreteNotation(stmt, &r)) {
+    *reason = "The index statement is not valid concrete index notation: " + r;
+    return IndexStmt();
+  }
+
+  struct SetMergeStrategyRewriter : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    ProvenanceGraph provGraph;
+    map<TensorVar,ir::Expr> tensorVars;
+    set<IndexVar> definedIndexVars;
+
+    SetMergeStrategy transformation;
+    string reason;
+    SetMergeStrategyRewriter(SetMergeStrategy transformation)
+            : transformation(transformation) {}
+
+    IndexStmt setmergestrategy(IndexStmt stmt) {
+      provGraph = ProvenanceGraph(stmt);
+      tensorVars = createIRTensorVars(stmt);
+      return rewrite(stmt);
+    }
+
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      IndexVar i = transformation.geti();
+      
+      definedIndexVars.insert(foralli.getIndexVar());
+
+      if (foralli.getIndexVar() == i) {
+        Iterators iterators(foralli, tensorVars);
+        MergeLattice lattice = MergeLattice::make(foralli, iterators, provGraph, 
+                                                  definedIndexVars);
+        for (auto iterator : lattice.iterators()) {
+          if (!iterator.isOrdered()) {
+            reason = "Precondition failed: Variable " 
+            + i.getName() +
+            " is not ordered and cannot be galloped.";
+            return;
+          }
+        }
+        if (lattice.points().size() != 1) {
+          reason = "Precondition failed: The merge lattice of variable " 
+                + i.getName() +
+                " has more than 1 point and cannot be merged by galloping";
+          return;
+        }
+
+        MergeStrategy strategy = transformation.getMergeStrategy();
+        stmt = rewrite(foralli.getStmt());
+        stmt = Forall(node->indexVar, stmt, strategy, node->parallel_unit, 
+                      node->output_race_strategy, node->unrollFactor);
+        return;
+      }
+      IndexNotationRewriter::visit(node);
+    }
+  };
+  SetMergeStrategyRewriter rewriter = SetMergeStrategyRewriter(*this);
+  IndexStmt rewritten = rewriter.setmergestrategy(stmt);
+  if (!rewriter.reason.empty()) {
+    *reason = rewriter.reason;
+    return IndexStmt();
+  }
+  return rewritten;
+}
+
+void SetMergeStrategy::print(std::ostream& os) const {
+  os << "mergeby(" << geti() << ", " 
+     << MergeStrategy_NAMES[(int)getMergeStrategy()] << ")";
+}
+
+std::ostream& operator<<(std::ostream& os, const SetMergeStrategy& setmergestrategy) {
+  setmergestrategy.print(os);
+  return os;
+}
 
 // class Precompute
 struct Precompute::Content {
@@ -876,7 +977,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           );
           taco_iassert(!precomputeAssignments.empty());
 
-          IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
+          IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), foralli.getMergeStrategy(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
           for (auto assignment : precomputeAssignments) {
             // Construct temporary of correct type and size of outer loop
             TensorVar w(string("w_") + ParallelUnit_NAMES[(int) parallelize.getParallelUnit()], Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense);
@@ -885,7 +986,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
             IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, w(i)}})).rewrite(precomputed_stmt);
             taco_iassert(isa<Forall>(producer));
             Forall producer_forall = to<Forall>(producer);
-            producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
+            producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), foralli.getMergeStrategy(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
 
             // build consumer that writes from temporary to output, mark consumer as parallel reduction
             ParallelUnit reductionUnit = ParallelUnit::CPUThreadGroupReduction;
@@ -897,7 +998,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
                 reductionUnit = ParallelUnit::GPUBlockReduction;
               }
             }
-            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), reductionUnit, OutputRaceStrategy::ParallelReduction);
+            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), foralli.getMergeStrategy(), reductionUnit, OutputRaceStrategy::ParallelReduction);
             precomputed_stmt = where(consumer, producer);
           }
           stmt = precomputed_stmt;
@@ -909,14 +1010,14 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           // reducing at end
           IndexStmt body = scalarPromote(foralli.getStmt(), provGraph, 
                                          false, true);
-          stmt = forall(i, body, parallelize.getParallelUnit(), 
+          stmt = forall(i, body, foralli.getMergeStrategy(), parallelize.getParallelUnit(), 
                         parallelize.getOutputRaceStrategy(), 
                         foralli.getUnrollFactor());
           return;
         }
 
 
-        stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
+        stmt = forall(i, foralli.getStmt(), foralli.getMergeStrategy(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
         return;
       }
 
@@ -1083,7 +1184,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       if (s == op->stmt) {
         stmt = op;
       } else if (s.defined()) {
-        stmt = Forall(op->indexVar, s, op->parallel_unit, 
+        stmt = Forall(op->indexVar, s, op->merge_strategy, op->parallel_unit, 
                       op->output_race_strategy, op->unrollFactor);
       } else {
         stmt = IndexStmt();
@@ -1354,7 +1455,7 @@ IndexStmt SetAssembleStrategy::apply(IndexStmt stmt, string* reason) const {
       if (s == op->stmt) {
         stmt = op;
       } else if (s.defined()) {
-        stmt = new ForallNode(op->indexVar, s, op->parallel_unit, 
+        stmt = new ForallNode(op->indexVar, s, op->merge_strategy, op->parallel_unit, 
                               op->output_race_strategy, op->unrollFactor);
       } else {
         stmt = IndexStmt();
@@ -1664,7 +1765,7 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
       taco_iassert(util::contains(sortedVars, i));
       stmt = innerBody;
       for (auto it = sortedVars.rbegin(); it != sortedVars.rend(); ++it) {
-        stmt = forall(*it, stmt, forallParallelUnit.at(*it), forallOutputRaceStrategy.at(*it), foralli.getUnrollFactor());
+        stmt = forall(*it, stmt, foralli.getMergeStrategy(), forallParallelUnit.at(*it), forallOutputRaceStrategy.at(*it), foralli.getUnrollFactor());
       }
       return;
     }
@@ -1810,7 +1911,7 @@ IndexStmt scalarPromote(IndexStmt stmt, ProvenanceGraph provGraph,
         return;
       }
 
-      stmt = forall(i, body, foralli.getParallelUnit(),
+      stmt = forall(i, body, foralli.getMergeStrategy(), foralli.getParallelUnit(),
                     foralli.getOutputRaceStrategy(), foralli.getUnrollFactor());
       for (const auto& consumer : consumers) {
         stmt = where(consumer, stmt);

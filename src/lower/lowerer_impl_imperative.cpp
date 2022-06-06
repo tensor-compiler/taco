@@ -872,7 +872,7 @@ Stmt LowererImplImperative::lowerForall(Forall forall)
     std::vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(forall.getIndexVar());
     taco_iassert(underivedAncestors.size() == 1); // TODO: add support for fused coordinate of pos loop
     loops = lowerMergeLattice(caseLattice, underivedAncestors[0],
-                              forall.getStmt(), reducedAccesses);
+                              forall.getStmt(), reducedAccesses, forall.getMergeStrategy());
   }
 //  taco_iassert(loops.defined());
 
@@ -1208,7 +1208,7 @@ Stmt LowererImplImperative::lowerForallDimension(Forall forall,
   }
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(), locators, inserters,
-                              appenders, caseLattice, reducedAccesses);
+                              appenders, caseLattice, reducedAccesses, forall.getMergeStrategy());
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
@@ -1269,7 +1269,7 @@ Stmt LowererImplImperative::lowerForallDimension(Forall forall,
     }
 
     Stmt declareVar = VarDecl::make(coordinate, Load::make(indexList, loopVar));
-    Stmt body = lowerForallBody(coordinate, forall.getStmt(), locators, inserters, appenders, caseLattice, reducedAccesses);
+    Stmt body = lowerForallBody(coordinate, forall.getStmt(), locators, inserters, appenders, caseLattice, reducedAccesses, forall.getMergeStrategy());
     Stmt resetGuard = ir::Store::make(bitGuard, coordinate, ir::Literal::make(false), markAssignsAtomicDepth > 0, atomicParallelUnit);
 
     if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
@@ -1345,7 +1345,7 @@ Stmt LowererImplImperative::lowerForallPosition(Forall forall, Iterator iterator
     markAssignsAtomicDepth++;
   }
 
-  Stmt body = lowerForallBody(coordinate, forall.getStmt(), locators, inserters, appenders, caseLattice, reducedAccesses);
+  Stmt body = lowerForallBody(coordinate, forall.getStmt(), locators, inserters, appenders, caseLattice, reducedAccesses, forall.getMergeStrategy());
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
@@ -1396,24 +1396,28 @@ Stmt LowererImplImperative::lowerForallPosition(Forall forall, Iterator iterator
     endBound = endBounds[1];
   }
 
-  LoopKind kind = LoopKind::Serial;
-  if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
-    kind = LoopKind::Vectorized;
-  }
-  else if (forall.getParallelUnit() != ParallelUnit::NotParallel
-           && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
-    kind = LoopKind::Runtime;
+  Stmt loop = Block::make(strideGuard, declareCoordinate, boundsGuard, body);
+  if (iterator.isBranchless() && iterator.isCompact() && 
+      (iterator.getParent().isRoot() || iterator.getParent().isUnique())) {
+    loop = Block::make(VarDecl::make(iterator.getPosVar(), startBound), loop);
+  } else {
+    LoopKind kind = LoopKind::Serial;
+    if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
+      kind = LoopKind::Vectorized;
+    }
+    else if (forall.getParallelUnit() != ParallelUnit::NotParallel && 
+	     forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && 
+	     !ignoreVectorize) {
+      kind = LoopKind::Runtime;
+    }
+
+    loop = For::make(iterator.getPosVar(), startBound, endBound, 1, loop, kind,
+                     ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(), 
+		     ignoreVectorize ? 0 : forall.getUnrollFactor());
   }
 
   // Loop with preamble and postamble
-  return Block::blanks(
-                       boundsCompute,
-                       For::make(iterator.getPosVar(), startBound, endBound, 1,
-                                 Block::make(strideGuard, declareCoordinate, boundsGuard, body),
-                                 kind,
-                                 ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
-                       posAppend);
-
+  return Block::blanks(boundsCompute, loop, posAppend);
 }
 
 Stmt LowererImplImperative::lowerForallFusedPosition(Forall forall, Iterator iterator,
@@ -1515,7 +1519,7 @@ Stmt LowererImplImperative::lowerForallFusedPosition(Forall forall, Iterator ite
   }
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
-                              locators, inserters, appenders, caseLattice, reducedAccesses);
+                              locators, inserters, appenders, caseLattice, reducedAccesses, forall.getMergeStrategy());
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
@@ -1583,7 +1587,8 @@ Stmt LowererImplImperative::lowerForallFusedPosition(Forall forall, Iterator ite
 
 Stmt LowererImplImperative::lowerMergeLattice(MergeLattice caseLattice, IndexVar coordinateVar,
                                     IndexStmt statement, 
-                                    const std::set<Access>& reducedAccesses)
+                                    const std::set<Access>& reducedAccesses, 
+                                    MergeStrategy mergestrategy)
 {
   // Lower merge lattice always gets called from lowerForAll. So we want loop lattice
   MergeLattice loopLattice = caseLattice.getLoopLattice();
@@ -1609,7 +1614,7 @@ Stmt LowererImplImperative::lowerMergeLattice(MergeLattice caseLattice, IndexVar
     // points in the merge lattice.
     IndexStmt zeroedStmt = zero(statement, getExhaustedAccesses(point, caseLattice));
     MergeLattice sublattice = caseLattice.subLattice(point);
-    Stmt mergeLoop = lowerMergePoint(sublattice, coordinate, coordinateVar, zeroedStmt, reducedAccesses, resolvedCoordDeclared);
+    Stmt mergeLoop = lowerMergePoint(sublattice, coordinate, coordinateVar, zeroedStmt, reducedAccesses, resolvedCoordDeclared, mergestrategy);
     mergeLoopsVec.push_back(mergeLoop);
   }
   Stmt mergeLoops = Block::make(mergeLoopsVec);
@@ -1624,7 +1629,8 @@ Stmt LowererImplImperative::lowerMergeLattice(MergeLattice caseLattice, IndexVar
 
 Stmt LowererImplImperative::lowerMergePoint(MergeLattice pointLattice,
                                   ir::Expr coordinate, IndexVar coordinateVar, IndexStmt statement,
-                                  const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared)
+                                  const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared, 
+                                  MergeStrategy mergeStrategy)
 {
   MergePoint point = pointLattice.points().front();
 
@@ -1645,7 +1651,9 @@ Stmt LowererImplImperative::lowerMergePoint(MergeLattice pointLattice,
   std::vector<ir::Stmt> indexSetStmts;
   for (auto& iter : filter(iterators, [](Iterator it) { return it.hasIndexSet(); })) {
     // For each iterator A with an index set B, emit the following code:
-    //   setMatch = min(A, B); // Check whether A matches its index set at this point.
+    //   // Check whether A matches its index set at this point.
+    //   // Using max instead of min because we will be merging the iterators by galloping.
+    //   setMatch = max(A, B); 
     //   if (A == setMatch && B == setMatch) {
     //     // If there was a match, project down the values of the iterators
     //     // to be the position variable of the index set iterator. This has the
@@ -1653,17 +1661,17 @@ Stmt LowererImplImperative::lowerMergePoint(MergeLattice pointLattice,
     //     A_coord = B_pos;
     //     B_coord = B_pos;
     //   } else {
-    //     // Advance the iterator and it's index set iterator accordingly if
+    //     // Advance the iterator and its index set iterator accordingly if
     //     // there wasn't a match.
-    //     A_pos += (A == setMatch);
-    //     B_pos += (B == setMatch);
+    //     A_pos = taco_gallop(int *A_array, int A_pos, int A_arrayEnd, int setMatch);
+    //     B_pos = taco_gallop(int *B_array, int B_pos, int B_arrayEnd, int setMatch);
     //     // We must continue so that we only proceed to the rest of the cases in
     //     // the merge if there actually is a point present for A.
     //     continue;
     //   }
     auto setMatch = ir::Var::make("setMatch", Int());
     auto indexSetIter = iter.getIndexSetIterator();
-    indexSetStmts.push_back(ir::VarDecl::make(setMatch, ir::Min::make(this->coordinates({iter, indexSetIter}))));
+    indexSetStmts.push_back(ir::VarDecl::make(setMatch, ir::Max::make(this->coordinates({iter, indexSetIter}))));
     // Equality checks for each iterator.
     auto iterEq = ir::Eq::make(iter.getCoordVar(), setMatch);
     auto setEq = ir::Eq::make(indexSetIter.getCoordVar(), setMatch);
@@ -1673,9 +1681,25 @@ Stmt LowererImplImperative::lowerMergePoint(MergeLattice pointLattice,
       ir::Assign::make(indexSetIter.getCoordVar(), indexSetIter.getPosVar())
     );
     // Code to increment both iterator variables.
+    auto ivar = iter.getIteratorVar();
+    Expr iteratorParentPos = iter.getParent().getPosVar();
+    ModeFunction iterBounds = iter.posBounds(iteratorParentPos);
+    vector<Expr> iterGallopArgs = {
+      iter.getMode().getModePack().getArray(1),
+      ivar, iterBounds[1],
+      setMatch
+    };
+    auto indexVar = indexSetIter.getIteratorVar();
+    Expr indexIterParentPos = indexSetIter.getParent().getPosVar();
+    ModeFunction indexIterBounds = indexSetIter.posBounds(indexIterParentPos);
+    vector<Expr> indexGallopArgs = {
+      indexSetIter.getMode().getModePack().getArray(1),
+      indexVar, indexIterBounds[1],
+      setMatch
+    };
     auto incr = ir::Block::make(
-      compoundAssign(iter.getIteratorVar(), ir::Cast::make(Eq::make(iter.getCoordVar(), setMatch), iter.getIteratorVar().type())),
-      compoundAssign(indexSetIter.getIteratorVar(), ir::Cast::make(Eq::make(indexSetIter.getCoordVar(), setMatch), indexSetIter.getIteratorVar().type())),
+      ir::Assign::make(ivar, ir::Call::make("taco_gallop", iterGallopArgs, ivar.type())),
+      ir::Assign::make(indexVar, ir::Call::make("taco_gallop", indexGallopArgs, indexVar.type())),
       ir::Continue::make()
     );
     // Code that uses the defined parts together in the if-then-else.
@@ -1683,7 +1707,13 @@ Stmt LowererImplImperative::lowerMergePoint(MergeLattice pointLattice,
   }
 
   // Merge iterator coordinate variables
-  Stmt resolvedCoordinate = resolveCoordinate(mergers, coordinate, !resolvedCoordDeclared);
+  bool mergeWithMax;
+  if (mergeStrategy == MergeStrategy::Gallop) {
+    mergeWithMax = true;
+  } else {
+    mergeWithMax = false;
+  }
+  Stmt resolvedCoordinate = resolveCoordinate(mergers, coordinate, !resolvedCoordDeclared, mergeWithMax);
 
   // Locate positions
   Stmt loadLocatorPosVars = declLocatePosVars(locators);
@@ -1697,10 +1727,10 @@ Stmt LowererImplImperative::lowerMergePoint(MergeLattice pointLattice,
 
   // One case for each child lattice point lp
   Stmt caseStmts = lowerMergeCases(coordinate, coordinateVar, statement, pointLattice,
-                                   reducedAccesses);
+                                   reducedAccesses, mergeStrategy);
 
   // Increment iterator position variables
-  Stmt incIteratorVarStmts = codeToIncIteratorVars(coordinate, coordinateVar, iterators, mergers);
+  Stmt incIteratorVarStmts = codeToIncIteratorVars(coordinate, coordinateVar, iterators, mergers, mergeStrategy);
 
   /// While loop over rangers
   return While::make(checkThatNoneAreExhausted(rangers),
@@ -1713,7 +1743,7 @@ Stmt LowererImplImperative::lowerMergePoint(MergeLattice pointLattice,
                                  incIteratorVarStmts));
 }
 
-Stmt LowererImplImperative::resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coordinate, bool emitVarDecl) {
+Stmt LowererImplImperative::resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coordinate, bool emitVarDecl, bool mergeWithMax) {
   if (mergers.size() == 1) {
     Iterator merger = mergers[0];
     if (merger.hasPosIter()) {
@@ -1768,24 +1798,30 @@ Stmt LowererImplImperative::resolveCoordinate(std::vector<Iterator> mergers, ir:
   }
   else {
     // Multiple position iterators so the smallest is the resolved coordinate
-    if (emitVarDecl) {
-      return VarDecl::make(coordinate, Min::make(coordinates(mergers)));
+    Expr merged;
+    if (mergeWithMax) {
+      merged = Max::make(coordinates(mergers));
+    } else {
+      merged = Min::make(coordinates(mergers));
     }
-    else {
-      return Assign::make(coordinate, Min::make(coordinates(mergers)));
+    if (emitVarDecl) {
+      return VarDecl::make(coordinate, merged);
+    } else {
+      return Assign::make(coordinate, merged);
     }
   }
 }
 
 Stmt LowererImplImperative::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
                                   MergeLattice caseLattice,
-                                  const std::set<Access>& reducedAccesses)
+                                  const std::set<Access>& reducedAccesses, 
+                                  MergeStrategy mergeStrategy)
 {
   vector<Stmt> result;
 
   if (caseLattice.anyModeIteratorIsLeaf() && caseLattice.needExplicitZeroChecks()) {
     // Can check value array of some tensor
-    Stmt body = lowerMergeCasesWithExplicitZeroChecks(coordinate, coordinateVar, stmt, caseLattice, reducedAccesses);
+    Stmt body = lowerMergeCasesWithExplicitZeroChecks(coordinate, coordinateVar, stmt, caseLattice, reducedAccesses, mergeStrategy);
     result.push_back(body);
     return Block::make(result);
   }
@@ -1803,7 +1839,7 @@ Stmt LowererImplImperative::lowerMergeCases(ir::Expr coordinate, IndexVar coordi
     // Just one iterator so no conditional
     taco_iassert(!loopLattice.points()[0].isOmitter());
     Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
-                                appenders, loopLattice, reducedAccesses);
+                                appenders, loopLattice, reducedAccesses, mergeStrategy);
     result.push_back(body);
   }
   else if (!loopLattice.points().empty()) {
@@ -1828,10 +1864,10 @@ Stmt LowererImplImperative::lowerMergeCases(ir::Expr coordinate, IndexVar coordi
       // Construct case body
       IndexStmt zeroedStmt = zero(stmt, getExhaustedAccesses(point, loopLattice));
       Stmt body = lowerForallBody(coordinate, zeroedStmt, {},
-                                  inserters, appenders, MergeLattice({point}), reducedAccesses);
+                                  inserters, appenders, MergeLattice({point}), reducedAccesses, mergeStrategy);
       if (coordComparisons.empty()) {
         Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
-                                    appenders, MergeLattice({point}), reducedAccesses);
+                                    appenders, MergeLattice({point}), reducedAccesses, mergeStrategy);
         result.push_back(body);
         break;
       }
@@ -1920,7 +1956,8 @@ std::vector<ir::Stmt> LowererImplImperative::constructInnerLoopCasePreamble(ir::
 
 vector<Stmt> LowererImplImperative::lowerCasesFromMap(map<Iterator, Expr> iteratorToCondition,
                                             ir::Expr coordinate, IndexStmt stmt, const MergeLattice& lattice,
-                                            const std::set<Access>& reducedAccesses) {
+                                            const std::set<Access>& reducedAccesses, 
+                                            MergeStrategy mergeStrategy) {
 
   vector<Iterator> appenders;
   vector<Iterator> inserters;
@@ -1954,10 +1991,10 @@ vector<Stmt> LowererImplImperative::lowerCasesFromMap(map<Iterator, Expr> iterat
     // Construct case body
     IndexStmt zeroedStmt = zero(stmt, getExhaustedAccesses(point, lattice));
     Stmt body = lowerForallBody(coordinate, zeroedStmt, {},
-                                inserters, appenders, MergeLattice({point}), reducedAccesses);
+                                inserters, appenders, MergeLattice({point}), reducedAccesses, mergeStrategy);
     if (isNonZeroComparisions.empty()) {
       Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
-                                  appenders, MergeLattice({point}), reducedAccesses);
+                                  appenders, MergeLattice({point}), reducedAccesses, mergeStrategy);
       result.push_back(body);
       break;
     }
@@ -1977,7 +2014,7 @@ vector<Stmt> LowererImplImperative::lowerCasesFromMap(map<Iterator, Expr> iterat
         Access access = iterators.modeAccess(it).getAccess();
         IndexStmt initStmt = Assignment(access, Literal::zero(access.getDataType()));
         Stmt initialization = lowerForallBody(coordinate, initStmt, {}, inserters,
-                                              appenders, MergeLattice({}), reducedAccesses);
+                                              appenders, MergeLattice({}), reducedAccesses, mergeStrategy);
         stmts.push_back(initialization);
       }
     }
@@ -1992,7 +2029,8 @@ vector<Stmt> LowererImplImperative::lowerCasesFromMap(map<Iterator, Expr> iterat
 
 /// Lowers a merge lattice to cases assuming there are no more loops to be emitted in stmt.
 Stmt LowererImplImperative::lowerMergeCasesWithExplicitZeroChecks(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
-                                                        MergeLattice lattice, const std::set<Access>& reducedAccesses) {
+                                                        MergeLattice lattice, const std::set<Access>& reducedAccesses, 
+                                                        MergeStrategy mergeStrategy) {
 
     vector<Stmt> result;
     if (lattice.points().size() == 1 && lattice.iterators().size() == 1
@@ -2004,14 +2042,14 @@ Stmt LowererImplImperative::lowerMergeCasesWithExplicitZeroChecks(ir::Expr coord
       tie(appenders, inserters) = splitAppenderAndInserters(lattice.results());
       taco_iassert(!lattice.points()[0].isOmitter());
       Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
-                                  appenders, lattice, reducedAccesses);
+                                  appenders, lattice, reducedAccesses, mergeStrategy);
       result.push_back(body);
     } else if (!lattice.points().empty()) {
       map<Iterator, Expr> iteratorToConditionMap;
 
       vector<Stmt> preamble = constructInnerLoopCasePreamble(coordinate, coordinateVar, lattice, iteratorToConditionMap);
       util::append(result, preamble);
-      vector<Stmt> cases = lowerCasesFromMap(iteratorToConditionMap, coordinate, stmt, lattice, reducedAccesses);
+      vector<Stmt> cases = lowerCasesFromMap(iteratorToConditionMap, coordinate, stmt, lattice, reducedAccesses, mergeStrategy);
       util::append(result, cases);
     }
 
@@ -2023,7 +2061,8 @@ Stmt LowererImplImperative::lowerForallBody(Expr coordinate, IndexStmt stmt,
                                   vector<Iterator> inserters,
                                   vector<Iterator> appenders,
                                   MergeLattice caseLattice,
-                                  const set<Access>& reducedAccesses) {
+                                  const set<Access>& reducedAccesses, 
+                                  MergeStrategy mergeStrategy) {
 
   // Inserter positions
   Stmt declInserterPosVars = declLocatePosVars(inserters);
@@ -2056,7 +2095,7 @@ Stmt LowererImplImperative::lowerForallBody(Expr coordinate, IndexStmt stmt,
     }
 
     // This will lower the body for each case to actually compute. Therefore, we don't need to resize assembly arrays
-    std::vector<Stmt> loweredCases = lowerCasesFromMap(caseMap, coordinate, stmt, caseLattice, reducedAccesses);
+    std::vector<Stmt> loweredCases = lowerCasesFromMap(caseMap, coordinate, stmt, caseLattice, reducedAccesses, mergeStrategy);
 
     append(stmts, loweredCases);
     Stmt body = Block::make(stmts);
@@ -2072,13 +2111,26 @@ Stmt LowererImplImperative::lowerForallBody(Expr coordinate, IndexStmt stmt,
   // Code to append coordinates
   Stmt appendCoords = appendCoordinate(appenders, coordinate);
 
+  std::vector<Stmt> stmts;
+  
+  // Code to increment iterators when merging by galloping.
+  if (mergeStrategy == MergeStrategy::Gallop && caseLattice.iterators().size() > 1) {
+    for (auto it : caseLattice.iterators()) {
+      Expr ivar = it.getIteratorVar();
+      stmts.push_back(compoundAssign(ivar, 1));
+    }
+  }
+
+  Stmt incr = Block::make(stmts);
+
   // TODO: Emit code to insert coordinates
 
   return Block::make(initVals,
                      declInserterPosVars,
                      declLocatorPosVars,
                      body,
-                     appendCoords);
+                     appendCoords,
+                     incr);
 }
 
 Expr LowererImplImperative::getTemporarySize(Where where) {
@@ -3494,7 +3546,7 @@ Stmt LowererImplImperative::codeToInitializeIteratorVar(Iterator iterator, vecto
     else {
       result.push_back(codeToLoadCoordinatesFromPosIterators(iterators, true));
 
-      Stmt stmt = resolveCoordinate(mergers, coordinate, true);
+      Stmt stmt = resolveCoordinate(mergers, coordinate, true, false);
       taco_iassert(stmt != Stmt());
       result.push_back(stmt);
       result.push_back(codeToRecoverDerivedIndexVar(coordinateVar, iterator.getIndexVar(), true));
@@ -3546,7 +3598,7 @@ Stmt LowererImplImperative::codeToRecoverDerivedIndexVar(IndexVar underived, Ind
   return Stmt();
 }
 
-Stmt LowererImplImperative::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar, vector<Iterator> iterators, vector<Iterator> mergers) {
+Stmt LowererImplImperative::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar, vector<Iterator> iterators, vector<Iterator> mergers, MergeStrategy strategy) {
   if (iterators.size() == 1) {
     Expr ivar = iterators[0].getIteratorVar();
 
@@ -3573,12 +3625,23 @@ Stmt LowererImplImperative::codeToIncIteratorVars(Expr coordinate, IndexVar coor
   for (auto& iterator : levelIterators) {
     Expr ivar = iterator.getIteratorVar();
     if (iterator.isUnique()) {
-      Expr increment = iterator.isFull()
-                     ? 1
-                     : ir::Cast::make(Eq::make(iterator.getCoordVar(),
-                                               coordinate),
-                                      ivar.type());
-      result.push_back(compoundAssign(ivar, increment));
+      if (iterator.isFull()) {
+        Expr increment = 1;
+        result.push_back(compoundAssign(ivar, increment));
+      } else if (strategy == MergeStrategy::Gallop) {
+        Expr iteratorParentPos = iterator.getParent().getPosVar();
+        ModeFunction iterBounds = iterator.posBounds(iteratorParentPos);
+        result.push_back(iterBounds.compute());
+        vector<Expr> gallopArgs = {
+          iterator.getMode().getModePack().getArray(1),
+          ivar, iterBounds[1],
+          coordinate,
+        };
+        result.push_back(ir::Assign::make(ivar, ir::Call::make("taco_gallop", gallopArgs, ivar.type())));
+      } else { // strategy == MergeStrategy::TwoFinger
+        Expr increment = ir::Cast::make(Eq::make(iterator.getCoordVar(), coordinate), ivar.type());
+        result.push_back(compoundAssign(ivar, increment));
+      }
     } else if (!iterator.isLeaf()) {
       result.push_back(Assign::make(ivar, iterator.getSegendVar()));
     }
@@ -3594,7 +3657,7 @@ Stmt LowererImplImperative::codeToIncIteratorVars(Expr coordinate, IndexVar coor
     }
     else {
       result.push_back(codeToLoadCoordinatesFromPosIterators(iterators, false));
-      Stmt stmt = resolveCoordinate(mergers, coordinate, false);
+      Stmt stmt = resolveCoordinate(mergers, coordinate, false, false);
       taco_iassert(stmt != Stmt());
       result.push_back(stmt);
       result.push_back(codeToRecoverDerivedIndexVar(coordinateVar, iterator.getIndexVar(), false));

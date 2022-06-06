@@ -10,8 +10,9 @@ public:
   using ModeFormatImpl::getInsertCoord;
 
   SingletonModeFormat();
-  SingletonModeFormat(bool isFull, bool isOrdered,
-                      bool isUnique, bool isZeroless, long long allocSize = DEFAULT_ALLOC_SIZE);
+  SingletonModeFormat(bool isFull, bool isOrdered, bool isUnique, 
+                      bool isZeroless, bool isPadded, 
+		      long long allocSize = DEFAULT_ALLOC_SIZE);
 
   ~SingletonModeFormat() override {}
 
