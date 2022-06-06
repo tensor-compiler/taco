@@ -99,9 +99,9 @@ TEST(notation, isConcreteNotation) {
                                          forall(j,
                                                 a(i) += sum(j,
                                                             B(i,j) * c(j))))));
-  ASSERT_TRUE(isConcreteNotation(suchthat(as = bs + cs, {})));
-  ASSERT_FALSE(isConcreteNotation(suchthat(suchthat(as = bs + cs, {}), {})));
-  ASSERT_FALSE(isConcreteNotation(forall(i, suchthat(a(i) = b(i) + c(i), {}))));
+  ASSERT_TRUE(isConcreteNotation(suchthat(as = bs + cs, {}, {})));
+  ASSERT_FALSE(isConcreteNotation(suchthat(suchthat(as = bs + cs, {}, {}), {}, {})));
+  ASSERT_FALSE(isConcreteNotation(forall(i, suchthat(a(i) = b(i) + c(i), {}, {}))));
 }
 
 TEST(notation, makeReductionNotation) {

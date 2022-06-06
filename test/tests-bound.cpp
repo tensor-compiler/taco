@@ -168,7 +168,7 @@ TEST(bound, bound_normal_2) {
   stmt = stmt.bound(i, 176, BoundType::MaxExact)
              .split(i, i0, i1, 4)
              .precompute(precomputedExpr, i1, i1, precomputed);
-   
+  
   A.compile(stmt.concretize());
   A.assemble();
   A.compute();
@@ -182,22 +182,6 @@ TEST(bound, bound_normal_2) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
-
-TEST(bound, bound_throw_assert) {
-  Tensor<double> A("A", {176}, Format{Dense});
-
-   for (int i = 0; i < 3; i++) {
-      A.insert({i}, (double) i);
-  }
-  A.pack();
-
-  IndexVar i0("i0"), i1("i1");
-
-  IndexStmt stmt = A.getAssignment().concretize();
-
-  ASSERT_THROW(stmt.bound(i0, i1, 4, BoundType::MaxExact), taco::TacoException);
-
-}
 
 TEST(bound, split_bound_illegal) {
   Tensor<double> A("A", {176}, Format{Dense});
@@ -223,7 +207,7 @@ TEST(bound, split_bound_illegal) {
   stmt = stmt.bound(i, 17, BoundType::MaxExact)
              .split(i, i0, i1, 4)
              .bound(i1, 2, BoundType::MaxExact);
-             
+
   ASSERT_THROW(A.compile(stmt.concretize()), taco::TacoException);
 
 }

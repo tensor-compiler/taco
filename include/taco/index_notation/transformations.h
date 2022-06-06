@@ -19,6 +19,7 @@ class Reorder;
 class Precompute;
 class ForAllReplace;
 class AddSuchThatPredicates;
+class AddSuchThatBoundMap;
 class Parallelize;
 class TopoReorder;
 class SetAssembleStrategy;
@@ -35,6 +36,7 @@ public:
   Transformation(Parallelize);
   Transformation(TopoReorder);
   Transformation(AddSuchThatPredicates);
+  Transformation(AddSuchThatBoundMap);
   Transformation(SetAssembleStrategy);
 
   IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
@@ -157,6 +159,28 @@ private:
 };
 
 std::ostream& operator<<(std::ostream&, const AddSuchThatPredicates&);
+
+
+/// Adds a SuchThat node if it does not exist and adds the given BoundsList
+class AddSuchThatBoundMap : public TransformationInterface {
+public:
+  AddSuchThatBoundMap();
+
+  AddSuchThatBoundMap(std::map<IndexVar, std::pair<size_t, BoundType>> boundsMap);
+
+  std::map<IndexVar, std::pair<size_t, BoundType>> getBoundsMap() const;
+
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
+
+  void print(std::ostream &os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+std::ostream& operator<<(std::ostream&, const AddSuchThatBoundMap&);
+
 
 
 /// The parallelize optimization tags a Forall as parallelized

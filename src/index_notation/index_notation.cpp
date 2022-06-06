@@ -1989,22 +1989,15 @@ IndexStmt IndexStmt::fuse(IndexVar i, IndexVar j, IndexVar f) const {
   return transformed;
 }
 
-IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const {
-
-  taco_uerror << "Depericated Bound: bounding " << i.getName() << " ignoring "  << i1.getName() << endl;
-  
-  i.bound(bound, bound_type);
-
-  return *this; 
-
-}
-
-
 IndexStmt IndexStmt::bound(IndexVar i,  size_t bound, BoundType bound_type) const {  
 
-  i.bound(bound, bound_type);
-  return *this; 
+  string reason;
+  IndexStmt transformed = Transformation(AddSuchThatBoundMap({ { i, std::make_pair(bound, bound_type) } })).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
 
+  return transformed;
 }
 
 IndexStmt IndexStmt::unroll(IndexVar i, size_t unrollFactor) const {
@@ -2307,8 +2300,8 @@ template <> Multi to<Multi>(IndexStmt s) {
 SuchThat::SuchThat(const SuchThatNode* n) : IndexStmt(n) {
 }
 
-SuchThat::SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate)
-        : SuchThat(new SuchThatNode(stmt, predicate)) {
+SuchThat::SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::map<IndexVar, std::pair<size_t, BoundType>> boundsMap)
+        : SuchThat(new SuchThatNode(stmt, predicate, boundsMap)) {
 }
 
 IndexStmt SuchThat::getStmt() const {
@@ -2319,8 +2312,12 @@ std::vector<IndexVarRel> SuchThat::getPredicate() const {
   return getNode(*this)->predicate;
 }
 
-SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate) {
-  return SuchThat(stmt, predicate);
+std::map<IndexVar, std::pair<size_t, BoundType>> SuchThat::getBounds() const {
+  return getNode(*this)->boundsMap;
+}
+
+SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::map<IndexVar, std::pair<size_t, BoundType>> boundsMap) {
+  return SuchThat(stmt, predicate, boundsMap);
 }
 
 template <> bool isa<SuchThat>(IndexStmt s) {
@@ -2339,9 +2336,7 @@ IndexVar::IndexVar(const std::string& name) : IndexVar(name, Datatype::Int32) {}
 
 IndexVar::IndexVar(const std::string& name, const Datatype& type) : IndexVar(new IndexVarNode(name, type)) {}
 
-IndexVar::IndexVar(const IndexVarNode* n) : IndexExpr(n), content(new Content) {
-    content->isbound = false;
-}
+IndexVar::IndexVar(const IndexVarNode* n) : IndexExpr(n) {}
 
 template <> bool isa<IndexVar>(IndexExpr e) {
   return isa<IndexVarNode>(e.ptr);
@@ -2354,32 +2349,6 @@ template <> IndexVar to<IndexVar>(IndexExpr e) {
 
 std::string IndexVar::getName() const {
   return getNode(*this)->getName();
-}
-
-size_t& IndexVar::getBound() const {
-  return content->bound;
-}
-
-const BoundType& IndexVar::getBoundType() const {
-  return content->boundType;
-}
-
-void IndexVar::setBound(size_t bound){
-  content->bound = bound;
-}
-
-void IndexVar::setBoundType(BoundType boundType){
-  content->boundType = boundType;
-}
-
-void IndexVar::bound(size_t bound, BoundType boundType){
-  content->isbound = true; 
-  setBound(bound);
-  setBoundType(boundType);
-}
-
-bool IndexVar::isBound(){
-  return content->isbound;
 }
 
 WindowedIndexVar IndexVar::operator()(int lo, int hi, int stride) {
@@ -4007,7 +3976,7 @@ private:
       stmt = op;
     }
     else {
-      stmt = new SuchThatNode(body, op->predicate);
+      stmt = new SuchThatNode(body, op->predicate, op->boundsMap);
     }
   }
 };

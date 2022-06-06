@@ -355,12 +355,17 @@ public:
   /// does the index variable have a descendant in position space
   bool hasPosDescendant(IndexVar indexVar) const;
 
+  // /does the index variable have a bound
+  bool hasBound(IndexVar indexVar) const;
+
+  /// get the indexVar's bound
+  size_t getBound(IndexVar indexVar) const;
+
+  /// get the indexVar's boundType
+  taco::BoundType getBoundType(IndexVar indexVar) const;
+
   /// does the index variable have an exact bound known at compile-time
   bool hasExactBound(IndexVar indexVar) const;
-
-  void printGraphParent(void) const;
-
-   void printGraphChild(void) const;
 
   /// Once indexVar is defined what new variables become recoverable
   /// returned in order of recovery (ie if parent being recovered allows its parent to also be recovered then parent comes first)
@@ -391,6 +396,8 @@ private:
 
   std::map<IndexVar, std::vector<IndexVar>> parentsMap;
   std::map<IndexVar, std::vector<IndexVar>> childrenMap;
+
+  std::map<IndexVar, std::pair<size_t, BoundType>> boundsMap;
 
   std::set<IndexVar> nodes;
 };
