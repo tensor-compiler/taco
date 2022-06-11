@@ -385,8 +385,6 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       string exprStr, i, iw, name;
       vector<string> i_vars, iw_vars;
 
-      for (auto& s : scheduleCommand) { cout << s << ", ";}
-      cout << endl;
       taco_uassert(scheduleCommand.size() == 3 || scheduleCommand.size() == 4)
         << "'precompute' scheduling directive takes 3 or 4 parameters: "
         << "precompute(expr, i, iw [, workspace_name]) or precompute(expr, {i_vars}, "
