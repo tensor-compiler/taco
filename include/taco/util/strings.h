@@ -31,7 +31,7 @@ toString(const T &val) {
 template <class T>
 typename std::enable_if<std::is_floating_point<T>::value, std::string>::type
 toString(const T &val) {
-  if (isinf(val)) {
+  if (std::isinf(val)) {
     return (val < 0) ? "-INFINITY" : "INFINITY";
   }
   std::stringstream sstream;
