@@ -78,7 +78,7 @@ IdentityPtr::IdentityPtr(Literal identity) : PropertyPtr(), content(new Content)
 }
 
 IdentityPtr::IdentityPtr(Literal identity, std::vector<int> &p) : PropertyPtr(), content(new Content) {
-  content->identity;
+  content->identity = identity;
   content->positions = p;
 }
 
