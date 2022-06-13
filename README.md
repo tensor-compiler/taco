@@ -10,8 +10,8 @@ taco as a code generator that generates C functions that compute
 tensor expressions.
 
 Learn more about taco at
-[tensor-compiler.org](https://tensor-compiler.org), in the paper
-[The Tensor Algebra Compiler](http://tensor-compiler.org/kjolstad-oopsla17-tensor-compiler.pdf),
+[tensor-compiler.org](http://tensor-compiler.org), in the paper
+[The Tensor Algebra Compiler](http://tensor-compiler.org/files/kjolstad-oopsla17-tensor-compiler.pdf),
 or in [this talk](https://youtu.be/Kffbzf9etLE).  To learn more about
 where taco is going in the near-term, see the technical reports on
 [optimization](https://arxiv.org/abs/1802.10574) and
@@ -162,7 +162,7 @@ std::cout << A << std::endl;
 # Code generation tools
 
 If you just need to compute a single tensor kernel you can use the
-[taco online tool](http://www.tensor-compiler.org/online) to generate
+[taco online tool](http://tensor-compiler.org/codegen.html) to generate
 a custom C library.  You can also use the taco command-line tool to
 the same effect:
 
@@ -180,4 +180,4 @@ the same effect:
       ...
 
 For more information, see our paper on the taco tools
-[taco: A Tool to Generate Tensor Algebra Kernels](http://tensor-compiler.org/kjolstad-ase17-tools.pdf).
+[taco: A Tool to Generate Tensor Algebra Kernels](http://tensor-compiler.org/files/kjolstad-ase17-taco-tools.pdf).
