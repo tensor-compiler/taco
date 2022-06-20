@@ -1,4 +1,4 @@
-Datatypes
+Data Types
 ========================
 
 .. toctree::

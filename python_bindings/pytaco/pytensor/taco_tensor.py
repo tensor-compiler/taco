@@ -300,7 +300,7 @@ class tensor:
 
     def evaluate(self):
         """
-            Compile, assemble and compute as needed.
+            Compile, assemble, and compute as needed.
         """
         self._tensor.evaluate()
 
@@ -431,19 +431,20 @@ class tensor:
 
     def insert(self, coords, val):
         """
-            Increments the value at a given coordinate (:func:`insert`).
+            Increments the value at a given set of coordinates.
 
             Parameters
             -----------
             coords: iter of ints
-                The coordinate of the tensor we want to assign to val
+                The coordinates of the tensor element we want to assign to. 
 
             val: dtype
-                The value to assign to the given coordinate
+                The value to assign the specified element to.
 
             Warnings
             ----------
-            This function INCREMENTS the current value at coords.
+            This function does *not* overwrite the element at the specified
+            coordinates if it is already non-zero.
 
             Examples
             ----------
@@ -581,38 +582,38 @@ def from_sp_csc(matrix, copy=True):
 
 def from_array(array, copy=True):
 
-    """Convert a numpy array to a tensor.
+    """Convert a NumPy array to a tensor.
 
-    Initializes a taco tensor from a numpy array and copies the array by default. This always creates a dense
+    Initializes a taco tensor from a NumPy array and copies the array by default. This always creates a dense
     tensor.
 
     Parameters
     ------------
     array: numpy.array
-        A numpy array to convert to a taco tensor
+        A NumPy array to convert to a taco tensor
 
     copy: boolean, optional
-        If true, taco copies the data from numpy and stores its own copy. If false, taco points to the same
-        underlying data as the numpy array.
+        If true, taco copies the data from NumPy and stores its own copy. If false, taco points to the same
+        underlying data as the NumPy array.
 
     Warnings
     ---------
-    Taco's changes to tensors may NOT be visible to numpy since taco places inserts in buffers may copy tensor data
+    Taco's changes to tensors may NOT be visible to NumPy since taco places inserts in buffers may copy tensor data
     after inserting. See notes for details.
 
     Notes
     --------
     The copy flag is ignored if the input array is not C contiguous or F contiguous (so for most transposed views).
-    If taco detects an array that is not contiguous, it will always copy the numpy array into a C contiguous format.
-    Additionally, if the GPU backend is enabled, taco will always copy the numpy array to CUDA unified memory.
+    If taco detects an array that is not contiguous, it will always copy the NumPy array into a C contiguous format.
+    Additionally, if the GPU backend is enabled, taco will always copy the NumPy array to CUDA unified memory.
     These restriction will be lifted in future versions of taco.
 
     Taco is mainly intended to operate on sparse tensors. As a result, it buffers inserts since inserting into sparse
     structures is very costly. This means that when the full tensor structure is needed, taco will copy the tensor to
     another location and insert the new values as needed. This saves a lot of time when dealing with sparse structures
-    but is not needed for dense tensors (like numpy arrays). Currently, taco does this copy for dense and sparse tensors.
-    As a result, after inserting into a taco tensor numpy will not see the changes since taco will not be writing to
-    the same memory location that numpy is referencing.
+    but is not needed for dense tensors (like NumPy arrays). Currently, taco does this copy for dense and sparse tensors.
+    As a result, after inserting into a taco tensor, NumPy will not see the changes since taco will not be writing to
+    the same memory location that NumPy is referencing.
 
 
     See also
@@ -621,7 +622,7 @@ def from_array(array, copy=True):
 
     Examples
     ----------
-    If we choose not to copy, modifying the tensor also modifies the numpy array and vice-versa. An example of this is
+    If we choose not to copy, modifying the tensor also modifies the NumPy array and vice-versa. An example of this is
     shown:
 
     .. doctest::
@@ -639,8 +640,8 @@ def from_array(array, copy=True):
     Returns
     --------
     t: tensor
-        A taco tensor pointing to the same underlying data as the numpy array if copy was set to False. Otherwise,
-        returns a taco tensor containing data copied from the numpy array.
+        A taco tensor pointing to the same underlying data as the NumPy array if copy was set to False. Otherwise,
+        returns a taco tensor containing data copied from the NumPy array.
     """
 
 
@@ -657,23 +658,23 @@ def from_array(array, copy=True):
 
 def to_array(t):
     """
-    Converts a taco tensor to a numpy array.
+    Converts a taco tensor to a NumPy array.
 
     This always copies the tensor. To avoid the copy for dense tensors, see the notes section.
 
     Parameters
     -----------
     t: tensor
-        A taco tensor to convert to a numpy array.
+        A taco tensor to convert to a NumPy array.
 
     Notes
     -------
-    Dense tensors export python's buffer interface. As a result, they can be converted to numpy arrays using
+    Dense tensors export python's buffer interface. As a result, they can be converted to NumPy arrays using
     ``np.array(tensor, copy=False)`` . Attempting to do this for sparse tensors throws an error. Note that as a result
     of exporting the buffer interface dense tensors can also be converted to eigen or any other library supporting this
     inferface.
 
-    Also it is very important to note that if requesting a numpy view of data owned by taco, taco will mark the array as
+    Also it is very important to note that if requesting a NumPy view of data owned by taco, taco will mark the array as
     read only meaning the user cannot write to that data without using the taco reference. This is needed to avoid
     raising issues with taco's delayed execution mechanism.
 
@@ -707,7 +708,7 @@ def to_array(t):
     Returns
     ---------
     arr: numpy.array
-        A numpy array containing a copy of the data in the tensor object t.
+        A NumPy array containing a copy of the data in the tensor object t.
 
     """
     return np.array(t.to_dense(), copy=True)
@@ -820,7 +821,7 @@ def as_tensor(obj, copy=True):
     if isinstance(obj, csr_matrix):
         return from_sp_csr(obj, copy)
 
-    # Try converting object to numpy array. This will ignore the copy flag
+    # Try converting object to NumPy array. This will ignore the copy flag
     arr = np.array(obj)
     return from_array(arr, True)
 
@@ -2401,7 +2402,7 @@ def matmul(t1, t2, out_format=default_mode, dtype=None):
 
         Examples
         ---------
-        Here we demonstrate broadcasting for a 3-D tensor. We use numpy arrays for demonstration due to easy data
+        Here we demonstrate broadcasting for a 3-D tensor. We use NumPy arrays for demonstration due to easy data
         generation. However, we could have given sparse tensors of any format for taco to compute. Note that the
         choice of a tensor format has a big effect on the final performance. For instance it is favorable to multiply
         CSR matrices with CSC since dot products can be easily computed.
@@ -2521,7 +2522,7 @@ def dot(t1, t2, out_format=default_mode, dtype=None):
     """
     The dot product of two tensors.
 
-    This implements the same spec as numpy but allows for sparse taco tensors as operands.
+    This implements the same spec as NumPy but allows for sparse taco tensors as operands.
 
     * If both t1 and t2 are 1-D then this is an inner product.
 
@@ -2860,7 +2861,7 @@ def evaluate(expr, *operands, out_format=None, dtype=None):
     the elements of a matrix while the corresponding string would be ``A = B(i, j)``.
 
 
-    The string parser currently only supports +, -, / and *. Thus, expressions involving other functions such as exp,
+    The string parser currently only supports +, -, /, and \*. Thus, expressions involving other functions such as exp,
     tan etc, would have to be written using the pythonic expressions.
 
     An input tensor is recognised by the parser by a name followed by a comma separated list of index variables in
@@ -2953,7 +2954,7 @@ def einsum(expr, *operands, out_format=None, dtype=None):
     """
     Evaluates the Einstein summation convention on the input operands.
 
-    The einsum summation convention employed here is very similar to `numpy's
+    The einsum summation convention employed here is very similar to `NumPy's
     <https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html#numpy.einsum>`_ but has some differences
     explained below.
 
@@ -2968,7 +2969,7 @@ def einsum(expr, *operands, out_format=None, dtype=None):
 
     Warnings
     ----------
-    This differs from numpy's einsum in two important ways. The first is that the same subscript cannot appear more than
+    This differs from NumPy's einsum in two important ways. The first is that the same subscript cannot appear more than
     once in a given operand. The second is that for sparse tensors, some expressions may require the user to explicitly
     transpose the tensors before passing them into einsum.
 
@@ -2980,7 +2981,7 @@ def einsum(expr, *operands, out_format=None, dtype=None):
         subscript labels specifying the output.
 
     operands: list of array_like, tensors, scipy csr and scipy csc matrices
-        This specifies the operands for the computation. Taco will copy any numpy arrays that are not stored in
+        This specifies the operands for the computation. Taco will copy any NumPy arrays that are not stored in
         row-major or column-major format.
 
     out_format: format, optional
@@ -3060,7 +3061,7 @@ def einsum(expr, *operands, out_format=None, dtype=None):
         >>> pt.tensor_sum(t)[0]
         60.0
 
-    The `numpy docs <https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html#numpy.einsum>`_ contain
+    The `NumPy docs <https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html#numpy.einsum>`_ contain
     more examples and an in depth explanation of this notation can be found
     `here <https://rockt.github.io/2018/04/30/einsum>`_.
 
@@ -3083,7 +3084,7 @@ def einsum(expr, *operands, out_format=None, dtype=None):
 
 def apply(func_name, arg_list, output_zero_specifier):
     """
-        Applies a user defined function to an :class:`index_expression`.
+        Applies a user-defined function to an :class:`index_expression`.
 
         Parameters
         ------------
@@ -3116,11 +3117,11 @@ def apply(func_name, arg_list, output_zero_specifier):
 
 def set_udf_dir(dir_to_search):
     """
-        Sets the directory to search for user defined functions.
+        Sets the directory to search for user-defined functions.
 
         Parameters
         ------------
         dir_to_search: str
-            The directory that taco should search when looking for user defined functions.
+            The directory that taco should search when looking for user-defined functions.
     """
     raise NotImplementedError

@@ -27,17 +27,17 @@ void defineTacoTypes(py::module &m){
   m.def("as_np_dtype", &asNpDtype, R"//(
 as_np_dtype(dtype)
 
-Converts a :class:`pytaco.dtype` its equivalent numpy datatype
+Converts a :class:`pytaco.dtype` its equivalent NumPy data type.
 
 Parameters
 ------------
 dtype : :class:`pytaco.dtype`
-    Any pytaco datatype object.
+    Any PyTaco data type object.
 
 Returns
 -------------
 `numpy.dtype`
-    The numpy equivalent of the pytaco datatype passed in.
+    The NumPy equivalent of the PyTaco data type passed in.
 
 Examples
 ----------
@@ -47,13 +47,13 @@ Examples
 <class 'numpy.float32'>
 )//");
   options.enable_function_signatures();
-  m.def("max_type", &max_type, "Get the max datatype");
+  m.def("max_type", &max_type, "Get the max data type");
 
   py::class_<taco::Datatype> dtype(m, "dtype", R"//(
 
 A tensor contains elements describe by this dtype object.
 
-PyTaco currently does not provide a way to construct your own datatypes but provides several common datatypes for users.
+PyTaco currently does not provide a way to construct your own data types but provides several common data types for users.
 
 Methods
 ---------
@@ -78,7 +78,7 @@ pytaco.int8_t
 
 Notes
 ----------
-PyTaco exports the following datatypes:
+PyTaco exports the following data types:
 
 :attr:`pytaco.bool` - A True or False value.
 
@@ -102,28 +102,28 @@ PyTaco exports the following datatypes:
 
 :attr:`pytaco.float64` or :attr:`pytaco.double` - A 64 bit floating point number.
 
-PyTaco also overrides the equality operator of the datatype class so users can compare types using == and != to check
+PyTaco also overrides the equality operator of the data type class so users can compare types using == and != to check
 if they are the same.
 
 See also
 -------------------
-as_np_dtype : Convert to numpy dtype
+as_np_dtype : Convert to NumPy dtype
 )//");
 
   dtype.def("is_bool",    &taco::Datatype::isBool, R"//(
-Returns True if the datatype is a boolean type and False otherwise.
+Returns True if the data type is a boolean type and False otherwise.
 )//")
 
        .def("is_uint",    &taco::Datatype::isUInt, R"//(
-Returns True if the datatype is an unsigned integer and False otherwise.
+Returns True if the data type is an unsigned integer and False otherwise.
 )//")
 
        .def("is_int",     &taco::Datatype::isInt, R"//(
-Returns True if the datatype is a signed integer and False otherwise.
+Returns True if the data type is a signed integer and False otherwise.
 )//")
 
        .def("is_float",   &taco::Datatype::isFloat, R"//(
-Returns True if the datatype is a float or double and False otherwise.
+Returns True if the data type is a float or double and False otherwise.
 )//")
        .def("is_complex", &taco::Datatype::isComplex)
 
