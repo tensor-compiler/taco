@@ -79,6 +79,20 @@ If you do not have CUDA installed, you can still use the taco cli to generate CU
 
 The generated CUDA code will require compute capability 6.1 or higher to run.
 
+## Generating documentation
+To generate documentation for the Python API:
+
+    cd <taco-directory>/python_bindings
+    make html
+
+Before generating the documentation, you must have first built the Python API
+(by following the [instructions above](#building-python-api)) as well as
+installed the following dependencies:
+
+    pip install sphinx
+    pip install numpydoc
+    pip install sphinx-rtd-theme
+
 ## Running tests
 To run all tests:
 
