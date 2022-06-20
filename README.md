@@ -85,9 +85,9 @@ To generate documentation for the Python API:
     cd <taco-directory>/python_bindings
     make html
 
-Before generating the documentation, you must have first built the Python API
-(by following the [instructions above](#building-python-api)) as well as
-installed the following dependencies:
+Before generating the documentation, you must have built the Python API (by
+following the [instructions above](#building-python-api)) as well as installed
+the following dependencies:
 
     pip install sphinx
     pip install numpydoc
