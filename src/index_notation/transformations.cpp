@@ -433,13 +433,16 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
             );
 
             IndexSetRel rel = a.getIndexSetRel();
+            /// The reduceOp depends on the relation between indexVar sets of rhs and lhs. For rcl and inter, reduceOp
+            /// must be +=. For lcr, reduceOp must be =. For none and equal, reduceOp can't be decided at this stage.
             switch (rel) {
-                case none: a = Assignment(a.getLhs(), a.getRhs());break; // =
-                case rcl:  a = Assignment(a.getLhs(), a.getRhs(), Add());break; // +=
-                case lcr: a = Assignment(a.getLhs(), a.getRhs());break; // =
-                case inter: a = Assignment(a.getLhs(), a.getRhs(), Add());break; // +=
-                case equal: a = Assignment(a.getLhs(), a.getRhs());break;// = OR +=
-            }return a;
+                case none: a = Assignment(a.getLhs(), a.getRhs());break;
+                case rcl:  a = Assignment(a.getLhs(), a.getRhs(), Add());break;
+                case lcr: a = Assignment(a.getLhs(), a.getRhs());break;
+                case inter: a = Assignment(a.getLhs(), a.getRhs(), Add());break;
+                case equal: a = Assignment(a.getLhs(), a.getRhs());break;
+            }
+            return a;
         }
 
         Assignment getProducerAssignment(TensorVar& ws,
@@ -450,14 +453,15 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
 
             auto a = ws(iw_vars) = replace(e, substitutions);
             IndexSetRel rel = a.getIndexSetRel();
+            /// The reduceOp depends on the relation between indexVar sets of rhs and lhs. For rcl and inter, reduceOp
+            /// must be +=. For lcr, reduceOp must be =. For none and equal, reduceOp can't be decided at this stage.
             switch (rel) {
-                case none: a = Assignment(a.getLhs(), a.getRhs());break; // =
-                case rcl:  a = Assignment(a.getLhs(), a.getRhs(), Add());break; // +=
-                case lcr: a = Assignment(a.getLhs(), a.getRhs());break; // =
-                case inter: a = Assignment(a.getLhs(), a.getRhs(), Add());break; // +=
-                case equal: a = Assignment(a.getLhs(), a.getRhs());break;// = OR +=
+                case none: a = Assignment(a.getLhs(), a.getRhs());break;
+                case rcl:  a = Assignment(a.getLhs(), a.getRhs(), Add());break;
+                case lcr: a = Assignment(a.getLhs(), a.getRhs());break;
+                case inter: a = Assignment(a.getLhs(), a.getRhs(), Add());break;
+                case equal: a = Assignment(a.getLhs(), a.getRhs());break;
             }
-
             return a;
         }
 
@@ -565,6 +569,9 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
         }
     };
 
+    /// RedundantVisitor uses Forall Context to determine reduceOp for none and equal.
+    /// We assume += is used if a workspace is accessed multiple times, otherwise =.
+    /// Forall Context describes the related indexVars of the given indexVar at a specific stage. `ctx_stack` implements such concept.
     struct RedundantVisitor: public IndexNotationVisitor {
         using IndexNotationVisitor::visit;
 
@@ -608,6 +615,9 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
             Assignment a(node->lhs, node->rhs, node->op);
             vector<IndexVar> freeVars = a.getLhs().getIndexVars();
             set<IndexVar> seen(freeVars.begin(), freeVars.end());
+
+            /// For equal, if some indexVar in lhs has sibling in ctx stack, reduceOp will be +=.
+            bool is_equal = (a.getIndexSetRel() == equal);
             bool has_sibling = false;
             match(a.getRhs(),
                   std::function<void(const AccessNode*)>([&](const AccessNode* op) {
@@ -619,11 +629,12 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
                           }
                       }
                   }));
-            bool is_equal = (a.getIndexSetRel() == equal);
-            bool is_none = (a.getIndexSetRel() == none);
             if (is_equal && has_sibling) {
                 to_change.push_back(a);
             }
+
+            /// For none, if ctx_stack except the top contains indexVars in lhs, reduceOp will be +=.
+            bool is_none = (a.getIndexSetRel() == none);
             bool has_outside = true;
             for (auto & var : seen) {
                 for (auto &svar: ctx_stack) {

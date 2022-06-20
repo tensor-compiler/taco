@@ -71,9 +71,16 @@ struct SuchThatNode;
 class IndexExprVisitorStrict;
 class IndexStmtVisitorStrict;
 
+/// Describe the relation between indexVar sets of lhs and rhs in an Assignment node.
+/// equal: lhs = rhs
+/// none: lhs and rhs are mutually exclusive. And lhs and rhs are not empty sets.
+/// lcr: rhs is a proper subset of lhs. (lhs contains rhs)
+/// rcl: lhs is a proper subset of rhs. (rhs contains lhs)
+/// inter: lhs and rhs share common elements but are not equal or empty.
 enum IndexSetRel {
     equal, none, lcr, rcl, inter
 };
+
 /// Return true if the index statement is of the given subtype.  The subtypes
 /// are Assignment, Forall, Where, Sequence, and Multi.
 template <typename SubType> bool isa(IndexExpr);
@@ -823,7 +830,7 @@ public:
   /// Return the reduction index variables i nthe assign
   std::vector<IndexVar> getReductionVars() const;
 
-  /// Return the set relation of indexVars in lhs and rhd
+  /// Return the set relation of indexVars in lhs and rhs
   IndexSetRel getIndexSetRel() const;
 
   typedef AssignmentNode Node;

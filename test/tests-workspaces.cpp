@@ -594,6 +594,7 @@ TEST(workspaces, tile_dotProduct_3) {
 
 
   stmt = stmt.concretize();
+
   A.compile(stmt);
   A.assemble();
   A.compute();

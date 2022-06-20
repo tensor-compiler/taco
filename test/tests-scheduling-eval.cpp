@@ -78,7 +78,6 @@ IndexStmt scheduleSpGEMMCPU(IndexStmt stmt, bool doPrecompute) {
     stmt = stmt.precompute(assign.getRhs(), j, j, w);
   }
   stmt = stmt.assemble(result, AssembleStrategy::Insert, true);
-  //stmt = stmt.assemble(result, AssembleStrategy::Append, true);
   auto qi_stmt = stmt.as<Assemble>().getQueries();
   IndexVar qi;
   if (isa<Where>(qi_stmt)) {
