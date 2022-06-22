@@ -779,6 +779,7 @@ IndexStmt ForAllReplace::apply(IndexStmt stmt, string* reason) const {
           for (auto i = replacement.rbegin(); i != replacement.rend(); ++i ) {
             stmt = forall(*i, stmt);
           }
+          elementsMatched = 0;
         }
         // else cut out this node
         return;

@@ -1972,7 +1972,7 @@ IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
 
   // Replace all occurrences of i with ipos
   transformed = Transformation(ForAllReplace({i}, {ipos})).apply(transformed, &reason);
-  if (!transformed.defined()) {
+    if (!transformed.defined()) {
     taco_uerror << reason;
   }
 

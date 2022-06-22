@@ -504,7 +504,7 @@ TEST(workspaces, tile_dotProduct_1) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
-TEST(workspaces, DISABLED_tile_dotProduct_2) {
+TEST(workspaces, tile_dotProduct_2) {
   // FIXME: This is also currently disabled since split(...) scheduling commands
   // only split on the FIRST INSTANCE of an indexVar (assumes only one). 
   // This is wrong if the indexVar is not renamed across iw_vars since an indexVar can 
@@ -516,8 +516,8 @@ TEST(workspaces, DISABLED_tile_dotProduct_2) {
   Tensor<double> C("C", {N}, Format({Dense}));
 
   for (int i = 0; i < N; i++) {
-    B.insert({i}, (double) i);
-    C.insert({i}, (double) i);
+    B.insert({i}, (double) i / N);
+    C.insert({i}, (double) i / N);
   }
 
   B.pack();

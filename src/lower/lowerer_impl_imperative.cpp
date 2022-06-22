@@ -2302,7 +2302,9 @@ std::pair<bool,bool> LowererImplImperative::canAccelerateDenseTemp(Where where) 
           return resultVar == tempVar[0] ||
                  provGraph.isDerivedFrom(tempVar[0], resultVar);
   });
-
+  if (resultVars.size() == 0){
+      return std::make_pair(false, false);
+  }
   if (it == resultVars.end()) {
     return std::make_pair(true, false);
   }
