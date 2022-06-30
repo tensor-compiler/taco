@@ -125,6 +125,9 @@ TensorBase dispatchReadSparse(std::istream& stream, const T& format,
     values.push_back(val);
   }
 
+
+
+
   // Create matrix
   TensorBase tensor(type<double>(), dimensions, format);
   if (symm)
