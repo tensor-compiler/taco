@@ -1,5 +1,5 @@
-Evaluate String Expressions
-============================
+Evaluating String Expressions
+==============================
 
 .. currentmodule:: pytaco
 

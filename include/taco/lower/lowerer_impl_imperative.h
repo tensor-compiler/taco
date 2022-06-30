@@ -146,15 +146,18 @@ protected:
      * \param statement
      *      A concrete index notation statement to compute at the points in the
      *      sparse iteration space described by the merge lattice.
+     * \param mergeStrategy
+     *      A strategy for merging iterators. One of TwoFinger or Gallop.
      *
      * \return
      *       IR code to compute the forall loop.
      */
   virtual ir::Stmt lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar,
                                      IndexStmt statement, 
-                                     const std::set<Access>& reducedAccesses);
+                                     const std::set<Access>& reducedAccesses, 
+                                     MergeStrategy mergeStrategy);
 
-  virtual ir::Stmt resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coordinate, bool emitVarDecl);
+  virtual ir::Stmt resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coordinate, bool emitVarDecl, bool mergeWithMax);
 
     /**
      * Lower the merge point at the top of the given lattice to code that iterates
@@ -169,15 +172,20 @@ protected:
      *      coordinate the merge point is at.
      *      A concrete index notation statement to compute at the points in the
      *      sparse iteration space region described by the merge point.
+     * \param mergeWithMax
+     *      A boolean indicating whether coordinates should be combined with MAX instead of MIN.
+     *      MAX is needed when the iterators are merged with the Gallop strategy.
      */
   virtual ir::Stmt lowerMergePoint(MergeLattice pointLattice,
                                    ir::Expr coordinate, IndexVar coordinateVar, IndexStmt statement,
-                                   const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared);
+                                   const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared, 
+                                   MergeStrategy mergestrategy);
 
   /// Lower a merge lattice to cases.
   virtual ir::Stmt lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
                                    MergeLattice lattice,
-                                   const std::set<Access>& reducedAccesses);
+                                   const std::set<Access>& reducedAccesses, 
+                                   MergeStrategy mergeStrategy);
 
   /// Lower a forall loop body.
   virtual ir::Stmt lowerForallBody(ir::Expr coordinate, IndexStmt stmt,
@@ -185,7 +193,8 @@ protected:
                                    std::vector<Iterator> inserters,
                                    std::vector<Iterator> appenders,
                                    MergeLattice caseLattice,
-                                   const std::set<Access>& reducedAccesses);
+                                   const std::set<Access>& reducedAccesses, 
+                                   MergeStrategy mergeStrategy);
 
 
   /// Lower a where statement.
@@ -375,7 +384,7 @@ protected:
 
   /// Conditionally increment iterator position variables.
   ir::Stmt codeToIncIteratorVars(ir::Expr coordinate, IndexVar coordinateVar,
-          std::vector<Iterator> iterators, std::vector<Iterator> mergers);
+          std::vector<Iterator> iterators, std::vector<Iterator> mergers, MergeStrategy strategy);
 
   ir::Stmt codeToLoadCoordinatesFromPosIterators(std::vector<Iterator> iterators, bool declVars);
 
@@ -410,7 +419,8 @@ protected:
   /// Lowers a merge lattice to cases assuming there are no more loops to be emitted in stmt.
   /// Will emit checks for explicit zeros for each mode iterator and each locator in the lattice.
   ir::Stmt lowerMergeCasesWithExplicitZeroChecks(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
-                                                 MergeLattice lattice, const std::set<Access>& reducedAccesses);
+                                                 MergeLattice lattice, const std::set<Access>& reducedAccesses, 
+                                                 MergeStrategy mergeStrategy);
 
   /// Constructs cases comparing the coordVar for each iterator to the resolved coordinate.
   /// Returns a vector where coordComparisons[i] corresponds to a case for iters[i]
@@ -444,7 +454,7 @@ protected:
   /// The map must be of iterators to exprs of boolean types
   std::vector<ir::Stmt> lowerCasesFromMap(std::map<Iterator, ir::Expr> iteratorToCondition,
                                           ir::Expr coordinate, IndexStmt stmt, const MergeLattice& lattice,
-                                          const std::set<Access>& reducedAccesses);
+                                          const std::set<Access>& reducedAccesses, MergeStrategy mergeStrategy);
 
   /// Constructs an expression which checks if this access is "zero"
   ir::Expr constructCheckForAccessZero(Access);

@@ -634,6 +634,23 @@ public:
   /// reorder takes a new ordering for a set of index variables that are directly nested in the iteration order
   IndexStmt reorder(std::vector<IndexVar> reorderedvars) const;
 
+  /// The mergeby transformation specifies how to merge iterators on
+  /// the given index variable. By default, if an iterator is used for windowing
+  /// it will be merged with the "gallop" strategy.
+  /// All other iterators are merged with the "two finger" strategy.
+  /// The two finger strategy merges by advancing each iterator one at a time, 
+  /// while the gallop strategy implements the exponential search algorithm.
+  /// 
+  /// Preconditions:
+  /// This command applies to variables involving sparse iterators only;
+  /// it is a no-op if the variable invovles any dense iterators.
+  /// Any variable can be merged with the two finger strategy, whereas gallop
+  /// only applies to a variable if its merge lattice has a single point 
+  /// (i.e. an intersection). For example, if a variable involves multiplications
+  /// only, it can be merged with gallop.
+  /// Furthermore, all iterators must be ordered for gallop to apply.
+  IndexStmt mergeby(IndexVar i, MergeStrategy strategy) const;
+
   /// The parallelize
   /// transformation tags an index variable for parallel execution.  The
   /// transformation takes as an argument the type of parallel hardware
@@ -829,13 +846,14 @@ public:
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
-  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0);
+  Forall(IndexVar indexVar, IndexStmt stmt, MergeStrategy merge_strategy, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
 
   ParallelUnit getParallelUnit() const;
   OutputRaceStrategy getOutputRaceStrategy() const;
+  MergeStrategy getMergeStrategy() const;
 
   size_t getUnrollFactor() const;
 
@@ -844,7 +862,7 @@ public:
 
 /// Create a forall index statement.
 Forall forall(IndexVar i, IndexStmt stmt);
-Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0);
+Forall forall(IndexVar i, IndexStmt stmt, MergeStrategy merge_strategy, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0);
 
 
 /// A where statment has a producer statement that binds a tensor variable in

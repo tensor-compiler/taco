@@ -1,4 +1,4 @@
-PyTaco Datatype Object
+PyTaco Data Type Object
 =================================
 
 .. autoclass:: pytaco.dtype
