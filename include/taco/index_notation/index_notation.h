@@ -778,6 +778,16 @@ public:
   IndexStmt assemble(TensorVar result, AssembleStrategy strategy, 
                      bool separately_schedulable = false) const;
 
+  /// The wsaccel primitive specifies the dimensions of a workspace that
+  /// will be accelerated. Acc controls whether acceleration will be applied.
+  /// If accels is empty it means all dimensions should be accelerated.
+  /// Currently, it only supports one-dimension acceleration. Acceleration is used
+  /// by default.
+  ///
+  /// Precondition:
+  /// Workspace can be accessed by the IndexVars in the accels.
+  IndexStmt wsaccel(TensorVar& ws, const std::vector<IndexVar>& accels, bool Acc = true);
+
   /// Casts index statement to specified subtype.
   template <typename SubType>
   SubType as() {
@@ -1155,6 +1165,15 @@ public:
 
   /// Gets the fill value of the tensor variable. May be left undefined.
   const Literal& getFill() const;
+
+  /// Gets the acceleration dimensions
+  const std::vector<IndexVar>& getAccels() const;
+
+  /// Gets the acceleration flag
+  bool getAcc() const;
+
+  /// Set the acceleration dimensions
+  void setAccels(const std::vector<IndexVar>& accels, bool Acc);
 
   /// Set the fill value of the tensor variable
   void setFill(const Literal& fill);

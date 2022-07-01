@@ -2048,6 +2048,30 @@ IndexStmt IndexStmt::assemble(TensorVar result, AssembleStrategy strategy,
   return transformed;
 }
 
+IndexStmt IndexStmt::wsaccel(TensorVar& ws, const std::vector<IndexVar>& accels, bool Acc) {
+    if (accels.size() == 0) {
+        ws.setAccels(accels, Acc);
+        return *this;
+    }
+    set<IndexVar> TempVars;
+    match(*this,
+          std::function<void(const WhereNode*)>([&](const WhereNode* where) {
+        auto Temp = getResultAccesses(where->producer).first[0];
+        if (Temp.getTensorVar() == ws) {
+            for (auto i :getIndexVars()){
+                TempVars.insert(i);
+            }
+        }
+    }));
+    for (auto i : accels) {
+        if (TempVars.find(i) == TempVars.end()) {
+            taco_uerror << "No matching indexVars in the Accel";
+        }
+    }
+    ws.setAccels(accels, Acc);
+    return *this;
+}
+
 std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
   if (!expr.defined()) return os << "IndexStmt()";
   IndexNotationPrinter printer(os);
@@ -2520,6 +2544,8 @@ struct TensorVar::Content {
   Format format;
   Schedule schedule;
   Literal fill;
+  std::vector<IndexVar> accels;
+  bool Acc;
 };
 
 TensorVar::TensorVar() : content(nullptr) {
@@ -2552,6 +2578,8 @@ TensorVar::TensorVar(const int& id, const string& name, const Type& type, const 
   content->type = type;
   content->format = format;
   content->fill = fill.defined()? fill : Literal::zero(type.getDataType());
+  content->accels = std::vector<IndexVar> {};
+  content->Acc = true;
 }
 
 int TensorVar::getId() const {
@@ -2593,6 +2621,19 @@ const Schedule& TensorVar::getSchedule() const {
 
 const Literal& TensorVar::getFill() const {
   return content->fill;
+}
+
+const std::vector<IndexVar>& TensorVar::getAccels() const {
+  return content->accels;
+}
+
+bool TensorVar::getAcc() const {
+  return content->Acc;
+}
+
+void TensorVar::setAccels(const std::vector<IndexVar>& accels, bool Acc) {
+  content->Acc = Acc;
+  content->accels = accels;
 }
 
 void TensorVar::setFill(const Literal &fill) {

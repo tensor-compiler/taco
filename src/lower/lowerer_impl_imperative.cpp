@@ -2274,6 +2274,12 @@ std::pair<bool,bool> LowererImplImperative::canAccelerateDenseTemp(Where where) 
   }
 
   TensorVar temporary = where.getTemporary();
+
+  // (0) Acceleration flag is true
+  if (!temporary.getAcc()) {
+    return std::make_pair(false, false);
+  }
+
   // (1) Temporary is dense vector
   if(!isDense(temporary.getFormat()) || temporary.getOrder() != 1) {
     return std::make_pair(false, false);
@@ -2302,9 +2308,6 @@ std::pair<bool,bool> LowererImplImperative::canAccelerateDenseTemp(Where where) 
           return resultVar == tempVar[0] ||
                  provGraph.isDerivedFrom(tempVar[0], resultVar);
   });
-  if (resultVars.size() == 0){
-      return std::make_pair(false, false);
-  }
   if (it == resultVars.end()) {
     return std::make_pair(true, false);
   }

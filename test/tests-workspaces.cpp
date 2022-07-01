@@ -546,6 +546,7 @@ TEST(workspaces, tile_dotProduct_2) {
 
   stmt = stmt.concretize();
 
+  stmt = stmt.wsaccel(precomputed, {}, false);
   A.compile(stmt);
   A.assemble();
   A.compute();
