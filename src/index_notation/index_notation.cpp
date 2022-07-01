@@ -2055,13 +2055,15 @@ IndexStmt IndexStmt::wsaccel(TensorVar& ws, const std::vector<IndexVar>& accels,
     }
     set<IndexVar> TempVars;
     match(*this,
-          std::function<void(const WhereNode*)>([&](const WhereNode* where) {
+          std::function<void(const WhereNode*,Matcher*)>([&](const WhereNode* where,Matcher* ctx) {
         auto Temp = getResultAccesses(where->producer).first[0];
         if (Temp.getTensorVar() == ws) {
             for (auto i :getIndexVars()){
                 TempVars.insert(i);
             }
         }
+        ctx->match(where->producer);
+        ctx->match(where->consumer);
     }));
     for (auto i : accels) {
         if (TempVars.find(i) == TempVars.end()) {
