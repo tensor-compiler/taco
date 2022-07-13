@@ -154,7 +154,7 @@ IndexStmt scheduleTTMCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, in
 }
 
 IndexStmt scheduleMTTKRPCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
-  int NUM_J = 1039/20;
+  // int NUM_J = 1039/20;
   IndexVar i1("i1"), i2("i2");
 
   IndexExpr precomputeExpr = stmt.as<Forall>().getStmt().as<Forall>().getStmt()
