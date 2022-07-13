@@ -2048,7 +2048,7 @@ IndexStmt IndexStmt::assemble(TensorVar result, AssembleStrategy strategy,
   return transformed;
 }
 
-IndexStmt IndexStmt::wsaccel(TensorVar& ws, const std::vector<IndexVar>& accels, bool Acc) {
+IndexStmt IndexStmt::wsaccel(TensorVar& ws, bool Acc, const std::vector<IndexVar>& accels) {
     if (accels.size() == 0) {
         ws.setAccels(accels, Acc);
         return *this;
