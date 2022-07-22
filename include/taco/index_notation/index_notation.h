@@ -778,15 +778,17 @@ public:
   IndexStmt assemble(TensorVar result, AssembleStrategy strategy, 
                      bool separately_schedulable = false) const;
 
-  /// The wsaccel primitive specifies the dimensions of a workspace that
-  /// will be accelerated. Acc controls whether acceleration will be applied.
-  /// If accels is empty it means all dimensions should be accelerated.
-  /// Currently, it only supports one-dimension acceleration. Acceleration is used
-  /// by default.
+  /// The wsaccel primitive specifies the dimensions of a workspace that will be accelerated.
+  /// Acceleration means adding compressed acceleration datastructures (bitmap, coordinate list) to a dense work space.
+  /// shouldAccel controls whether acceleration will be applied.
+  /// When shouldAccel is true, if accelIndexVars is empty, then all dimensions should be accelerated.
+  /// When shouldAccel is true, if accelIndexVars is not empty, then dimensions in accelIndexVars will be accelerated.
+  /// When shouldAccel is false, accelIndexVars is ignored.
+  /// Currently, it only supports one-dimension acceleration. Acceleration is used by default.
   ///
   /// Precondition:
-  /// Workspace can be accessed by the IndexVars in the accels.
-  IndexStmt wsaccel(TensorVar& ws, bool Acc = true,const std::vector<IndexVar>& accels={});
+  /// Workspace can be accessed by the IndexVars in the accelIndexVars.
+  IndexStmt wsaccel(TensorVar& ws, bool shouldAccel = true,const std::vector<IndexVar>& accelIndexVars ={});
 
   /// Casts index statement to specified subtype.
   template <typename SubType>
@@ -1167,13 +1169,13 @@ public:
   const Literal& getFill() const;
 
   /// Gets the acceleration dimensions
-  const std::vector<IndexVar>& getAccels() const;
+  const std::vector<IndexVar>& getaccelIndexVars() const;
 
   /// Gets the acceleration flag
-  bool getAcc() const;
+  bool getshouldAccel() const;
 
   /// Set the acceleration dimensions
-  void setAccels(const std::vector<IndexVar>& accels, bool Acc);
+  void setaccelIndexVars(const std::vector<IndexVar>& accelIndexVars, bool shouldAccel);
 
   /// Set the fill value of the tensor variable
   void setFill(const Literal& fill);

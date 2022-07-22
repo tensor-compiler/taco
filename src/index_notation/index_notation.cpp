@@ -1972,7 +1972,7 @@ IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
 
   // Replace all occurrences of i with ipos
   transformed = Transformation(ForAllReplace({i}, {ipos})).apply(transformed, &reason);
-    if (!transformed.defined()) {
+  if (!transformed.defined()) {
     taco_uerror << reason;
   }
 
@@ -2048,9 +2048,9 @@ IndexStmt IndexStmt::assemble(TensorVar result, AssembleStrategy strategy,
   return transformed;
 }
 
-IndexStmt IndexStmt::wsaccel(TensorVar& ws, bool Acc, const std::vector<IndexVar>& accels) {
-    if (accels.size() == 0) {
-        ws.setAccels(accels, Acc);
+IndexStmt IndexStmt::wsaccel(TensorVar& ws, bool shouldAccel, const std::vector<IndexVar>& accelIndexVars) {
+    if (accelIndexVars.size() == 0) {
+        ws.setaccelIndexVars(accelIndexVars, shouldAccel);
         return *this;
     }
     set<IndexVar> TempVars;
@@ -2065,12 +2065,12 @@ IndexStmt IndexStmt::wsaccel(TensorVar& ws, bool Acc, const std::vector<IndexVar
         ctx->match(where->producer);
         ctx->match(where->consumer);
     }));
-    for (auto i : accels) {
+    for (auto i : accelIndexVars) {
         if (TempVars.find(i) == TempVars.end()) {
             taco_uerror << "No matching indexVars in the Accel";
         }
     }
-    ws.setAccels(accels, Acc);
+    ws.setaccelIndexVars(accelIndexVars, shouldAccel);
     return *this;
 }
 
@@ -2546,8 +2546,8 @@ struct TensorVar::Content {
   Format format;
   Schedule schedule;
   Literal fill;
-  std::vector<IndexVar> accels;
-  bool Acc;
+  std::vector<IndexVar> accelIndexVars;
+  bool shouldAccel;
 };
 
 TensorVar::TensorVar() : content(nullptr) {
@@ -2580,8 +2580,8 @@ TensorVar::TensorVar(const int& id, const string& name, const Type& type, const 
   content->type = type;
   content->format = format;
   content->fill = fill.defined()? fill : Literal::zero(type.getDataType());
-  content->accels = std::vector<IndexVar> {};
-  content->Acc = true;
+  content->accelIndexVars = std::vector<IndexVar> {};
+  content->shouldAccel = true;
 }
 
 int TensorVar::getId() const {
@@ -2625,17 +2625,17 @@ const Literal& TensorVar::getFill() const {
   return content->fill;
 }
 
-const std::vector<IndexVar>& TensorVar::getAccels() const {
-  return content->accels;
+const std::vector<IndexVar>& TensorVar::getaccelIndexVars() const {
+  return content->accelIndexVars;
 }
 
-bool TensorVar::getAcc() const {
-  return content->Acc;
+bool TensorVar::getshouldAccel() const {
+  return content->shouldAccel;
 }
 
-void TensorVar::setAccels(const std::vector<IndexVar>& accels, bool Acc) {
-  content->Acc = Acc;
-  content->accels = accels;
+void TensorVar::setaccelIndexVars(const std::vector<IndexVar>& accelIndexVars, bool shouldAccel) {
+  content->shouldAccel = shouldAccel;
+  content->accelIndexVars = accelIndexVars;
 }
 
 void TensorVar::setFill(const Literal &fill) {
