@@ -798,7 +798,7 @@ public:
                      bool separately_schedulable = false) const;
 
   /// The wsaccel primitive specifies the dimensions of a workspace that will be accelerated.
-  /// Acceleration means adding compressed acceleration datastructures (bitmap, coordinate list) to a dense work space.
+  /// Acceleration means adding compressed acceleration datastructures (bitmap, coordinate list) to a dense workspace.
   /// shouldAccel controls whether acceleration will be applied.
   /// When shouldAccel is true, if accelIndexVars is empty, then all dimensions should be accelerated.
   /// When shouldAccel is true, if accelIndexVars is not empty, then dimensions in accelIndexVars will be accelerated.

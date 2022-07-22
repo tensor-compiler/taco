@@ -436,16 +436,10 @@ TEST(workspaces, precompute3D_renamedIVars_TspV) {
 }
 
 TEST(workspaces, tile_dotProduct_1) {
-  // FIXME: Disabled because currently the precompute algorithm does not appropriately
-  //        find the correct forall substmt to next the WhereNode in after i has been 
-  //        split into i0 and i1. As an example, the first precompute below is incorrect
-  //        since it should transform
-  //        forall(i0, forall(i1, A() += B(i) * C(i))) --> 
-  //        forall(i0, where(forall(i1, A() += ws(i1)), forall(i1, ws(i1) += B(i) * C(i))))
-  //        
-  //        But currently the algorithm does 
-  //        forall(i0, forall(i1, A() += B(i) * C(i))) --> 
-  //        where(forall(i1, A() += ws(i1)), forall(i0, forall(i1, ws(i1) += B(i) * C(i))))
+  // Test that precompute algorithm correctly decides the reduction operator of C_new(i1) = C(i) and B_new(i1) = B(i).
+  // Current indexStmt is:
+  // where(forall(i1, A += precomputed(i1)), forall(i0, where(where(forall(i1, precomputed(i1) += B_new(i1) * C_new(i1))
+  // ,forall(i1, C_new(i1) = C(i))), forall(i1, B_new(i1) = B(i)))))
 
   int N = 1024;
   Tensor<double> A("A");
@@ -505,10 +499,8 @@ TEST(workspaces, tile_dotProduct_1) {
 }
 
 TEST(workspaces, tile_dotProduct_2) {
-  // FIXME: This is also currently disabled since split(...) scheduling commands
-  // only split on the FIRST INSTANCE of an indexVar (assumes only one). 
-  // This is wrong if the indexVar is not renamed across iw_vars since an indexVar can 
-  // then occur on BOTH the consumer and producer side and should be split across both. 
+  // Split on the ALL INSTANCES of an indexVar.
+  // Test the wsaccel function that can disable the acceleration.
 
   int N = 1024;
   Tensor<double> A("A");
