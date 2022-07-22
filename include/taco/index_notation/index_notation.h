@@ -76,7 +76,26 @@ class IndexStmtVisitorStrict;
 /// none: lhs and rhs are mutually exclusive. And lhs and rhs are not empty sets.
 /// lcr: rhs is a proper subset of lhs. (lhs contains rhs)
 /// rcl: lhs is a proper subset of rhs. (rhs contains lhs)
-/// inter: lhs and rhs share common elements but are not equal or empty.
+/// inter: lhs and rhs share common elements but are not equal or empty. Some examples:
+/// ```
+/// // equal
+/// ws(i1) += A(i1) // i1 is a child index node
+/// ws(i) = A(i) // i is a parent index node
+///
+/// // none
+/// ws(i1) += A(i) // i1 is a child of i
+/// B_new(i) = B(i1)
+///
+/// // lcr
+/// ws(i,k) = A(i) * B(i)
+///
+/// // rcl
+/// ws(i) += A(i,k) * B(i,k)
+///
+/// // inter
+/// ws(i,j) += A(i,k) * B(k,j)
+/// ```
+///
 enum IndexSetRel {
     equal, none, lcr, rcl, inter
 };
