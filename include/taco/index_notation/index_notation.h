@@ -1188,13 +1188,13 @@ public:
   const Literal& getFill() const;
 
   /// Gets the acceleration dimensions
-  const std::vector<IndexVar>& getaccelIndexVars() const;
+  const std::vector<IndexVar>& getAccelIndexVars() const;
 
   /// Gets the acceleration flag
-  bool getshouldAccel() const;
+  bool getShouldAccel() const;
 
   /// Set the acceleration dimensions
-  void setaccelIndexVars(const std::vector<IndexVar>& accelIndexVars, bool shouldAccel);
+  void setAccelIndexVars(const std::vector<IndexVar>& accelIndexVars, bool shouldAccel);
 
   /// Set the fill value of the tensor variable
   void setFill(const Literal& fill);

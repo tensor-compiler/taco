@@ -2276,7 +2276,7 @@ std::pair<bool,bool> LowererImplImperative::canAccelerateDenseTemp(Where where) 
   TensorVar temporary = where.getTemporary();
 
   // (0) Acceleration flag is true
-  if (!temporary.getshouldAccel()) {
+  if (!temporary.getShouldAccel()) {
     return std::make_pair(false, false);
   }
 

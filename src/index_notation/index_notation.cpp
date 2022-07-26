@@ -2050,7 +2050,7 @@ IndexStmt IndexStmt::assemble(TensorVar result, AssembleStrategy strategy,
 
 IndexStmt IndexStmt::wsaccel(TensorVar& ws, bool shouldAccel, const std::vector<IndexVar>& accelIndexVars) {
     if (accelIndexVars.size() == 0) {
-        ws.setaccelIndexVars(accelIndexVars, shouldAccel);
+        ws.setAccelIndexVars(accelIndexVars, shouldAccel);
         return *this;
     }
     set<IndexVar> TempVars;
@@ -2070,7 +2070,7 @@ IndexStmt IndexStmt::wsaccel(TensorVar& ws, bool shouldAccel, const std::vector<
             taco_uerror << "No matching indexVars in the Accel";
         }
     }
-    ws.setaccelIndexVars(accelIndexVars, shouldAccel);
+    ws.setAccelIndexVars(accelIndexVars, shouldAccel);
     return *this;
 }
 
@@ -2625,15 +2625,15 @@ const Literal& TensorVar::getFill() const {
   return content->fill;
 }
 
-const std::vector<IndexVar>& TensorVar::getaccelIndexVars() const {
+const std::vector<IndexVar>& TensorVar::getAccelIndexVars() const {
   return content->accelIndexVars;
 }
 
-bool TensorVar::getshouldAccel() const {
+bool TensorVar::getShouldAccel() const {
   return content->shouldAccel;
 }
 
-void TensorVar::setaccelIndexVars(const std::vector<IndexVar>& accelIndexVars, bool shouldAccel) {
+void TensorVar::setAccelIndexVars(const std::vector<IndexVar>& accelIndexVars, bool shouldAccel) {
   content->shouldAccel = shouldAccel;
   content->accelIndexVars = accelIndexVars;
 }
