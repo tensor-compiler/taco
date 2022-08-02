@@ -71,6 +71,35 @@ struct SuchThatNode;
 class IndexExprVisitorStrict;
 class IndexStmtVisitorStrict;
 
+/// Describe the relation between indexVar sets of lhs and rhs in an Assignment node.
+/// equal: lhs = rhs
+/// none: lhs and rhs are mutually exclusive. And lhs and rhs are not empty sets.
+/// lcr: rhs is a proper subset of lhs. (lhs contains rhs)
+/// rcl: lhs is a proper subset of rhs. (rhs contains lhs)
+/// inter: lhs and rhs share common elements but are not equal or empty. Some examples:
+/// ```
+/// // equal
+/// ws(i1) += A(i1) // i1 is a child index node
+/// ws(i) = A(i) // i is a parent index node
+///
+/// // none
+/// ws(i1) += A(i) // i1 is a child of i
+/// B_new(i) = B(i1)
+///
+/// // lcr
+/// ws(i,k) = A(i) * B(i)
+///
+/// // rcl
+/// ws(i) += A(i,k) * B(i,k)
+///
+/// // inter
+/// ws(i,j) += A(i,k) * B(k,j)
+/// ```
+///
+enum IndexSetRel {
+    equal, none, lcr, rcl, inter
+};
+
 /// Return true if the index statement is of the given subtype.  The subtypes
 /// are Assignment, Forall, Where, Sequence, and Multi.
 template <typename SubType> bool isa(IndexExpr);
@@ -768,6 +797,18 @@ public:
   IndexStmt assemble(TensorVar result, AssembleStrategy strategy, 
                      bool separately_schedulable = false) const;
 
+  /// The wsaccel primitive specifies the dimensions of a workspace that will be accelerated.
+  /// Acceleration means adding compressed acceleration datastructures (bitmap, coordinate list) to a dense workspace.
+  /// shouldAccel controls whether acceleration will be applied.
+  /// When shouldAccel is true, if accelIndexVars is empty, then all dimensions should be accelerated.
+  /// When shouldAccel is true, if accelIndexVars is not empty, then dimensions in accelIndexVars will be accelerated.
+  /// When shouldAccel is false, accelIndexVars is ignored.
+  /// Currently, it only supports one-dimension acceleration. Acceleration is used by default.
+  ///
+  /// Precondition:
+  /// Workspace can be accessed by the IndexVars in the accelIndexVars.
+  IndexStmt wsaccel(TensorVar& ws, bool shouldAccel = true,const std::vector<IndexVar>& accelIndexVars ={});
+
   /// Casts index statement to specified subtype.
   template <typename SubType>
   SubType as() {
@@ -819,6 +860,9 @@ public:
 
   /// Return the reduction index variables i nthe assign
   std::vector<IndexVar> getReductionVars() const;
+
+  /// Return the set relation of indexVars in lhs and rhs
+  IndexSetRel getIndexSetRel() const;
 
   typedef AssignmentNode Node;
 };
@@ -1142,6 +1186,15 @@ public:
 
   /// Gets the fill value of the tensor variable. May be left undefined.
   const Literal& getFill() const;
+
+  /// Gets the acceleration dimensions
+  const std::vector<IndexVar>& getAccelIndexVars() const;
+
+  /// Gets the acceleration flag
+  bool getShouldAccel() const;
+
+  /// Set the acceleration dimensions
+  void setAccelIndexVars(const std::vector<IndexVar>& accelIndexVars, bool shouldAccel);
 
   /// Set the fill value of the tensor variable
   void setFill(const Literal& fill);

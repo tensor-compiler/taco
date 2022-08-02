@@ -435,17 +435,11 @@ TEST(workspaces, precompute3D_renamedIVars_TspV) {
 
 }
 
-TEST(workspaces, DISABLED_tile_dotProduct_1) {
-  // FIXME: Disabled because currently the precompute algorithm does not appropriately
-  //        find the correct forall substmt to next the WhereNode in after i has been 
-  //        split into i0 and i1. As an example, the first precompute below is incorrect
-  //        since it should transform
-  //        forall(i0, forall(i1, A() += B(i) * C(i))) --> 
-  //        forall(i0, where(forall(i1, A() += ws(i1)), forall(i1, ws(i1) += B(i) * C(i))))
-  //        
-  //        But currently the algorithm does 
-  //        forall(i0, forall(i1, A() += B(i) * C(i))) --> 
-  //        where(forall(i1, A() += ws(i1)), forall(i0, forall(i1, ws(i1) += B(i) * C(i))))
+TEST(workspaces, tile_dotProduct_1) {
+  // Test that precompute algorithm correctly decides the reduction operator of C_new(i1) = C(i) and B_new(i1) = B(i).
+  // Current indexStmt is:
+  // where(forall(i1, A += precomputed(i1)), forall(i0, where(where(forall(i1, precomputed(i1) += B_new(i1) * C_new(i1))
+  // ,forall(i1, C_new(i1) = C(i))), forall(i1, B_new(i1) = B(i)))))
 
   int N = 1024;
   Tensor<double> A("A");
@@ -504,11 +498,9 @@ TEST(workspaces, DISABLED_tile_dotProduct_1) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
-TEST(workspaces, DISABLED_tile_dotProduct_2) {
-  // FIXME: This is also currently disabled since split(...) scheduling commands
-  // only split on the FIRST INSTANCE of an indexVar (assumes only one). 
-  // This is wrong if the indexVar is not renamed across iw_vars since an indexVar can 
-  // then occur on BOTH the consumer and producer side and should be split across both. 
+TEST(workspaces, tile_dotProduct_2) {
+  // Split on the ALL INSTANCES of an indexVar.
+  // Test the wsaccel function that can disable the acceleration.
 
   int N = 1024;
   Tensor<double> A("A");
@@ -516,8 +508,8 @@ TEST(workspaces, DISABLED_tile_dotProduct_2) {
   Tensor<double> C("C", {N}, Format({Dense}));
 
   for (int i = 0; i < N; i++) {
-    B.insert({i}, (double) i);
-    C.insert({i}, (double) i);
+    B.insert({i}, (double) i / N);
+    C.insert({i}, (double) i / N);
   }
 
   B.pack();
@@ -546,6 +538,7 @@ TEST(workspaces, DISABLED_tile_dotProduct_2) {
 
   stmt = stmt.concretize();
 
+  stmt = stmt.wsaccel(precomputed, false);
   A.compile(stmt);
   A.assemble();
   A.compute();

@@ -658,8 +658,8 @@ INSTANTIATE_TEST_CASE_P(spgemm, spgemm,
                         Values(std::make_tuple(CSR, CSR, true),
                                std::make_tuple(DCSR, CSR, true),
                                std::make_tuple(DCSR, DCSR, true),
-                               std::make_tuple(CSR, CSC, false),
-                               std::make_tuple(DCSR, DCSC, false)));
+                               std::make_tuple(CSR, CSC, true),
+                               std::make_tuple(DCSR, DCSC, true)));
 
 TEST(scheduling_eval, spmataddCPU) {
   if (should_use_CUDA_codegen()) {

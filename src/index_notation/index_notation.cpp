@@ -2048,6 +2048,32 @@ IndexStmt IndexStmt::assemble(TensorVar result, AssembleStrategy strategy,
   return transformed;
 }
 
+IndexStmt IndexStmt::wsaccel(TensorVar& ws, bool shouldAccel, const std::vector<IndexVar>& accelIndexVars) {
+    if (accelIndexVars.size() == 0) {
+        ws.setAccelIndexVars(accelIndexVars, shouldAccel);
+        return *this;
+    }
+    set<IndexVar> TempVars;
+    match(*this,
+          std::function<void(const WhereNode*,Matcher*)>([&](const WhereNode* where,Matcher* ctx) {
+        auto Temp = getResultAccesses(where->producer).first[0];
+        if (Temp.getTensorVar() == ws) {
+            for (auto i :getIndexVars()){
+                TempVars.insert(i);
+            }
+        }
+        ctx->match(where->producer);
+        ctx->match(where->consumer);
+    }));
+    for (auto i : accelIndexVars) {
+        if (TempVars.find(i) == TempVars.end()) {
+            taco_uerror << "No matching indexVars in the Accel";
+        }
+    }
+    ws.setAccelIndexVars(accelIndexVars, shouldAccel);
+    return *this;
+}
+
 std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
   if (!expr.defined()) return os << "IndexStmt()";
   IndexNotationPrinter printer(os);
@@ -2100,6 +2126,50 @@ std::vector<IndexVar> Assignment::getReductionVars() const {
     })
   );
   return reductionVars;
+}
+
+IndexSetRel Assignment::getIndexSetRel() const {
+    vector<IndexVar> freeVars = getLhs().getIndexVars();
+    set<IndexVar> lseen(freeVars.begin(), freeVars.end());
+    vector<IndexVar> RVars ;
+    match(getRhs(),
+          std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+              for (auto& var : op->indexVars) {
+                  RVars.push_back(var);
+              }
+          }));
+    set<IndexVar> rseen(RVars.begin(), RVars.end());
+    IndexSetRel rel = equal;
+    std::vector<IndexVar> v_inter;
+    int lnum = lseen.size();
+    int rnum = rseen.size();
+    int rcl_num = 0;
+    for (auto & var : rseen){
+        if (util::contains(lseen, var)) {
+            rcl_num += 1;
+        }
+    }
+    if (rcl_num == 0) {
+        rel = none;
+    }
+    else if ((rcl_num<lnum) && (rcl_num == rnum)){
+        rel = lcr;
+    }
+    else if ((rcl_num<lnum) && (rcl_num<rnum)){
+        rel = inter;
+    } else if ((rcl_num == lnum) && (rcl_num == rnum)){
+        rel = equal;
+    } else if ((rcl_num == lnum) && (rcl_num<rnum)) {
+        rel = rcl;
+    }
+    else {
+        rel = none;
+    }
+
+    if (lnum == 0 && rel == none) {
+        rel = rcl;
+    }
+    return rel;
 }
 
 template <> bool isa<Assignment>(IndexStmt s) {
@@ -2476,6 +2546,8 @@ struct TensorVar::Content {
   Format format;
   Schedule schedule;
   Literal fill;
+  std::vector<IndexVar> accelIndexVars;
+  bool shouldAccel;
 };
 
 TensorVar::TensorVar() : content(nullptr) {
@@ -2508,6 +2580,8 @@ TensorVar::TensorVar(const int& id, const string& name, const Type& type, const 
   content->type = type;
   content->format = format;
   content->fill = fill.defined()? fill : Literal::zero(type.getDataType());
+  content->accelIndexVars = std::vector<IndexVar> {};
+  content->shouldAccel = true;
 }
 
 int TensorVar::getId() const {
@@ -2549,6 +2623,19 @@ const Schedule& TensorVar::getSchedule() const {
 
 const Literal& TensorVar::getFill() const {
   return content->fill;
+}
+
+const std::vector<IndexVar>& TensorVar::getAccelIndexVars() const {
+  return content->accelIndexVars;
+}
+
+bool TensorVar::getShouldAccel() const {
+  return content->shouldAccel;
+}
+
+void TensorVar::setAccelIndexVars(const std::vector<IndexVar>& accelIndexVars, bool shouldAccel) {
+  content->shouldAccel = shouldAccel;
+  content->accelIndexVars = accelIndexVars;
 }
 
 void TensorVar::setFill(const Literal &fill) {
