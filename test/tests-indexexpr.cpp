@@ -1,5 +1,6 @@
 #include "test.h"
 #include "test_tensors.h"
+#include <taco/ir/simplify.h>
 #include "taco/tensor.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
@@ -81,4 +82,22 @@ TEST(indexexpr, indexvar) {
   IndexVar var = to<IndexVar>(expr);
   ASSERT_EQ(type<int>(), var.getDataType());
   ASSERT_EQ("i", var.getName());
+}
+
+TEST(indexexpr, simplifyAdd) {
+
+  ir::Expr add = ir::Add::make(20, 40);
+  add = ir::simplify(add);
+
+  ASSERT_TRUE(ir::isa<ir::Literal>(add));
+  ASSERT_TRUE(ir::to<ir::Literal>(add)->equalsScalar(60));
+}
+
+TEST(indexexpr, simplifyMul) {
+
+  ir::Expr mul = ir::Mul::make(20, 40);
+  mul = ir::simplify(mul);
+
+  ASSERT_TRUE(ir::isa<ir::Literal>(mul));
+  ASSERT_TRUE(ir::to<ir::Literal>(mul)->equalsScalar(800));
 }

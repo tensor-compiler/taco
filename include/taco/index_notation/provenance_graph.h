@@ -5,7 +5,7 @@
 
 namespace taco {
 struct IndexVarRelNode;
-enum IndexVarRelType {UNDEFINED, SPLIT, DIVIDE, POS, FUSE, BOUND, PRECOMPUTE};
+enum IndexVarRelType {UNDEFINED, SPLIT, DIVIDE, POS, FUSE, PRECOMPUTE};
 
 /// A pointer class for IndexVarRelNodes provides some operations for all IndexVarRelTypes
 class IndexVarRel : public util::IntrusivePtr<const IndexVarRelNode> {
@@ -244,39 +244,6 @@ private:
 
 bool operator==(const FuseRelNode&, const FuseRelNode&);
 
-/// The bound relation allows expressing a constraint or value known at compile-time that allows for compile-time optimizations
-struct BoundRelNode : public IndexVarRelNode {
-  BoundRelNode(IndexVar parentVar, IndexVar boundVar, size_t bound, BoundType boundType);
-
-  const IndexVar& getParentVar() const;
-  const IndexVar& getBoundVar() const;
-  const size_t& getBound() const;
-  const BoundType& getBoundType() const;
-
-  void print(std::ostream& stream) const;
-  bool equals(const BoundRelNode &rel) const;
-  std::vector<IndexVar> getParents() const; // parentVar
-  std::vector<IndexVar> getChildren() const; // boundVar
-  std::vector<IndexVar> getIrregulars() const; // boundVar
-
-  /// Coordinate bounds remain unchanged, only iteration bounds change
-  std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, ProvenanceGraph provGraph) const;
-
-  /// Constrained depending on bound_type
-  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators, ProvenanceGraph provGraph) const;
-
-  /// parentVar = boundVar
-  ir::Expr recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, ProvenanceGraph provGraph) const;
-
-  /// boundVar = parentVar
-  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl, Iterators iterators, ProvenanceGraph provGraph) const;
-private:
-  struct Content;
-  std::shared_ptr<Content> content;
-};
-
-bool operator==(const BoundRelNode&, const BoundRelNode&);
-
 /// The precompute relation allows creating a new precomputeVar that is iterated over for the precompute loop and shares same sizes as parentVar
 /// This allows precomputeVar to be scheduled separately from the parentVar
 struct PrecomputeRelNode : public IndexVarRelNode {
@@ -310,6 +277,7 @@ class ProvenanceGraph {
 public:
   ProvenanceGraph() {}
   ProvenanceGraph(IndexStmt concreteStmt);
+  
 
   /// Returns the children of a given index variable, {} if no children or if indexVar is not in graph
   std::vector<IndexVar> getChildren(IndexVar indexVar) const;
@@ -387,6 +355,15 @@ public:
   /// does the index variable have a descendant in position space
   bool hasPosDescendant(IndexVar indexVar) const;
 
+  // /does the index variable have a bound
+  bool hasBound(IndexVar indexVar) const;
+
+  /// get the indexVar's bound
+  size_t getBound(IndexVar indexVar) const;
+
+  /// get the indexVar's boundType
+  taco::BoundType getBoundType(IndexVar indexVar) const;
+
   /// does the index variable have an exact bound known at compile-time
   bool hasExactBound(IndexVar indexVar) const;
 
@@ -411,12 +388,16 @@ public:
   /// a `.divide` scheduling operation.
   bool isDivided(IndexVar indexVar) const;
 
+
+
 private:
   std::map<IndexVar, IndexVarRel> childRelMap;
   std::map<IndexVar, IndexVarRel> parentRelMap;
 
   std::map<IndexVar, std::vector<IndexVar>> parentsMap;
   std::map<IndexVar, std::vector<IndexVar>> childrenMap;
+
+  std::map<IndexVar, std::pair<size_t, BoundType>> boundsMap;
 
   std::set<IndexVar> nodes;
 };

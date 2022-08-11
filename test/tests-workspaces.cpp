@@ -25,15 +25,14 @@ TEST(workspaces, tile_vecElemMul_NoTail) {
   B.pack();
 
   IndexVar i("i");
-  IndexVar i_bounded("i_bounded");
   IndexVar i0("i0"), i1("i1");
   IndexExpr precomputedExpr = B(i) * C(i);
   A(i) = precomputedExpr;
 
   IndexStmt stmt = A.getAssignment().concretize();
   TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
-  stmt = stmt.bound(i, i_bounded, 16, BoundType::MaxExact)
-             .split(i_bounded, i0, i1, 4)
+  stmt = stmt.bound(i, 16, BoundType::MaxExact)
+             .split(i, i0, i1, 4)
              .precompute(precomputedExpr, i1, i1, precomputed);
    
   A.compile(stmt);
@@ -63,15 +62,14 @@ TEST(workspaces, tile_vecElemMul_Tail1) {
   B.pack();
 
   IndexVar i("i");
-  IndexVar i_bounded("i_bounded");
   IndexVar i0("i0"), i1("i1");
   IndexExpr precomputedExpr = B(i) * C(i);
   A(i) = precomputedExpr;
 
   IndexStmt stmt = A.getAssignment().concretize();
   TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
-  stmt = stmt.bound(i, i_bounded, 16, BoundType::MaxExact)
-             .split(i_bounded, i0, i1, 5)
+  stmt = stmt.bound(i, 16, BoundType::MaxExact)
+             .split(i, i0, i1, 5)
              .precompute(precomputedExpr, i1, i1, precomputed);
    
   A.compile(stmt.concretize());
@@ -101,15 +99,14 @@ TEST(workspaces, tile_vecElemMul_Tail2) {
   B.pack();
 
   IndexVar i("i");
-  IndexVar i_bounded("i_bounded");
   IndexVar i0("i0"), i1("i1");
   IndexExpr precomputedExpr = B(i) * C(i);
   A(i) = precomputedExpr;
 
   IndexStmt stmt = A.getAssignment().concretize();
   TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
-  stmt = stmt.bound(i, i_bounded, 17, BoundType::MaxExact)
-             .split(i_bounded, i0, i1, 4)
+  stmt = stmt.bound(i, 17, BoundType::MaxExact)
+             .split(i, i0, i1, 4)
              .precompute(precomputedExpr, i1, i1, precomputed);
    
   A.compile(stmt.concretize());
@@ -150,15 +147,14 @@ TEST(workspaces, tile_denseMatMul) {
   B.pack();
 
   IndexVar i("i");
-  IndexVar i_bounded("i_bounded");
   IndexVar i0("i0"), i1("i1");
   IndexExpr precomputedExpr = B(i) * C(i);
   A(i) = precomputedExpr;
 
   IndexStmt stmt = A.getAssignment().concretize();
   TensorVar precomputed("precomputed", Type(Float64, {Dimension(i1)}), taco::dense);
-  stmt = stmt.bound(i, i_bounded, 16, BoundType::MaxExact)
-             .split(i_bounded, i0, i1, 4);
+  stmt = stmt.bound(i, 16, BoundType::MaxExact)
+             .split(i, i0, i1, 4);
 
   stmt = stmt.precompute(precomputedExpr, i1, i1, precomputed);
 
@@ -455,7 +451,6 @@ TEST(workspaces, tile_dotProduct_1) {
   C.pack();
 
   IndexVar i("i");
-  IndexVar i_bounded("i_bounded");
   IndexVar i0("i0"), i1("i1");
   IndexExpr BExpr = B(i);
   IndexExpr CExpr = C(i);
@@ -467,8 +462,8 @@ TEST(workspaces, tile_dotProduct_1) {
   TensorVar C_new("C_new", Type(Float64, {(size_t)N}), taco::dense);
   TensorVar precomputed("precomputed", Type(Float64, {(size_t)N}), taco::dense);
 
-  stmt = stmt.bound(i, i_bounded, (size_t)N, BoundType::MaxExact)
-             .split(i_bounded, i0, i1, 32);
+  stmt = stmt.bound(i, (size_t)N, BoundType::MaxExact)
+             .split(i, i0, i1, 32);
   stmt = stmt.precompute(precomputedExpr, i1, i1, precomputed);
   stmt = stmt.precompute(BExpr, i1, i1, B_new)
     .precompute(CExpr, i1, i1, C_new);
@@ -516,7 +511,6 @@ TEST(workspaces, tile_dotProduct_2) {
   C.pack();
 
   IndexVar i("i");
-  IndexVar i_bounded("i_bounded");
   IndexVar i0("i0"), i1("i1");
   IndexExpr BExpr = B(i);
   IndexExpr CExpr = C(i);
@@ -533,8 +527,8 @@ TEST(workspaces, tile_dotProduct_2) {
   stmt = stmt.precompute(BExpr, i, i, B_new) 
           .precompute(CExpr, i, i, C_new);
 
-  stmt = stmt.bound(i, i_bounded, (size_t)N, BoundType::MaxExact)
-             .split(i_bounded, i0, i1, 32);
+  stmt = stmt.bound(i, (size_t)N, BoundType::MaxExact)
+             .split(i, i0, i1, 32);
 
   stmt = stmt.concretize();
 
@@ -566,7 +560,6 @@ TEST(workspaces, tile_dotProduct_3) {
   C.pack();
 
   IndexVar i("i");
-  IndexVar i_bounded("i_bounded");
   IndexVar i0("i0"), i1("i1");
   IndexExpr BExpr = B(i);
   IndexExpr CExpr = C(i);
@@ -578,8 +571,8 @@ TEST(workspaces, tile_dotProduct_3) {
   TensorVar C_new("C_new", Type(Float64, {(size_t)N}), taco::dense);
   TensorVar precomputed("precomputed", Type(Float64, {(size_t)N}), taco::dense);
 
-  stmt = stmt.bound(i, i_bounded, (size_t)N, BoundType::MaxExact)
-    .split(i_bounded, i0, i1, 32);
+  stmt = stmt.bound(i, (size_t)N, BoundType::MaxExact)
+    .split(i, i0, i1, 32);
   stmt = stmt.precompute(precomputedExpr, i0, i0, precomputed);
 
   stmt = stmt.precompute(BExpr, i1, i1, B_new)

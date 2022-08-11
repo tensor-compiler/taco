@@ -514,13 +514,13 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       stmt = stmt.mergeby(findVar(i), strategy);
 
     } else if (command == "bound") {
-      taco_uassert(scheduleCommand.size() == 4) << "'bound' scheduling directive takes 4 parameters: bound(i, i1, bound, type)";
+      taco_uassert(scheduleCommand.size() == 3) << "'bound' scheduling directive takes 3 parameters: bound(i, bound, type)";
       string i, i1, type;
       size_t bound;
       i  = scheduleCommand[0];
-      i1 = scheduleCommand[1];
-      taco_uassert(sscanf(scheduleCommand[2].c_str(), "%zu", &bound) == 1) << "failed to parse third parameter to `bound` directive as a size_t";
-      type = scheduleCommand[3];
+      i1 = scheduleCommand[0];
+      taco_uassert(sscanf(scheduleCommand[1].c_str(), "%zu", &bound) == 1) << "failed to parse second parameter to `bound` directive as a size_t";
+      type = scheduleCommand[2];
 
       BoundType bound_type;
       if (type == "MinExact") {
@@ -537,7 +537,7 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
       }
 
       IndexVar bound1(i1);
-      stmt = stmt.bound(findVar(i), bound1, bound, bound_type);
+      stmt = stmt.bound(findVar(i), bound, bound_type);
 
     } else if (command == "unroll") {
       taco_uassert(scheduleCommand.size() == 2) << "'unroll' scheduling directive takes 2 parameters: unroll(i, unrollFactor)";

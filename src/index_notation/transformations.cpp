@@ -42,8 +42,12 @@ Transformation::Transformation(Parallelize parallelize)
         : transformation(new Parallelize(parallelize)) {
 }
 
-Transformation::Transformation(AddSuchThatPredicates addsuchthatpredicates)
-        : transformation(new AddSuchThatPredicates(addsuchthatpredicates)) {
+Transformation::Transformation(AddSuchThatPredicates addSuchThatBoundMap)
+        : transformation(new AddSuchThatPredicates(addSuchThatBoundMap)) {
+}
+
+Transformation::Transformation(AddSuchThatBoundMap addsuchthatpredicates)
+        : transformation(new AddSuchThatBoundMap(addsuchthatpredicates)) {
 }
 
 IndexStmt Transformation::apply(IndexStmt stmt, string* reason) const {
@@ -835,10 +839,10 @@ IndexStmt AddSuchThatPredicates::apply(IndexStmt stmt, string* reason) const {
     vector<IndexVarRel> predicate = suchThat.getPredicate();
     vector<IndexVarRel> predicates = getPredicates();
     predicate.insert(predicate.end(), predicates.begin(), predicates.end());
-    return SuchThat(suchThat.getStmt(), predicate);
+    return SuchThat(suchThat.getStmt(), predicate, suchThat.getBounds());
   }
   else{
-    return SuchThat(stmt, content->predicates);
+    return SuchThat(stmt, content->predicates, {});
   }
 }
 
@@ -850,6 +854,59 @@ std::ostream& operator<<(std::ostream& os, const AddSuchThatPredicates& addSuchT
   addSuchThatPredicates.print(os);
   return os;
 }
+
+
+// class AddSuchThatBoundMap
+struct AddSuchThatBoundMap::Content {
+  std::map<IndexVar, std::pair<size_t, BoundType>> addSuchThatBoundMap;
+};
+
+AddSuchThatBoundMap::AddSuchThatBoundMap() : content(nullptr) {
+}
+
+AddSuchThatBoundMap::AddSuchThatBoundMap(std::map<IndexVar, std::pair<size_t, BoundType>> addSuchThatBoundMap) : content(new Content) {
+  // taco_iassert(!predicates.empty());
+  content->addSuchThatBoundMap = addSuchThatBoundMap;
+}
+
+std::map<IndexVar, std::pair<size_t, BoundType>> AddSuchThatBoundMap::getBoundsMap() const {
+  return content->addSuchThatBoundMap;
+}
+
+IndexStmt AddSuchThatBoundMap::apply(IndexStmt stmt, string* reason) const {
+  INIT_REASON(reason);
+
+  string r;
+  if (!isConcreteNotation(stmt, &r)) {
+    *reason = "The index statement is not valid concrete index notation: " + r;
+    return IndexStmt();
+  }
+
+  if (isa<SuchThat>(stmt)) {
+    SuchThat suchThat = to<SuchThat>(stmt);
+    std::map<IndexVar, std::pair<size_t, BoundType>> boundMap = suchThat.getBounds();
+    std::map<IndexVar, std::pair<size_t, BoundType>> bounds = getBoundsMap();
+    bounds.insert(boundMap.begin(), boundMap.end());
+    return SuchThat(suchThat.getStmt(), suchThat.getPredicate(), bounds);
+  }
+  else{
+    return SuchThat(stmt, {}, getBoundsMap());
+  }
+}
+
+void AddSuchThatBoundMap::print(std::ostream& os) const {
+  os << "boundsMap(" ;
+  for (auto const& bound: getBoundsMap()){
+    os << bound.first << endl;
+  }
+  os << endl;
+}
+
+std::ostream& operator<<(std::ostream& os, const AddSuchThatBoundMap& addSuchThatBoundMap) {
+  addSuchThatBoundMap.print(os);
+  return os;
+}
+
 
 struct ReplaceReductionExpr : public IndexNotationRewriter {
   const std::map<Access,Access>& substitutions;

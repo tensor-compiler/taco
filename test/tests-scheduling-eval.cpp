@@ -257,10 +257,10 @@ IndexStmt scheduleSpMMGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precompute
           .pos(f, fpos, A(i, j))
           .split(fpos, block, fpos1, NNZ_PER_TB)
           .split(fpos1, warp, nnz, NNZ_PER_WARP)
-          .split(k, dense_val_unbounded, thread, WARP_SIZE)
-          .reorder({block, warp, thread, dense_val_unbounded, nnz})
+          .split(k, dense_val, thread, WARP_SIZE)
+          .reorder({block, warp, thread, dense_val, nnz})
           //.precompute(precomputedExpr, nnz, nnz, precomputed)
-          .bound(dense_val_unbounded, dense_val, 4, BoundType::MaxExact)
+          .bound(dense_val, 4, BoundType::MaxExact)
           //.unroll(dense_val, 4)
           .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
           .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::IgnoreRaces)
@@ -272,18 +272,35 @@ IndexStmt scheduleSDDMMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*
   IndexVar f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), nnz("nnz");
   IndexVar dense_val_unbounded("dense_val_unbounded"), dense_val("dense_val"), thread("thread");
   IndexVar thread_nz("thread_nz");
-  return stmt.reorder({i, k, j})
+
+  stmt = stmt.reorder({i, k, j})
           .fuse(i, k, f)
           .pos(f, fpos, B(i,k))
           .split(fpos, block, fpos1, NNZ_PER_TB)
           .split(fpos1, warp, nnz, NNZ_PER_WARP)
-          .split(j, dense_val_unbounded, thread, WARP_SIZE)
-          .bound(dense_val_unbounded, dense_val, CO_FACTOR, BoundType::MaxExact)
+          .split(j, dense_val, thread, WARP_SIZE)
+          .bound(dense_val, CO_FACTOR, BoundType::MaxExact)
           .reorder({block, warp, nnz, thread, dense_val})
           .unroll(dense_val, CO_FACTOR)
           .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
           .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::Atomics)
           .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::ParallelReduction);
+
+          ir::IRPrinter irp = ir::IRPrinter(cout);
+             
+          cout << stmt << endl;
+          
+          std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+          ir::Stmt compute = lower(stmt, "compute",  false, true);
+          
+          irp.print(compute);
+          cout << endl;
+          
+          codegen->compile(compute, false);
+
+  return stmt;
+
+          
 }
 
 IndexStmt scheduleTTMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256, int CO_FACTOR=4) {
@@ -296,8 +313,8 @@ IndexStmt scheduleTTMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*32
           .pos(f, fpos, B(i, j, k))
           .split(fpos, block, fpos1, NNZ_PER_TB)
           .split(fpos1, warp, nnz, NNZ_PER_WARP)
-          .split(l, dense_val_unbounded, thread, WARP_SIZE)
-          .bound(dense_val_unbounded, dense_val, CO_FACTOR, BoundType::MaxExact)
+          .split(l, dense_val, thread, WARP_SIZE)
+          .bound(dense_val, CO_FACTOR, BoundType::MaxExact)
           .reorder({block, warp, nnz, thread, dense_val})
           .unroll(dense_val, CO_FACTOR)
           .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
@@ -333,8 +350,8 @@ IndexStmt scheduleMTTKRPGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=1
           .pos(f, fpos, B(i, k, l))
           .split(fpos, block, fpos1, NNZ_PER_TB)
           .split(fpos1, warp, nnz, NNZ_PER_WARP)
-          .split(j, dense_val_unbounded, thread, WARP_SIZE)
-          .bound(dense_val_unbounded, dense_val, 1, BoundType::MaxExact)
+          .split(j, dense_val, thread, WARP_SIZE)
+          .bound(dense_val, 1, BoundType::MaxExact)
           .reorder({block, warp, dense_val, thread, nnz})
           .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
           .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::IgnoreRaces)
