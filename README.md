@@ -1,13 +1,6 @@
-The Tensor Algebra Compiler (taco) is a C++ library that computes
-tensor algebra expressions on sparse and dense tensors.  It uses novel
-compiler techniques to get performance competitive with hand-optimized
-kernels in widely used libraries for both sparse tensor algebra and
-sparse linear algebra.
+The Tensor Algebra Compiler (TACO) is a powerful C++ library developed to compute tensor algebraic expressions on various types of tensors, both sparse and dense. This library is built on novel compiler techniques which enable it to achieve optimal performance comparable to the traditionally hand-optimized kernels employed by frequently used libraries for sparse tensor algebra and sparse linear algebra.
 
-You can use taco as a C++ library that lets you load tensors, read
-tensors from files, and compute tensor expressions.  You can also use
-taco as a code generator that generates C functions that compute
-tensor expressions.
+Taco is an open-source C++ library that provides powerful yet easy-to-use capabilities for loading, reading, and computing tensors. Additionally, Taco is also a code generator that can generate C functions to compute sophisticated tensor expressions. This library provides an intuitive and user-friendly API, allowing developers to quickly and easily utilize its features.
 
 Learn more about taco at
 [tensor-compiler.org](http://tensor-compiler.org), in the paper
