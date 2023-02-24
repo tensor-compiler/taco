@@ -4,6 +4,7 @@
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/error/error_messages.h"
+#include "taco/storage/index.h"
 #include "taco/util/collections.h"
 #include "taco/lower/iterator.h"
 #include "taco/lower/merge_lattice.h"
@@ -28,6 +29,10 @@ Transformation::Transformation(Reorder reorder)
 
 Transformation::Transformation(Precompute precompute)
     : transformation(new Precompute(precompute)) {
+}
+
+Transformation::Transformation(LoopFuse loopfuse)
+    : transformation(new LoopFuse(loopfuse)) {
 }
 
 Transformation::Transformation(ForAllReplace forallreplace)
@@ -231,6 +236,314 @@ void SetMergeStrategy::print(std::ostream& os) const {
 std::ostream& operator<<(std::ostream& os, const SetMergeStrategy& setmergestrategy) {
   setmergestrategy.print(os);
   return os;
+}
+
+// class LoopFuse
+struct LoopFuse::Content {
+  int pos;
+  int isProducerOnLeft;
+  std::vector<int> path;
+};
+
+LoopFuse::LoopFuse() : content(nullptr) {
+}
+
+LoopFuse::LoopFuse(int pos, bool isProducerOnLeft, std::vector<int>& path) : content(new Content) {
+  content->pos = pos;
+  content->path = path;
+  content->isProducerOnLeft = isProducerOnLeft;
+}
+
+int LoopFuse::getPos() const {
+  return content->pos;
+}
+
+bool LoopFuse::getIsProducerOnLeft() const {
+  return content->isProducerOnLeft;
+}
+
+std::vector<int>& LoopFuse::getPath() const {
+  return content->path;
+}
+
+IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
+  INIT_REASON(reason);
+
+  auto printVector = [](const vector<IndexVar>& array) {
+    for (auto& var : array) {
+      cout << var << " ";
+    }
+    cout << endl;
+  };
+  auto printSet = [](const set<IndexVar>& array) {
+    for (auto& var : array) {
+      cout << var << " ";
+    }
+    cout << endl;
+  };
+
+  cout << "pos: " << getPos() << std::endl;
+  cout << "isProducerOnLeft: " << getIsProducerOnLeft() << endl;
+  cout << "path: ";
+  for (const auto& p : getPath()) {
+    cout << p << " " << std::endl;
+  }
+  cout << endl;
+
+  struct GetAssignment : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+    Assignment innerAssignment;
+    vector<IndexVar> indexAccessVars;
+
+    void visit(const ForallNode* node) {
+      Forall forall(node);
+      indexAccessVars.push_back(forall.getIndexVar());
+
+      if (isa<Assignment>(forall.getStmt())) {
+        innerAssignment = to<Assignment>(forall.getStmt());
+      }
+      else {
+        IndexNotationVisitor::visit(node);
+      }
+    }
+  };
+  GetAssignment getAssignment;
+  stmt.accept(&getAssignment);
+
+  std::cout << getAssignment.innerAssignment << std::endl;
+  cout << "Index access order: "; printVector(getAssignment.indexAccessVars);
+
+  // saves the result, producer and consumer of the assignment
+  // result = producer * consumer
+  // eg: Assignment is A(i,j) += B(i,j) * C(j,k) * D(k,l)
+  // if the pos is 1, the result is A(i,j), the producer is B(i,j) and the consumer is C(j,k) * D(k,l)
+  // if the post is 2, the result is A(i,j), the producer is B(i,j) * C(j,k) and the consumer is D(k,l)
+  // resultVars, producerVars and consumerVars are the index variables of the result, producer and consumer
+  struct GetProducerAndConsumer : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+    int pos;
+    bool isProducerOnLeft;
+    IndexExpr result;
+    IndexExpr producer;
+    IndexExpr consumer;
+    vector<IndexVar> resultVars;
+    set<IndexVar> producerVars;
+    set<IndexVar> consumerVars;
+    map<IndexVar, pair<Type, Dimension>> varTypes;
+    IndexExpr op;
+
+    GetProducerAndConsumer(int _pos, int _isProducerOnLeft) :  pos(_pos), isProducerOnLeft(_isProducerOnLeft), result(nullptr), producer(nullptr), consumer(nullptr), varTypes({}) {}
+
+    void addIndexVar(Access access) {
+      // get the dimension and type of each index variable in tensor
+      for (unsigned long i = 0; i < access.getIndexVars().size(); i++) {
+        auto tensorVar = access.getTensorVar(); // Tensor variable like A, B
+        auto indexVar = access.getIndexVars()[i]; // Index variable like i, j
+        auto tensorVarType = tensorVar.getType();
+        varTypes[indexVar] = make_pair(tensorVarType, tensorVarType.getShape().getDimension(i));
+      }
+    }
+
+    void visit(const AssignmentNode* node) {
+      Assignment assignment(node);
+      // result is stored in the left hand side of the assignment
+      result = assignment.getLhs();
+      resultVars = assignment.getLhs().getIndexVars();
+      std::cout << "result: " << result
+        << ", rhs: " << assignment.getRhs()
+        << ", freeVars: " << assignment.getFreeVars()
+        << ", indexVars: " << assignment.getIndexVars()
+        << ", indexSetRelation: " << assignment.getIndexSetRel() 
+        << std::endl;
+
+      // add the index variables of the result to the map
+      addIndexVar(to<Access>(assignment.getLhs()));
+
+      // visit the tensor contraction expression on the left hand side of += or =
+      IndexNotationVisitor::visit(assignment.getRhs());
+    }
+
+    // lhs is a multiplication in the tensor contraction
+    void visit(const MulNode* node) {
+      Mul mul(node);
+      IndexNotationVisitor::visit(mul.getA());
+      IndexNotationVisitor::visit(mul.getB());
+    }
+
+    void visit(const AccessNode* node) {
+      Access access(node);
+      cout << "pos: " << pos << ", access: " <<  access << endl;
+      IndexExpr* it;
+      set<IndexVar>* vars;
+      if ((pos > 0 && isProducerOnLeft) || (pos <= 0 && !isProducerOnLeft)) { it = &producer; vars = &producerVars; }
+      else { it = &consumer; vars = &consumerVars; }
+
+      if (*it == nullptr) *it = access;
+      else *it = *it * access;
+
+      for (const auto& var : access.getIndexVars()) {
+        vars->insert(var);
+      }
+
+      // add the index variables of the access to the map
+      addIndexVar(access);
+      pos--;
+    }
+  };
+  GetProducerAndConsumer getProducerAndConsumer(getPos(), getIsProducerOnLeft());
+  stmt.accept(&getProducerAndConsumer);
+
+  std::cout << "result: " << getProducerAndConsumer.result << std::endl;
+  std::cout << "producer: " << getProducerAndConsumer.producer << std::endl;
+  std::cout << "consumer: " << getProducerAndConsumer.consumer << std::endl;
+  std::cout << "resultVars: " << getProducerAndConsumer.resultVars << std::endl;
+  cout << "producerVars: "; printSet(getProducerAndConsumer.producerVars);
+  cout << "consumerVars: "; printSet(getProducerAndConsumer.consumerVars);
+
+  // indices in the temporary comes from the producer indices (IndexVars)
+  // that are either in result indices or in consumer indices
+  // indices in the producer that are neither in producer indices nor in consumer indices
+  // gets contracted within the producer computation
+  vector<IndexVar> temporaryVars;
+  for (auto& var : getProducerAndConsumer.producerVars) {
+    auto itC = getProducerAndConsumer.consumerVars.find(var);
+    auto itR = find(getProducerAndConsumer.resultVars.begin(), getProducerAndConsumer.resultVars.end(), var);
+    if (itC != getProducerAndConsumer.consumerVars.end() ||
+        itR != getProducerAndConsumer.resultVars.end()) {
+      temporaryVars.push_back(var);
+    }
+  }
+  cout << "temporaryVars: "; printVector(temporaryVars);
+
+  // get the producer index access pattern
+  // get the consumer index access pattern
+  vector<IndexVar> producerLoopVars;
+  vector<IndexVar> consumerLoopVars;
+  for (auto& var : getAssignment.indexAccessVars) {
+    auto itP = getProducerAndConsumer.producerVars.find(var);
+    auto itC = getProducerAndConsumer.consumerVars.find(var);
+    auto itR = find(getProducerAndConsumer.resultVars.begin(), getProducerAndConsumer.resultVars.end(), var);
+    // check if variable is in the producer
+    if (itP != getProducerAndConsumer.producerVars.end()) {
+      producerLoopVars.push_back(var);
+    }
+    // check if variable is in the consumer or result
+    if (itC != getProducerAndConsumer.consumerVars.end() || itR != getProducerAndConsumer.resultVars.end()) {
+      consumerLoopVars.push_back(var);
+    }
+  }
+
+  // check if there are common outer loops in producerAccessOrder and consumerAccessOrder
+  vector<IndexVar> commonLoopVars;
+  for (auto& var : getAssignment.indexAccessVars) {
+    auto itC = find(consumerLoopVars.begin(), consumerLoopVars.end(), var);
+    auto itP = find(producerLoopVars.begin(), producerLoopVars.end(), var);
+    if (itC != consumerLoopVars.end() && itP != producerLoopVars.end()) {
+      commonLoopVars.push_back(var);
+      temporaryVars.erase(remove(temporaryVars.begin(), temporaryVars.end(), var), temporaryVars.end());
+    }
+    else {
+      break;
+    }
+  }
+  // for (auto& var : producerLoopVars) {
+  //   auto it = find(consumerLoopVars.begin(), consumerLoopVars.end(), var);
+  //   if (it != consumerLoopVars.end()) {
+  //     commonLoopVars.push_back(var);
+  //     temporaryVars.erase(remove(temporaryVars.begin(), temporaryVars.end(), var), temporaryVars.end());
+  //   }
+  //   else {
+  //     break;
+  //   }
+  // }
+  cout << "commonOuterLoops: "; printVector(commonLoopVars);
+  cout << "temporaryVars: "; printVector(temporaryVars);
+
+  // remove commonLoopVars from producerLoopVars and consumerLoopVars
+  for (auto& var : commonLoopVars) {
+    producerLoopVars.erase(remove(producerLoopVars.begin(), producerLoopVars.end(), var), producerLoopVars.end());
+    consumerLoopVars.erase(remove(consumerLoopVars.begin(), consumerLoopVars.end(), var), consumerLoopVars.end());
+  }
+  cout << "producerLoopVars: "; printVector(producerLoopVars);
+  cout << "consumerLoopVars: "; printVector(consumerLoopVars);
+
+  // create the intermediate tensor
+  vector<Dimension> temporaryDims;
+  vector<ModeFormat> temporaryModes;
+  // populate shape of the intermediate tensor
+  auto populateDimension = 
+  [&](map<IndexVar, pair<Type, Dimension>>& varTypes) {
+      for (auto& var : temporaryVars) {
+        temporaryDims.push_back(varTypes[var].second);
+        temporaryModes.push_back(ModeFormat{Dense});
+      }
+  };
+  populateDimension(getProducerAndConsumer.varTypes);
+  TensorVar intermediateTensor("ws", Type(Float64, temporaryDims));
+  Access workspace(intermediateTensor, temporaryVars);
+  cout << "intermediateTensor: " << intermediateTensor << endl;
+  cout << "workspace: " << workspace << endl;
+
+  Assignment producerAssignment(workspace, getProducerAndConsumer.producer, getAssignment.innerAssignment.getOperator());
+  cout << "producerAssignment: " << producerAssignment << endl;
+
+  Assignment consumerAssignment;
+  if (!getIsProducerOnLeft()) {
+    consumerAssignment = Assignment(to<Access>(getProducerAndConsumer.result), getProducerAndConsumer.consumer * workspace, getAssignment.innerAssignment.getOperator());
+  } else {
+    consumerAssignment = Assignment(to<Access>(getProducerAndConsumer.result), workspace * getProducerAndConsumer.consumer, getAssignment.innerAssignment.getOperator());
+  }
+  cout << "consumerAssignment: " << consumerAssignment << endl;
+  
+  // check if there are common outer loops
+  // if there are common outer loops, then remove those common outer loops from the temporaryVars
+
+  // rewrite the index notation to use the temporary
+  // eg: Assignment is A(i,j) += B(i,j) * C(j,k) * D(k,l)
+  // T(i,k) += B(i,j) * C(j,k) is the producer and A(i,j) += T(i,k) * D(k,l) is the consumer
+  struct ProducerConsumerRewriter : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+    Assignment& producer;
+    Assignment& consumer;
+    vector<IndexVar>& commonLoopVars;
+    vector<IndexVar>& producerLoopVars;
+    vector<IndexVar>& consumerLoopVars;
+
+    // constructor
+    ProducerConsumerRewriter(Assignment& producer, Assignment& consumer, vector<IndexVar>& commonLoopVars, vector<IndexVar>& producerLoopVars, vector<IndexVar>& consumerLoopVars) :
+      producer(producer), consumer(consumer), commonLoopVars(commonLoopVars), producerLoopVars(producerLoopVars), consumerLoopVars(consumerLoopVars) {}
+
+    IndexStmt generateForalls(IndexStmt innerStmt, vector<IndexVar> indexVars) {
+      auto returnStmt = innerStmt;
+      for (auto it = indexVars.rbegin(); it != indexVars.rend(); ++it) {
+        returnStmt = forall(*it, returnStmt);
+      }
+
+      return returnStmt;
+    };
+
+    // should find the path to get to this loop to perform the rewrite
+    void visit(const ForallNode* node) {
+      IndexStmt consumer = generateForalls(this->consumer, consumerLoopVars);
+      IndexStmt producer = generateForalls(this->producer, producerLoopVars);
+      Where where(consumer, producer);
+      stmt = generateForalls(where, commonLoopVars);
+      return;
+    }
+
+  };
+
+  ProducerConsumerRewriter rewriter(producerAssignment, consumerAssignment, commonLoopVars, producerLoopVars, consumerLoopVars);
+  stmt = rewriter.rewrite(stmt);
+  cout << "stmt: " << stmt << endl;
+
+  return stmt;
+}
+
+
+
+void LoopFuse::print(std::ostream &os) const {
+  os << "fuse(" << getPos() << ", " << util::join(getPath()) << ")";
 }
 
 // class Precompute

@@ -646,6 +646,11 @@ public:
   IndexStmt divide(IndexVar i, IndexVar i1, IndexVar i2, size_t divideFactor) const; // TODO: TailStrategy
 
 
+  /// The loopfuse transformation fuses common outer loops in 
+  /// 2 iteration graphs. 
+  IndexStmt loopfuse(int pos, bool isProducerOnLeft, std::vector<int>& path) const;
+
+
   /// The reorder transformation swaps two directly nested index
   /// variables in an iteration graph.  This changes the order of
   /// iteration through the space and the order of tensor accesses.

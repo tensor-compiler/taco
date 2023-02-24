@@ -84,6 +84,9 @@ Token Lexer::getToken() {
     case '/':
       token = Token::div;
       break;
+    case ';':
+      token = Token::colon;
+      break;
     case '=':
       token = Token::eq;
       break;

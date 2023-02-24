@@ -1854,6 +1854,26 @@ IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFa
   return transformed;
 }
 
+IndexStmt IndexStmt::loopfuse(int pos, bool isProducerOnLeft, vector<int>& path) const {
+
+  std::cout << "Loop fuse pos: " << pos;
+  std::cout << ", Loop fuse isProducerOnLeft: " << isProducerOnLeft;
+  for (const auto& p : path) {
+    std::cout << " " << p;
+  }
+  std::cout << std::endl;
+
+  string reason;
+  IndexStmt transformed = *this;
+  transformed = Transformation(LoopFuse(pos, isProducerOnLeft, path)).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+
+  return *this;
+}
+
 IndexStmt IndexStmt::precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
                                 std::vector<IndexVar> iw_vars, TensorVar workspace) const {
 
@@ -2047,6 +2067,7 @@ IndexStmt IndexStmt::assemble(TensorVar result, AssembleStrategy strategy,
   }
   return transformed;
 }
+
 
 IndexStmt IndexStmt::wsaccel(TensorVar& ws, bool shouldAccel, const std::vector<IndexVar>& accelIndexVars) {
     if (accelIndexVars.size() == 0) {
