@@ -668,9 +668,6 @@ TEST(workspaces, loopfuse) {
   }
 
   IndexVar i("i"), j("j"), k("k"), l("l"), m("m");
-  IndexExpr precomputedExpr = B(i,j) * C(j,k);
-  IndexExpr precomputedExpr2 = precomputedExpr * D(k,l);
-  // A(i,l) = precomputedExpr2;
   A(i,m) = B(i,j) * C(j,k) * D(k,l) * E(l,m);
 
   IndexStmt stmt = A.getAssignment().concretize();
@@ -678,26 +675,31 @@ TEST(workspaces, loopfuse) {
   TensorVar t("t", Type(Float64, {(size_t)N, (size_t)N}), Format{Dense, Dense});
 
   std::cout << stmt << endl;
-  vector<int> path;
+  vector<int> path1;
+  vector<int> path2 = {0};
   stmt = stmt
-    // .reorder({i,j,k,l})
     .reorder({i,j,k, l, m})
-    .loopfuse(2, true, path)
+    .loopfuse(3, true, path1)
+    .loopfuse(2, true, path2)
+    ;
+  stmt = stmt
     .parallelize(i, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces)
     ;
 
   stmt = stmt.concretize();
   cout << "final stmt: " << stmt << endl;
-
-  std::cout << "stmt: " << stmt << std::endl;
   printCodeToFile("loopfuse", stmt);
 
   A.compile(stmt.concretize());
   A.assemble();
   A.compute();
 
-  return;
-
+  Tensor<double> expected("expected", {N, N}, Format{Dense, Dense});
+  expected(i,m) = B(i,j) * C(j,k) * D(k,l) * E(l,m);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
 }
 
 TEST(workspaces, precompute2D_mul) {
@@ -962,3 +964,49 @@ TEST(workspaces, precompute_tensorContraction2) {
 }
 
 
+
+TEST(workspaces, sddmmPlusSpmm) {
+  Type t(type<double>(), {3,3});
+  const IndexVar i("i"), j("j"), k("k"), l("l");
+
+  TensorVar A("A", t, Format{Dense, Dense});
+  TensorVar B("B", t, Format{Dense, Sparse});
+  TensorVar C("C", t, Format{Dense, Dense});
+  TensorVar D("D", t, Format{Dense, Dense});
+  TensorVar E("E", t, Format{Dense, Dense});
+
+  TensorVar tmp("tmp", Type(), Format());
+
+  // A(i,j) = B(i,j) * C(i,k) * D(j,k) * E(j,l)
+  IndexStmt fused = 
+  forall(i,
+    forall(j,
+      forall(k,
+        forall(l, A(i,l) += B(i,j) * C(i,k) * D(j,k) * E(j,l))
+      )
+    )
+  );
+
+  std::cout << "before topological sort: " << fused << std::endl;
+  fused = reorderLoopsTopologically(fused);
+  // std::vector<IndexVar> order{"i", "j", "k", "l"};
+  fused = fused.reorder({i, j, k, l});
+  std::cout << "after topological sort: " << fused << std::endl;
+
+  // fused = fused.precompute(B(i,j) * C(i,k) * D(j,k), {}, {}, tmp);
+  std::cout << "after precompute: " << fused << std::endl;
+
+  // Kernel kernel = compile(fused);
+
+  // IndexStmt fusedNested = 
+  // forall(i,
+  //   forall(j,
+  //     where(
+  //       forall(l, A(i,l) += tmp * E(j,l)), // consumer
+  //       forall(k, tmp += B(i,j) * C(i,k) * D(j,k)) // producer
+  //     )
+  //   )
+  // );
+
+  // std::cout << "nested loop stmt: " << fusedNested << std::endl; 
+}
