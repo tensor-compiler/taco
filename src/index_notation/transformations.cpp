@@ -283,14 +283,6 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
     cout << endl;
   };
 
-  cout << "pos: " << getPos() << std::endl;
-  cout << "isProducerOnLeft: " << getIsProducerOnLeft() << endl;
-  cout << "path: ";
-  for (const auto& p : getPath()) {
-    cout << p << " " << std::endl;
-  }
-  cout << endl;
-
   struct GetAssignment : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
     Assignment innerAssignment;
@@ -304,14 +296,7 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
 
     void visit(const ForallNode* node) {
       Forall forall(node);
-      cout << "Forall: " << forall << endl;
-      cout << "pathIdx: " << pathIdx << endl;
-      // print path
-      cout << "path: ";
-      for (const auto& p : path) {
-        cout << p << " " << std::endl;
-      }
-      cout << endl;
+
       indexAccessVars.push_back(forall.getIndexVar());
       if (pathIdx < path.size()) {
         indexVarsUntilBranch.push_back(forall.getIndexVar());
@@ -327,7 +312,6 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
 
     void visit(const WhereNode* node) {
       Where where(node);
-      cout << "Where: " << where << endl;
 
       if (!path[pathIdx]) { // if path[pathIdx] == 0, go to the producer
         pathIdx++;
@@ -341,9 +325,6 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
   };
   GetAssignment getAssignment(getPath());
   stmt.accept(&getAssignment);
-
-  std::cout << getAssignment.innerAssignment << std::endl;
-  cout << "Index access order: "; printVector(getAssignment.indexAccessVars);
 
   // saves the result, producer and consumer of the assignment
   // result = producer * consumer
@@ -364,7 +345,6 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
     set<IndexVar> producerVars;
     set<IndexVar> consumerVars;
     map<IndexVar, pair<Type, Dimension>> varTypes;
-    IndexExpr op;
 
     GetProducerAndConsumer(int _pos, int _isProducerOnLeft, vector<int>& _path) :  pos(_pos), isProducerOnLeft(_isProducerOnLeft), path(_path), result(nullptr), producer(nullptr), consumer(nullptr), varTypes({}) {}
 
@@ -383,12 +363,6 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
       // result is stored in the left hand side of the assignment
       result = assignment.getLhs();
       resultVars = assignment.getLhs().getIndexVars();
-      std::cout << "result: " << result
-        << ", rhs: " << assignment.getRhs()
-        << ", freeVars: " << assignment.getFreeVars()
-        << ", indexVars: " << assignment.getIndexVars()
-        << ", indexSetRelation: " << assignment.getIndexSetRel() 
-        << std::endl;
 
       // add the index variables of the result to the map
       addIndexVar(to<Access>(assignment.getLhs()));
@@ -420,7 +394,6 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
 
     void visit(const AccessNode* node) {
       Access access(node);
-      cout << "pos: " << pos << ", access: " <<  access << endl;
       IndexExpr* it;
       set<IndexVar>* vars;
       if ((pos > 0 && isProducerOnLeft) || (pos <= 0 && !isProducerOnLeft)) { it = &producer; vars = &producerVars; }
@@ -441,13 +414,6 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
   GetProducerAndConsumer getProducerAndConsumer(getPos(), getIsProducerOnLeft(), getPath());
   stmt.accept(&getProducerAndConsumer);
 
-  std::cout << "result: " << getProducerAndConsumer.result << std::endl;
-  std::cout << "producer: " << getProducerAndConsumer.producer << std::endl;
-  std::cout << "consumer: " << getProducerAndConsumer.consumer << std::endl;
-  std::cout << "resultVars: " << getProducerAndConsumer.resultVars << std::endl;
-  cout << "producerVars: "; printSet(getProducerAndConsumer.producerVars);
-  cout << "consumerVars: "; printSet(getProducerAndConsumer.consumerVars);
-
   // indices in the temporary comes from the producer indices (IndexVars)
   // that are either in result indices or in consumer indices
   // indices in the producer that are neither in producer indices nor in consumer indices
@@ -461,7 +427,6 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
       temporaryVars.push_back(var);
     }
   }
-  cout << "temporaryVars: "; printVector(temporaryVars);
 
   // get the producer index access pattern
   // get the consumer index access pattern
@@ -480,19 +445,12 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
       consumerLoopVars.push_back(var);
     }
   }
-  cout << "producerLoopVars2: "; printVector(producerLoopVars);
-  cout << "consumerLoopVars2: "; printVector(consumerLoopVars);
 
   // remove indices from producerLoops and consumerLoops that are in getAssignment.indexVarsUntilBranch
-  cout << "indexVarsUntilBranch: "; printVector(getAssignment.indexVarsUntilBranch);
   for (auto& var : getAssignment.indexVarsUntilBranch) {
     producerLoopVars.erase(remove(producerLoopVars.begin(), producerLoopVars.end(), var), producerLoopVars.end());
     consumerLoopVars.erase(remove(consumerLoopVars.begin(), consumerLoopVars.end(), var), consumerLoopVars.end());
   }
-
-  cout << "producerLoopVars3: "; printVector(producerLoopVars);
-  cout << "consumerLoopVars3: "; printVector(consumerLoopVars);
-
 
   // check if there are common outer loops in producerAccessOrder and consumerAccessOrder
   vector<IndexVar> commonLoopVars;
@@ -507,16 +465,12 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
       break;
     }
   }
-  cout << "commonOuterLoops: "; printVector(commonLoopVars);
-  cout << "temporaryVars: "; printVector(temporaryVars);
 
   // remove commonLoopVars from producerLoopVars and consumerLoopVars
   for (auto& var : commonLoopVars) {
     producerLoopVars.erase(remove(producerLoopVars.begin(), producerLoopVars.end(), var), producerLoopVars.end());
     consumerLoopVars.erase(remove(consumerLoopVars.begin(), consumerLoopVars.end(), var), consumerLoopVars.end());
   }
-  cout << "producerLoopVars: "; printVector(producerLoopVars);
-  cout << "consumerLoopVars: "; printVector(consumerLoopVars);
 
   // create the intermediate tensor
   vector<Dimension> temporaryDims;
@@ -533,22 +487,18 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
   Access resultAccess = to<Access>(getProducerAndConsumer.result);
   TensorVar intermediateTensor("t_" + resultAccess.getTensorVar().getName(), Type(Float64, temporaryDims));
   Access workspace(intermediateTensor, temporaryVars);
-  cout << "intermediateTensor: " << intermediateTensor << endl;
-  cout << "workspace: " << workspace << endl;
 
   Assignment producerAssignment(workspace, getProducerAndConsumer.producer, getAssignment.innerAssignment.getOperator());
-  cout << "producerAssignment: " << producerAssignment << endl;
 
   Assignment consumerAssignment;
+  // if the producer is on left, then consumer is constructed by
+  // multiplying workspace * consumer and if the producer is on right, 
+  // then the consumer is constructed by multiplying consumer * workspace
   if (!getIsProducerOnLeft()) {
     consumerAssignment = Assignment(to<Access>(getProducerAndConsumer.result), getProducerAndConsumer.consumer * workspace, getAssignment.innerAssignment.getOperator());
   } else {
     consumerAssignment = Assignment(to<Access>(getProducerAndConsumer.result), workspace * getProducerAndConsumer.consumer, getAssignment.innerAssignment.getOperator());
   }
-  cout << "consumerAssignment: " << consumerAssignment << endl;
-  
-  // check if there are common outer loops
-  // if there are common outer loops, then remove those common outer loops from the temporaryVars
 
   // rewrite the index notation to use the temporary
   // eg: Assignment is A(i,j) += B(i,j) * C(j,k) * D(k,l)
@@ -578,6 +528,7 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
 
     // should find the path to get to this loop to perform the rewrite
     void visit(const ForallNode* node) {
+      // at the end of the path, rewrite should happen using the producer and consumer
       if (visited == path) {
         IndexStmt consumer = generateForalls(this->consumer, consumerLoopVars);
         IndexStmt producer = generateForalls(this->producer, producerLoopVars);
@@ -590,8 +541,8 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
 
     void visit(const WhereNode* node) {
       Where where(node);
-      cout << "Where: " << where << endl;
 
+      // add 0 to visited if the producer is visited and 1 if the consumer is visited
       visited.push_back(0);
       IndexStmt producer = rewrite(node->producer);
       visited.pop_back();
@@ -604,14 +555,11 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
       else {
         stmt = new WhereNode(consumer, producer);
       }
- 
     }
-
   };
 
   ProducerConsumerRewriter rewriter(getPath(), producerAssignment, consumerAssignment, commonLoopVars, producerLoopVars, consumerLoopVars);
   stmt = rewriter.rewrite(stmt);
-  cout << "stmt: " << stmt << endl;
 
   return stmt;
 }
