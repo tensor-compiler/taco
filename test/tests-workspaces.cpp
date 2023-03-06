@@ -702,6 +702,61 @@ TEST(workspaces, loopfuse) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
+
+
+TEST(workspaces, loopcontractfuse) {
+  int N = 16;
+  Tensor<double> A("A", {N, N, N}, Format{Dense, Dense, Dense});
+  Tensor<double> B("B", {N, N, N}, Format{Dense, Sparse, Sparse});
+  Tensor<double> C("C", {N, N}, Format{Dense, Dense});
+  Tensor<double> D("D", {N, N}, Format{Dense, Dense});
+  Tensor<double> E("E", {N, N}, Format{Dense, Dense});
+
+  for (int i = 0; i < N; i++) {
+    for (int j = 0; j < N; j++) {
+      for (int k = 0; k < N; k++) {
+        B.insert({i, j, k}, (double) i);
+      }
+      C.insert({i, j}, (double) j);
+      E.insert({i, j}, (double) i*j);
+      D.insert({i, j}, (double) i*j);
+    }
+  }
+
+  IndexVar i("i"), j("j"), k("k"), l("l"), m("m"), n("n");
+  A(l,m,n) = B(i,j,k) * C(i,l) * D(j,m) * E(k,n);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+
+  std::cout << stmt << endl;
+  vector<int> path1;
+  vector<int> path2 = {1};
+  stmt = stmt
+    .reorder({l,i,m, j, k, n})
+    .loopfuse(2, true, path1)
+    .loopfuse(2, true, path2)
+    ;
+  stmt = stmt
+    .parallelize(l, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces)
+    ;
+
+
+  stmt = stmt.concretize();
+  cout << "final stmt: " << stmt << endl;
+  printCodeToFile("loopcontractfuse", stmt);
+
+  A.compile(stmt.concretize());
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {N, N, N}, Format{Dense, Dense, Dense});
+  expected(l,m,n) = B(i,j,k) * C(i,l) * D(j,m) * E(k,n);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
+}
+
 TEST(workspaces, precompute2D_mul) {
   int N = 16;
   Tensor<double> A("A", {N, N}, Format{Dense, Dense});

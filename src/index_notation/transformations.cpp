@@ -4,6 +4,7 @@
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/error/error_messages.h"
+#include "taco/index_notation/index_notation_visitor.h"
 #include "taco/storage/index.h"
 #include "taco/util/collections.h"
 #include "taco/lower/iterator.h"
@@ -288,6 +289,7 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
     Assignment innerAssignment;
     vector<IndexVar> indexAccessVars;
     vector<IndexVar> indexVarsUntilBranch;
+    vector<IndexVar> indexVarsAfterBranch;
     unsigned int pathIdx = 0;
     vector<int> path;
 
@@ -300,6 +302,9 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
       indexAccessVars.push_back(forall.getIndexVar());
       if (pathIdx < path.size()) {
         indexVarsUntilBranch.push_back(forall.getIndexVar());
+      }
+      if (pathIdx >= path.size()) {
+        indexVarsAfterBranch.push_back(forall.getIndexVar());
       }
 
       if (isa<Assignment>(forall.getStmt())) {
@@ -454,7 +459,7 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
 
   // check if there are common outer loops in producerAccessOrder and consumerAccessOrder
   vector<IndexVar> commonLoopVars;
-  for (auto& var : getAssignment.indexAccessVars) {
+  for (auto& var : getAssignment.indexVarsAfterBranch) {
     auto itC = find(consumerLoopVars.begin(), consumerLoopVars.end(), var);
     auto itP = find(producerLoopVars.begin(), producerLoopVars.end(), var);
     if (itC != consumerLoopVars.end() && itP != producerLoopVars.end()) {
