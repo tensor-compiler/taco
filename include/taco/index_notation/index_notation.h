@@ -668,6 +668,9 @@ public:
   /// reorder takes a new ordering for a set of index variables that are directly nested in the iteration order
   IndexStmt reorder(std::vector<IndexVar> reorderedvars) const;
 
+  /// reorders the index variables in a nested structure with where clauses
+  IndexStmt reorder(std::vector<int> path, std::vector<IndexVar> reorderedvars) const;
+
   /// The mergeby transformation specifies how to merge iterators on
   /// the given index variable. By default, if an iterator is used for windowing
   /// it will be merged with the "gallop" strategy.
