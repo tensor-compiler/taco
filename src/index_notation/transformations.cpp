@@ -485,7 +485,11 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
   };
   populateDimension(getProducerAndConsumer.varTypes);
   Access resultAccess = to<Access>(getProducerAndConsumer.result);
-  TensorVar intermediateTensor("t_" + resultAccess.getTensorVar().getName(), Type(Float64, temporaryDims));
+  string path = "";
+  for (auto& p : getPath()) {
+    path += to_string(p);
+  }
+  TensorVar intermediateTensor("t_" + resultAccess.getTensorVar().getName() + path, Type(Float64, temporaryDims));
   Access workspace(intermediateTensor, temporaryVars);
 
   Assignment producerAssignment(workspace, getProducerAndConsumer.producer, getAssignment.innerAssignment.getOperator());
