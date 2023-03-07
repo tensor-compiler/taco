@@ -648,6 +648,13 @@ public:
 
   /// The loopfuse transformation fuses common outer loops in 
   /// 2 iteration graphs. 
+  /// when performing loopfuse operation on an already branched index statement
+  /// eg: forall(l, where(forall(ijk, T(j,k) += A*B), forall(mjkn, X(l,m,n) += T*C*D)))
+  /// and we want to further breakdown T*C*D into T2 = T*C and T2*D
+  /// we can use the path vector to specify the branch we want to apply the fuse on
+  /// eg: loopfuse(2, true, {1}) where 2 refers to breaking T*C*D at the 2nd position
+  /// and true refers to making T*C as the producer (if false, then C*D will be the producer if used with 1)
+  /// and {1} refers to the branch we want to apply the fuse on
   IndexStmt loopfuse(int pos, bool isProducerOnLeft, std::vector<int>& path) const;
 
 
