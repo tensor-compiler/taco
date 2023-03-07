@@ -775,6 +775,41 @@ static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr) {
   return getOperands.arguments;
 }
 
+static inline map<TensorVar, TensorBase> getTensors(const IndexStmt& stmt, vector<TensorVar>& operands) {
+  struct GetOperands : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+    vector<TensorVar>& operands;
+    map<TensorVar, TensorBase> arguments;
+
+    GetOperands(vector<TensorVar>& operands) : operands(operands) {}
+
+    void visit(const AccessNode* node) {
+      if (!isa<AccessTensorNode>(node)) {
+        return; // temporary ignore
+      }
+      Access ac = Access(node);
+      taco_iassert(isa<AccessTensorNode>(node)) << "Unknown subexpression";
+
+      if (!util::contains(arguments, node->tensorVar)) {
+        arguments.insert({node->tensorVar, to<AccessTensorNode>(node)->tensor});
+        operands.push_back(node->tensorVar);
+      }
+
+      // Also add any tensors backing index sets of tensor accesses.
+      for (auto& p : node->indexSetModes) {
+        auto tv = p.second.tensor.getTensorVar();
+        if (!util::contains(arguments, tv)) {
+          arguments.insert({tv, p.second.tensor});
+          operands.push_back(tv);
+        }
+      }
+    }
+  };
+  GetOperands getOperands(operands);
+  stmt.accept(&getOperands);
+  return getOperands.arguments;
+}
+
 static inline
 vector<void*> packArguments(const TensorBase& tensor) {
   vector<void*> arguments;
@@ -797,6 +832,35 @@ vector<void*> packArguments(const TensorBase& tensor) {
   auto operands = getArguments(makeConcreteNotation(tensor.getAssignment()));
 
   auto tensors = getTensors(tensor.getAssignment().getRhs());
+  for (auto& operand : operands) {
+    taco_iassert(util::contains(tensors, operand));
+    arguments.push_back(tensors.at(operand).getStorage());
+  }
+
+  return arguments;
+}
+
+static inline
+vector<void*> packArguments(const TensorBase& tensor, const IndexStmt stmt) {
+  vector<void*> arguments;
+
+  // Pack the result tensor
+  arguments.push_back(tensor.getStorage());
+
+  // Pack any index sets on the result tensor at the front of the arguments list.
+  auto lhs = getNode(tensor.getAssignment().getLhs());
+  // We check isa<AccessNode> rather than isa<AccessTensorNode> to catch cases
+  // where the underlying access is represented with the base AccessNode class.
+  if (isa<AccessNode>(lhs)) {
+    auto indexSetModes = to<AccessNode>(lhs)->indexSetModes;
+    for (auto& it : indexSetModes) {
+      arguments.push_back(it.second.tensor.getStorage());
+    }
+  }
+
+  // Pack operand tensors
+  std::vector<TensorVar> operands;
+  auto tensors = getTensors(stmt, operands);
   for (auto& operand : operands) {
     taco_iassert(util::contains(tensors, operand));
     arguments.push_back(tensors.at(operand).getStorage());
@@ -840,6 +904,29 @@ void TensorBase::compute() {
   }
 
   auto arguments = packArguments(*this);
+  this->content->module->callFuncPacked("compute", arguments.data());
+
+  if (content->assembleWhileCompute) {
+    setNeedsAssemble(false);
+    taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
+    content->valuesSize = unpackTensorData(*tensorData, *this);
+  }
+}
+
+void TensorBase::compute(IndexStmt stmt) {
+    taco_uassert(!needsCompile()) << error::compute_without_compile;
+  if (!needsCompute()) {
+    return;
+  }
+  setNeedsCompute(false);
+  // Sync operand tensors if needed.
+  auto operands = getTensors(getAssignment().getRhs());
+  for (auto& operand : operands) {
+    operand.second.syncValues();
+    operand.second.removeDependentTensor(*this);
+  }
+
+  auto arguments = packArguments(*this, stmt);
   this->content->module->callFuncPacked("compute", arguments.data());
 
   if (content->assembleWhileCompute) {
