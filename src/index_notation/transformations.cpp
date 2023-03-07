@@ -150,17 +150,7 @@ IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
       }
     }
   };
-
-  cout << "original statement: " << originalStmt << endl;
   ReorderVisitor reorderVisitor(content->path);
-
-  auto p = getpath();
-  cout << "path: " << util::join(p) << endl;
-  if (p.size() > 0) {
-    originalStmt.accept(&reorderVisitor);
-    cout << "reordering statment: " << reorderVisitor.innerStmt << endl;
-    stmt = reorderVisitor.innerStmt;
-  }
 
   // collect current ordering of IndexVars
   bool startedMatch = false;
@@ -179,7 +169,6 @@ IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
           }
         })
   );
-  cout << "currentOrdering: " << util::join(currentOrdering) << endl;
 
   if (!content->pattern_ordered && currentOrdering == getreplacepattern()) {
     taco_iassert(getreplacepattern().size() == 2);
@@ -191,9 +180,7 @@ IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
     return IndexStmt();
   }
 
-  cout << "replacePattern: " << util::join(getreplacepattern()) << endl;
   auto reorderedStmt = ForAllReplace(currentOrdering, getreplacepattern()).apply(stmt, reason);
-
 
   struct ReorderedRewriter : public IndexNotationRewriter {
     using IndexNotationRewriter::visit;
