@@ -12,6 +12,7 @@
 #include "taco/lower/mode.h"
 #include "taco/lower/mode_format_impl.h"
 
+#include <cstddef>
 #include <iostream>
 #include <algorithm>
 #include <limits>
@@ -470,7 +471,6 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
 
     void visit(const WhereNode* node) {
       Where where(node);
-      cout << "Where: " << where << endl;
 
       // select the path to visit
       if (!path[pathIdx]) { // if path[pathIdx] == 0, go to the producer
@@ -596,9 +596,9 @@ IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
   // multiplying workspace * consumer and if the producer is on right, 
   // then the consumer is constructed by multiplying consumer * workspace
   if (!getIsProducerOnLeft()) {
-    consumerAssignment = Assignment(to<Access>(getProducerAndConsumer.result), getProducerAndConsumer.consumer * workspace, getAssignment.innerAssignment.getOperator());
+    consumerAssignment = Assignment(to<Access>(getProducerAndConsumer.result), getProducerAndConsumer.consumer == NULL ? workspace : getProducerAndConsumer.consumer * workspace, getAssignment.innerAssignment.getOperator());
   } else {
-    consumerAssignment = Assignment(to<Access>(getProducerAndConsumer.result), workspace * getProducerAndConsumer.consumer, getAssignment.innerAssignment.getOperator());
+    consumerAssignment = Assignment(to<Access>(getProducerAndConsumer.result), getProducerAndConsumer.consumer == NULL ? workspace : workspace * getProducerAndConsumer.consumer, getAssignment.innerAssignment.getOperator());
   }
 
   // rewrite the index notation to use the temporary

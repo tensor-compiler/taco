@@ -865,6 +865,56 @@ TEST(workspaces, loopreordercontractfuse) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
+TEST(workspaces, sddmm) {
+  int N = 16;
+  float SPARSITY = 0.3;
+  vector<int> dims{N,N};
+  const IndexVar i("i"), j("j"), k("k"), l("l");
+
+  Tensor<double> A("A", dims, Format{Dense, Dense});
+  Tensor<double> B("B", dims, Format{Dense, Sparse});
+  Tensor<double> C("C", dims, Format{Dense, Dense});
+  Tensor<double> D("D", dims, Format{Dense, Dense});
+
+  for (int i = 0; i < N; i++) {
+    for (int j = 0; j < N; j++) {
+      float rand_float = (float) rand() / (float) RAND_MAX;
+      if (rand_float < SPARSITY)
+        B.insert({i, j}, (double) i);
+      C.insert({i, j}, (double) j);
+      D.insert({i, j}, (double) i*j);
+    }
+  }
+
+  A(i,j) = B(i,j) * C(i,k) * D(j,k);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+
+  vector<int> path1;
+  stmt = stmt
+    .reorder({i,k,j});
+  stmt = stmt
+    .loopfuse(3, true, path1);
+  stmt = stmt
+    .parallelize(i, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces)
+    ;
+
+  stmt = stmt.concretize();
+  cout << "final stmt: " << stmt << endl;
+  printCodeToFile("sddmm", stmt);
+
+  A.compile(stmt.concretize());
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", dims, Format{Dense, Dense});
+  expected(i,j) = B(i,j) * C(i,k) * D(j,k);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
+}
+
 TEST(workspaces, precompute2D_mul) {
   int N = 16;
   Tensor<double> A("A", {N, N}, Format{Dense, Dense});
