@@ -152,6 +152,10 @@ IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
     }
   };
   ReorderVisitor reorderVisitor(content->path);
+  if (content->path.size() > 0) {
+    reorderVisitor.visit(stmt);
+    stmt = reorderVisitor.innerStmt;
+  }
 
   // collect current ordering of IndexVars
   bool startedMatch = false;
