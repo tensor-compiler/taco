@@ -11,6 +11,7 @@
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
+#include "taco/index_notation/index_notation_visitor.h"
 #include "taco/type.h"
 #include "taco/format.h"
 
@@ -3474,20 +3475,39 @@ bool allForFreeLoopsBeforeAllReductionLoops(IndexStmt stmt) {
     return true;
   }
 
-std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt) {
-  map<Forall, Where> temporaryLocs;
-  Forall f = Forall();
-  match(stmt,
-        function<void(const ForallNode*, Matcher*)>([&](const ForallNode* op, Matcher* ctx) {
-          f = op;
-          ctx->match(op->stmt);
-        }),
-          function<void(const WhereNode*, Matcher*)>([&](const WhereNode* w, Matcher* ctx) {
-            if (!(f == IndexStmt()))
-              temporaryLocs.insert({f, Where(w)});
-          })
-        );
-  return temporaryLocs;
+std::map<Forall, vector<Where> > getTemporaryLocations(IndexStmt stmt) {
+  struct TemporaryLocsGetter : public IndexNotationVisitor {
+    map<Forall, vector<Where> > temporaryLocs;
+    Forall f;
+
+    using IndexNotationVisitor::visit;
+
+    void visit(const ForallNode *op) {
+      Forall forall = Forall(op);
+
+      if (f == NULL) {
+        f = op;
+      }
+      IndexNotationVisitor::visit(op);
+    }
+
+    void visit(const WhereNode *op) {
+      Where where = Where(op);
+      if (temporaryLocs.find(f) != temporaryLocs.end()) {
+        temporaryLocs[f].push_back(where);
+      }
+      else {
+        vector<Where> whereVec;
+        whereVec.push_back(where);
+        temporaryLocs.insert({f, whereVec});
+      }
+      IndexNotationVisitor::visit(op);
+    }
+  };
+  TemporaryLocsGetter getter;
+  getter.visit(stmt);
+  
+  return getter.temporaryLocs;
 }
 
 

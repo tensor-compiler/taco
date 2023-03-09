@@ -1323,7 +1323,7 @@ std::vector<TensorVar> getAttrQueryResults(IndexStmt stmt);
 
 // [Olivia]
 /// Returns the temporaries in the index statement, in the order they appear.
-std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt);
+std::map<Forall, std::vector<Where> > getTemporaryLocations(IndexStmt stmt);
 
 /// Returns the results in the index statement that should be assembled by 
 /// ungrouped insertion.

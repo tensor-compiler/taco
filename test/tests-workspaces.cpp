@@ -939,9 +939,7 @@ TEST(workspaces, precompute2D_mul) {
   TensorVar ws("ws", Type(Float64, {(size_t)N, (size_t)N}), Format{Dense, Dense});
   TensorVar t("t", Type(Float64, {(size_t)N, (size_t)N}), Format{Dense, Dense});
 
-  vector<int> path;
-  stmt = stmt.loopfuse(2, true, path);
-  
+  vector<int> path;  
   stmt = stmt.precompute(precomputedExpr, {i,k}, {i,k}, ws);
   stmt = stmt.precompute(ws(i,k) * D(k,l), {i,l}, {i,l}, t);
   stmt = stmt.concretize();
