@@ -895,7 +895,7 @@ void TensorBase::compute() {
   if (!needsCompute()) {
     return;
   }
-  setNeedsCompute(false);
+  // setNeedsCompute(false);
   // Sync operand tensors if needed.
   auto operands = getTensors(getAssignment().getRhs());
   for (auto& operand : operands) {
@@ -907,7 +907,7 @@ void TensorBase::compute() {
   this->content->module->callFuncPacked("compute", arguments.data());
 
   if (content->assembleWhileCompute) {
-    setNeedsAssemble(false);
+    // setNeedsAssemble(false);
     taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
     content->valuesSize = unpackTensorData(*tensorData, *this);
   }
@@ -918,7 +918,7 @@ void TensorBase::compute(IndexStmt stmt) {
   if (!needsCompute()) {
     return;
   }
-  setNeedsCompute(false);
+  // setNeedsCompute(false);
   // Sync operand tensors if needed.
   auto operands = getTensors(getAssignment().getRhs());
   for (auto& operand : operands) {
@@ -930,7 +930,7 @@ void TensorBase::compute(IndexStmt stmt) {
   this->content->module->callFuncPacked("compute", arguments.data());
 
   if (content->assembleWhileCompute) {
-    setNeedsAssemble(false);
+    // setNeedsAssemble(false);
     taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
     content->valuesSize = unpackTensorData(*tensorData, *this);
   }
