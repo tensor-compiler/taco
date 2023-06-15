@@ -646,6 +646,18 @@ public:
   IndexStmt divide(IndexVar i, IndexVar i1, IndexVar i2, size_t divideFactor) const; // TODO: TailStrategy
 
 
+  /// The loopfuse transformation fuses common outer loops in 
+  /// 2 iteration graphs. 
+  /// when performing loopfuse operation on an already branched index statement
+  /// eg: forall(l, where(forall(ijk, T(j,k) += A*B), forall(mjkn, X(l,m,n) += T*C*D)))
+  /// and we want to further breakdown T*C*D into T2 = T*C and T2*D
+  /// we can use the path vector to specify the branch we want to apply the fuse on
+  /// eg: loopfuse(2, true, {1}) where 2 refers to breaking T*C*D at the 2nd position
+  /// and true refers to making T*C as the producer (if false, then C*D will be the producer if used with 1)
+  /// and {1} refers to the branch we want to apply the fuse on
+  IndexStmt loopfuse(int pos, bool isProducerOnLeft, std::vector<int>& path) const;
+
+
   /// The reorder transformation swaps two directly nested index
   /// variables in an iteration graph.  This changes the order of
   /// iteration through the space and the order of tensor accesses.
@@ -662,6 +674,9 @@ public:
 
   /// reorder takes a new ordering for a set of index variables that are directly nested in the iteration order
   IndexStmt reorder(std::vector<IndexVar> reorderedvars) const;
+
+  /// reorders the index variables in a nested structure with where clauses
+  IndexStmt reorder(std::vector<int> path, std::vector<IndexVar> reorderedvars) const;
 
   /// The mergeby transformation specifies how to merge iterators on
   /// the given index variable. By default, if an iterator is used for windowing
@@ -1308,7 +1323,7 @@ std::vector<TensorVar> getAttrQueryResults(IndexStmt stmt);
 
 // [Olivia]
 /// Returns the temporaries in the index statement, in the order they appear.
-std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt);
+std::map<Forall, std::vector<Where> > getTemporaryLocations(IndexStmt stmt);
 
 /// Returns the results in the index statement that should be assembled by 
 /// ungrouped insertion.

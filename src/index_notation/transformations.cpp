@@ -4,12 +4,15 @@
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/error/error_messages.h"
+#include "taco/index_notation/index_notation_visitor.h"
+#include "taco/storage/index.h"
 #include "taco/util/collections.h"
 #include "taco/lower/iterator.h"
 #include "taco/lower/merge_lattice.h"
 #include "taco/lower/mode.h"
 #include "taco/lower/mode_format_impl.h"
 
+#include <cstddef>
 #include <iostream>
 #include <algorithm>
 #include <limits>
@@ -28,6 +31,10 @@ Transformation::Transformation(Reorder reorder)
 
 Transformation::Transformation(Precompute precompute)
     : transformation(new Precompute(precompute)) {
+}
+
+Transformation::Transformation(LoopFuse loopfuse)
+    : transformation(new LoopFuse(loopfuse)) {
 }
 
 Transformation::Transformation(ForAllReplace forallreplace)
@@ -58,6 +65,7 @@ std::ostream& operator<<(std::ostream& os, const Transformation& t) {
 
 // class Reorder
 struct Reorder::Content {
+  std::vector<int> path;
   std::vector<IndexVar> replacePattern;
   bool pattern_ordered; // In case of Reorder(i, j) need to change replacePattern ordering to actually reorder
 };
@@ -68,6 +76,12 @@ Reorder::Reorder(IndexVar i, IndexVar j) : content(new Content) {
 }
 
 Reorder::Reorder(std::vector<taco::IndexVar> replacePattern) : content(new Content) {
+  content->replacePattern = replacePattern;
+  content->pattern_ordered = true;
+}
+
+Reorder::Reorder(std::vector<int> path, std::vector<taco::IndexVar> replacePattern) : content(new Content) {
+  content->path = path;
   content->replacePattern = replacePattern;
   content->pattern_ordered = true;
 }
@@ -87,13 +101,60 @@ const std::vector<IndexVar>& Reorder::getreplacepattern() const {
   return content->replacePattern;
 }
 
+const std::vector<int>& Reorder::getpath() const {
+  return content->path;
+}
+
 IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
   INIT_REASON(reason);
 
   string r;
-  if (!isConcreteNotation(stmt, &r)) {
-    *reason = "The index statement is not valid concrete index notation: " + r;
-    return IndexStmt();
+
+  // TODO - Add a different check for concrete index notation with branching
+  // if (!isConcreteNotation(stmt, &r)) {
+  //   *reason = "The index statement is not valid concrete index notation: " + r;
+  //   return IndexStmt();
+  // }
+
+  IndexStmt originalStmt = stmt;
+  struct ReorderVisitor : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+    vector<int>& path;
+    unsigned int pathIdx = 0;
+    IndexStmt innerStmt;
+
+    ReorderVisitor(vector<int>& path) : path(path) {}
+
+    void visit(const ForallNode* node) {
+      if (pathIdx == path.size()) {
+        innerStmt = IndexStmt(node);
+        return;
+      }
+      IndexNotationVisitor::visit(node);
+    }
+
+    void visit(const WhereNode* node) {
+
+      Where where(node);
+
+      if (pathIdx == path.size()) {
+        innerStmt = IndexStmt(node);
+        return;
+      }
+
+      if (!path[pathIdx]) {
+        pathIdx++;
+        IndexNotationVisitor::visit(node->producer);
+      } else {
+        pathIdx++;
+        IndexNotationVisitor::visit(node->consumer);
+      }
+    }
+  };
+  ReorderVisitor reorderVisitor(content->path);
+  if (content->path.size() > 0) {
+    reorderVisitor.visit(stmt);
+    stmt = reorderVisitor.innerStmt;
   }
 
   // collect current ordering of IndexVars
@@ -123,7 +184,50 @@ IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
     *reason = "The foralls of reorder pattern: " + util::join(getreplacepattern()) + " were not directly nested.";
     return IndexStmt();
   }
-  return ForAllReplace(currentOrdering, getreplacepattern()).apply(stmt, reason);
+
+  auto reorderedStmt = ForAllReplace(currentOrdering, getreplacepattern()).apply(stmt, reason);
+
+  struct ReorderedRewriter : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    IndexStmt reorderedStmt;
+    vector<int>& path;
+    vector<int> visited;
+
+    ReorderedRewriter(IndexStmt reorderedStmt, vector<int>& path) : reorderedStmt(reorderedStmt), path(path) {}
+
+    void visit(const ForallNode* node) {
+      // at the end of the path, rewrite should happen using the producer and consumer
+      if (visited == path) {
+        stmt = reorderedStmt;
+        return;
+      }
+      IndexNotationRewriter::visit(node);
+    }
+
+    void visit(const WhereNode* node) {
+      Where where(node);
+
+      // add 0 to visited if the producer is visited and 1 if the consumer is visited
+      visited.push_back(0);
+      IndexStmt producer = rewrite(node->producer);
+      visited.pop_back();
+      visited.push_back(1);
+      IndexStmt consumer = rewrite(node->consumer);
+      visited.pop_back();
+      if (producer == node->producer && consumer == node->consumer) {
+        stmt = node;
+      }
+      else {
+        stmt = new WhereNode(consumer, producer);
+      }
+
+    }
+  };
+  ReorderedRewriter reorderedRewriter(reorderedStmt, content->path);
+  stmt = reorderedRewriter.rewrite(originalStmt);  
+
+  return stmt;
 }
 
 void Reorder::print(std::ostream& os) const {
@@ -231,6 +335,344 @@ void SetMergeStrategy::print(std::ostream& os) const {
 std::ostream& operator<<(std::ostream& os, const SetMergeStrategy& setmergestrategy) {
   setmergestrategy.print(os);
   return os;
+}
+
+// class LoopFuse
+struct LoopFuse::Content {
+  int pos;
+  int isProducerOnLeft;
+  std::vector<int> path;
+};
+
+LoopFuse::LoopFuse() : content(nullptr) {
+}
+
+LoopFuse::LoopFuse(int pos, bool isProducerOnLeft, std::vector<int>& path) : content(new Content) {
+  content->pos = pos;
+  content->path = path;
+  content->isProducerOnLeft = isProducerOnLeft;
+}
+
+int LoopFuse::getPos() const {
+  return content->pos;
+}
+
+bool LoopFuse::getIsProducerOnLeft() const {
+  return content->isProducerOnLeft;
+}
+
+std::vector<int>& LoopFuse::getPath() const {
+  return content->path;
+}
+
+IndexStmt LoopFuse::apply(IndexStmt stmt, std::string* reason) const {
+  INIT_REASON(reason);
+
+  auto printVector = [](const vector<IndexVar>& array) {
+    for (auto& var : array) {
+      cout << var << " ";
+    }
+    cout << endl;
+  };
+  auto printSet = [](const set<IndexVar>& array) {
+    for (auto& var : array) {
+      cout << var << " ";
+    }
+    cout << endl;
+  };
+
+  struct GetAssignment : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+    Assignment innerAssignment;
+    vector<IndexVar> indexAccessVars;
+    vector<IndexVar> indexVarsUntilBranch;
+    vector<IndexVar> indexVarsAfterBranch;
+    unsigned int pathIdx = 0;
+    vector<int> path;
+
+    // insert constructor with path
+    GetAssignment(vector<int>& _path) : path(_path) {}
+
+    void visit(const ForallNode* node) {
+      Forall forall(node);
+
+      indexAccessVars.push_back(forall.getIndexVar());
+      if (pathIdx < path.size()) {
+        indexVarsUntilBranch.push_back(forall.getIndexVar());
+      }
+      if (pathIdx >= path.size()) {
+        indexVarsAfterBranch.push_back(forall.getIndexVar());
+      }
+
+      if (isa<Assignment>(forall.getStmt())) {
+        innerAssignment = to<Assignment>(forall.getStmt());
+      }
+      else {
+        IndexNotationVisitor::visit(node);
+      }
+    }
+
+    void visit(const WhereNode* node) {
+      Where where(node);
+
+      if (!path[pathIdx]) { // if path[pathIdx] == 0, go to the producer
+        pathIdx++;
+        IndexNotationVisitor::visit(node->producer);
+      } else {
+        pathIdx++;
+        IndexNotationVisitor::visit(node->consumer);
+      }
+
+    }
+  };
+  GetAssignment getAssignment(getPath());
+  stmt.accept(&getAssignment);
+
+  // saves the result, producer and consumer of the assignment
+  // result = producer * consumer
+  // eg: Assignment is A(i,j) += B(i,j) * C(j,k) * D(k,l)
+  // if the pos is 1, the result is A(i,j), the producer is B(i,j) and the consumer is C(j,k) * D(k,l)
+  // if the post is 2, the result is A(i,j), the producer is B(i,j) * C(j,k) and the consumer is D(k,l)
+  // resultVars, producerVars and consumerVars are the index variables of the result, producer and consumer
+  struct GetProducerAndConsumer : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+    int pos;
+    int pathIdx = 0;
+    bool isProducerOnLeft;
+    vector<int> path;
+    IndexExpr result;
+    IndexExpr producer;
+    IndexExpr consumer;
+    vector<IndexVar> resultVars;
+    set<IndexVar> producerVars;
+    set<IndexVar> consumerVars;
+    map<IndexVar, pair<Type, Dimension>> varTypes;
+
+    GetProducerAndConsumer(int _pos, int _isProducerOnLeft, vector<int>& _path) :  pos(_pos), isProducerOnLeft(_isProducerOnLeft), path(_path), result(nullptr), producer(nullptr), consumer(nullptr), varTypes({}) {}
+
+    void addIndexVar(Access access) {
+      // get the dimension and type of each index variable in tensor
+      for (unsigned long i = 0; i < access.getIndexVars().size(); i++) {
+        auto tensorVar = access.getTensorVar(); // Tensor variable like A, B
+        auto indexVar = access.getIndexVars()[i]; // Index variable like i, j
+        auto tensorVarType = tensorVar.getType();
+        varTypes[indexVar] = make_pair(tensorVarType, tensorVarType.getShape().getDimension(i));
+      }
+    }
+
+    void visit(const AssignmentNode* node) {
+      Assignment assignment(node);
+      // result is stored in the left hand side of the assignment
+      result = assignment.getLhs();
+      resultVars = assignment.getLhs().getIndexVars();
+
+      // add the index variables of the result to the map
+      addIndexVar(to<Access>(assignment.getLhs()));
+
+      // visit the tensor contraction expression on the left hand side of += or =
+      IndexNotationVisitor::visit(assignment.getRhs());
+    }
+
+    void visit(const WhereNode* node) {
+      Where where(node);
+
+      // select the path to visit
+      if (!path[pathIdx]) { // if path[pathIdx] == 0, go to the producer
+        pathIdx++;
+        IndexNotationVisitor::visit(node->producer);
+      } else {
+        pathIdx++;
+        IndexNotationVisitor::visit(node->consumer);
+      }   
+    }
+
+    // lhs is a multiplication in the tensor contraction
+    void visit(const MulNode* node) {
+      Mul mul(node);
+      IndexNotationVisitor::visit(mul.getA());
+      IndexNotationVisitor::visit(mul.getB());
+    }
+
+    void visit(const AccessNode* node) {
+      Access access(node);
+      IndexExpr* it;
+      set<IndexVar>* vars;
+      if ((pos > 0 && isProducerOnLeft) || (pos <= 0 && !isProducerOnLeft)) { it = &producer; vars = &producerVars; }
+      else { it = &consumer; vars = &consumerVars; }
+
+      if (*it == nullptr) *it = access;
+      else *it = *it * access;
+
+      for (const auto& var : access.getIndexVars()) {
+        vars->insert(var);
+      }
+
+      // add the index variables of the access to the map
+      addIndexVar(access);
+      pos--;
+    }
+  };
+  GetProducerAndConsumer getProducerAndConsumer(getPos(), getIsProducerOnLeft(), getPath());
+  stmt.accept(&getProducerAndConsumer);
+
+  // indices in the temporary comes from the producer indices (IndexVars)
+  // that are either in result indices or in consumer indices
+  // indices in the producer that are neither in producer indices nor in consumer indices
+  // gets contracted within the producer computation
+  vector<IndexVar> temporaryVars;
+  for (auto& var : getProducerAndConsumer.producerVars) {
+    auto itC = getProducerAndConsumer.consumerVars.find(var);
+    auto itR = find(getProducerAndConsumer.resultVars.begin(), getProducerAndConsumer.resultVars.end(), var);
+    if (itC != getProducerAndConsumer.consumerVars.end() ||
+        itR != getProducerAndConsumer.resultVars.end()) {
+      temporaryVars.push_back(var);
+    }
+  }
+
+  // get the producer index access pattern
+  // get the consumer index access pattern
+  vector<IndexVar> producerLoopVars;
+  vector<IndexVar> consumerLoopVars;
+  for (auto& var : getAssignment.indexAccessVars) {
+    auto itP = getProducerAndConsumer.producerVars.find(var);
+    auto itC = getProducerAndConsumer.consumerVars.find(var);
+    auto itR = find(getProducerAndConsumer.resultVars.begin(), getProducerAndConsumer.resultVars.end(), var);
+    // check if variable is in the producer
+    if (itP != getProducerAndConsumer.producerVars.end()) {
+      producerLoopVars.push_back(var);
+    }
+    // check if variable is in the consumer or result
+    if (itC != getProducerAndConsumer.consumerVars.end() || itR != getProducerAndConsumer.resultVars.end()) {
+      consumerLoopVars.push_back(var);
+    }
+  }
+
+  // remove indices from producerLoops and consumerLoops that are in getAssignment.indexVarsUntilBranch
+  for (auto& var : getAssignment.indexVarsUntilBranch) {
+    producerLoopVars.erase(remove(producerLoopVars.begin(), producerLoopVars.end(), var), producerLoopVars.end());
+    consumerLoopVars.erase(remove(consumerLoopVars.begin(), consumerLoopVars.end(), var), consumerLoopVars.end());
+  }
+
+  // check if there are common outer loops in producerAccessOrder and consumerAccessOrder
+  vector<IndexVar> commonLoopVars;
+  for (auto& var : getAssignment.indexVarsAfterBranch) {
+    auto itC = find(consumerLoopVars.begin(), consumerLoopVars.end(), var);
+    auto itP = find(producerLoopVars.begin(), producerLoopVars.end(), var);
+    if (itC != consumerLoopVars.end() && itP != producerLoopVars.end()) {
+      commonLoopVars.push_back(var);
+      temporaryVars.erase(remove(temporaryVars.begin(), temporaryVars.end(), var), temporaryVars.end());
+    }
+    else {
+      break;
+    }
+  }
+
+  // remove commonLoopVars from producerLoopVars and consumerLoopVars
+  for (auto& var : commonLoopVars) {
+    producerLoopVars.erase(remove(producerLoopVars.begin(), producerLoopVars.end(), var), producerLoopVars.end());
+    consumerLoopVars.erase(remove(consumerLoopVars.begin(), consumerLoopVars.end(), var), consumerLoopVars.end());
+  }
+
+  // create the intermediate tensor
+  vector<Dimension> temporaryDims;
+  vector<ModeFormat> temporaryModes;
+  // populate shape of the intermediate tensor
+  auto populateDimension = 
+  [&](map<IndexVar, pair<Type, Dimension>>& varTypes) {
+      for (auto& var : temporaryVars) {
+        temporaryDims.push_back(varTypes[var].second);
+        temporaryModes.push_back(ModeFormat{Dense});
+      }
+  };
+  populateDimension(getProducerAndConsumer.varTypes);
+  Access resultAccess = to<Access>(getProducerAndConsumer.result);
+  string path = "";
+  for (auto& p : getPath()) {
+    path += to_string(p);
+  }
+  TensorVar intermediateTensor("t_" + resultAccess.getTensorVar().getName() + path, Type(Float64, temporaryDims));
+  Access workspace(intermediateTensor, temporaryVars);
+
+  Assignment producerAssignment(workspace, getProducerAndConsumer.producer, getAssignment.innerAssignment.getOperator());
+
+  Assignment consumerAssignment;
+  // if the producer is on left, then consumer is constructed by
+  // multiplying workspace * consumer and if the producer is on right, 
+  // then the consumer is constructed by multiplying consumer * workspace
+  if (!getIsProducerOnLeft()) {
+    consumerAssignment = Assignment(to<Access>(getProducerAndConsumer.result), getProducerAndConsumer.consumer == NULL ? workspace : getProducerAndConsumer.consumer * workspace, getAssignment.innerAssignment.getOperator());
+  } else {
+    consumerAssignment = Assignment(to<Access>(getProducerAndConsumer.result), getProducerAndConsumer.consumer == NULL ? workspace : workspace * getProducerAndConsumer.consumer, getAssignment.innerAssignment.getOperator());
+  }
+
+  // rewrite the index notation to use the temporary
+  // eg: Assignment is A(i,j) += B(i,j) * C(j,k) * D(k,l)
+  // T(i,k) += B(i,j) * C(j,k) is the producer and A(i,j) += T(i,k) * D(k,l) is the consumer
+  struct ProducerConsumerRewriter : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+    vector<int>& path;
+    vector<int> visited;
+    Assignment& producer;
+    Assignment& consumer;
+    vector<IndexVar>& commonLoopVars;
+    vector<IndexVar>& producerLoopVars;
+    vector<IndexVar>& consumerLoopVars;
+
+    // constructor
+    ProducerConsumerRewriter(vector<int>& _path, Assignment& producer, Assignment& consumer, vector<IndexVar>& commonLoopVars, vector<IndexVar>& producerLoopVars, vector<IndexVar>& consumerLoopVars) :
+      path(_path), producer(producer), consumer(consumer), commonLoopVars(commonLoopVars), producerLoopVars(producerLoopVars), consumerLoopVars(consumerLoopVars) {}
+
+    IndexStmt generateForalls(IndexStmt innerStmt, vector<IndexVar> indexVars) {
+      auto returnStmt = innerStmt;
+      for (auto it = indexVars.rbegin(); it != indexVars.rend(); ++it) {
+        returnStmt = forall(*it, returnStmt);
+      }
+
+      return returnStmt;
+    };
+
+    // should find the path to get to this loop to perform the rewrite
+    void visit(const ForallNode* node) {
+      // at the end of the path, rewrite should happen using the producer and consumer
+      if (visited == path) {
+        IndexStmt consumer = generateForalls(this->consumer, consumerLoopVars);
+        IndexStmt producer = generateForalls(this->producer, producerLoopVars);
+        Where where(consumer, producer);
+        stmt = generateForalls(where, commonLoopVars);
+        return;
+      }
+      IndexNotationRewriter::visit(node);
+    }
+
+    void visit(const WhereNode* node) {
+      Where where(node);
+
+      // add 0 to visited if the producer is visited and 1 if the consumer is visited
+      visited.push_back(0);
+      IndexStmt producer = rewrite(node->producer);
+      visited.pop_back();
+      visited.push_back(1);
+      IndexStmt consumer = rewrite(node->consumer);
+      visited.pop_back();
+      if (producer == node->producer && consumer == node->consumer) {
+        stmt = node;
+      }
+      else {
+        stmt = new WhereNode(consumer, producer);
+      }
+    }
+  };
+
+  ProducerConsumerRewriter rewriter(getPath(), producerAssignment, consumerAssignment, commonLoopVars, producerLoopVars, consumerLoopVars);
+  stmt = rewriter.rewrite(stmt);
+
+  return stmt;
+}
+
+
+
+void LoopFuse::print(std::ostream &os) const {
+  os << "fuse(" << getPos() << ", " << util::join(getPath()) << ")";
 }
 
 // class Precompute
@@ -722,10 +1164,12 @@ IndexStmt ForAllReplace::apply(IndexStmt stmt, string* reason) const {
   INIT_REASON(reason);
 
   string r;
-  if (!isConcreteNotation(stmt, &r)) {
-    *reason = "The index statement is not valid concrete index notation: " + r;
-    return IndexStmt();
-  }
+
+  // TODO - Add a different check for concrete index notation with branching
+  // if (!isConcreteNotation(stmt, &r)) {
+  //   *reason = "The index statement is not valid concrete index notation: " + r;
+  //   return IndexStmt();
+  // }
 
   /// Since all IndexVars can only appear once, assume replacement will work and error if it doesn't
   struct ForAllReplaceRewriter : public IndexNotationRewriter {

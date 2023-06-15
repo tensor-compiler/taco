@@ -429,6 +429,7 @@ public:
 
   /// Compute the given expression and put the values in the tensor storage.
   void compute();
+  void compute(IndexStmt stmt);
 
   /// Compile, assemble and compute as needed.
   void evaluate();

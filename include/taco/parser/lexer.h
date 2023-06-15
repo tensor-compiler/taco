@@ -22,6 +22,7 @@ enum class Token {
   sub,
   mul,
   div,
+  colon, // numbers before the colon indicate the path to branch in a branched iteration graph
   eq,
   eot,  // End of tokens
   error
