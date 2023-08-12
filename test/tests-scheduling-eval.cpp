@@ -1241,7 +1241,8 @@ TEST(scheduling_eval, spmvGPU) {
   IndexStmt stmt = y.getAssignment().concretize();
   stmt = scheduleSpMVGPU(stmt, A, precomputed);
 
-  //printToFile("spmv_gpu", stmt);
+  std::cout << stmt << std::endl;
+  printToFile("spmv_gpu", stmt);
 
   y.compile(stmt);
   y.assemble();
