@@ -445,6 +445,11 @@ public:
   /// True if the Tensor needs to be computed.
   bool needsCompute();
 
+  void setNeedsPack(bool needsPack);
+  void setNeedsCompile(bool needsCompile);
+  void setNeedsAssemble(bool needsAssemble);
+  void setNeedsCompute(bool needsCompute);
+
   /// Set to true to perform the assemble and compute stages simultaneously.
   void setAssembleWhileCompute(bool assembleWhileCompute);
 
@@ -510,10 +515,6 @@ private:
   bool neverPacked();
 
   void unsetNeverPacked();
-  void setNeedsPack(bool needsPack);
-  void setNeedsCompile(bool needsCompile);
-  void setNeedsAssemble(bool needsAssemble);
-  void setNeedsCompute(bool needsCompute);
 
   void addDependentTensor(TensorBase& tensor);
   void removeDependentTensor(TensorBase& tensor);
