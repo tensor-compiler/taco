@@ -40,11 +40,33 @@ class Timer {
 public:
   void start() {
     begin = std::chrono::steady_clock::now();
+    paused = false;
+  }
+
+  void pause() {
+    if (paused) {
+        assert(false);
+    }
+    auto paused_time = std::chrono::steady_clock::now();
+    auto diff = std::chrono::duration<double, std::milli>(paused_time - begin).count();
+    paused_times.push_back(diff);
+    paused = true;
   }
 
   void stop() {
+    if (paused) {
+		assert(false);
+	}
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration<double, std::milli>(end - begin).count();
+
+    if (!paused_times.empty()) {
+	for (auto ptimes : paused_times) {
+	    diff += ptimes; 
+	}
+	paused_times.clear();
+    }
+
     times.push_back(diff);
   }
 
@@ -95,6 +117,8 @@ public:
 protected:
   vector<double> times;
   TimePoint begin;
+  vector<double> paused_times;
+  bool paused = false;
 private:
   int dummySize = 3000000;
   double* dummyA = NULL;
