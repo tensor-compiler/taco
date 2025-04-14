@@ -567,8 +567,8 @@ TEST(scheduling, multilevel_tiling) {
 
   vector<IndexVar> reordering = {iX1, iX2, iY1, iY2};
   sort(reordering.begin(), reordering.end());
-  int countCorrect = 0;
-  int countIncorrect = 0;
+  //int countCorrect = 0;
+  //int countIncorrect = 0;
   do {
     // TODO: Precondition (can be broken) bottom most loop must remain unchanged if sparse
     bool valid_reordering = reordering[3] == iY2;
@@ -583,7 +583,7 @@ TEST(scheduling, multilevel_tiling) {
     C.compute();
     if (!equals(C, expected)) {
       //cout << util::join(reordering) << endl;
-      countIncorrect++;
+      //countIncorrect++;
 
       std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
       ir::Stmt compute = lower(reordered, "compute",  false, true);
@@ -591,9 +591,7 @@ TEST(scheduling, multilevel_tiling) {
       ASSERT_TENSOR_EQ(expected, C);
       exit(1);
     }
-    else {
-      countCorrect++;
-    }
+    //else{countCorrect++;}
   } while (next_permutation(reordering.begin(), reordering.end()));
 }
 

@@ -12,3 +12,4 @@ CMakeCache.txt
 doc
 .idea/
 apps/tensor_times_vector/tensor_times_vector
+*.lock

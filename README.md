@@ -29,7 +29,7 @@ TL;DR build taco using CMake. Run `make test`.
 # Build and test
 ![Build and Test](https://github.com/RSenApps/taco/workflows/Build%20and%20Test/badge.svg?branch=master)
 
-Build taco using CMake 3.4.0 or greater:
+Build taco using CMake 3.18 or greater:
 
     cd <taco-directory>
     mkdir build

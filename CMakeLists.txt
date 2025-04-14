@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 if(POLICY CMP0048)
   cmake_policy(SET CMP0048 NEW)
 endif()
@@ -7,7 +7,7 @@ if(POLICY CMP0054)
 endif()
 project(taco
   VERSION 0.1
-  LANGUAGES C CXX
+  LANGUAGES C CXX CUDA
 )
 option(CUDA "Build for NVIDIA GPU (CUDA must be preinstalled)" OFF)
 option(PYTHON "Build TACO for python environment" OFF)
@@ -18,7 +18,7 @@ set(TACO_FEATURE_OPENMP 0)
 set(TACO_FEATURE_PYTHON 0)
 if(CUDA)
   message("-- Searching for CUDA Installation")
-  find_package(CUDA REQUIRED)
+  find_package(CUDAToolkit)
   add_definitions(-DCUDA_BUILT)
   set(TACO_FEATURE_CUDA 1)
 endif(CUDA)
@@ -126,12 +126,19 @@ if(GIT_FOUND AND EXISTS "${TACO_PROJECT_DIR}/.git")
   # Update submodules as needed
   option(GIT_SUBMODULE "Check submodules during build" ON)
   if(GIT_SUBMODULE)
-    message(STATUS "Submodule update")
+    message(STATUS "Updating submodules with shared lock file: ${CMAKE_SOURCE_DIR}/submodules.lock")
+    file(LOCK "${CMAKE_SOURCE_DIR}/submodules.lock" TIMEOUT 120)
     execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             RESULT_VARIABLE GIT_SUBMOD_RESULT)
     if(NOT GIT_SUBMOD_RESULT EQUAL "0")
       message(FATAL_ERROR "git submodule update --init failed with ${GIT_SUBMOD_RESULT}, please checkout submodules")
+    endif()
+    execute_process(COMMAND ${GIT_EXECUTABLE} checkout stable
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python_bindings/pybind11
+            RESULT_VARIABLE GIT_PYBIND11_CHECKOUT_RESULT)
+    if(NOT GIT_PYBIND11_CHECKOUT_RESULT EQUAL "0")
+      message(WARNING "git checkout stable failed with ${GIT_SUBMOD_RESULT}, build might be unstable")
     endif()
   endif()
   # get git revision

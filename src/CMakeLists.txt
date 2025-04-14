@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
+
 if (TACO_SHARED_LIBRARY)
   set(TACO_LIBRARY_TYPE SHARED)
   message("-- Shared library")
@@ -21,8 +23,7 @@ add_definitions(${TACO_DEFINITIONS})
 include_directories(${TACO_SRC_DIR})
 add_library(taco ${TACO_LIBRARY_TYPE} ${TACO_HEADERS} ${TACO_SOURCES})
 if (CUDA)
-  include_directories(${CUDA_INCLUDE_DIRS})
-  target_link_libraries(taco PUBLIC ${CUDA_LIBRARIES})
+  target_link_libraries(taco PUBLIC CUDA::cudart)
 endif (CUDA)
 install(TARGETS taco DESTINATION lib)
 
