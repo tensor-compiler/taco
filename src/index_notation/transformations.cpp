@@ -436,7 +436,7 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
             /// The reduceOp depends on the relation between indexVar sets of rhs and lhs. For rcl and inter, reduceOp
             /// must be +=. For lcr, reduceOp must be =. For none and equal, reduceOp can't be decided at this stage.
             switch (rel) {
-                case none: a = Assignment(a.getLhs(), a.getRhs());break;
+                case none: a = Assignment(a.getLhs(), a.getRhs(), Add());break;
                 case rcl:  a = Assignment(a.getLhs(), a.getRhs(), Add());break;
                 case lcr: a = Assignment(a.getLhs(), a.getRhs());break;
                 case inter: a = Assignment(a.getLhs(), a.getRhs(), Add());break;
@@ -456,7 +456,7 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
             /// The reduceOp depends on the relation between indexVar sets of rhs and lhs. For rcl and inter, reduceOp
             /// must be +=. For lcr, reduceOp must be =. For none and equal, reduceOp can't be decided at this stage.
             switch (rel) {
-                case none: a = Assignment(a.getLhs(), a.getRhs());break;
+                case none: a = Assignment(a.getLhs(), a.getRhs(), Add());break;
                 case rcl:  a = Assignment(a.getLhs(), a.getRhs(), Add());break;
                 case lcr: a = Assignment(a.getLhs(), a.getRhs());break;
                 case inter: a = Assignment(a.getLhs(), a.getRhs(), Add());break;
