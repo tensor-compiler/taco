@@ -68,11 +68,15 @@ void Module::compileToSource(string path, string prefix) {
   ofstream source_file;
   string file_ending = should_use_CUDA_codegen() ? ".cu" : ".c";
   source_file.open(path+prefix+file_ending);
+  taco_uassert((bool)source_file) << "Could not open file '"
+    << path+prefix+file_ending << "' for writing";
   source_file << source.str();
   source_file.close();
   
   ofstream header_file;
   header_file.open(path+prefix+".h");
+  taco_uassert((bool)header_file) << "Could not open file '"
+    << path+prefix+".h" << "' for writing";
   header_file << header.str();
   header_file.close();
 }
@@ -97,9 +101,13 @@ void writeShims(vector<Stmt> funcs, string path, string prefix) {
   ofstream shims_file;
   if (should_use_CUDA_codegen()) {
     shims_file.open(path+prefix+"_shims.cpp");
+    taco_uassert((bool)shims_file) << "Could not open file '"
+      << path+prefix+"_shims.cpp" << "' for writing";
   }
   else {
     shims_file.open(path+prefix+".c", ios::app);
+    taco_uassert((bool)shims_file) << "Could not open file '"
+      << path+prefix+".c" << "' for writing";
   }
   shims_file << "#include \"" << path << prefix << ".h\"\n";
   shims_file << shims.str();
@@ -109,7 +117,14 @@ void writeShims(vector<Stmt> funcs, string path, string prefix) {
 } // anonymous namespace
 
 string Module::compile() {
-  string prefix = tmpdir+libname;
+  string cache_dir = util::getFromEnv("TACO_CACHE_DIR", "");
+  bool use_cache = cache_dir != "" && cacheStr != "";
+  if (use_cache && cache_dir.back() != '/') {
+    cache_dir += '/';
+  }
+  string dir = use_cache ? cache_dir : tmpdir;
+  string name = use_cache ? cacheStrHashed : libname;
+  string prefix = dir+name;
   string fullpath = prefix + ".so";
   
   string cc;
@@ -140,21 +155,43 @@ string Module::compile() {
     file_ending = ".c";
     shims_file = "";
   }
+
+  string source_file;
+  string object_file;
+  if (use_cache) {
+    source_file = cache_dir + name + file_ending;
+    object_file = cache_dir + name + ".so";
+  } else {
+    source_file = prefix + file_ending;
+    object_file = fullpath;
+  }
   
   string cmd = cc + " " + cflags + " " +
-    prefix + file_ending + " " + shims_file + " " + 
-    "-o " + fullpath + " -lm";
+    source_file + " " + shims_file + " " +
+    "-o " + object_file + " -lm";
 
-  // open the output file & write out the source
-  compileToSource(tmpdir, libname);
-  
-  // write out the shims
-  writeShims(funcs, tmpdir, libname);
-  
-  // now compile it
-  int err = system(cmd.data());
-  taco_uassert(err == 0) << "Compilation command failed:\n" << cmd
-    << "\nreturned " << err;
+  bool cached = false;
+  if (use_cache) {
+    // first check if this file already exists in cache
+    ifstream cached_source_file(source_file);
+    ifstream cached_header_file(cache_dir + name + ".h");
+    ifstream cached_object_file(object_file);
+    // only run codegen if the files don't already exist
+    cached = cached_source_file.good() && cached_header_file.good() && cached_object_file.good();
+  }
+
+  if (!cached) {
+    // open the output file & write out the source
+    compileToSource(dir, name);
+
+    // write out the shims
+    writeShims(funcs, dir, name);
+
+    // now compile it
+    int err = system(cmd.data());
+    taco_uassert(err == 0) << "Compilation command failed:\n" << cmd
+      << "\nreturned " << err;
+  }
 
   // use dlsym() to open the compiled library
   if (lib_handle) {

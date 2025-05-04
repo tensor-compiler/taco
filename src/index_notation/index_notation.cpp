@@ -2074,6 +2074,15 @@ IndexStmt IndexStmt::wsaccel(TensorVar& ws, bool shouldAccel, const std::vector<
     return *this;
 }
 
+std::string IndexStmt::getCacheString() const {
+    std::ostringstream s;
+    for (auto& var : getTensorVars(*this)) {
+        s << var.getCacheString() << "|";
+    }
+    s << *this;
+    return s.str();
+}
+
 std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
   if (!expr.defined()) return os << "IndexStmt()";
   IndexNotationPrinter printer(os);
@@ -2694,6 +2703,13 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
   return os << var.getName() << " : " << var.getType();
 }
 
+string TensorVar::getCacheString() const {
+  ostringstream s;
+  s << getName() << ":";
+  s << getType().getDataType() << ";";
+  s << getFormat();
+  return s.str();
+}
 
 static bool isValid(Assignment assignment, string* reason) {
   if (reason == nullptr) {

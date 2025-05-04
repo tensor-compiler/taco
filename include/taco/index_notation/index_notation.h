@@ -814,6 +814,9 @@ public:
   SubType as() {
     return to<SubType>(*this);
   }
+
+  /// Get string to use for this index statement in cache.
+  std::string getCacheString() const;
 };
 
 /// Check if two index statements are isomorphic.
@@ -1231,6 +1234,9 @@ public:
 
   friend bool operator==(const TensorVar&, const TensorVar&);
   friend bool operator<(const TensorVar&, const TensorVar&);
+
+  /// Get string to use for this tensor in cache.
+  std::string getCacheString() const;
 
 private:
   struct Content;

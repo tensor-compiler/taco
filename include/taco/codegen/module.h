@@ -6,6 +6,7 @@
 #include <string>
 #include <utility>
 #include <random>
+#include <unordered_map>
 
 #include "taco/target.h"
 #include "taco/ir/ir.h"
@@ -16,10 +17,18 @@ namespace ir {
 class Module {
 public:
   /// Create a module for some target
-  Module(Target target=getTargetFromEnvironment())
-    : lib_handle(nullptr), moduleFromUserSource(false), target(target) {
+  Module(const std::string& cacheStr = "", Target target=getTargetFromEnvironment())
+    : cacheStr(cacheStr), lib_handle(nullptr), moduleFromUserSource(false), target(target) {
     setJITLibname();
     setJITTmpdir();
+
+    if (cacheStr != "") {
+      std::hash<std::string> hasher;
+      size_t hash = hasher(cacheStr);
+      std::ostringstream s;
+      s << std::hex << hash;
+      cacheStrHashed = s.str();
+    }
   }
 
   /// Compile the source into a library, returning its full path
@@ -67,6 +76,8 @@ public:
   void setSource(std::string source);
   
 private:
+  std::string cacheStr;
+  std::string cacheStrHashed;
   std::stringstream source;
   std::stringstream header;
   std::string libname;
