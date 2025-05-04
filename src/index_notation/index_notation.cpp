@@ -280,7 +280,7 @@ struct Isomorphic : public IndexNotationVisitorStrict {
       return;
     }
     for (auto aset = anode->indexSetModes.begin(), bset = bnode->indexSetModes.begin(); aset != anode->indexSetModes.end(); ++aset, ++bset) {
-      if (aset->first != bset->first || *aset->second.set != *bset->second.set) {
+      if (aset->first != bset->first || aset->second.set->size() != bset->second.set->size()) {
         eq = false;
         return;
       }
