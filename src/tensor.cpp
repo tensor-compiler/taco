@@ -826,9 +826,10 @@ void TensorBase::assemble() {
   }
 }
 
-void TensorBase::compute() {
+void TensorBase::compute(bool force) {
   taco_uassert(!needsCompile()) << error::compute_without_compile;
-  if (!needsCompute()) {
+  // Return if the tensor doesn't need compute and the computation isn't forced.
+  if (!needsCompute() && !force) {
     return;
   }
   setNeedsCompute(false);
