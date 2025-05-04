@@ -2,6 +2,8 @@
 #include "test_tensors.h"
 #include "taco/tensor.h"
 #include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/kernel.h"
+#include "taco/index_notation/transformations.h"
 
 using namespace taco;
 const IndexVar i("i"), j("j"), k("k");
@@ -84,4 +86,43 @@ TEST(indexstmt, spmm) {
 }
 
 
+TEST(indexstmt, sddmmPlusSpmm) {
+  Type t(type<double>(), {3,3});
+  const IndexVar i("i"), j("j"), k("k"), l("l");
 
+  TensorVar A("A", t, Format{Dense, Dense});
+  TensorVar B("B", t, Format{Dense, Sparse});
+  TensorVar C("C", t, Format{Dense, Dense});
+  TensorVar D("D", t, Format{Dense, Dense});
+  TensorVar E("E", t, Format{Dense, Dense});
+
+  TensorVar tmp("tmp", Type(), Format());
+
+  // A(i,j) = B(i,j) * C(i,k) * D(j,k) * E(j,l)
+  IndexStmt fused = 
+  forall(i,
+    forall(j,
+      forall(k,
+        forall(l, A(i,l) += B(i,j) * C(i,k) * D(j,k) * E(j,l))
+      )
+    )
+  );
+
+  std::cout << "before topological sort: " << fused << std::endl;
+  fused = reorderLoopsTopologically(fused);
+  std::cout << "after topological sort: " << fused << std::endl;
+
+  Kernel kernel = compile(fused);
+
+  IndexStmt fusedNested = 
+  forall(i,
+    forall(j,
+      where(
+        forall(l, A(i,l) += tmp * E(j,l)), // consumer
+        forall(k, tmp += B(i,j) * C(i,k) * D(j,k)) // producer
+      )
+    )
+  );
+
+  std::cout << "nested loop stmt: " << fusedNested << std::endl; 
+}

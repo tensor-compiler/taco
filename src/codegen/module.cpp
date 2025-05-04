@@ -128,7 +128,7 @@ string Module::compile() {
 #ifdef TACO_DEBUG
     // In debug mode, compile the generated code with debug symbols and a
     // low optimization level.
-    string defaultFlags = "-g -O0 -std=c99";
+    string defaultFlags = "-O3 -ffast-math -std=c99";
 #else
     // Otherwise, use the standard set of optimizing flags.
     string defaultFlags = "-O3 -ffast-math -std=c99";
@@ -144,6 +144,8 @@ string Module::compile() {
   string cmd = cc + " " + cflags + " " +
     prefix + file_ending + " " + shims_file + " " + 
     "-o " + fullpath + " -lm";
+
+  // std::cout << "Compiling generated code with command:\n" << cmd << "\n";
 
   // open the output file & write out the source
   compileToSource(tmpdir, libname);

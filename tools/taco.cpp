@@ -123,6 +123,12 @@ static void printUsageInfo() {
             "-help=scheduling for a list of scheduling commands. "
             "Examples: split(i,i0,i1,16), precompute(A(i,j)*x(j),i,i).");
   cout << endl;
+  printFlag("s=\"loopfuse(<branch separated by comma>;<position inside the branch>)\"",
+            "Specify the loopfuse command to apply fusion directive to the code. "
+            "Parameters take on the form of a comma-delimited list, separated by a colon, "
+            "And the branching point. See -help=loopfuse for a list of loopfuse commands. "
+            "Examples: loopfuse(3).loopfuse(1;2).loopfuse(2;2).loopfuse(1,1;1).");
+  cout << endl;
   printFlag("c",
             "Generate compute kernel that simultaneously does assembly.");
   cout << endl;
@@ -351,6 +357,23 @@ static bool setSchedulingCommands(vector<vector<string>> scheduleCommands, parse
 
       IndexVar fused(f);
       stmt = stmt.fuse(findVar(i), findVar(j), fused);
+
+    } else if (command == "loopfuse") {
+      taco_uassert(scheduleCommand.size() >= 1)
+        << "'loopfuse' scheduling directive takes more than 1 parameter; loopfuse(1)";
+      cout << "loopfuse directive found\n";
+
+      vector<int> path;
+      transform(scheduleCommand.begin(), scheduleCommand.end(), back_inserter(path),
+        [&](std::string &s) { return stoi(s); });
+      int split = path.back();
+      if (path.size() > 1) path.pop_back();
+      cout << "split: " << split << endl;
+      for (unsigned int i=0; i<path.size(); i++) {
+        cout << i << ": " << path[i] << endl;
+      }
+
+      // stmt = stmt.
 
     } else if (command == "split") {
       taco_uassert(scheduleCommand.size() == 4)
@@ -1020,6 +1043,7 @@ int main(int argc, char* argv[]) {
       printKernels = true;
     }
     else if ("-s" == argName) {
+      cout << "argName: " << argName << ", argValue: " << argValue << endl;
       setSchedule = true;
       vector<vector<string>> parsed = parser::ScheduleParser(argValue);
 

@@ -11,6 +11,7 @@
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
+#include "taco/index_notation/index_notation_visitor.h"
 #include "taco/type.h"
 #include "taco/format.h"
 
@@ -1854,6 +1855,18 @@ IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFa
   return transformed;
 }
 
+IndexStmt IndexStmt::loopfuse(int pos, bool isProducerOnLeft, vector<int>& path) const {
+  string reason; // reason saves the error message if the transformation fails
+  IndexStmt transformed = *this;
+  transformed = Transformation(LoopFuse(pos, isProducerOnLeft, path)).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+
+  return *this;
+}
+
 IndexStmt IndexStmt::precompute(IndexExpr expr, std::vector<IndexVar> i_vars,
                                 std::vector<IndexVar> iw_vars, TensorVar workspace) const {
 
@@ -1901,6 +1914,15 @@ IndexStmt IndexStmt::reorder(taco::IndexVar i, taco::IndexVar j) const {
 IndexStmt IndexStmt::reorder(std::vector<IndexVar> reorderedvars) const {
   string reason;
   IndexStmt transformed = Reorder(reorderedvars).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
+IndexStmt IndexStmt::reorder(std::vector<int> path, std::vector<IndexVar> reorderedvars) const {
+  string reason;
+  IndexStmt transformed = Reorder(path, reorderedvars).apply(*this, &reason);
   if (!transformed.defined()) {
     taco_uerror << reason;
   }
@@ -2047,6 +2069,7 @@ IndexStmt IndexStmt::assemble(TensorVar result, AssembleStrategy strategy,
   }
   return transformed;
 }
+
 
 IndexStmt IndexStmt::wsaccel(TensorVar& ws, bool shouldAccel, const std::vector<IndexVar>& accelIndexVars) {
     if (accelIndexVars.size() == 0) {
@@ -3452,20 +3475,39 @@ bool allForFreeLoopsBeforeAllReductionLoops(IndexStmt stmt) {
     return true;
   }
 
-std::map<Forall, Where> getTemporaryLocations(IndexStmt stmt) {
-  map<Forall, Where> temporaryLocs;
-  Forall f = Forall();
-  match(stmt,
-        function<void(const ForallNode*, Matcher*)>([&](const ForallNode* op, Matcher* ctx) {
-          f = op;
-          ctx->match(op->stmt);
-        }),
-          function<void(const WhereNode*, Matcher*)>([&](const WhereNode* w, Matcher* ctx) {
-            if (!(f == IndexStmt()))
-              temporaryLocs.insert({f, Where(w)});
-          })
-        );
-  return temporaryLocs;
+std::map<Forall, vector<Where> > getTemporaryLocations(IndexStmt stmt) {
+  struct TemporaryLocsGetter : public IndexNotationVisitor {
+    map<Forall, vector<Where> > temporaryLocs;
+    Forall f;
+
+    using IndexNotationVisitor::visit;
+
+    void visit(const ForallNode *op) {
+      Forall forall = Forall(op);
+
+      if (f == NULL) {
+        f = op;
+      }
+      IndexNotationVisitor::visit(op);
+    }
+
+    void visit(const WhereNode *op) {
+      Where where = Where(op);
+      if (temporaryLocs.find(f) != temporaryLocs.end()) {
+        temporaryLocs[f].push_back(where);
+      }
+      else {
+        vector<Where> whereVec;
+        whereVec.push_back(where);
+        temporaryLocs.insert({f, whereVec});
+      }
+      IndexNotationVisitor::visit(op);
+    }
+  };
+  TemporaryLocsGetter getter;
+  getter.visit(stmt);
+  
+  return getter.temporaryLocs;
 }
 
 

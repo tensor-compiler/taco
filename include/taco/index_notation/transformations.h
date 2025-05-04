@@ -17,6 +17,7 @@ class IndexStmt;
 class TransformationInterface;
 class Reorder;
 class Precompute;
+class LoopFuse;
 class ForAllReplace;
 class AddSuchThatPredicates;
 class Parallelize;
@@ -32,6 +33,7 @@ class Transformation {
 public:
   Transformation(Reorder);
   Transformation(Precompute);
+  Transformation(LoopFuse);
   Transformation(ForAllReplace);
   Transformation(Parallelize);
   Transformation(TopoReorder);
@@ -65,10 +67,12 @@ class Reorder : public TransformationInterface {
 public:
   Reorder(IndexVar i, IndexVar j);
   Reorder(std::vector<IndexVar> replacePattern);
+  Reorder(std::vector<int> path, std::vector<IndexVar> replacePattern);
 
   IndexVar geti() const;
   IndexVar getj() const;
   const std::vector<IndexVar>& getreplacepattern() const;
+  const std::vector<int>& getpath() const;
 
   /// Apply the reorder optimization to a concrete index statement.  Returns
   /// an undefined statement and a reason if the statement cannot be lowered.
@@ -114,6 +118,28 @@ private:
 /// Print a precompute command.
 std::ostream &operator<<(std::ostream &, const Precompute &);
 
+/// The loopfuse optimization rewrite an index expression to precompute 
+/// part of the `expr` and store it to a workspace. 
+class LoopFuse : public TransformationInterface {
+public:
+  LoopFuse();
+  LoopFuse(int pos, bool isProducerOnLeft, std::vector<int>& path);
+
+  int getPos() const;
+  bool getIsProducerOnLeft() const;
+  std::vector<int>& getPath() const;
+
+  /// Apply the loopfuse optimization to a concrete index statement.
+  IndexStmt apply(IndexStmt, std::string *reason = nullptr) const;
+
+  void print(std::ostream &os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+std::ostream &operator<<(std::ostream &, const LoopFuse &);
 
 /// Replaces all occurrences of directly nested forall nodes of pattern with
 /// directly nested loops of replacement

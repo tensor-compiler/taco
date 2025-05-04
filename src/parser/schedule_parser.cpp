@@ -52,6 +52,10 @@ vector<vector<string>> ScheduleParser(const string argValue) {
                 current_element += lexer.tokenString(tok);
             parenthesesCnt--;
             break;
+        case parser::Token::colon:
+            current_schedule.push_back(current_element);
+            current_element = "";
+            break;
         case parser::Token::comma:
             if (curlyParenthesesCnt > 0) {
               // multiple indexes inside of a {} list; pass it through

@@ -783,14 +783,22 @@ Stmt LowererImplImperative::lowerForall(Forall forall)
   // Emit temporary initialization if forall is sequential or parallelized by
   // cpu threads and leads to a where statement
   // This is for workspace hoisting by 1-level
+  vector<vector<Stmt>> temporaryValuesInit;
   vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
   auto temp = temporaryInitialization.find(forall);
-  if (temp != temporaryInitialization.end() && forall.getParallelUnit() ==
-      ParallelUnit::NotParallel && !isScalar(temp->second.getTemporary().getType()))
-    temporaryValuesInitFree = codeToInitializeTemporary(temp->second);
-  else if (temp != temporaryInitialization.end() && forall.getParallelUnit() ==
-           ParallelUnit::CPUThread && !isScalar(temp->second.getTemporary().getType())) {
-    temporaryValuesInitFree = codeToInitializeTemporaryParallel(temp->second, forall.getParallelUnit());
+  if (temp != temporaryInitialization.end()) {
+    auto whereClauses = temp->second;
+    // iterate over whereClauses
+    for (auto& where : whereClauses) {
+      if (forall.getParallelUnit() == ParallelUnit::NotParallel && !isScalar(where.getTemporary().getType())) {
+        temporaryValuesInitFree = codeToInitializeTemporary(where);
+        temporaryValuesInit.push_back(temporaryValuesInitFree);
+      }
+      else if (forall.getParallelUnit() == ParallelUnit::CPUThread && !isScalar(where.getTemporary().getType())) {
+        temporaryValuesInitFree = codeToInitializeTemporaryParallel(where, forall.getParallelUnit());
+        temporaryValuesInit.push_back(temporaryValuesInitFree);
+      }
+    }
   }
 
   Stmt loops;
@@ -890,10 +898,21 @@ Stmt LowererImplImperative::lowerForall(Forall forall)
     parallelUnitIndexVars.erase(forall.getParallelUnit());
     parallelUnitSizes.erase(forall.getParallelUnit());
   }
+
+  vector<Stmt> inits;
+  vector<Stmt> frees;
+  // iterate over temporaryValuesInit and add to inits and frees
+  for (auto& s : temporaryValuesInit) {
+    inits.push_back(s[0]);
+    frees.push_back(s[1]);
+  }
+  Stmt initsBlock = Block::make(inits);
+  Stmt freesBlock = Block::make(frees);
+
   return Block::blanks(preInitValues,
-                       temporaryValuesInitFree[0],
+                       initsBlock,
                        loops,
-                       temporaryValuesInitFree[1]);
+                       freesBlock);
 }
 
 Stmt LowererImplImperative::lowerForallCloned(Forall forall) {
@@ -2523,20 +2542,23 @@ Stmt LowererImplImperative::lowerWhere(Where where) {
   vector<Stmt> temporaryValuesInitFree = {Stmt(), Stmt()};
   bool temporaryHoisted = false;
   for (auto it = temporaryInitialization.begin(); it != temporaryInitialization.end(); ++it) {
-    if (it->second == where && it->first.getParallelUnit() ==
-        ParallelUnit::NotParallel && !isScalar(temporary.getType())) {
-      temporaryHoisted = true;
-    } else if (it->second == where && it->first.getParallelUnit() ==
-               ParallelUnit::CPUThread && !isScalar(temporary.getType())) {
-      temporaryHoisted = true;
-      auto decls = codeToInitializeLocalTemporaryParallel(where, it->first.getParallelUnit());
+    auto whereClauses = it->second;
+    for (auto& whereClause : whereClauses) {
+      if (whereClause == where && it->first.getParallelUnit() ==
+          ParallelUnit::NotParallel && !isScalar(temporary.getType())) {
+        temporaryHoisted = true;
+      } else if (whereClause == where && it->first.getParallelUnit() ==
+                ParallelUnit::CPUThread && !isScalar(temporary.getType())) {
+        temporaryHoisted = true;
+        auto decls = codeToInitializeLocalTemporaryParallel(where, it->first.getParallelUnit());
 
-      temporaryValuesInitFree[0] = ir::Block::make(decls);
+        temporaryValuesInitFree[0] = ir::Block::make(decls);
+      }
     }
-  }
 
-  if (!temporaryHoisted) {
-    temporaryValuesInitFree = codeToInitializeTemporary(where);
+    if (!temporaryHoisted) {
+      temporaryValuesInitFree = codeToInitializeTemporary(where);
+    }
   }
 
   Stmt initializeTemporary = temporaryValuesInitFree[0];
