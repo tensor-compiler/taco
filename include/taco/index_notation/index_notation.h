@@ -782,7 +782,8 @@ public:
   /// Preconditions:
   /// The precondition for bound is that the computation bounds supplied are 
   /// correct given the inputs that this code will be run on.
-  IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const;
+  // IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const;
+  IndexStmt bound(IndexVar i,  size_t bound, BoundType bound_type) const;
 
   /// The unroll primitive unrolls the corresponding loop by a statically-known
   /// integer number of iterations
@@ -1093,7 +1094,7 @@ public:
   /// Returns the name of the index variable.
   std::string getName() const;
 
-  // Need these to overshadow the comparisons in for the IndexExpr instrusive pointer
+  /// Need these to overshadow the comparisons in for the IndexExpr instrusive pointer
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);
   friend bool operator!=(const IndexVar&, const IndexVar&);
@@ -1142,16 +1143,17 @@ class SuchThat : public IndexStmt {
 public:
   SuchThat() = default;
   SuchThat(const SuchThatNode*);
-  SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
+  SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::map<IndexVar, std::pair<size_t, BoundType>> boundsMap);
 
   IndexStmt getStmt() const;
   std::vector<IndexVarRel> getPredicate() const;
+  std::map<IndexVar, std::pair<size_t, BoundType>> getBounds() const;
 
   typedef SuchThatNode Node;
 };
 
 /// Create a suchthat index statement.
-SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
+SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::map<IndexVar, std::pair<size_t, BoundType>> boundsMap);
 
 /// A tensor variable in an index expression, which can either be an operand
 /// or the result of the expression.

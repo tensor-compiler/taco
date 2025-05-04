@@ -234,9 +234,9 @@ EOF
 @test 'test -s=bound' {
   expression="a(i,j) = b(i,k) * c(k,j)"
   scheduling_directives=(
-    "-s=bound(i,ibound,100,MaxExact)"
-    "-s=bound(j,jbound,100,MaxExact)"
-    "-s=bound(k,kbound,100,MaxExact)"
+    "-s=bound(i,100,MaxExact)"
+    "-s=bound(j,100,MaxExact)"
+    "-s=bound(k,100,MaxExact)"
   )
   for directive in "${scheduling_directives[@]}"; do
     echo "trying: taco '$expression' '$directive'"
@@ -245,9 +245,9 @@ EOF
 
   # These should all die with "Not supported yet"
   scheduling_directives=(
-    "-s=bound(k,kbound,100,MinExact)"
-    "-s=bound(k,kbound,100,MaxConstraint)"
-    "-s=bound(k,kbound,100,MinConstraint)"
+    "-s=bound(k,100,MinExact)"
+    "-s=bound(k,100,MaxConstraint)"
+    "-s=bound(k,100,MinConstraint)"
   )
 
   for directive in "${TODO_scheduling_directives[@]}"; do
@@ -259,7 +259,7 @@ EOF
   done
 
   # This should die with "Bound type not defined"
-  directive="-s=bound(k,kbound,100,Unknown)"
+  directive="-s=bound(k,100,Unknown)"
 
   echo "this should fail: taco '$expression' '$directive'"
   run $TACO "$expression" "$directive"
@@ -273,7 +273,7 @@ EOF
   expression="a(i,j) = b(i,k) * c(k,j)"
   scheduling_directives=(
     "-s=reorder(i,j,k),split(k,k0,k1,32),unroll(k0,4)"
-    "-s=reorder(i,j,k),bound(k,k0,32,MaxExact),unroll(k0,4)"
+    "-s=reorder(i,j,k),bound(k,32,MaxExact),unroll(k,4)"
   )
   for directive in "${scheduling_directives[@]}"; do
     echo "trying: taco '$expression' '$directive'"
@@ -346,7 +346,7 @@ EOF
     "-s=parallelize(i,NotParallel,Temporary)"
     "-s=parallelize(i,NotParallel,ParallelReduction)"
     "-s=reorder(i,j,k),split(k,k0,k1,32),parallelize(k0,CPUVector,IgnoreRaces)"
-    "-s=reorder(i,j,k),bound(k,k0,32,MaxExact),parallelize(k0,CPUVector,IgnoreRaces)"
+    "-s=reorder(i,j,k),bound(k,32,MaxExact),parallelize(k,CPUVector,IgnoreRaces)"
     "-s=parallelize(i,CPUThread,IgnoreRaces)"
     "-s=parallelize(i,GPUBlock,IgnoreRaces),parallelize(j,GPUThread,IgnoreRaces)"
   )

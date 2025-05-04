@@ -1998,18 +1998,10 @@ IndexStmt IndexStmt::fuse(IndexVar i, IndexVar j, IndexVar f) const {
   return transformed;
 }
 
-IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const {
-  IndexVarRel rel = IndexVarRel(new BoundRelNode(i, i1, bound, bound_type));
+IndexStmt IndexStmt::bound(IndexVar i,  size_t bound, BoundType bound_type) const {  
+
   string reason;
-
-  // Add predicate to concrete index notation
-  IndexStmt transformed = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
-  if (!transformed.defined()) {
-    taco_uerror << reason;
-  }
-
-  // Replace all occurrences of i with i1
-  transformed = Transformation(ForAllReplace({i}, {i1})).apply(transformed, &reason);
+  IndexStmt transformed = Transformation(AddSuchThatBoundMap({ { i, std::make_pair(bound, bound_type) } })).apply(*this, &reason);
   if (!transformed.defined()) {
     taco_uerror << reason;
   }
@@ -2391,8 +2383,8 @@ template <> Multi to<Multi>(IndexStmt s) {
 SuchThat::SuchThat(const SuchThatNode* n) : IndexStmt(n) {
 }
 
-SuchThat::SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate)
-        : SuchThat(new SuchThatNode(stmt, predicate)) {
+SuchThat::SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::map<IndexVar, std::pair<size_t, BoundType>> boundsMap)
+        : SuchThat(new SuchThatNode(stmt, predicate, boundsMap)) {
 }
 
 IndexStmt SuchThat::getStmt() const {
@@ -2403,8 +2395,12 @@ std::vector<IndexVarRel> SuchThat::getPredicate() const {
   return getNode(*this)->predicate;
 }
 
-SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate) {
-  return SuchThat(stmt, predicate);
+std::map<IndexVar, std::pair<size_t, BoundType>> SuchThat::getBounds() const {
+  return getNode(*this)->boundsMap;
+}
+
+SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate, std::map<IndexVar, std::pair<size_t, BoundType>> boundsMap) {
+  return SuchThat(stmt, predicate, boundsMap);
 }
 
 template <> bool isa<SuchThat>(IndexStmt s) {
@@ -4080,7 +4076,7 @@ private:
       stmt = op;
     }
     else {
-      stmt = new SuchThatNode(body, op->predicate);
+      stmt = new SuchThatNode(body, op->predicate, op->boundsMap);
     }
   }
 };

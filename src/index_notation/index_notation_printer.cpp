@@ -269,12 +269,18 @@ void IndexNotationPrinter::visit(const SuchThatNode* op) {
   os << "suchthat(";
   op->stmt.accept(this);
   os << ", ";
+
+  for (auto iter = op->boundsMap.begin(); iter != op->boundsMap.end(); ++iter) {
+    os << "bound(" << iter->first << ", " << iter->second.first << ", " << BoundType_NAMES[(int) iter->second.second] << ") ";
+  }
+
   for (auto iter = op->predicate.begin(); iter != op->predicate.end(); ++iter) {
     os << *iter;
     if (iter + 1 != op->predicate.end()) {
       os << " and ";
     }
   }
+
   os << ")";
 }
 

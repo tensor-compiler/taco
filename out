@@ -1,0 +1,2736 @@
+[==========] Running 914 tests from 288 test cases.
+[----------] Global test environment set-up.
+[----------] 21 tests from scheduling_eval
+[ RUN      ] scheduling_eval.test_spmvCPU_temp
+[       OK ] scheduling_eval.test_spmvCPU_temp (641 ms)
+[ RUN      ] scheduling_eval.test_sptvCPU_temp
+[       OK ] scheduling_eval.test_sptvCPU_temp (571 ms)
+[ RUN      ] scheduling_eval.example_spmvCPU_splitpos
+[       OK ] scheduling_eval.example_spmvCPU_splitpos (130 ms)
+[ RUN      ] scheduling_eval.spmmCPU
+[       OK ] scheduling_eval.spmmCPU (731 ms)
+[ RUN      ] scheduling_eval.spmataddCPU
+[       OK ] scheduling_eval.spmataddCPU (673 ms)
+[ RUN      ] scheduling_eval.sptenaddCPU
+[       OK ] scheduling_eval.sptenaddCPU (885 ms)
+[ RUN      ] scheduling_eval.sddmmCPU
+[       OK ] scheduling_eval.sddmmCPU (943 ms)
+[ RUN      ] scheduling_eval.spmvCPU
+[       OK ] scheduling_eval.spmvCPU (127 ms)
+[ RUN      ] scheduling_eval.precompute2D
+[       OK ] scheduling_eval.precompute2D (632 ms)
+[ RUN      ] scheduling_eval.precompute1D
+[       OK ] scheduling_eval.precompute1D (129 ms)
+[ RUN      ] scheduling_eval.ttvCPU
+[       OK ] scheduling_eval.ttvCPU (760 ms)
+[ RUN      ] scheduling_eval.ttvCPU_CSR
+[       OK ] scheduling_eval.ttvCPU_CSR (360 ms)
+[ RUN      ] scheduling_eval.ttmCPU
+[       OK ] scheduling_eval.ttmCPU (983 ms)
+[ RUN      ] scheduling_eval.mttkrpCPU
+[       OK ] scheduling_eval.mttkrpCPU (949 ms)
+[ RUN      ] scheduling_eval.spmvGPU
+[       OK ] scheduling_eval.spmvGPU (0 ms)
+[ RUN      ] scheduling_eval.spmmGPU
+[       OK ] scheduling_eval.spmmGPU (0 ms)
+[ RUN      ] scheduling_eval.spmmDCSRGPU
+[       OK ] scheduling_eval.spmmDCSRGPU (0 ms)
+[ RUN      ] scheduling_eval.sddmmGPU
+[       OK ] scheduling_eval.sddmmGPU (0 ms)
+[ RUN      ] scheduling_eval.ttmGPU
+[       OK ] scheduling_eval.ttmGPU (0 ms)
+[ RUN      ] scheduling_eval.ttvGPU
+[       OK ] scheduling_eval.ttvGPU (0 ms)
+[ RUN      ] scheduling_eval.mttkrpGPU
+[       OK ] scheduling_eval.mttkrpGPU (0 ms)
+[----------] 21 tests from scheduling_eval (8516 ms total)
+
+[----------] 6 tests from io
+[ RUN      ] io.tns
+[       OK ] io.tns (179 ms)
+[ RUN      ] io.mtx
+[       OK ] io.mtx (166 ms)
+[ RUN      ] io.tensor
+[       OK ] io.tensor (3 ms)
+[ RUN      ] io.ttxdense
+[       OK ] io.ttxdense (151 ms)
+[ RUN      ] io.ttxsparse
+[       OK ] io.ttxsparse (180 ms)
+[ RUN      ] io.mtxsymmetric
+[       OK ] io.mtxsymmetric (159 ms)
+[----------] 6 tests from io (838 ms total)
+
+[----------] 6 tests from merge_lattice
+[ RUN      ] merge_lattice.split
+[       OK ] merge_lattice.split (0 ms)
+[ RUN      ] merge_lattice.split_sparse
+[       OK ] merge_lattice.split_sparse (0 ms)
+[ RUN      ] merge_lattice.dense_tile
+[       OK ] merge_lattice.dense_tile (1 ms)
+[ RUN      ] merge_lattice.pos
+[       OK ] merge_lattice.pos (0 ms)
+[ RUN      ] merge_lattice.pos_mul_sparse
+[       OK ] merge_lattice.pos_mul_sparse (0 ms)
+[ RUN      ] merge_lattice.split_pos_sparse
+[       OK ] merge_lattice.split_pos_sparse (0 ms)
+[----------] 6 tests from merge_lattice (3 ms total)
+
+[----------] 2 tests from format
+[ RUN      ] format.sparse
+[       OK ] format.sparse (1 ms)
+[ RUN      ] format.dense
+[       OK ] format.dense (141 ms)
+[----------] 2 tests from format (142 ms total)
+
+[----------] 2 tests from schedule_parser
+[ RUN      ] schedule_parser.normal_operation
+string "i,j,k" parsed as: [ [ 'i', ], [ 'j', ], [ 'k', ], ]
+string "i(j,k)" parsed as: [ [ 'i', 'j', 'k', ], ]
+string "i(j,k),l(m,n)" parsed as: [ [ 'i', 'j', 'k', ], [ 'l', 'm', 'n', ], ]
+string "i(j,k),l(m(n,o),p)" parsed as: [ [ 'i', 'j', 'k', ], [ 'l', 'm(n,o)', 'p', ], ]
+string "i(j,k),l(m(n(o(p))),q)" parsed as: [ [ 'i', 'j', 'k', ], [ 'l', 'm(n(o(p)))', 'q', ], ]
+string "i,j, k" parsed as: [ [ 'i', ], [ 'j', ], [ 'k', ], ]
+string "i(j, k)" parsed as: [ [ 'i', 'j', 'k', ], ]
+string "i(j,k), l(m,n)" parsed as: [ [ 'i', 'j', 'k', ], [ 'l', 'm', 'n', ], ]
+string "i(j,k),l(m(n, o),p)" parsed as: [ [ 'i', 'j', 'k', ], [ 'l', 'm(n,o)', 'p', ], ]
+string "i(j,k),l(m(n(o(p))), q)" parsed as: [ [ 'i', 'j', 'k', ], [ 'l', 'm(n(o(p)))', 'q', ], ]
+string "" parsed as: [ ]
+string ",j,k" parsed as: [ [ '', ], [ 'j', ], [ 'k', ], ]
+string "i(,k)" parsed as: [ [ 'i', '', 'k', ], ]
+string "(j,k)" parsed as: [ [ '', 'j', 'k', ], ]
+string "i(j,),,l(m,n)" parsed as: [ [ 'i', 'j', '', ], [ '', ], [ 'l', 'm', 'n', ], ]
+string "split(i,i0,i1,16)" parsed as: [ [ 'split', 'i', 'i0', 'i1', '16', ], ]
+string "precompute(A(i,j)*x(j),i,i)" parsed as: [ [ 'precompute', 'A(i,j)*x(j)', 'i', 'i', ], ]
+string "split(i,i0,i1,16),precompute(A(i,j)*x(j),i,i)" parsed as: [ [ 'split', 'i', 'i0', 'i1', '16', ], [ 'precompute', 'A(i,j)*x(j)', 'i', 'i', ], ]
+[       OK ] schedule_parser.normal_operation (0 ms)
+[ RUN      ] schedule_parser.error_reporting
+[       OK ] schedule_parser.error_reporting (1 ms)
+[----------] 2 tests from schedule_parser (2 ms total)
+
+[----------] 7 tests from indexexpr
+[ RUN      ] indexexpr.access
+[       OK ] indexexpr.access (0 ms)
+[ RUN      ] indexexpr.literal
+[       OK ] indexexpr.literal (0 ms)
+[ RUN      ] indexexpr.neg
+[       OK ] indexexpr.neg (0 ms)
+[ RUN      ] indexexpr.add
+[       OK ] indexexpr.add (0 ms)
+[ RUN      ] indexexpr.sub
+[       OK ] indexexpr.sub (0 ms)
+[ RUN      ] indexexpr.mul
+[       OK ] indexexpr.mul (0 ms)
+[ RUN      ] indexexpr.div
+[       OK ] indexexpr.div (0 ms)
+[----------] 7 tests from indexexpr (0 ms total)
+
+[----------] 6 tests from notation
+[ RUN      ] notation.isEinsumNotation
+[       OK ] notation.isEinsumNotation (0 ms)
+[ RUN      ] notation.isReductionNotation
+[       OK ] notation.isReductionNotation (0 ms)
+[ RUN      ] notation.isConcreteNotation
+[       OK ] notation.isConcreteNotation (1 ms)
+[ RUN      ] notation.makeReductionNotation
+[       OK ] notation.makeReductionNotation (0 ms)
+[ RUN      ] notation.isomorphic
+[       OK ] notation.isomorphic (0 ms)
+[ RUN      ] notation.generatePackCOOStmt
+[       OK ] notation.generatePackCOOStmt (1 ms)
+[----------] 6 tests from notation (2 ms total)
+
+[----------] 11 tests from workspaces
+[ RUN      ] workspaces.tile_vecElemMul_NoTail
+Error at /home/manya227/taco/src/index_notation/index_notation.cpp:1519 in split:
+ The pattern of ForAlls: i_bounded was not found while attempting to replace with: i0, i1
+[  FAILED  ] workspaces.tile_vecElemMul_NoTail (132 ms)
+[ RUN      ] workspaces.tile_vecElemMul_Tail1
+Error at /home/manya227/taco/src/index_notation/index_notation.cpp:1519 in split:
+ The pattern of ForAlls: i_bounded was not found while attempting to replace with: i0, i1
+[  FAILED  ] workspaces.tile_vecElemMul_Tail1 (0 ms)
+[ RUN      ] workspaces.tile_vecElemMul_Tail2
+Error at /home/manya227/taco/src/index_notation/index_notation.cpp:1519 in split:
+ The pattern of ForAlls: i_bounded was not found while attempting to replace with: i0, i1
+[  FAILED  ] workspaces.tile_vecElemMul_Tail2 (133 ms)
+[ RUN      ] workspaces.tile_denseMatMul
+Error at /home/manya227/taco/src/index_notation/index_notation.cpp:1519 in split:
+ The pattern of ForAlls: i_bounded was not found while attempting to replace with: i0, i1
+[  FAILED  ] workspaces.tile_denseMatMul (1 ms)
+[ RUN      ] workspaces.precompute2D_add
+[       OK ] workspaces.precompute2D_add (289 ms)
+[ RUN      ] workspaces.precompute4D_add
+[       OK ] workspaces.precompute4D_add (1350 ms)
+[ RUN      ] workspaces.precompute4D_multireduce
+[       OK ] workspaces.precompute4D_multireduce (417 ms)
+[ RUN      ] workspaces.precompute3D_TspV
+[       OK ] workspaces.precompute3D_TspV (438 ms)
+[ RUN      ] workspaces.precompute3D_multipleWS
+[       OK ] workspaces.precompute3D_multipleWS (24 ms)
+[ RUN      ] workspaces.precompute3D_renamedIVars_TspV
+[       OK ] workspaces.precompute3D_renamedIVars_TspV (323 ms)
+[ RUN      ] workspaces.tile_dotProduct_3
+Error at /home/manya227/taco/src/index_notation/index_notation.cpp:1519 in split:
+ The pattern of ForAlls: i_bounded was not found while attempting to replace with: i0, i1
+[  FAILED  ] workspaces.tile_dotProduct_3 (140 ms)
+[----------] 11 tests from workspaces (3247 ms total)
+
+[----------] 13 tests from expr
+[ RUN      ] expr.simplify_copy
+[       OK ] expr.simplify_copy (0 ms)
+[ RUN      ] expr.simplify_copy_before_update
+[       OK ] expr.simplify_copy_before_update (0 ms)
+[ RUN      ] expr.simplify_dont_copy_loop_dependent_var
+[       OK ] expr.simplify_dont_copy_loop_dependent_var (0 ms)
+[ RUN      ] expr.reduction0
+[       OK ] expr.reduction0 (384 ms)
+[ RUN      ] expr.repeated_operand
+[       OK ] expr.repeated_operand (291 ms)
+[ RUN      ] expr.sub
+[       OK ] expr.sub (413 ms)
+[ RUN      ] expr.simplify_neg
+[       OK ] expr.simplify_neg (0 ms)
+[ RUN      ] expr.simplify_elmul
+[       OK ] expr.simplify_elmul (0 ms)
+[ RUN      ] expr.simplify_add
+[       OK ] expr.simplify_add (0 ms)
+[ RUN      ] expr.simplify_addmul
+[       OK ] expr.simplify_addmul (0 ms)
+[ RUN      ] expr.simplify_muladd
+[       OK ] expr.simplify_muladd (0 ms)
+[ RUN      ] expr.scalarops
+[       OK ] expr.scalarops (0 ms)
+[ RUN      ] expr.redefine
+[       OK ] expr.redefine (262 ms)
+[----------] 13 tests from expr (1350 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/0, where TypeParam = signed char
+[ RUN      ] tensor_types/ScalarTensorTest/0.types
+[       OK ] tensor_types/ScalarTensorTest/0.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/0 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/1, where TypeParam = short
+[ RUN      ] tensor_types/ScalarTensorTest/1.types
+[       OK ] tensor_types/ScalarTensorTest/1.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/1 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/2, where TypeParam = int
+[ RUN      ] tensor_types/ScalarTensorTest/2.types
+[       OK ] tensor_types/ScalarTensorTest/2.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/2 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/3, where TypeParam = long
+[ RUN      ] tensor_types/ScalarTensorTest/3.types
+[       OK ] tensor_types/ScalarTensorTest/3.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/3 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/4, where TypeParam = long long
+[ RUN      ] tensor_types/ScalarTensorTest/4.types
+[       OK ] tensor_types/ScalarTensorTest/4.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/4 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/5, where TypeParam = unsigned char
+[ RUN      ] tensor_types/ScalarTensorTest/5.types
+[       OK ] tensor_types/ScalarTensorTest/5.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/5 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/6, where TypeParam = unsigned short
+[ RUN      ] tensor_types/ScalarTensorTest/6.types
+[       OK ] tensor_types/ScalarTensorTest/6.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/6 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/7, where TypeParam = unsigned int
+[ RUN      ] tensor_types/ScalarTensorTest/7.types
+[       OK ] tensor_types/ScalarTensorTest/7.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/7 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/8, where TypeParam = unsigned long
+[ RUN      ] tensor_types/ScalarTensorTest/8.types
+[       OK ] tensor_types/ScalarTensorTest/8.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/8 (1 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/9, where TypeParam = unsigned long long
+[ RUN      ] tensor_types/ScalarTensorTest/9.types
+[       OK ] tensor_types/ScalarTensorTest/9.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/9 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/10, where TypeParam = float
+[ RUN      ] tensor_types/ScalarTensorTest/10.types
+[       OK ] tensor_types/ScalarTensorTest/10.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/10 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/11, where TypeParam = double
+[ RUN      ] tensor_types/ScalarTensorTest/11.types
+[       OK ] tensor_types/ScalarTensorTest/11.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/11 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/12, where TypeParam = std::complex<float>
+[ RUN      ] tensor_types/ScalarTensorTest/12.types
+[       OK ] tensor_types/ScalarTensorTest/12.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/12 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarTensorTest/13, where TypeParam = std::complex<double>
+[ RUN      ] tensor_types/ScalarTensorTest/13.types
+[       OK ] tensor_types/ScalarTensorTest/13.types (0 ms)
+[----------] 1 test from tensor_types/ScalarTensorTest/13 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/0, where TypeParam = signed char
+[ RUN      ] tensor_types/ScalarValueTensorTest/0.types
+[       OK ] tensor_types/ScalarValueTensorTest/0.types (161 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/0 (161 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/1, where TypeParam = short
+[ RUN      ] tensor_types/ScalarValueTensorTest/1.types
+[       OK ] tensor_types/ScalarValueTensorTest/1.types (154 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/1 (154 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/2, where TypeParam = int
+[ RUN      ] tensor_types/ScalarValueTensorTest/2.types
+[       OK ] tensor_types/ScalarValueTensorTest/2.types (151 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/2 (151 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/3, where TypeParam = long
+[ RUN      ] tensor_types/ScalarValueTensorTest/3.types
+[       OK ] tensor_types/ScalarValueTensorTest/3.types (127 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/3 (127 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/4, where TypeParam = long long
+[ RUN      ] tensor_types/ScalarValueTensorTest/4.types
+[       OK ] tensor_types/ScalarValueTensorTest/4.types (0 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/4 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/5, where TypeParam = unsigned char
+[ RUN      ] tensor_types/ScalarValueTensorTest/5.types
+[       OK ] tensor_types/ScalarValueTensorTest/5.types (127 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/5 (127 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/6, where TypeParam = unsigned short
+[ RUN      ] tensor_types/ScalarValueTensorTest/6.types
+[       OK ] tensor_types/ScalarValueTensorTest/6.types (128 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/6 (128 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/7, where TypeParam = unsigned int
+[ RUN      ] tensor_types/ScalarValueTensorTest/7.types
+[       OK ] tensor_types/ScalarValueTensorTest/7.types (126 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/7 (126 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/8, where TypeParam = unsigned long
+[ RUN      ] tensor_types/ScalarValueTensorTest/8.types
+[       OK ] tensor_types/ScalarValueTensorTest/8.types (129 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/8 (129 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/9, where TypeParam = unsigned long long
+[ RUN      ] tensor_types/ScalarValueTensorTest/9.types
+[       OK ] tensor_types/ScalarValueTensorTest/9.types (0 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/9 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/10, where TypeParam = float
+[ RUN      ] tensor_types/ScalarValueTensorTest/10.types
+[       OK ] tensor_types/ScalarValueTensorTest/10.types (163 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/10 (163 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/11, where TypeParam = double
+[ RUN      ] tensor_types/ScalarValueTensorTest/11.types
+[       OK ] tensor_types/ScalarValueTensorTest/11.types (0 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/11 (0 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/12, where TypeParam = std::complex<float>
+[ RUN      ] tensor_types/ScalarValueTensorTest/12.types
+[       OK ] tensor_types/ScalarValueTensorTest/12.types (135 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/12 (135 ms total)
+
+[----------] 1 test from tensor_types/ScalarValueTensorTest/13, where TypeParam = std::complex<double>
+[ RUN      ] tensor_types/ScalarValueTensorTest/13.types
+[       OK ] tensor_types/ScalarValueTensorTest/13.types (139 ms)
+[----------] 1 test from tensor_types/ScalarValueTensorTest/13 (139 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/0, where TypeParam = signed char
+[ RUN      ] tensor_types/VectorTensorTest/0.types
+[       OK ] tensor_types/VectorTensorTest/0.types (143 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/0 (143 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/1, where TypeParam = short
+[ RUN      ] tensor_types/VectorTensorTest/1.types
+[       OK ] tensor_types/VectorTensorTest/1.types (142 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/1 (142 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/2, where TypeParam = int
+[ RUN      ] tensor_types/VectorTensorTest/2.types
+[       OK ] tensor_types/VectorTensorTest/2.types (140 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/2 (140 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/3, where TypeParam = long
+[ RUN      ] tensor_types/VectorTensorTest/3.types
+[       OK ] tensor_types/VectorTensorTest/3.types (142 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/3 (142 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/4, where TypeParam = long long
+[ RUN      ] tensor_types/VectorTensorTest/4.types
+[       OK ] tensor_types/VectorTensorTest/4.types (0 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/4 (0 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/5, where TypeParam = unsigned char
+[ RUN      ] tensor_types/VectorTensorTest/5.types
+[       OK ] tensor_types/VectorTensorTest/5.types (143 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/5 (143 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/6, where TypeParam = unsigned short
+[ RUN      ] tensor_types/VectorTensorTest/6.types
+[       OK ] tensor_types/VectorTensorTest/6.types (138 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/6 (138 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/7, where TypeParam = unsigned int
+[ RUN      ] tensor_types/VectorTensorTest/7.types
+[       OK ] tensor_types/VectorTensorTest/7.types (140 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/7 (140 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/8, where TypeParam = unsigned long
+[ RUN      ] tensor_types/VectorTensorTest/8.types
+[       OK ] tensor_types/VectorTensorTest/8.types (140 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/8 (140 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/9, where TypeParam = unsigned long long
+[ RUN      ] tensor_types/VectorTensorTest/9.types
+[       OK ] tensor_types/VectorTensorTest/9.types (0 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/9 (0 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/10, where TypeParam = float
+[ RUN      ] tensor_types/VectorTensorTest/10.types
+[       OK ] tensor_types/VectorTensorTest/10.types (139 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/10 (139 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/11, where TypeParam = double
+[ RUN      ] tensor_types/VectorTensorTest/11.types
+[       OK ] tensor_types/VectorTensorTest/11.types (138 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/11 (138 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/12, where TypeParam = std::complex<float>
+[ RUN      ] tensor_types/VectorTensorTest/12.types
+[       OK ] tensor_types/VectorTensorTest/12.types (139 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/12 (139 ms total)
+
+[----------] 1 test from tensor_types/VectorTensorTest/13, where TypeParam = std::complex<double>
+[ RUN      ] tensor_types/VectorTensorTest/13.types
+[       OK ] tensor_types/VectorTensorTest/13.types (157 ms)
+[----------] 1 test from tensor_types/VectorTensorTest/13 (157 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/0, where TypeParam = signed char
+[ RUN      ] tensor_types/IterateTensorTest/0.types
+[       OK ] tensor_types/IterateTensorTest/0.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/0 (0 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/1, where TypeParam = short
+[ RUN      ] tensor_types/IterateTensorTest/1.types
+[       OK ] tensor_types/IterateTensorTest/1.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/1 (0 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/2, where TypeParam = int
+[ RUN      ] tensor_types/IterateTensorTest/2.types
+[       OK ] tensor_types/IterateTensorTest/2.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/2 (2 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/3, where TypeParam = long
+[ RUN      ] tensor_types/IterateTensorTest/3.types
+[       OK ] tensor_types/IterateTensorTest/3.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/3 (0 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/4, where TypeParam = long long
+[ RUN      ] tensor_types/IterateTensorTest/4.types
+[       OK ] tensor_types/IterateTensorTest/4.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/4 (0 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/5, where TypeParam = unsigned char
+[ RUN      ] tensor_types/IterateTensorTest/5.types
+[       OK ] tensor_types/IterateTensorTest/5.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/5 (0 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/6, where TypeParam = unsigned short
+[ RUN      ] tensor_types/IterateTensorTest/6.types
+[       OK ] tensor_types/IterateTensorTest/6.types (1 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/6 (1 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/7, where TypeParam = unsigned int
+[ RUN      ] tensor_types/IterateTensorTest/7.types
+[       OK ] tensor_types/IterateTensorTest/7.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/7 (0 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/8, where TypeParam = unsigned long
+[ RUN      ] tensor_types/IterateTensorTest/8.types
+[       OK ] tensor_types/IterateTensorTest/8.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/8 (0 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/9, where TypeParam = unsigned long long
+[ RUN      ] tensor_types/IterateTensorTest/9.types
+[       OK ] tensor_types/IterateTensorTest/9.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/9 (0 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/10, where TypeParam = float
+[ RUN      ] tensor_types/IterateTensorTest/10.types
+[       OK ] tensor_types/IterateTensorTest/10.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/10 (0 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/11, where TypeParam = double
+[ RUN      ] tensor_types/IterateTensorTest/11.types
+[       OK ] tensor_types/IterateTensorTest/11.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/11 (0 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/12, where TypeParam = std::complex<float>
+[ RUN      ] tensor_types/IterateTensorTest/12.types
+[       OK ] tensor_types/IterateTensorTest/12.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/12 (0 ms total)
+
+[----------] 1 test from tensor_types/IterateTensorTest/13, where TypeParam = std::complex<double>
+[ RUN      ] tensor_types/IterateTensorTest/13.types
+[       OK ] tensor_types/IterateTensorTest/13.types (0 ms)
+[----------] 1 test from tensor_types/IterateTensorTest/13 (0 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/0, where TypeParam = signed char
+[ RUN      ] tensor_types/AddTensorTest/0.types
+[       OK ] tensor_types/AddTensorTest/0.types (313 ms)
+[----------] 1 test from tensor_types/AddTensorTest/0 (313 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/1, where TypeParam = short
+[ RUN      ] tensor_types/AddTensorTest/1.types
+[       OK ] tensor_types/AddTensorTest/1.types (294 ms)
+[----------] 1 test from tensor_types/AddTensorTest/1 (294 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/2, where TypeParam = int
+[ RUN      ] tensor_types/AddTensorTest/2.types
+[       OK ] tensor_types/AddTensorTest/2.types (287 ms)
+[----------] 1 test from tensor_types/AddTensorTest/2 (287 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/3, where TypeParam = long
+[ RUN      ] tensor_types/AddTensorTest/3.types
+[       OK ] tensor_types/AddTensorTest/3.types (281 ms)
+[----------] 1 test from tensor_types/AddTensorTest/3 (281 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/4, where TypeParam = long long
+[ RUN      ] tensor_types/AddTensorTest/4.types
+[       OK ] tensor_types/AddTensorTest/4.types (1 ms)
+[----------] 1 test from tensor_types/AddTensorTest/4 (2 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/5, where TypeParam = unsigned char
+[ RUN      ] tensor_types/AddTensorTest/5.types
+[       OK ] tensor_types/AddTensorTest/5.types (306 ms)
+[----------] 1 test from tensor_types/AddTensorTest/5 (306 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/6, where TypeParam = unsigned short
+[ RUN      ] tensor_types/AddTensorTest/6.types
+[       OK ] tensor_types/AddTensorTest/6.types (292 ms)
+[----------] 1 test from tensor_types/AddTensorTest/6 (292 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/7, where TypeParam = unsigned int
+[ RUN      ] tensor_types/AddTensorTest/7.types
+[       OK ] tensor_types/AddTensorTest/7.types (321 ms)
+[----------] 1 test from tensor_types/AddTensorTest/7 (321 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/8, where TypeParam = unsigned long
+[ RUN      ] tensor_types/AddTensorTest/8.types
+[       OK ] tensor_types/AddTensorTest/8.types (316 ms)
+[----------] 1 test from tensor_types/AddTensorTest/8 (316 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/9, where TypeParam = unsigned long long
+[ RUN      ] tensor_types/AddTensorTest/9.types
+[       OK ] tensor_types/AddTensorTest/9.types (1 ms)
+[----------] 1 test from tensor_types/AddTensorTest/9 (2 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/10, where TypeParam = float
+[ RUN      ] tensor_types/AddTensorTest/10.types
+[       OK ] tensor_types/AddTensorTest/10.types (316 ms)
+[----------] 1 test from tensor_types/AddTensorTest/10 (316 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/11, where TypeParam = double
+[ RUN      ] tensor_types/AddTensorTest/11.types
+[       OK ] tensor_types/AddTensorTest/11.types (0 ms)
+[----------] 1 test from tensor_types/AddTensorTest/11 (1 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/12, where TypeParam = std::complex<float>
+[ RUN      ] tensor_types/AddTensorTest/12.types
+[       OK ] tensor_types/AddTensorTest/12.types (322 ms)
+[----------] 1 test from tensor_types/AddTensorTest/12 (322 ms total)
+
+[----------] 1 test from tensor_types/AddTensorTest/13, where TypeParam = std::complex<double>
+[ RUN      ] tensor_types/AddTensorTest/13.types
+[       OK ] tensor_types/AddTensorTest/13.types (295 ms)
+[----------] 1 test from tensor_types/AddTensorTest/13 (295 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/0, where TypeParam = signed char
+[ RUN      ] tensor_types/MulTensorTest/0.types
+[       OK ] tensor_types/MulTensorTest/0.types (162 ms)
+[----------] 1 test from tensor_types/MulTensorTest/0 (162 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/1, where TypeParam = short
+[ RUN      ] tensor_types/MulTensorTest/1.types
+[       OK ] tensor_types/MulTensorTest/1.types (154 ms)
+[----------] 1 test from tensor_types/MulTensorTest/1 (154 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/2, where TypeParam = int
+[ RUN      ] tensor_types/MulTensorTest/2.types
+[       OK ] tensor_types/MulTensorTest/2.types (147 ms)
+[----------] 1 test from tensor_types/MulTensorTest/2 (147 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/3, where TypeParam = long
+[ RUN      ] tensor_types/MulTensorTest/3.types
+[       OK ] tensor_types/MulTensorTest/3.types (148 ms)
+[----------] 1 test from tensor_types/MulTensorTest/3 (148 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/4, where TypeParam = long long
+[ RUN      ] tensor_types/MulTensorTest/4.types
+[       OK ] tensor_types/MulTensorTest/4.types (1 ms)
+[----------] 1 test from tensor_types/MulTensorTest/4 (2 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/5, where TypeParam = unsigned char
+[ RUN      ] tensor_types/MulTensorTest/5.types
+[       OK ] tensor_types/MulTensorTest/5.types (172 ms)
+[----------] 1 test from tensor_types/MulTensorTest/5 (172 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/6, where TypeParam = unsigned short
+[ RUN      ] tensor_types/MulTensorTest/6.types
+[       OK ] tensor_types/MulTensorTest/6.types (184 ms)
+[----------] 1 test from tensor_types/MulTensorTest/6 (184 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/7, where TypeParam = unsigned int
+[ RUN      ] tensor_types/MulTensorTest/7.types
+[       OK ] tensor_types/MulTensorTest/7.types (143 ms)
+[----------] 1 test from tensor_types/MulTensorTest/7 (143 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/8, where TypeParam = unsigned long
+[ RUN      ] tensor_types/MulTensorTest/8.types
+[       OK ] tensor_types/MulTensorTest/8.types (162 ms)
+[----------] 1 test from tensor_types/MulTensorTest/8 (162 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/9, where TypeParam = unsigned long long
+[ RUN      ] tensor_types/MulTensorTest/9.types
+[       OK ] tensor_types/MulTensorTest/9.types (1 ms)
+[----------] 1 test from tensor_types/MulTensorTest/9 (2 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/10, where TypeParam = float
+[ RUN      ] tensor_types/MulTensorTest/10.types
+[       OK ] tensor_types/MulTensorTest/10.types (140 ms)
+[----------] 1 test from tensor_types/MulTensorTest/10 (140 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/11, where TypeParam = double
+[ RUN      ] tensor_types/MulTensorTest/11.types
+[       OK ] tensor_types/MulTensorTest/11.types (139 ms)
+[----------] 1 test from tensor_types/MulTensorTest/11 (139 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/12, where TypeParam = std::complex<float>
+[ RUN      ] tensor_types/MulTensorTest/12.types
+[       OK ] tensor_types/MulTensorTest/12.types (147 ms)
+[----------] 1 test from tensor_types/MulTensorTest/12 (147 ms total)
+
+[----------] 1 test from tensor_types/MulTensorTest/13, where TypeParam = std::complex<double>
+[ RUN      ] tensor_types/MulTensorTest/13.types
+[       OK ] tensor_types/MulTensorTest/13.types (142 ms)
+[----------] 1 test from tensor_types/MulTensorTest/13 (142 ms total)
+
+[----------] 6 tests from tensor_types
+[ RUN      ] tensor_types.complex_add
+[       OK ] tensor_types.complex_add (1 ms)
+[ RUN      ] tensor_types.complex_mul_complex
+[       OK ] tensor_types.complex_mul_complex (0 ms)
+[ RUN      ] tensor_types.complex_available_expr
+[       OK ] tensor_types.complex_available_expr (457 ms)
+[ RUN      ] tensor_types.complex_accumulate
+[       OK ] tensor_types.complex_accumulate (136 ms)
+[ RUN      ] tensor_types.float_double_promotion
+[       OK ] tensor_types.float_double_promotion (139 ms)
+[ RUN      ] tensor_types.int_float_promotion
+[       OK ] tensor_types.int_float_promotion (187 ms)
+[----------] 6 tests from tensor_types (921 ms total)
+
+[----------] 25 tests from scheduling
+[ RUN      ] scheduling.splitEquality
+[       OK ] scheduling.splitEquality (0 ms)
+[ RUN      ] scheduling.forallReplace
+[       OK ] scheduling.forallReplace (0 ms)
+[ RUN      ] scheduling.splitIndexStmt
+[       OK ] scheduling.splitIndexStmt (0 ms)
+[ RUN      ] scheduling.fuseDenseLoops
+[       OK ] scheduling.fuseDenseLoops (580 ms)
+[ RUN      ] scheduling.lowerDenseMatrixMul
+[       OK ] scheduling.lowerDenseMatrixMul (454 ms)
+[ RUN      ] scheduling.lowerSparseCopy
+[       OK ] scheduling.lowerSparseCopy (423 ms)
+[ RUN      ] scheduling.lowerSparseMulDense
+[       OK ] scheduling.lowerSparseMulDense (258 ms)
+[ RUN      ] scheduling.lowerSparseMulSparse
+[       OK ] scheduling.lowerSparseMulSparse (266 ms)
+[ RUN      ] scheduling.precomputeIndependentIndexVars
+[       OK ] scheduling.precomputeIndependentIndexVars (263 ms)
+[ RUN      ] scheduling.precomputeIndependentIndexVarsSplit
+[       OK ] scheduling.precomputeIndependentIndexVarsSplit (137 ms)
+[ RUN      ] scheduling.lowerSparseAddSparse
+[       OK ] scheduling.lowerSparseAddSparse (284 ms)
+[ RUN      ] scheduling.lowerSparseMatrixMul
+[       OK ] scheduling.lowerSparseMatrixMul (742 ms)
+[ RUN      ] scheduling.parallelizeAtomicReduction
+[       OK ] scheduling.parallelizeAtomicReduction (248 ms)
+[ RUN      ] scheduling.parallelizeTemporaryReduction
+[       OK ] scheduling.parallelizeTemporaryReduction (149 ms)
+[ RUN      ] scheduling.multilevel_tiling
+[       OK ] scheduling.multilevel_tiling (142 ms)
+[ RUN      ] scheduling.pos_noop
+[       OK ] scheduling.pos_noop (249 ms)
+[ RUN      ] scheduling.pos_mul_dense
+[       OK ] scheduling.pos_mul_dense (124 ms)
+[ RUN      ] scheduling.pos_mul_sparse
+[       OK ] scheduling.pos_mul_sparse (126 ms)
+[ RUN      ] scheduling.pos_mul_dense_split
+[       OK ] scheduling.pos_mul_dense_split (128 ms)
+[ RUN      ] scheduling.pos_tile_coord_and_pos
+[       OK ] scheduling.pos_tile_coord_and_pos (135 ms)
+[ RUN      ] scheduling.spmv_warp_per_row
+[       OK ] scheduling.spmv_warp_per_row (0 ms)
+[ RUN      ] scheduling.dense_pos_error
+[       OK ] scheduling.dense_pos_error (0 ms)
+[ RUN      ] scheduling.pos_var_not_in_access
+[       OK ] scheduling.pos_var_not_in_access (1 ms)
+[ RUN      ] scheduling.pos_wrong_access
+[       OK ] scheduling.pos_wrong_access (0 ms)
+[ RUN      ] scheduling.divide
+[       OK ] scheduling.divide (978 ms)
+[----------] 25 tests from scheduling (5689 ms total)
+
+[----------] 1 test from scheduling_eval_test
+[ RUN      ] scheduling_eval_test.spmv_fuse
+[       OK ] scheduling_eval_test.spmv_fuse (0 ms)
+[----------] 1 test from scheduling_eval_test (0 ms total)
+
+[----------] 6 tests from indexstmt
+[ RUN      ] indexstmt.assignment
+[       OK ] indexstmt.assignment (0 ms)
+[ RUN      ] indexstmt.forall
+[       OK ] indexstmt.forall (0 ms)
+[ RUN      ] indexstmt.where
+[       OK ] indexstmt.where (0 ms)
+[ RUN      ] indexstmt.multi
+[       OK ] indexstmt.multi (0 ms)
+[ RUN      ] indexstmt.sequence
+[       OK ] indexstmt.sequence (0 ms)
+[ RUN      ] indexstmt.spmm
+[       OK ] indexstmt.spmm (0 ms)
+[----------] 6 tests from indexstmt (2 ms total)
+
+[----------] 2 tests from index
+[ RUN      ] index.size
+[       OK ] index.size (0 ms)
+[ RUN      ] index.makeCSR
+[       OK ] index.makeCSR (0 ms)
+[----------] 2 tests from index (0 ms total)
+
+[----------] 20 tests from tensor
+[ RUN      ] tensor.double_scalar
+[       OK ] tensor.double_scalar (0 ms)
+[ RUN      ] tensor.double_vector
+[       OK ] tensor.double_vector (0 ms)
+[ RUN      ] tensor.iterate
+[       OK ] tensor.iterate (0 ms)
+[ RUN      ] tensor.iterate_empty
+[       OK ] tensor.iterate_empty (0 ms)
+[ RUN      ] tensor.duplicates
+[       OK ] tensor.duplicates (160 ms)
+[ RUN      ] tensor.duplicates_scalar
+[       OK ] tensor.duplicates_scalar (0 ms)
+[ RUN      ] tensor.transpose
+[       OK ] tensor.transpose (536 ms)
+[ RUN      ] tensor.operator_parens_insertion
+[       OK ] tensor.operator_parens_insertion (0 ms)
+[ RUN      ] tensor.get_value
+[       OK ] tensor.get_value (0 ms)
+[ RUN      ] tensor.set_from_components
+[       OK ] tensor.set_from_components (0 ms)
+[ RUN      ] tensor.hidden_pack
+[       OK ] tensor.hidden_pack (0 ms)
+[ RUN      ] tensor.automatic_pack_before_iteration
+[       OK ] tensor.automatic_pack_before_iteration (1 ms)
+[ RUN      ] tensor.automatic_pack_before_const_iteration
+[       OK ] tensor.automatic_pack_before_const_iteration (0 ms)
+[ RUN      ] tensor.hidden_compiler_methods
+[       OK ] tensor.hidden_compiler_methods (625 ms)
+[ RUN      ] tensor.explicit_compiler_methods
+[       OK ] tensor.explicit_compiler_methods (2 ms)
+[ RUN      ] tensor.computation_dependency_modification
+[       OK ] tensor.computation_dependency_modification (1 ms)
+[ RUN      ] tensor.old_dependency_modification
+[       OK ] tensor.old_dependency_modification (154 ms)
+[ RUN      ] tensor.skip_recompile
+[       OK ] tensor.skip_recompile (383 ms)
+[ RUN      ] tensor.recompile
+[       OK ] tensor.recompile (255 ms)
+[ RUN      ] tensor.cache
+[       OK ] tensor.cache (417 ms)
+[----------] 20 tests from tensor (2535 ms total)
+
+[----------] 1 test from Generic/IntTest/0, where TypeParam = char
+[ RUN      ] Generic/IntTest/0.types
+[       OK ] Generic/IntTest/0.types (0 ms)
+[----------] 1 test from Generic/IntTest/0 (0 ms total)
+
+[----------] 1 test from Generic/IntTest/1, where TypeParam = short
+[ RUN      ] Generic/IntTest/1.types
+[       OK ] Generic/IntTest/1.types (0 ms)
+[----------] 1 test from Generic/IntTest/1 (0 ms total)
+
+[----------] 1 test from Generic/IntTest/2, where TypeParam = int
+[ RUN      ] Generic/IntTest/2.types
+[       OK ] Generic/IntTest/2.types (0 ms)
+[----------] 1 test from Generic/IntTest/2 (0 ms total)
+
+[----------] 1 test from Generic/IntTest/3, where TypeParam = long
+[ RUN      ] Generic/IntTest/3.types
+[       OK ] Generic/IntTest/3.types (0 ms)
+[----------] 1 test from Generic/IntTest/3 (0 ms total)
+
+[----------] 1 test from Generic/IntTest/4, where TypeParam = long long
+[ RUN      ] Generic/IntTest/4.types
+[       OK ] Generic/IntTest/4.types (0 ms)
+[----------] 1 test from Generic/IntTest/4 (0 ms total)
+
+[----------] 1 test from specific/IntTest/0, where TypeParam = signed char
+[ RUN      ] specific/IntTest/0.types
+[       OK ] specific/IntTest/0.types (0 ms)
+[----------] 1 test from specific/IntTest/0 (0 ms total)
+
+[----------] 1 test from specific/IntTest/1, where TypeParam = short
+[ RUN      ] specific/IntTest/1.types
+[       OK ] specific/IntTest/1.types (0 ms)
+[----------] 1 test from specific/IntTest/1 (0 ms total)
+
+[----------] 1 test from specific/IntTest/2, where TypeParam = int
+[ RUN      ] specific/IntTest/2.types
+[       OK ] specific/IntTest/2.types (0 ms)
+[----------] 1 test from specific/IntTest/2 (0 ms total)
+
+[----------] 1 test from specific/IntTest/3, where TypeParam = long
+[ RUN      ] specific/IntTest/3.types
+[       OK ] specific/IntTest/3.types (0 ms)
+[----------] 1 test from specific/IntTest/3 (0 ms total)
+
+[----------] 1 test from Generic/UIntTest/0, where TypeParam = unsigned char
+[ RUN      ] Generic/UIntTest/0.types
+[       OK ] Generic/UIntTest/0.types (0 ms)
+[----------] 1 test from Generic/UIntTest/0 (0 ms total)
+
+[----------] 1 test from Generic/UIntTest/1, where TypeParam = unsigned short
+[ RUN      ] Generic/UIntTest/1.types
+[       OK ] Generic/UIntTest/1.types (0 ms)
+[----------] 1 test from Generic/UIntTest/1 (0 ms total)
+
+[----------] 1 test from Generic/UIntTest/2, where TypeParam = unsigned int
+[ RUN      ] Generic/UIntTest/2.types
+[       OK ] Generic/UIntTest/2.types (0 ms)
+[----------] 1 test from Generic/UIntTest/2 (1 ms total)
+
+[----------] 1 test from Generic/UIntTest/3, where TypeParam = unsigned long
+[ RUN      ] Generic/UIntTest/3.types
+[       OK ] Generic/UIntTest/3.types (0 ms)
+[----------] 1 test from Generic/UIntTest/3 (0 ms total)
+
+[----------] 1 test from Generic/UIntTest/4, where TypeParam = unsigned long long
+[ RUN      ] Generic/UIntTest/4.types
+[       OK ] Generic/UIntTest/4.types (0 ms)
+[----------] 1 test from Generic/UIntTest/4 (1 ms total)
+
+[----------] 1 test from specific/UIntTest/0, where TypeParam = unsigned char
+[ RUN      ] specific/UIntTest/0.types
+[       OK ] specific/UIntTest/0.types (0 ms)
+[----------] 1 test from specific/UIntTest/0 (0 ms total)
+
+[----------] 1 test from specific/UIntTest/1, where TypeParam = unsigned short
+[ RUN      ] specific/UIntTest/1.types
+[       OK ] specific/UIntTest/1.types (0 ms)
+[----------] 1 test from specific/UIntTest/1 (0 ms total)
+
+[----------] 1 test from specific/UIntTest/2, where TypeParam = unsigned int
+[ RUN      ] specific/UIntTest/2.types
+[       OK ] specific/UIntTest/2.types (0 ms)
+[----------] 1 test from specific/UIntTest/2 (0 ms total)
+
+[----------] 1 test from specific/UIntTest/3, where TypeParam = unsigned long
+[ RUN      ] specific/UIntTest/3.types
+[       OK ] specific/UIntTest/3.types (0 ms)
+[----------] 1 test from specific/UIntTest/3 (0 ms total)
+
+[----------] 1 test from Generic/FloatTest/0, where TypeParam = float
+[ RUN      ] Generic/FloatTest/0.types
+[       OK ] Generic/FloatTest/0.types (0 ms)
+[----------] 1 test from Generic/FloatTest/0 (0 ms total)
+
+[----------] 1 test from Generic/FloatTest/1, where TypeParam = double
+[ RUN      ] Generic/FloatTest/1.types
+[       OK ] Generic/FloatTest/1.types (0 ms)
+[----------] 1 test from Generic/FloatTest/1 (0 ms total)
+
+[----------] 4 tests from type
+[ RUN      ] type.equality
+[       OK ] type.equality (0 ms)
+[ RUN      ] type.Dimension
+[       OK ] type.Dimension (0 ms)
+[ RUN      ] type.Shape
+[       OK ] type.Shape (0 ms)
+[ RUN      ] type.TensorType
+[       OK ] type.TensorType (0 ms)
+[----------] 4 tests from type (0 ms total)
+
+[----------] 6 tests from error
+[ RUN      ] error.expr_dimension_mismatch_freevar
+[       OK ] error.expr_dimension_mismatch_freevar (0 ms)
+[ RUN      ] error.expr_dimension_mismatch_sumvar
+[       OK ] error.expr_dimension_mismatch_sumvar (0 ms)
+[ RUN      ] error.compile_without_expr
+[       OK ] error.compile_without_expr (0 ms)
+[ RUN      ] error.compile_tensor_name_collision
+[       OK ] error.compile_tensor_name_collision (0 ms)
+[ RUN      ] error.assemble_without_compile
+[       OK ] error.assemble_without_compile (0 ms)
+[ RUN      ] error.compute_without_compile
+[       OK ] error.compute_without_compile (0 ms)
+[----------] 6 tests from error (0 ms total)
+
+[----------] 6 tests from windowing
+[ RUN      ] windowing.mixIndexing
+[       OK ] windowing.mixIndexing (1 ms)
+[ RUN      ] windowing.boundsChecks
+[       OK ] windowing.boundsChecks (0 ms)
+[ RUN      ] windowing.sliceMultipleWays
+[       OK ] windowing.sliceMultipleWays (408 ms)
+[ RUN      ] windowing.transformations
+[       OK ] windowing.transformations (1686 ms)
+[ RUN      ] windowing.lhsIndexSet
+[       OK ] windowing.lhsIndexSet (402 ms)
+[ RUN      ] windowing.compoundAssign
+[       OK ] windowing.compoundAssign (254 ms)
+[----------] 6 tests from windowing (2751 ms total)
+
+[----------] 1 test from schedule
+[ RUN      ] schedule.workspace_spmspm
+[       OK ] schedule.workspace_spmspm (327 ms)
+[----------] 1 test from schedule (327 ms total)
+
+[----------] 1 test from lower
+[ RUN      ] lower.denseIterationTranspose
+[       OK ] lower.denseIterationTranspose (132 ms)
+[----------] 1 test from lower (132 ms total)
+
+[----------] 1 test from makecsr
+[ RUN      ] makecsr.access_past_pos
+Success!
+[       OK ] makecsr.access_past_pos (0 ms)
+[----------] 1 test from makecsr (0 ms total)
+
+[----------] 3 tests from qcd
+[ RUN      ] qcd.mul0
+[       OK ] qcd.mul0 (419 ms)
+[ RUN      ] qcd.mul1
+[       OK ] qcd.mul1 (143 ms)
+[ RUN      ] qcd.mul2
+[       OK ] qcd.mul2 (145 ms)
+[----------] 3 tests from qcd (707 ms total)
+
+[----------] 5 tests from spgemm/spgemm
+[ RUN      ] spgemm/spgemm.scheduling_eval/0
+[       OK ] spgemm/spgemm.scheduling_eval/0 (693 ms)
+[ RUN      ] spgemm/spgemm.scheduling_eval/1
+[       OK ] spgemm/spgemm.scheduling_eval/1 (559 ms)
+[ RUN      ] spgemm/spgemm.scheduling_eval/2
+[       OK ] spgemm/spgemm.scheduling_eval/2 (413 ms)
+[ RUN      ] spgemm/spgemm.scheduling_eval/3
+[       OK ] spgemm/spgemm.scheduling_eval/3 (528 ms)
+[ RUN      ] spgemm/spgemm.scheduling_eval/4
+[       OK ] spgemm/spgemm.scheduling_eval/4 (540 ms)
+[----------] 5 tests from spgemm/spgemm (2733 ms total)
+
+[----------] 2 tests from copy/merge_lattice
+[ RUN      ] copy/merge_lattice.test/0
+[       OK ] copy/merge_lattice.test/0 (0 ms)
+[ RUN      ] copy/merge_lattice.test/1
+[       OK ] copy/merge_lattice.test/1 (0 ms)
+[----------] 2 tests from copy/merge_lattice (0 ms total)
+
+[----------] 2 tests from neg/merge_lattice
+[ RUN      ] neg/merge_lattice.test/0
+[       OK ] neg/merge_lattice.test/0 (0 ms)
+[ RUN      ] neg/merge_lattice.test/1
+[       OK ] neg/merge_lattice.test/1 (0 ms)
+[----------] 2 tests from neg/merge_lattice (0 ms total)
+
+[----------] 11 tests from mul/merge_lattice
+[ RUN      ] mul/merge_lattice.test/0
+[       OK ] mul/merge_lattice.test/0 (0 ms)
+[ RUN      ] mul/merge_lattice.test/1
+[       OK ] mul/merge_lattice.test/1 (0 ms)
+[ RUN      ] mul/merge_lattice.test/2
+[       OK ] mul/merge_lattice.test/2 (0 ms)
+[ RUN      ] mul/merge_lattice.test/3
+[       OK ] mul/merge_lattice.test/3 (0 ms)
+[ RUN      ] mul/merge_lattice.test/4
+[       OK ] mul/merge_lattice.test/4 (0 ms)
+[ RUN      ] mul/merge_lattice.test/5
+[       OK ] mul/merge_lattice.test/5 (0 ms)
+[ RUN      ] mul/merge_lattice.test/6
+[       OK ] mul/merge_lattice.test/6 (0 ms)
+[ RUN      ] mul/merge_lattice.test/7
+[       OK ] mul/merge_lattice.test/7 (0 ms)
+[ RUN      ] mul/merge_lattice.test/8
+[       OK ] mul/merge_lattice.test/8 (0 ms)
+[ RUN      ] mul/merge_lattice.test/9
+[       OK ] mul/merge_lattice.test/9 (0 ms)
+[ RUN      ] mul/merge_lattice.test/10
+[       OK ] mul/merge_lattice.test/10 (0 ms)
+[----------] 11 tests from mul/merge_lattice (2 ms total)
+
+[----------] 6 tests from add/merge_lattice
+[ RUN      ] add/merge_lattice.test/0
+[       OK ] add/merge_lattice.test/0 (0 ms)
+[ RUN      ] add/merge_lattice.test/1
+[       OK ] add/merge_lattice.test/1 (0 ms)
+[ RUN      ] add/merge_lattice.test/2
+[       OK ] add/merge_lattice.test/2 (0 ms)
+[ RUN      ] add/merge_lattice.test/3
+[       OK ] add/merge_lattice.test/3 (0 ms)
+[ RUN      ] add/merge_lattice.test/4
+[       OK ] add/merge_lattice.test/4 (0 ms)
+[ RUN      ] add/merge_lattice.test/5
+[       OK ] add/merge_lattice.test/5 (0 ms)
+[----------] 6 tests from add/merge_lattice (0 ms total)
+
+[----------] 5 tests from add_multiply/merge_lattice
+[ RUN      ] add_multiply/merge_lattice.test/0
+[       OK ] add_multiply/merge_lattice.test/0 (0 ms)
+[ RUN      ] add_multiply/merge_lattice.test/1
+[       OK ] add_multiply/merge_lattice.test/1 (0 ms)
+[ RUN      ] add_multiply/merge_lattice.test/2
+[       OK ] add_multiply/merge_lattice.test/2 (0 ms)
+[ RUN      ] add_multiply/merge_lattice.test/3
+[       OK ] add_multiply/merge_lattice.test/3 (0 ms)
+[ RUN      ] add_multiply/merge_lattice.test/4
+[       OK ] add_multiply/merge_lattice.test/4 (1 ms)
+[----------] 5 tests from add_multiply/merge_lattice (1 ms total)
+
+[----------] 5 tests from multiply_add/merge_lattice
+[ RUN      ] multiply_add/merge_lattice.test/0
+[       OK ] multiply_add/merge_lattice.test/0 (0 ms)
+[ RUN      ] multiply_add/merge_lattice.test/1
+[       OK ] multiply_add/merge_lattice.test/1 (0 ms)
+[ RUN      ] multiply_add/merge_lattice.test/2
+[       OK ] multiply_add/merge_lattice.test/2 (0 ms)
+[ RUN      ] multiply_add/merge_lattice.test/3
+[       OK ] multiply_add/merge_lattice.test/3 (0 ms)
+[ RUN      ] multiply_add/merge_lattice.test/4
+[       OK ] multiply_add/merge_lattice.test/4 (0 ms)
+[----------] 5 tests from multiply_add/merge_lattice (0 ms total)
+
+[----------] 5 tests from add_multiply_multiply/merge_lattice
+[ RUN      ] add_multiply_multiply/merge_lattice.test/0
+[       OK ] add_multiply_multiply/merge_lattice.test/0 (0 ms)
+[ RUN      ] add_multiply_multiply/merge_lattice.test/1
+[       OK ] add_multiply_multiply/merge_lattice.test/1 (0 ms)
+[ RUN      ] add_multiply_multiply/merge_lattice.test/2
+[       OK ] add_multiply_multiply/merge_lattice.test/2 (0 ms)
+[ RUN      ] add_multiply_multiply/merge_lattice.test/3
+[       OK ] add_multiply_multiply/merge_lattice.test/3 (0 ms)
+[ RUN      ] add_multiply_multiply/merge_lattice.test/4
+[       OK ] add_multiply_multiply/merge_lattice.test/4 (0 ms)
+[----------] 5 tests from add_multiply_multiply/merge_lattice (3 ms total)
+
+[----------] 4 tests from add_multiply_add/merge_lattice
+[ RUN      ] add_multiply_add/merge_lattice.test/0
+[       OK ] add_multiply_add/merge_lattice.test/0 (0 ms)
+[ RUN      ] add_multiply_add/merge_lattice.test/1
+[       OK ] add_multiply_add/merge_lattice.test/1 (0 ms)
+[ RUN      ] add_multiply_add/merge_lattice.test/2
+[       OK ] add_multiply_add/merge_lattice.test/2 (0 ms)
+[ RUN      ] add_multiply_add/merge_lattice.test/3
+[       OK ] add_multiply_add/merge_lattice.test/3 (1 ms)
+[----------] 4 tests from add_multiply_add/merge_lattice (1 ms total)
+
+[----------] 12 tests from hashmap/merge_lattice
+[ RUN      ] hashmap/merge_lattice.test/0
+[       OK ] hashmap/merge_lattice.test/0 (0 ms)
+[ RUN      ] hashmap/merge_lattice.test/1
+[       OK ] hashmap/merge_lattice.test/1 (0 ms)
+[ RUN      ] hashmap/merge_lattice.test/2
+[       OK ] hashmap/merge_lattice.test/2 (0 ms)
+[ RUN      ] hashmap/merge_lattice.test/3
+[       OK ] hashmap/merge_lattice.test/3 (0 ms)
+[ RUN      ] hashmap/merge_lattice.test/4
+[       OK ] hashmap/merge_lattice.test/4 (0 ms)
+[ RUN      ] hashmap/merge_lattice.test/5
+[       OK ] hashmap/merge_lattice.test/5 (0 ms)
+[ RUN      ] hashmap/merge_lattice.test/6
+[       OK ] hashmap/merge_lattice.test/6 (0 ms)
+[ RUN      ] hashmap/merge_lattice.test/7
+[       OK ] hashmap/merge_lattice.test/7 (0 ms)
+[ RUN      ] hashmap/merge_lattice.test/8
+[       OK ] hashmap/merge_lattice.test/8 (0 ms)
+[ RUN      ] hashmap/merge_lattice.test/9
+[       OK ] hashmap/merge_lattice.test/9 (0 ms)
+[ RUN      ] hashmap/merge_lattice.test/10
+[       OK ] hashmap/merge_lattice.test/10 (0 ms)
+[ RUN      ] hashmap/merge_lattice.test/11
+[       OK ] hashmap/merge_lattice.test/11 (0 ms)
+[----------] 12 tests from hashmap/merge_lattice (2 ms total)
+
+[----------] 10 tests from vector/format
+[ RUN      ] vector/format.pack/0
+[       OK ] vector/format.pack/0 (133 ms)
+[ RUN      ] vector/format.pack/1
+[       OK ] vector/format.pack/1 (138 ms)
+[ RUN      ] vector/format.pack/2
+[       OK ] vector/format.pack/2 (0 ms)
+[ RUN      ] vector/format.pack/3
+[       OK ] vector/format.pack/3 (0 ms)
+[ RUN      ] vector/format.pack/4
+[       OK ] vector/format.pack/4 (0 ms)
+[ RUN      ] vector/format.pack/5
+[       OK ] vector/format.pack/5 (1 ms)
+[ RUN      ] vector/format.pack/6
+[       OK ] vector/format.pack/6 (0 ms)
+[ RUN      ] vector/format.pack/7
+[       OK ] vector/format.pack/7 (0 ms)
+[ RUN      ] vector/format.pack/8
+[       OK ] vector/format.pack/8 (0 ms)
+[ RUN      ] vector/format.pack/9
+[       OK ] vector/format.pack/9 (1 ms)
+[----------] 10 tests from vector/format (275 ms total)
+
+[----------] 16 tests from matrix/format
+[ RUN      ] matrix/format.pack/0
+[       OK ] matrix/format.pack/0 (0 ms)
+[ RUN      ] matrix/format.pack/1
+[       OK ] matrix/format.pack/1 (146 ms)
+[ RUN      ] matrix/format.pack/2
+[       OK ] matrix/format.pack/2 (156 ms)
+[ RUN      ] matrix/format.pack/3
+[       OK ] matrix/format.pack/3 (152 ms)
+[ RUN      ] matrix/format.pack/4
+[       OK ] matrix/format.pack/4 (1 ms)
+[ RUN      ] matrix/format.pack/5
+[       OK ] matrix/format.pack/5 (0 ms)
+[ RUN      ] matrix/format.pack/6
+[       OK ] matrix/format.pack/6 (0 ms)
+[ RUN      ] matrix/format.pack/7
+[       OK ] matrix/format.pack/7 (160 ms)
+[ RUN      ] matrix/format.pack/8
+[       OK ] matrix/format.pack/8 (1 ms)
+[ RUN      ] matrix/format.pack/9
+[       OK ] matrix/format.pack/9 (0 ms)
+[ RUN      ] matrix/format.pack/10
+[       OK ] matrix/format.pack/10 (0 ms)
+[ RUN      ] matrix/format.pack/11
+[       OK ] matrix/format.pack/11 (0 ms)
+[ RUN      ] matrix/format.pack/12
+[       OK ] matrix/format.pack/12 (1 ms)
+[ RUN      ] matrix/format.pack/13
+[       OK ] matrix/format.pack/13 (0 ms)
+[ RUN      ] matrix/format.pack/14
+[       OK ] matrix/format.pack/14 (0 ms)
+[ RUN      ] matrix/format.pack/15
+[       OK ] matrix/format.pack/15 (0 ms)
+[----------] 16 tests from matrix/format (633 ms total)
+
+[----------] 96 tests from tensor3/format
+[ RUN      ] tensor3/format.pack/0
+[       OK ] tensor3/format.pack/0 (153 ms)
+[ RUN      ] tensor3/format.pack/1
+[       OK ] tensor3/format.pack/1 (152 ms)
+[ RUN      ] tensor3/format.pack/2
+[       OK ] tensor3/format.pack/2 (152 ms)
+[ RUN      ] tensor3/format.pack/3
+[       OK ] tensor3/format.pack/3 (154 ms)
+[ RUN      ] tensor3/format.pack/4
+[       OK ] tensor3/format.pack/4 (152 ms)
+[ RUN      ] tensor3/format.pack/5
+[       OK ] tensor3/format.pack/5 (154 ms)
+[ RUN      ] tensor3/format.pack/6
+[       OK ] tensor3/format.pack/6 (165 ms)
+[ RUN      ] tensor3/format.pack/7
+[       OK ] tensor3/format.pack/7 (168 ms)
+[ RUN      ] tensor3/format.pack/8
+[       OK ] tensor3/format.pack/8 (167 ms)
+[ RUN      ] tensor3/format.pack/9
+[       OK ] tensor3/format.pack/9 (168 ms)
+[ RUN      ] tensor3/format.pack/10
+[       OK ] tensor3/format.pack/10 (165 ms)
+[ RUN      ] tensor3/format.pack/11
+[       OK ] tensor3/format.pack/11 (169 ms)
+[ RUN      ] tensor3/format.pack/12
+[       OK ] tensor3/format.pack/12 (169 ms)
+[ RUN      ] tensor3/format.pack/13
+[       OK ] tensor3/format.pack/13 (167 ms)
+[ RUN      ] tensor3/format.pack/14
+[       OK ] tensor3/format.pack/14 (171 ms)
+[ RUN      ] tensor3/format.pack/15
+[       OK ] tensor3/format.pack/15 (180 ms)
+[ RUN      ] tensor3/format.pack/16
+[       OK ] tensor3/format.pack/16 (172 ms)
+[ RUN      ] tensor3/format.pack/17
+[       OK ] tensor3/format.pack/17 (171 ms)
+[ RUN      ] tensor3/format.pack/18
+[       OK ] tensor3/format.pack/18 (175 ms)
+[ RUN      ] tensor3/format.pack/19
+[       OK ] tensor3/format.pack/19 (174 ms)
+[ RUN      ] tensor3/format.pack/20
+[       OK ] tensor3/format.pack/20 (180 ms)
+[ RUN      ] tensor3/format.pack/21
+[       OK ] tensor3/format.pack/21 (176 ms)
+[ RUN      ] tensor3/format.pack/22
+[       OK ] tensor3/format.pack/22 (176 ms)
+[ RUN      ] tensor3/format.pack/23
+[       OK ] tensor3/format.pack/23 (177 ms)
+[ RUN      ] tensor3/format.pack/24
+[       OK ] tensor3/format.pack/24 (169 ms)
+[ RUN      ] tensor3/format.pack/25
+[       OK ] tensor3/format.pack/25 (170 ms)
+[ RUN      ] tensor3/format.pack/26
+[       OK ] tensor3/format.pack/26 (167 ms)
+[ RUN      ] tensor3/format.pack/27
+[       OK ] tensor3/format.pack/27 (171 ms)
+[ RUN      ] tensor3/format.pack/28
+[       OK ] tensor3/format.pack/28 (168 ms)
+[ RUN      ] tensor3/format.pack/29
+[       OK ] tensor3/format.pack/29 (169 ms)
+[ RUN      ] tensor3/format.pack/30
+[       OK ] tensor3/format.pack/30 (180 ms)
+[ RUN      ] tensor3/format.pack/31
+[       OK ] tensor3/format.pack/31 (182 ms)
+[ RUN      ] tensor3/format.pack/32
+[       OK ] tensor3/format.pack/32 (181 ms)
+[ RUN      ] tensor3/format.pack/33
+[       OK ] tensor3/format.pack/33 (179 ms)
+[ RUN      ] tensor3/format.pack/34
+[       OK ] tensor3/format.pack/34 (179 ms)
+[ RUN      ] tensor3/format.pack/35
+[       OK ] tensor3/format.pack/35 (180 ms)
+[ RUN      ] tensor3/format.pack/36
+[       OK ] tensor3/format.pack/36 (177 ms)
+[ RUN      ] tensor3/format.pack/37
+[       OK ] tensor3/format.pack/37 (175 ms)
+[ RUN      ] tensor3/format.pack/38
+[       OK ] tensor3/format.pack/38 (178 ms)
+[ RUN      ] tensor3/format.pack/39
+[       OK ] tensor3/format.pack/39 (177 ms)
+[ RUN      ] tensor3/format.pack/40
+[       OK ] tensor3/format.pack/40 (177 ms)
+[ RUN      ] tensor3/format.pack/41
+[       OK ] tensor3/format.pack/41 (175 ms)
+[ RUN      ] tensor3/format.pack/42
+[       OK ] tensor3/format.pack/42 (180 ms)
+[ RUN      ] tensor3/format.pack/43
+[       OK ] tensor3/format.pack/43 (183 ms)
+[ RUN      ] tensor3/format.pack/44
+[       OK ] tensor3/format.pack/44 (181 ms)
+[ RUN      ] tensor3/format.pack/45
+[       OK ] tensor3/format.pack/45 (181 ms)
+[ RUN      ] tensor3/format.pack/46
+[       OK ] tensor3/format.pack/46 (182 ms)
+[ RUN      ] tensor3/format.pack/47
+[       OK ] tensor3/format.pack/47 (184 ms)
+[ RUN      ] tensor3/format.pack/48
+[       OK ] tensor3/format.pack/48 (0 ms)
+[ RUN      ] tensor3/format.pack/49
+[       OK ] tensor3/format.pack/49 (0 ms)
+[ RUN      ] tensor3/format.pack/50
+[       OK ] tensor3/format.pack/50 (0 ms)
+[ RUN      ] tensor3/format.pack/51
+[       OK ] tensor3/format.pack/51 (1 ms)
+[ RUN      ] tensor3/format.pack/52
+[       OK ] tensor3/format.pack/52 (0 ms)
+[ RUN      ] tensor3/format.pack/53
+[       OK ] tensor3/format.pack/53 (0 ms)
+[ RUN      ] tensor3/format.pack/54
+[       OK ] tensor3/format.pack/54 (0 ms)
+[ RUN      ] tensor3/format.pack/55
+[       OK ] tensor3/format.pack/55 (1 ms)
+[ RUN      ] tensor3/format.pack/56
+[       OK ] tensor3/format.pack/56 (0 ms)
+[ RUN      ] tensor3/format.pack/57
+[       OK ] tensor3/format.pack/57 (0 ms)
+[ RUN      ] tensor3/format.pack/58
+[       OK ] tensor3/format.pack/58 (0 ms)
+[ RUN      ] tensor3/format.pack/59
+[       OK ] tensor3/format.pack/59 (0 ms)
+[ RUN      ] tensor3/format.pack/60
+[       OK ] tensor3/format.pack/60 (1 ms)
+[ RUN      ] tensor3/format.pack/61
+[       OK ] tensor3/format.pack/61 (0 ms)
+[ RUN      ] tensor3/format.pack/62
+[       OK ] tensor3/format.pack/62 (0 ms)
+[ RUN      ] tensor3/format.pack/63
+[       OK ] tensor3/format.pack/63 (0 ms)
+[ RUN      ] tensor3/format.pack/64
+[       OK ] tensor3/format.pack/64 (0 ms)
+[ RUN      ] tensor3/format.pack/65
+[       OK ] tensor3/format.pack/65 (0 ms)
+[ RUN      ] tensor3/format.pack/66
+[       OK ] tensor3/format.pack/66 (0 ms)
+[ RUN      ] tensor3/format.pack/67
+[       OK ] tensor3/format.pack/67 (1 ms)
+[ RUN      ] tensor3/format.pack/68
+[       OK ] tensor3/format.pack/68 (0 ms)
+[ RUN      ] tensor3/format.pack/69
+[       OK ] tensor3/format.pack/69 (0 ms)
+[ RUN      ] tensor3/format.pack/70
+[       OK ] tensor3/format.pack/70 (0 ms)
+[ RUN      ] tensor3/format.pack/71
+[       OK ] tensor3/format.pack/71 (0 ms)
+[ RUN      ] tensor3/format.pack/72
+[       OK ] tensor3/format.pack/72 (1 ms)
+[ RUN      ] tensor3/format.pack/73
+[       OK ] tensor3/format.pack/73 (0 ms)
+[ RUN      ] tensor3/format.pack/74
+[       OK ] tensor3/format.pack/74 (0 ms)
+[ RUN      ] tensor3/format.pack/75
+[       OK ] tensor3/format.pack/75 (0 ms)
+[ RUN      ] tensor3/format.pack/76
+[       OK ] tensor3/format.pack/76 (1 ms)
+[ RUN      ] tensor3/format.pack/77
+[       OK ] tensor3/format.pack/77 (0 ms)
+[ RUN      ] tensor3/format.pack/78
+[       OK ] tensor3/format.pack/78 (0 ms)
+[ RUN      ] tensor3/format.pack/79
+[       OK ] tensor3/format.pack/79 (0 ms)
+[ RUN      ] tensor3/format.pack/80
+[       OK ] tensor3/format.pack/80 (0 ms)
+[ RUN      ] tensor3/format.pack/81
+[       OK ] tensor3/format.pack/81 (1 ms)
+[ RUN      ] tensor3/format.pack/82
+[       OK ] tensor3/format.pack/82 (0 ms)
+[ RUN      ] tensor3/format.pack/83
+[       OK ] tensor3/format.pack/83 (0 ms)
+[ RUN      ] tensor3/format.pack/84
+[       OK ] tensor3/format.pack/84 (0 ms)
+[ RUN      ] tensor3/format.pack/85
+[       OK ] tensor3/format.pack/85 (0 ms)
+[ RUN      ] tensor3/format.pack/86
+[       OK ] tensor3/format.pack/86 (0 ms)
+[ RUN      ] tensor3/format.pack/87
+[       OK ] tensor3/format.pack/87 (1 ms)
+[ RUN      ] tensor3/format.pack/88
+[       OK ] tensor3/format.pack/88 (0 ms)
+[ RUN      ] tensor3/format.pack/89
+[       OK ] tensor3/format.pack/89 (0 ms)
+[ RUN      ] tensor3/format.pack/90
+[       OK ] tensor3/format.pack/90 (0 ms)
+[ RUN      ] tensor3/format.pack/91
+[       OK ] tensor3/format.pack/91 (0 ms)
+[ RUN      ] tensor3/format.pack/92
+[       OK ] tensor3/format.pack/92 (0 ms)
+[ RUN      ] tensor3/format.pack/93
+[       OK ] tensor3/format.pack/93 (0 ms)
+[ RUN      ] tensor3/format.pack/94
+[       OK ] tensor3/format.pack/94 (0 ms)
+[ RUN      ] tensor3/format.pack/95
+[       OK ] tensor3/format.pack/95 (0 ms)
+[----------] 96 tests from tensor3/format (8273 ms total)
+
+[----------] 6 tests from load/apiset
+[ RUN      ] load/apiset.api/0
+[       OK ] load/apiset.api/0 (0 ms)
+[ RUN      ] load/apiset.api/1
+[       OK ] load/apiset.api/1 (0 ms)
+[ RUN      ] load/apiset.api/2
+[       OK ] load/apiset.api/2 (0 ms)
+[ RUN      ] load/apiset.api/3
+[       OK ] load/apiset.api/3 (0 ms)
+[ RUN      ] load/apiset.api/4
+[       OK ] load/apiset.api/4 (1 ms)
+[ RUN      ] load/apiset.api/5
+[       OK ] load/apiset.api/5 (0 ms)
+[----------] 6 tests from load/apiset (1 ms total)
+
+[----------] 3 tests from write/apiget
+[ RUN      ] write/apiget.api/0
+[       OK ] write/apiget.api/0 (0 ms)
+[ RUN      ] write/apiget.api/1
+[       OK ] write/apiget.api/1 (0 ms)
+[ RUN      ] write/apiget.api/2
+[       OK ] write/apiget.api/2 (1 ms)
+[----------] 3 tests from write/apiget (2 ms total)
+
+[----------] 1 test from write/apiwrb
+[ RUN      ] write/apiwrb.api/0
+[       OK ] write/apiwrb.api/0 (64 ms)
+[----------] 1 test from write/apiwrb (64 ms total)
+
+[----------] 3 tests from write/apiwmtx
+[ RUN      ] write/apiwmtx.api/0
+[       OK ] write/apiwmtx.api/0 (35 ms)
+[ RUN      ] write/apiwmtx.api/1
+[       OK ] write/apiwmtx.api/1 (32 ms)
+[ RUN      ] write/apiwmtx.api/2
+[       OK ] write/apiwmtx.api/2 (31 ms)
+[----------] 3 tests from write/apiwmtx (98 ms total)
+
+[----------] 2 tests from readwrite/apitns
+[ RUN      ] readwrite/apitns.api/0
+[       OK ] readwrite/apitns.api/0 (1 ms)
+[ RUN      ] readwrite/apitns.api/1
+[       OK ] readwrite/apitns.api/1 (0 ms)
+[----------] 2 tests from readwrite/apitns (2 ms total)
+
+[----------] 4 tests from scalar/concrete
+[ RUN      ] scalar/concrete.notation/0
+[       OK ] scalar/concrete.notation/0 (0 ms)
+[ RUN      ] scalar/concrete.notation/1
+[       OK ] scalar/concrete.notation/1 (0 ms)
+[ RUN      ] scalar/concrete.notation/2
+[       OK ] scalar/concrete.notation/2 (1 ms)
+[ RUN      ] scalar/concrete.notation/3
+[       OK ] scalar/concrete.notation/3 (0 ms)
+[----------] 4 tests from scalar/concrete (1 ms total)
+
+[----------] 2 tests from elwise/concrete
+[ RUN      ] elwise/concrete.notation/0
+[       OK ] elwise/concrete.notation/0 (0 ms)
+[ RUN      ] elwise/concrete.notation/1
+[       OK ] elwise/concrete.notation/1 (0 ms)
+[----------] 2 tests from elwise/concrete (0 ms total)
+
+[----------] 3 tests from reduce_into_temporary/concrete
+[ RUN      ] reduce_into_temporary/concrete.notation/0
+[       OK ] reduce_into_temporary/concrete.notation/0 (0 ms)
+[ RUN      ] reduce_into_temporary/concrete.notation/1
+[       OK ] reduce_into_temporary/concrete.notation/1 (0 ms)
+[ RUN      ] reduce_into_temporary/concrete.notation/2
+[       OK ] reduce_into_temporary/concrete.notation/2 (0 ms)
+[----------] 3 tests from reduce_into_temporary/concrete (0 ms total)
+
+[----------] 2 tests from separate_reductions/concrete
+[ RUN      ] separate_reductions/concrete.notation/0
+[       OK ] separate_reductions/concrete.notation/0 (0 ms)
+[ RUN      ] separate_reductions/concrete.notation/1
+[       OK ] separate_reductions/concrete.notation/1 (0 ms)
+[----------] 2 tests from separate_reductions/concrete (0 ms total)
+
+[----------] 1 test from scalar/storage
+[ RUN      ] scalar/storage.pack/0
+[       OK ] scalar/storage.pack/0 (0 ms)
+[----------] 1 test from scalar/storage (0 ms total)
+
+[----------] 4 tests from vector/storage
+[ RUN      ] vector/storage.pack/0
+[       OK ] vector/storage.pack/0 (0 ms)
+[ RUN      ] vector/storage.pack/1
+[       OK ] vector/storage.pack/1 (0 ms)
+[ RUN      ] vector/storage.pack/2
+[       OK ] vector/storage.pack/2 (0 ms)
+[ RUN      ] vector/storage.pack/3
+[       OK ] vector/storage.pack/3 (1 ms)
+[----------] 4 tests from vector/storage (1 ms total)
+
+[----------] 4 tests from matrix/storage
+[ RUN      ] matrix/storage.pack/0
+[       OK ] matrix/storage.pack/0 (0 ms)
+[ RUN      ] matrix/storage.pack/1
+[       OK ] matrix/storage.pack/1 (0 ms)
+[ RUN      ] matrix/storage.pack/2
+[       OK ] matrix/storage.pack/2 (0 ms)
+[ RUN      ] matrix/storage.pack/3
+[       OK ] matrix/storage.pack/3 (0 ms)
+[----------] 4 tests from matrix/storage (0 ms total)
+
+[----------] 3 tests from fixed/storage
+[ RUN      ] fixed/storage.pack/0
+[       OK ] fixed/storage.pack/0 (0 ms)
+[ RUN      ] fixed/storage.pack/1
+[       OK ] fixed/storage.pack/1 (0 ms)
+[ RUN      ] fixed/storage.pack/2
+[       OK ] fixed/storage.pack/2 (1 ms)
+[----------] 3 tests from fixed/storage (1 ms total)
+
+[----------] 1 test from matrix_blocked/storage
+[ RUN      ] matrix_blocked/storage.pack/0
+[       OK ] matrix_blocked/storage.pack/0 (190 ms)
+[----------] 1 test from matrix_blocked/storage (190 ms total)
+
+[----------] 4 tests from matrix_col/storage
+[ RUN      ] matrix_col/storage.pack/0
+[       OK ] matrix_col/storage.pack/0 (0 ms)
+[ RUN      ] matrix_col/storage.pack/1
+[       OK ] matrix_col/storage.pack/1 (0 ms)
+[ RUN      ] matrix_col/storage.pack/2
+[       OK ] matrix_col/storage.pack/2 (0 ms)
+[ RUN      ] matrix_col/storage.pack/3
+[       OK ] matrix_col/storage.pack/3 (1 ms)
+[----------] 4 tests from matrix_col/storage (2 ms total)
+
+[----------] 8 tests from tensor3/storage
+[ RUN      ] tensor3/storage.pack/0
+[       OK ] tensor3/storage.pack/0 (0 ms)
+[ RUN      ] tensor3/storage.pack/1
+[       OK ] tensor3/storage.pack/1 (0 ms)
+[ RUN      ] tensor3/storage.pack/2
+[       OK ] tensor3/storage.pack/2 (0 ms)
+[ RUN      ] tensor3/storage.pack/3
+[       OK ] tensor3/storage.pack/3 (0 ms)
+[ RUN      ] tensor3/storage.pack/4
+[       OK ] tensor3/storage.pack/4 (0 ms)
+[ RUN      ] tensor3/storage.pack/5
+[       OK ] tensor3/storage.pack/5 (0 ms)
+[ RUN      ] tensor3/storage.pack/6
+[       OK ] tensor3/storage.pack/6 (1 ms)
+[ RUN      ] tensor3/storage.pack/7
+[       OK ] tensor3/storage.pack/7 (0 ms)
+[----------] 8 tests from tensor3/storage (1 ms total)
+
+[----------] 1 test from vector_elwise_sqrt/parafac
+[ RUN      ] vector_elwise_sqrt/parafac.eval/0
+[       OK ] vector_elwise_sqrt/parafac.eval/0 (133 ms)
+[----------] 1 test from vector_elwise_sqrt/parafac (134 ms total)
+
+[----------] 1 test from matrix_mul/parafac
+[ RUN      ] matrix_mul/parafac.eval/0
+[       OK ] matrix_mul/parafac.eval/0 (147 ms)
+[----------] 1 test from matrix_mul/parafac (147 ms total)
+
+[----------] 1 test from matrix_transpose_mul/parafac
+[ RUN      ] matrix_transpose_mul/parafac.eval/0
+[       OK ] matrix_transpose_mul/parafac.eval/0 (144 ms)
+[----------] 1 test from matrix_transpose_mul/parafac (144 ms total)
+
+[----------] 2 tests from matrix_column_squared_norm/parafac
+[ RUN      ] matrix_column_squared_norm/parafac.eval/0
+[       OK ] matrix_column_squared_norm/parafac.eval/0 (136 ms)
+[ RUN      ] matrix_column_squared_norm/parafac.eval/1
+[       OK ] matrix_column_squared_norm/parafac.eval/1 (1 ms)
+[----------] 2 tests from matrix_column_squared_norm/parafac (138 ms total)
+
+[----------] 1 test from matrix_column_normalize/parafac
+[ RUN      ] matrix_column_normalize/parafac.eval/0
+[       OK ] matrix_column_normalize/parafac.eval/0 (140 ms)
+[----------] 1 test from matrix_column_normalize/parafac (140 ms total)
+
+[----------] 1 test from mttkrp1/parafac
+[ RUN      ] mttkrp1/parafac.eval/0
+[       OK ] mttkrp1/parafac.eval/0 (289 ms)
+[----------] 1 test from mttkrp1/parafac (289 ms total)
+
+[----------] 1 test from mttkrp2/parafac
+[ RUN      ] mttkrp2/parafac.eval/0
+[       OK ] mttkrp2/parafac.eval/0 (327 ms)
+[----------] 1 test from mttkrp2/parafac (327 ms total)
+
+[----------] 1 test from mttkrp3/parafac
+[ RUN      ] mttkrp3/parafac.eval/0
+[       OK ] mttkrp3/parafac.eval/0 (333 ms)
+[----------] 1 test from mttkrp3/parafac (333 ms total)
+
+[----------] 1 test from tensor_squared_norm/parafac
+[ RUN      ] tensor_squared_norm/parafac.eval/0
+[       OK ] tensor_squared_norm/parafac.eval/0 (143 ms)
+[----------] 1 test from tensor_squared_norm/parafac (143 ms total)
+
+[----------] 1 test from factorized_tensor_squared_norm/parafac
+[ RUN      ] factorized_tensor_squared_norm/parafac.eval/0
+[       OK ] factorized_tensor_squared_norm/parafac.eval/0 (148 ms)
+[----------] 1 test from factorized_tensor_squared_norm/parafac (148 ms total)
+
+[----------] 1 test from factorized_tensor_inner_product/parafac
+[ RUN      ] factorized_tensor_inner_product/parafac.eval/0
+[       OK ] factorized_tensor_inner_product/parafac.eval/0 (347 ms)
+[----------] 1 test from factorized_tensor_inner_product/parafac (347 ms total)
+
+[----------] 1 test from kroneckerDense/parafac
+[ RUN      ] kroneckerDense/parafac.eval/0
+[       OK ] kroneckerDense/parafac.eval/0 (309 ms)
+[----------] 1 test from kroneckerDense/parafac (310 ms total)
+
+[----------] 1 test from scalar_copy/lower
+[ RUN      ] scalar_copy/lower.compile/0
+[       OK ] scalar_copy/lower.compile/0 (126 ms)
+[----------] 1 test from scalar_copy/lower (126 ms total)
+
+[----------] 1 test from scalar_neg/lower
+[ RUN      ] scalar_neg/lower.compile/0
+[       OK ] scalar_neg/lower.compile/0 (124 ms)
+[----------] 1 test from scalar_neg/lower (124 ms total)
+
+[----------] 1 test from scalar_add/lower
+[ RUN      ] scalar_add/lower.compile/0
+[       OK ] scalar_add/lower.compile/0 (127 ms)
+[----------] 1 test from scalar_add/lower (127 ms total)
+
+[----------] 1 test from scalar_sub/lower
+[ RUN      ] scalar_sub/lower.compile/0
+[       OK ] scalar_sub/lower.compile/0 (126 ms)
+[----------] 1 test from scalar_sub/lower (126 ms total)
+
+[----------] 1 test from scalar_mul/lower
+[ RUN      ] scalar_mul/lower.compile/0
+[       OK ] scalar_mul/lower.compile/0 (126 ms)
+[----------] 1 test from scalar_mul/lower (126 ms total)
+
+[----------] 1 test from scalar_div/lower
+[ RUN      ] scalar_div/lower.compile/0
+[       OK ] scalar_div/lower.compile/0 (126 ms)
+[----------] 1 test from scalar_div/lower (126 ms total)
+
+[----------] 1 test from scalar_sqr/lower
+[ RUN      ] scalar_sqr/lower.compile/0
+[       OK ] scalar_sqr/lower.compile/0 (125 ms)
+[----------] 1 test from scalar_sqr/lower (125 ms total)
+
+[----------] 4 tests from vector_neg/lower
+[ RUN      ] vector_neg/lower.compile/0
+[       OK ] vector_neg/lower.compile/0 (144 ms)
+[ RUN      ] vector_neg/lower.compile/1
+[       OK ] vector_neg/lower.compile/1 (140 ms)
+[ RUN      ] vector_neg/lower.compile/2
+[       OK ] vector_neg/lower.compile/2 (152 ms)
+[ RUN      ] vector_neg/lower.compile/3
+[       OK ] vector_neg/lower.compile/3 (154 ms)
+[----------] 4 tests from vector_neg/lower (590 ms total)
+
+[----------] 5 tests from vector_mul/lower
+[ RUN      ] vector_mul/lower.compile/0
+[       OK ] vector_mul/lower.compile/0 (150 ms)
+[ RUN      ] vector_mul/lower.compile/1
+[       OK ] vector_mul/lower.compile/1 (139 ms)
+[ RUN      ] vector_mul/lower.compile/2
+[       OK ] vector_mul/lower.compile/2 (141 ms)
+[ RUN      ] vector_mul/lower.compile/3
+[       OK ] vector_mul/lower.compile/3 (148 ms)
+[ RUN      ] vector_mul/lower.compile/4
+[       OK ] vector_mul/lower.compile/4 (161 ms)
+[----------] 5 tests from vector_mul/lower (739 ms total)
+
+[----------] 5 tests from vector_div/lower
+[ RUN      ] vector_div/lower.compile/0
+[       OK ] vector_div/lower.compile/0 (148 ms)
+[ RUN      ] vector_div/lower.compile/1
+[       OK ] vector_div/lower.compile/1 (139 ms)
+[ RUN      ] vector_div/lower.compile/2
+[       OK ] vector_div/lower.compile/2 (139 ms)
+[ RUN      ] vector_div/lower.compile/3
+[       OK ] vector_div/lower.compile/3 (150 ms)
+[ RUN      ] vector_div/lower.compile/4
+[       OK ] vector_div/lower.compile/4 (160 ms)
+[----------] 5 tests from vector_div/lower (738 ms total)
+
+[----------] 5 tests from vector_intdiv/lower
+[ RUN      ] vector_intdiv/lower.compile/0
+[       OK ] vector_intdiv/lower.compile/0 (134 ms)
+[ RUN      ] vector_intdiv/lower.compile/1
+[       OK ] vector_intdiv/lower.compile/1 (140 ms)
+[ RUN      ] vector_intdiv/lower.compile/2
+[       OK ] vector_intdiv/lower.compile/2 (140 ms)
+[ RUN      ] vector_intdiv/lower.compile/3
+[       OK ] vector_intdiv/lower.compile/3 (147 ms)
+[ RUN      ] vector_intdiv/lower.compile/4
+[       OK ] vector_intdiv/lower.compile/4 (161 ms)
+[----------] 5 tests from vector_intdiv/lower (723 ms total)
+
+[----------] 5 tests from vector_add/lower
+[ RUN      ] vector_add/lower.compile/0
+[       OK ] vector_add/lower.compile/0 (156 ms)
+[ RUN      ] vector_add/lower.compile/1
+[       OK ] vector_add/lower.compile/1 (175 ms)
+[ RUN      ] vector_add/lower.compile/2
+[       OK ] vector_add/lower.compile/2 (166 ms)
+[ RUN      ] vector_add/lower.compile/3
+[       OK ] vector_add/lower.compile/3 (163 ms)
+[ RUN      ] vector_add/lower.compile/4
+[       OK ] vector_add/lower.compile/4 (227 ms)
+[----------] 5 tests from vector_add/lower (887 ms total)
+
+[----------] 4 tests from vector_sub/lower
+[ RUN      ] vector_sub/lower.compile/0
+[       OK ] vector_sub/lower.compile/0 (147 ms)
+[ RUN      ] vector_sub/lower.compile/1
+[       OK ] vector_sub/lower.compile/1 (165 ms)
+[ RUN      ] vector_sub/lower.compile/2
+[       OK ] vector_sub/lower.compile/2 (152 ms)
+[ RUN      ] vector_sub/lower.compile/3
+[       OK ] vector_sub/lower.compile/3 (186 ms)
+[----------] 4 tests from vector_sub/lower (650 ms total)
+
+[----------] 4 tests from vector_inner_product/lower
+[ RUN      ] vector_inner_product/lower.compile/0
+[       OK ] vector_inner_product/lower.compile/0 (147 ms)
+[ RUN      ] vector_inner_product/lower.compile/1
+[       OK ] vector_inner_product/lower.compile/1 (133 ms)
+[ RUN      ] vector_inner_product/lower.compile/2
+[       OK ] vector_inner_product/lower.compile/2 (133 ms)
+[ RUN      ] vector_inner_product/lower.compile/3
+[       OK ] vector_inner_product/lower.compile/3 (140 ms)
+[----------] 4 tests from vector_inner_product/lower (553 ms total)
+
+[----------] 2 tests from vector_or/lower
+[ RUN      ] vector_or/lower.compile/0
+[       OK ] vector_or/lower.compile/0 (134 ms)
+[ RUN      ] vector_or/lower.compile/1
+[       OK ] vector_or/lower.compile/1 (171 ms)
+[----------] 2 tests from vector_or/lower (305 ms total)
+
+[----------] 2 tests from vector_and/lower
+[ RUN      ] vector_and/lower.compile/0
+[       OK ] vector_and/lower.compile/0 (136 ms)
+[ RUN      ] vector_and/lower.compile/1
+[       OK ] vector_and/lower.compile/1 (149 ms)
+[----------] 2 tests from vector_and/lower (285 ms total)
+
+[----------] 16 tests from matrix_neg/lower
+[ RUN      ] matrix_neg/lower.compile/0
+[       OK ] matrix_neg/lower.compile/0 (303 ms)
+[ RUN      ] matrix_neg/lower.compile/1
+[       OK ] matrix_neg/lower.compile/1 (148 ms)
+[ RUN      ] matrix_neg/lower.compile/2
+[       OK ] matrix_neg/lower.compile/2 (165 ms)
+[ RUN      ] matrix_neg/lower.compile/3
+[       OK ] matrix_neg/lower.compile/3 (151 ms)
+[ RUN      ] matrix_neg/lower.compile/4
+[       OK ] matrix_neg/lower.compile/4 (340 ms)
+[ RUN      ] matrix_neg/lower.compile/5
+[       OK ] matrix_neg/lower.compile/5 (187 ms)
+[ RUN      ] matrix_neg/lower.compile/6
+[       OK ] matrix_neg/lower.compile/6 (187 ms)
+[ RUN      ] matrix_neg/lower.compile/7
+[       OK ] matrix_neg/lower.compile/7 (188 ms)
+[ RUN      ] matrix_neg/lower.compile/8
+[       OK ] matrix_neg/lower.compile/8 (328 ms)
+[ RUN      ] matrix_neg/lower.compile/9
+[       OK ] matrix_neg/lower.compile/9 (166 ms)
+[ RUN      ] matrix_neg/lower.compile/10
+[       OK ] matrix_neg/lower.compile/10 (174 ms)
+[ RUN      ] matrix_neg/lower.compile/11
+[       OK ] matrix_neg/lower.compile/11 (165 ms)
+[ RUN      ] matrix_neg/lower.compile/12
+[       OK ] matrix_neg/lower.compile/12 (186 ms)
+[ RUN      ] matrix_neg/lower.compile/13
+[       OK ] matrix_neg/lower.compile/13 (192 ms)
+[ RUN      ] matrix_neg/lower.compile/14
+[       OK ] matrix_neg/lower.compile/14 (187 ms)
+[ RUN      ] matrix_neg/lower.compile/15
+[       OK ] matrix_neg/lower.compile/15 (195 ms)
+[----------] 16 tests from matrix_neg/lower (3264 ms total)
+
+[----------] 4 tests from matrix_sum/lower
+[ RUN      ] matrix_sum/lower.compile/0
+[       OK ] matrix_sum/lower.compile/0 (152 ms)
+[ RUN      ] matrix_sum/lower.compile/1
+[       OK ] matrix_sum/lower.compile/1 (154 ms)
+[ RUN      ] matrix_sum/lower.compile/2
+[       OK ] matrix_sum/lower.compile/2 (152 ms)
+[ RUN      ] matrix_sum/lower.compile/3
+[       OK ] matrix_sum/lower.compile/3 (157 ms)
+[----------] 4 tests from matrix_sum/lower (615 ms total)
+
+[----------] 8 tests from matrix_rowsum/lower
+[ RUN      ] matrix_rowsum/lower.compile/0
+[       OK ] matrix_rowsum/lower.compile/0 (140 ms)
+[ RUN      ] matrix_rowsum/lower.compile/1
+[       OK ] matrix_rowsum/lower.compile/1 (144 ms)
+[ RUN      ] matrix_rowsum/lower.compile/2
+[       OK ] matrix_rowsum/lower.compile/2 (146 ms)
+[ RUN      ] matrix_rowsum/lower.compile/3
+[       OK ] matrix_rowsum/lower.compile/3 (147 ms)
+[ RUN      ] matrix_rowsum/lower.compile/4
+[       OK ] matrix_rowsum/lower.compile/4 (152 ms)
+[ RUN      ] matrix_rowsum/lower.compile/5
+[       OK ] matrix_rowsum/lower.compile/5 (156 ms)
+[ RUN      ] matrix_rowsum/lower.compile/6
+[       OK ] matrix_rowsum/lower.compile/6 (156 ms)
+[ RUN      ] matrix_rowsum/lower.compile/7
+[       OK ] matrix_rowsum/lower.compile/7 (161 ms)
+[----------] 8 tests from matrix_rowsum/lower (1203 ms total)
+
+[----------] 4 tests from matrix_vector_mul/lower
+[ RUN      ] matrix_vector_mul/lower.compile/0
+[       OK ] matrix_vector_mul/lower.compile/0 (145 ms)
+[ RUN      ] matrix_vector_mul/lower.compile/1
+[       OK ] matrix_vector_mul/lower.compile/1 (146 ms)
+[ RUN      ] matrix_vector_mul/lower.compile/2
+[       OK ] matrix_vector_mul/lower.compile/2 (148 ms)
+[ RUN      ] matrix_vector_mul/lower.compile/3
+[       OK ] matrix_vector_mul/lower.compile/3 (150 ms)
+[----------] 4 tests from matrix_vector_mul/lower (589 ms total)
+
+[----------] 16 tests from tensor_slicesum/lower
+[ RUN      ] tensor_slicesum/lower.compile/0
+[       OK ] tensor_slicesum/lower.compile/0 (150 ms)
+[ RUN      ] tensor_slicesum/lower.compile/1
+[       OK ] tensor_slicesum/lower.compile/1 (155 ms)
+[ RUN      ] tensor_slicesum/lower.compile/2
+[       OK ] tensor_slicesum/lower.compile/2 (152 ms)
+[ RUN      ] tensor_slicesum/lower.compile/3
+[       OK ] tensor_slicesum/lower.compile/3 (156 ms)
+[ RUN      ] tensor_slicesum/lower.compile/4
+[       OK ] tensor_slicesum/lower.compile/4 (181 ms)
+[ RUN      ] tensor_slicesum/lower.compile/5
+[       OK ] tensor_slicesum/lower.compile/5 (186 ms)
+[ RUN      ] tensor_slicesum/lower.compile/6
+[       OK ] tensor_slicesum/lower.compile/6 (181 ms)
+[ RUN      ] tensor_slicesum/lower.compile/7
+[       OK ] tensor_slicesum/lower.compile/7 (189 ms)
+[ RUN      ] tensor_slicesum/lower.compile/8
+[       OK ] tensor_slicesum/lower.compile/8 (164 ms)
+[ RUN      ] tensor_slicesum/lower.compile/9
+[       OK ] tensor_slicesum/lower.compile/9 (170 ms)
+[ RUN      ] tensor_slicesum/lower.compile/10
+[       OK ] tensor_slicesum/lower.compile/10 (172 ms)
+[ RUN      ] tensor_slicesum/lower.compile/11
+[       OK ] tensor_slicesum/lower.compile/11 (176 ms)
+[ RUN      ] tensor_slicesum/lower.compile/12
+[       OK ] tensor_slicesum/lower.compile/12 (184 ms)
+[ RUN      ] tensor_slicesum/lower.compile/13
+[       OK ] tensor_slicesum/lower.compile/13 (188 ms)
+[ RUN      ] tensor_slicesum/lower.compile/14
+[       OK ] tensor_slicesum/lower.compile/14 (189 ms)
+[ RUN      ] tensor_slicesum/lower.compile/15
+[       OK ] tensor_slicesum/lower.compile/15 (191 ms)
+[----------] 16 tests from tensor_slicesum/lower (2784 ms total)
+
+[----------] 1 test from where_scalar/lower
+[ RUN      ] where_scalar/lower.compile/0
+[       OK ] where_scalar/lower.compile/0 (129 ms)
+[----------] 1 test from where_scalar/lower (129 ms total)
+
+[----------] 2 tests from where_vector_sum/lower
+[ RUN      ] where_vector_sum/lower.compile/0
+[       OK ] where_vector_sum/lower.compile/0 (143 ms)
+[ RUN      ] where_vector_sum/lower.compile/1
+[       OK ] where_vector_sum/lower.compile/1 (148 ms)
+[----------] 2 tests from where_vector_sum/lower (291 ms total)
+
+[----------] 4 tests from where_matrix_sum/lower
+[ RUN      ] where_matrix_sum/lower.compile/0
+[       OK ] where_matrix_sum/lower.compile/0 (153 ms)
+[ RUN      ] where_matrix_sum/lower.compile/1
+[       OK ] where_matrix_sum/lower.compile/1 (155 ms)
+[ RUN      ] where_matrix_sum/lower.compile/2
+[       OK ] where_matrix_sum/lower.compile/2 (158 ms)
+[ RUN      ] where_matrix_sum/lower.compile/3
+[       OK ] where_matrix_sum/lower.compile/3 (156 ms)
+[----------] 4 tests from where_matrix_sum/lower (622 ms total)
+
+[----------] 4 tests from where_matrix_vector_mul/lower
+[ RUN      ] where_matrix_vector_mul/lower.compile/0
+[       OK ] where_matrix_vector_mul/lower.compile/0 (161 ms)
+[ RUN      ] where_matrix_vector_mul/lower.compile/1
+[       OK ] where_matrix_vector_mul/lower.compile/1 (144 ms)
+[ RUN      ] where_matrix_vector_mul/lower.compile/2
+[       OK ] where_matrix_vector_mul/lower.compile/2 (167 ms)
+[ RUN      ] where_matrix_vector_mul/lower.compile/3
+[       OK ] where_matrix_vector_mul/lower.compile/3 (150 ms)
+[----------] 4 tests from where_matrix_vector_mul/lower (622 ms total)
+
+[----------] 2 tests from where_spmm/lower
+[ RUN      ] where_spmm/lower.compile/0
+[       OK ] where_spmm/lower.compile/0 (182 ms)
+[ RUN      ] where_spmm/lower.compile/1
+[       OK ] where_spmm/lower.compile/1 (223 ms)
+[----------] 2 tests from where_spmm/lower (405 ms total)
+
+[----------] 1 test from sequence_scalar/lower
+[ RUN      ] sequence_scalar/lower.compile/0
+[       OK ] sequence_scalar/lower.compile/0 (127 ms)
+[----------] 1 test from sequence_scalar/lower (127 ms total)
+
+[----------] 1 test from multi_scalar/lower
+[ RUN      ] multi_scalar/lower.compile/0
+[       OK ] multi_scalar/lower.compile/0 (128 ms)
+[----------] 1 test from multi_scalar/lower (128 ms total)
+
+[----------] 4 tests from matrix_transposed_output/lower
+[ RUN      ] matrix_transposed_output/lower.compile/0
+[       OK ] matrix_transposed_output/lower.compile/0 (140 ms)
+[ RUN      ] matrix_transposed_output/lower.compile/1
+[       OK ] matrix_transposed_output/lower.compile/1 (149 ms)
+[ RUN      ] matrix_transposed_output/lower.compile/2
+[       OK ] matrix_transposed_output/lower.compile/2 (146 ms)
+[ RUN      ] matrix_transposed_output/lower.compile/3
+[       OK ] matrix_transposed_output/lower.compile/3 (149 ms)
+[----------] 4 tests from matrix_transposed_output/lower (584 ms total)
+
+[----------] 4 tests from matrix_transposed_input/lower
+[ RUN      ] matrix_transposed_input/lower.compile/0
+[       OK ] matrix_transposed_input/lower.compile/0 (144 ms)
+[ RUN      ] matrix_transposed_input/lower.compile/1
+[       OK ] matrix_transposed_input/lower.compile/1 (212 ms)
+[ RUN      ] matrix_transposed_input/lower.compile/2
+[       OK ] matrix_transposed_input/lower.compile/2 (205 ms)
+[ RUN      ] matrix_transposed_input/lower.compile/3
+[       OK ] matrix_transposed_input/lower.compile/3 (280 ms)
+[----------] 4 tests from matrix_transposed_input/lower (841 ms total)
+
+[----------] 4 tests from broadcast_vector_mul_scalar/lower
+[ RUN      ] broadcast_vector_mul_scalar/lower.compile/0
+[       OK ] broadcast_vector_mul_scalar/lower.compile/0 (144 ms)
+[ RUN      ] broadcast_vector_mul_scalar/lower.compile/1
+[       OK ] broadcast_vector_mul_scalar/lower.compile/1 (139 ms)
+[ RUN      ] broadcast_vector_mul_scalar/lower.compile/2
+[       OK ] broadcast_vector_mul_scalar/lower.compile/2 (152 ms)
+[ RUN      ] broadcast_vector_mul_scalar/lower.compile/3
+[       OK ] broadcast_vector_mul_scalar/lower.compile/3 (160 ms)
+[----------] 4 tests from broadcast_vector_mul_scalar/lower (595 ms total)
+
+[----------] 4 tests from broadcast_vector_add_scalar/lower
+[ RUN      ] broadcast_vector_add_scalar/lower.compile/0
+[       OK ] broadcast_vector_add_scalar/lower.compile/0 (144 ms)
+[ RUN      ] broadcast_vector_add_scalar/lower.compile/1
+[       OK ] broadcast_vector_add_scalar/lower.compile/1 (160 ms)
+[ RUN      ] broadcast_vector_add_scalar/lower.compile/2
+[       OK ] broadcast_vector_add_scalar/lower.compile/2 (155 ms)
+[ RUN      ] broadcast_vector_add_scalar/lower.compile/3
+[       OK ] broadcast_vector_add_scalar/lower.compile/3 (180 ms)
+[----------] 4 tests from broadcast_vector_add_scalar/lower (639 ms total)
+
+[----------] 4 tests from broadcast_vector_mul_constant/lower
+[ RUN      ] broadcast_vector_mul_constant/lower.compile/0
+[       OK ] broadcast_vector_mul_constant/lower.compile/0 (148 ms)
+[ RUN      ] broadcast_vector_mul_constant/lower.compile/1
+[       OK ] broadcast_vector_mul_constant/lower.compile/1 (141 ms)
+[ RUN      ] broadcast_vector_mul_constant/lower.compile/2
+[       OK ] broadcast_vector_mul_constant/lower.compile/2 (154 ms)
+[ RUN      ] broadcast_vector_mul_constant/lower.compile/3
+[       OK ] broadcast_vector_mul_constant/lower.compile/3 (161 ms)
+[----------] 4 tests from broadcast_vector_mul_constant/lower (604 ms total)
+
+[----------] 4 tests from broadcast_vector_add_constant/lower
+[ RUN      ] broadcast_vector_add_constant/lower.compile/0
+[       OK ] broadcast_vector_add_constant/lower.compile/0 (147 ms)
+[ RUN      ] broadcast_vector_add_constant/lower.compile/1
+[       OK ] broadcast_vector_add_constant/lower.compile/1 (161 ms)
+[ RUN      ] broadcast_vector_add_constant/lower.compile/2
+[       OK ] broadcast_vector_add_constant/lower.compile/2 (156 ms)
+[ RUN      ] broadcast_vector_add_constant/lower.compile/3
+[       OK ] broadcast_vector_add_constant/lower.compile/3 (183 ms)
+[----------] 4 tests from broadcast_vector_add_constant/lower (647 ms total)
+
+[----------] 4 tests from vector_mod/lower
+[ RUN      ] vector_mod/lower.compile/0
+[       OK ] vector_mod/lower.compile/0 (134 ms)
+[ RUN      ] vector_mod/lower.compile/1
+[       OK ] vector_mod/lower.compile/1 (143 ms)
+[ RUN      ] vector_mod/lower.compile/2
+[       OK ] vector_mod/lower.compile/2 (141 ms)
+[ RUN      ] vector_mod/lower.compile/3
+[       OK ] vector_mod/lower.compile/3 (150 ms)
+[----------] 4 tests from vector_mod/lower (568 ms total)
+
+[----------] 2 tests from vector_abs/lower
+[ RUN      ] vector_abs/lower.compile/0
+[       OK ] vector_abs/lower.compile/0 (148 ms)
+[ RUN      ] vector_abs/lower.compile/1
+[       OK ] vector_abs/lower.compile/1 (141 ms)
+[----------] 2 tests from vector_abs/lower (289 ms total)
+
+[----------] 2 tests from vector_pow_constant/lower
+[ RUN      ] vector_pow_constant/lower.compile/0
+[       OK ] vector_pow_constant/lower.compile/0 (151 ms)
+[ RUN      ] vector_pow_constant/lower.compile/1
+[       OK ] vector_pow_constant/lower.compile/1 (139 ms)
+[----------] 2 tests from vector_pow_constant/lower (290 ms total)
+
+[----------] 4 tests from vector_pow_vector/lower
+[ RUN      ] vector_pow_vector/lower.compile/0
+[       OK ] vector_pow_vector/lower.compile/0 (137 ms)
+[ RUN      ] vector_pow_vector/lower.compile/1
+[       OK ] vector_pow_vector/lower.compile/1 (166 ms)
+[ RUN      ] vector_pow_vector/lower.compile/2
+[       OK ] vector_pow_vector/lower.compile/2 (145 ms)
+[ RUN      ] vector_pow_vector/lower.compile/3
+[       OK ] vector_pow_vector/lower.compile/3 (173 ms)
+[----------] 4 tests from vector_pow_vector/lower (622 ms total)
+
+[----------] 2 tests from vector_square/lower
+[ RUN      ] vector_square/lower.compile/0
+[       OK ] vector_square/lower.compile/0 (147 ms)
+[ RUN      ] vector_square/lower.compile/1
+[       OK ] vector_square/lower.compile/1 (145 ms)
+[----------] 2 tests from vector_square/lower (293 ms total)
+
+[----------] 2 tests from vector_cube/lower
+[ RUN      ] vector_cube/lower.compile/0
+[       OK ] vector_cube/lower.compile/0 (150 ms)
+[ RUN      ] vector_cube/lower.compile/1
+[       OK ] vector_cube/lower.compile/1 (144 ms)
+[----------] 2 tests from vector_cube/lower (294 ms total)
+
+[----------] 2 tests from vector_sqrt/lower
+[ RUN      ] vector_sqrt/lower.compile/0
+[       OK ] vector_sqrt/lower.compile/0 (152 ms)
+[ RUN      ] vector_sqrt/lower.compile/1
+[       OK ] vector_sqrt/lower.compile/1 (147 ms)
+[----------] 2 tests from vector_sqrt/lower (299 ms total)
+
+[----------] 4 tests from vector_product_sqrt/lower
+[ RUN      ] vector_product_sqrt/lower.compile/0
+[       OK ] vector_product_sqrt/lower.compile/0 (155 ms)
+[ RUN      ] vector_product_sqrt/lower.compile/1
+[       OK ] vector_product_sqrt/lower.compile/1 (149 ms)
+[ RUN      ] vector_product_sqrt/lower.compile/2
+[       OK ] vector_product_sqrt/lower.compile/2 (150 ms)
+[ RUN      ] vector_product_sqrt/lower.compile/3
+[       OK ] vector_product_sqrt/lower.compile/3 (154 ms)
+[----------] 4 tests from vector_product_sqrt/lower (609 ms total)
+
+[----------] 4 tests from vector_sum_sqrt/lower
+[ RUN      ] vector_sum_sqrt/lower.compile/0
+[       OK ] vector_sum_sqrt/lower.compile/0 (154 ms)
+[ RUN      ] vector_sum_sqrt/lower.compile/1
+[       OK ] vector_sum_sqrt/lower.compile/1 (173 ms)
+[ RUN      ] vector_sum_sqrt/lower.compile/2
+[       OK ] vector_sum_sqrt/lower.compile/2 (172 ms)
+[ RUN      ] vector_sum_sqrt/lower.compile/3
+[       OK ] vector_sum_sqrt/lower.compile/3 (173 ms)
+[----------] 4 tests from vector_sum_sqrt/lower (672 ms total)
+
+[----------] 2 tests from vector_cbrt/lower
+[ RUN      ] vector_cbrt/lower.compile/0
+[       OK ] vector_cbrt/lower.compile/0 (141 ms)
+[ RUN      ] vector_cbrt/lower.compile/1
+[       OK ] vector_cbrt/lower.compile/1 (146 ms)
+[----------] 2 tests from vector_cbrt/lower (287 ms total)
+
+[----------] 2 tests from vector_exp/lower
+[ RUN      ] vector_exp/lower.compile/0
+[       OK ] vector_exp/lower.compile/0 (138 ms)
+[ RUN      ] vector_exp/lower.compile/1
+[       OK ] vector_exp/lower.compile/1 (170 ms)
+[----------] 2 tests from vector_exp/lower (308 ms total)
+
+[----------] 4 tests from vector_product_exp/lower
+[ RUN      ] vector_product_exp/lower.compile/0
+[       OK ] vector_product_exp/lower.compile/0 (161 ms)
+[ RUN      ] vector_product_exp/lower.compile/1
+[       OK ] vector_product_exp/lower.compile/1 (168 ms)
+[ RUN      ] vector_product_exp/lower.compile/2
+[       OK ] vector_product_exp/lower.compile/2 (182 ms)
+[ RUN      ] vector_product_exp/lower.compile/3
+[       OK ] vector_product_exp/lower.compile/3 (189 ms)
+[----------] 4 tests from vector_product_exp/lower (701 ms total)
+
+[----------] 2 tests from vector_log/lower
+[ RUN      ] vector_log/lower.compile/0
+[       OK ] vector_log/lower.compile/0 (145 ms)
+[ RUN      ] vector_log/lower.compile/1
+[       OK ] vector_log/lower.compile/1 (169 ms)
+[----------] 2 tests from vector_log/lower (314 ms total)
+
+[----------] 2 tests from vector_log10/lower
+[ RUN      ] vector_log10/lower.compile/0
+[       OK ] vector_log10/lower.compile/0 (141 ms)
+[ RUN      ] vector_log10/lower.compile/1
+[       OK ] vector_log10/lower.compile/1 (221 ms)
+[----------] 2 tests from vector_log10/lower (362 ms total)
+
+[----------] 2 tests from vector_sin/lower
+[ RUN      ] vector_sin/lower.compile/0
+[       OK ] vector_sin/lower.compile/0 (141 ms)
+[ RUN      ] vector_sin/lower.compile/1
+[       OK ] vector_sin/lower.compile/1 (146 ms)
+[----------] 2 tests from vector_sin/lower (287 ms total)
+
+[----------] 2 tests from vector_cos/lower
+[ RUN      ] vector_cos/lower.compile/0
+[       OK ] vector_cos/lower.compile/0 (144 ms)
+[ RUN      ] vector_cos/lower.compile/1
+[       OK ] vector_cos/lower.compile/1 (189 ms)
+[----------] 2 tests from vector_cos/lower (333 ms total)
+
+[----------] 2 tests from vector_tan/lower
+[ RUN      ] vector_tan/lower.compile/0
+[       OK ] vector_tan/lower.compile/0 (144 ms)
+[ RUN      ] vector_tan/lower.compile/1
+[       OK ] vector_tan/lower.compile/1 (146 ms)
+[----------] 2 tests from vector_tan/lower (290 ms total)
+
+[----------] 2 tests from vector_asin/lower
+[ RUN      ] vector_asin/lower.compile/0
+[       OK ] vector_asin/lower.compile/0 (155 ms)
+[ RUN      ] vector_asin/lower.compile/1
+[       OK ] vector_asin/lower.compile/1 (146 ms)
+[----------] 2 tests from vector_asin/lower (301 ms total)
+
+[----------] 2 tests from vector_acos/lower
+[ RUN      ] vector_acos/lower.compile/0
+[       OK ] vector_acos/lower.compile/0 (139 ms)
+[ RUN      ] vector_acos/lower.compile/1
+[       OK ] vector_acos/lower.compile/1 (174 ms)
+[----------] 2 tests from vector_acos/lower (313 ms total)
+
+[----------] 2 tests from vector_atan/lower
+[ RUN      ] vector_atan/lower.compile/0
+[       OK ] vector_atan/lower.compile/0 (141 ms)
+[ RUN      ] vector_atan/lower.compile/1
+[       OK ] vector_atan/lower.compile/1 (146 ms)
+[----------] 2 tests from vector_atan/lower (287 ms total)
+
+[----------] 2 tests from vector_atan2_constant/lower
+[ RUN      ] vector_atan2_constant/lower.compile/0
+[       OK ] vector_atan2_constant/lower.compile/0 (145 ms)
+[ RUN      ] vector_atan2_constant/lower.compile/1
+[       OK ] vector_atan2_constant/lower.compile/1 (143 ms)
+[----------] 2 tests from vector_atan2_constant/lower (288 ms total)
+
+[----------] 4 tests from vector_atan2_vector/lower
+[ RUN      ] vector_atan2_vector/lower.compile/0
+[       OK ] vector_atan2_vector/lower.compile/0 (137 ms)
+[ RUN      ] vector_atan2_vector/lower.compile/1
+[       OK ] vector_atan2_vector/lower.compile/1 (159 ms)
+[ RUN      ] vector_atan2_vector/lower.compile/2
+[       OK ] vector_atan2_vector/lower.compile/2 (189 ms)
+[ RUN      ] vector_atan2_vector/lower.compile/3
+[       OK ] vector_atan2_vector/lower.compile/3 (178 ms)
+[----------] 4 tests from vector_atan2_vector/lower (663 ms total)
+
+[----------] 2 tests from vector_sinh/lower
+[ RUN      ] vector_sinh/lower.compile/0
+[       OK ] vector_sinh/lower.compile/0 (141 ms)
+[ RUN      ] vector_sinh/lower.compile/1
+[       OK ] vector_sinh/lower.compile/1 (144 ms)
+[----------] 2 tests from vector_sinh/lower (285 ms total)
+
+[----------] 2 tests from vector_cosh/lower
+[ RUN      ] vector_cosh/lower.compile/0
+[       OK ] vector_cosh/lower.compile/0 (139 ms)
+[ RUN      ] vector_cosh/lower.compile/1
+[       OK ] vector_cosh/lower.compile/1 (165 ms)
+[----------] 2 tests from vector_cosh/lower (304 ms total)
+
+[----------] 2 tests from vector_tanh/lower
+[ RUN      ] vector_tanh/lower.compile/0
+[       OK ] vector_tanh/lower.compile/0 (137 ms)
+[ RUN      ] vector_tanh/lower.compile/1
+[       OK ] vector_tanh/lower.compile/1 (144 ms)
+[----------] 2 tests from vector_tanh/lower (281 ms total)
+
+[----------] 2 tests from vector_asinh/lower
+[ RUN      ] vector_asinh/lower.compile/0
+[       OK ] vector_asinh/lower.compile/0 (171 ms)
+[ RUN      ] vector_asinh/lower.compile/1
+[       OK ] vector_asinh/lower.compile/1 (151 ms)
+[----------] 2 tests from vector_asinh/lower (322 ms total)
+
+[----------] 2 tests from vector_acosh/lower
+[ RUN      ] vector_acosh/lower.compile/0
+[       OK ] vector_acosh/lower.compile/0 (138 ms)
+[ RUN      ] vector_acosh/lower.compile/1
+[       OK ] vector_acosh/lower.compile/1 (173 ms)
+[----------] 2 tests from vector_acosh/lower (311 ms total)
+
+[----------] 2 tests from vector_atanh/lower
+[ RUN      ] vector_atanh/lower.compile/0
+[       OK ] vector_atanh/lower.compile/0 (140 ms)
+[ RUN      ] vector_atanh/lower.compile/1
+[       OK ] vector_atanh/lower.compile/1 (160 ms)
+[----------] 2 tests from vector_atanh/lower (300 ms total)
+
+[----------] 2 tests from vector_gt_positive_constant/lower
+[ RUN      ] vector_gt_positive_constant/lower.compile/0
+[       OK ] vector_gt_positive_constant/lower.compile/0 (167 ms)
+[ RUN      ] vector_gt_positive_constant/lower.compile/1
+[       OK ] vector_gt_positive_constant/lower.compile/1 (146 ms)
+[----------] 2 tests from vector_gt_positive_constant/lower (313 ms total)
+
+[----------] 2 tests from vector_gt_negative_constant/lower
+[ RUN      ] vector_gt_negative_constant/lower.compile/0
+[       OK ] vector_gt_negative_constant/lower.compile/0 (153 ms)
+[ RUN      ] vector_gt_negative_constant/lower.compile/1
+[       OK ] vector_gt_negative_constant/lower.compile/1 (184 ms)
+[----------] 2 tests from vector_gt_negative_constant/lower (337 ms total)
+
+[----------] 4 tests from vector_gt_vector/lower
+[ RUN      ] vector_gt_vector/lower.compile/0
+[       OK ] vector_gt_vector/lower.compile/0 (152 ms)
+[ RUN      ] vector_gt_vector/lower.compile/1
+[       OK ] vector_gt_vector/lower.compile/1 (176 ms)
+[ RUN      ] vector_gt_vector/lower.compile/2
+[       OK ] vector_gt_vector/lower.compile/2 (201 ms)
+[ RUN      ] vector_gt_vector/lower.compile/3
+[       OK ] vector_gt_vector/lower.compile/3 (176 ms)
+[----------] 4 tests from vector_gt_vector/lower (705 ms total)
+
+[----------] 2 tests from vector_lt_positive_constant/lower
+[ RUN      ] vector_lt_positive_constant/lower.compile/0
+[       OK ] vector_lt_positive_constant/lower.compile/0 (191 ms)
+[ RUN      ] vector_lt_positive_constant/lower.compile/1
+[       OK ] vector_lt_positive_constant/lower.compile/1 (166 ms)
+[----------] 2 tests from vector_lt_positive_constant/lower (357 ms total)
+
+[----------] 2 tests from vector_lt_negative_constant/lower
+[ RUN      ] vector_lt_negative_constant/lower.compile/0
+[       OK ] vector_lt_negative_constant/lower.compile/0 (152 ms)
+[ RUN      ] vector_lt_negative_constant/lower.compile/1
+[       OK ] vector_lt_negative_constant/lower.compile/1 (148 ms)
+[----------] 2 tests from vector_lt_negative_constant/lower (300 ms total)
+
+[----------] 4 tests from vector_lt_vector/lower
+[ RUN      ] vector_lt_vector/lower.compile/0
+[       OK ] vector_lt_vector/lower.compile/0 (176 ms)
+[ RUN      ] vector_lt_vector/lower.compile/1
+[       OK ] vector_lt_vector/lower.compile/1 (184 ms)
+[ RUN      ] vector_lt_vector/lower.compile/2
+[       OK ] vector_lt_vector/lower.compile/2 (176 ms)
+[ RUN      ] vector_lt_vector/lower.compile/3
+[       OK ] vector_lt_vector/lower.compile/3 (178 ms)
+[----------] 4 tests from vector_lt_vector/lower (714 ms total)
+
+[----------] 2 tests from vector_gte_zero/lower
+[ RUN      ] vector_gte_zero/lower.compile/0
+[       OK ] vector_gte_zero/lower.compile/0 (149 ms)
+[ RUN      ] vector_gte_zero/lower.compile/1
+[       OK ] vector_gte_zero/lower.compile/1 (168 ms)
+[----------] 2 tests from vector_gte_zero/lower (317 ms total)
+
+[----------] 4 tests from vector_gte_vector/lower
+[ RUN      ] vector_gte_vector/lower.compile/0
+[       OK ] vector_gte_vector/lower.compile/0 (148 ms)
+[ RUN      ] vector_gte_vector/lower.compile/1
+[       OK ] vector_gte_vector/lower.compile/1 (169 ms)
+[ RUN      ] vector_gte_vector/lower.compile/2
+[       OK ] vector_gte_vector/lower.compile/2 (174 ms)
+[ RUN      ] vector_gte_vector/lower.compile/3
+[       OK ] vector_gte_vector/lower.compile/3 (198 ms)
+[----------] 4 tests from vector_gte_vector/lower (690 ms total)
+
+[----------] 2 tests from vector_lte_zero/lower
+[ RUN      ] vector_lte_zero/lower.compile/0
+[       OK ] vector_lte_zero/lower.compile/0 (148 ms)
+[ RUN      ] vector_lte_zero/lower.compile/1
+[       OK ] vector_lte_zero/lower.compile/1 (163 ms)
+[----------] 2 tests from vector_lte_zero/lower (311 ms total)
+
+[----------] 4 tests from vector_lte_vector/lower
+[ RUN      ] vector_lte_vector/lower.compile/0
+[       OK ] vector_lte_vector/lower.compile/0 (155 ms)
+[ RUN      ] vector_lte_vector/lower.compile/1
+[       OK ] vector_lte_vector/lower.compile/1 (171 ms)
+[ RUN      ] vector_lte_vector/lower.compile/2
+[       OK ] vector_lte_vector/lower.compile/2 (170 ms)
+[ RUN      ] vector_lte_vector/lower.compile/3
+[       OK ] vector_lte_vector/lower.compile/3 (199 ms)
+[----------] 4 tests from vector_lte_vector/lower (695 ms total)
+
+[----------] 2 tests from vector_eq/lower
+[ RUN      ] vector_eq/lower.compile/0
+[       OK ] vector_eq/lower.compile/0 (154 ms)
+[ RUN      ] vector_eq/lower.compile/1
+[       OK ] vector_eq/lower.compile/1 (200 ms)
+[----------] 2 tests from vector_eq/lower (354 ms total)
+
+[----------] 2 tests from vector_neq/lower
+[ RUN      ] vector_neq/lower.compile/0
+[       OK ] vector_neq/lower.compile/0 (151 ms)
+[ RUN      ] vector_neq/lower.compile/1
+[       OK ] vector_neq/lower.compile/1 (173 ms)
+[----------] 2 tests from vector_neq/lower (324 ms total)
+
+[----------] 4 tests from vector_max/lower
+[ RUN      ] vector_max/lower.compile/0
+[       OK ] vector_max/lower.compile/0 (147 ms)
+[ RUN      ] vector_max/lower.compile/1
+[       OK ] vector_max/lower.compile/1 (168 ms)
+[ RUN      ] vector_max/lower.compile/2
+[       OK ] vector_max/lower.compile/2 (168 ms)
+[ RUN      ] vector_max/lower.compile/3
+[       OK ] vector_max/lower.compile/3 (167 ms)
+[----------] 4 tests from vector_max/lower (650 ms total)
+
+[----------] 4 tests from vector_min/lower
+[ RUN      ] vector_min/lower.compile/0
+[       OK ] vector_min/lower.compile/0 (148 ms)
+[ RUN      ] vector_min/lower.compile/1
+[       OK ] vector_min/lower.compile/1 (166 ms)
+[ RUN      ] vector_min/lower.compile/2
+[       OK ] vector_min/lower.compile/2 (168 ms)
+[ RUN      ] vector_min/lower.compile/3
+[       OK ] vector_min/lower.compile/3 (167 ms)
+[----------] 4 tests from vector_min/lower (649 ms total)
+
+[----------] 2 tests from vector_heaviside/lower
+[ RUN      ] vector_heaviside/lower.compile/0
+[       OK ] vector_heaviside/lower.compile/0 (151 ms)
+[ RUN      ] vector_heaviside/lower.compile/1
+[       OK ] vector_heaviside/lower.compile/1 (142 ms)
+[----------] 2 tests from vector_heaviside/lower (293 ms total)
+
+[----------] 2 tests from vector_heaviside_half_maximum/lower
+[ RUN      ] vector_heaviside_half_maximum/lower.compile/0
+[       OK ] vector_heaviside_half_maximum/lower.compile/0 (139 ms)
+[ RUN      ] vector_heaviside_half_maximum/lower.compile/1
+[       OK ] vector_heaviside_half_maximum/lower.compile/1 (166 ms)
+[----------] 2 tests from vector_heaviside_half_maximum/lower (305 ms total)
+
+[----------] 2 tests from vector_not/lower
+[ RUN      ] vector_not/lower.compile/0
+[       OK ] vector_not/lower.compile/0 (151 ms)
+[ RUN      ] vector_not/lower.compile/1
+[       OK ] vector_not/lower.compile/1 (165 ms)
+[----------] 2 tests from vector_not/lower (316 ms total)
+
+[----------] 16 tests from windowing/basic
+[ RUN      ] windowing/basic.windowing/0
+[       OK ] windowing/basic.windowing/0 (424 ms)
+[ RUN      ] windowing/basic.windowing/1
+[       OK ] windowing/basic.windowing/1 (457 ms)
+[ RUN      ] windowing/basic.windowing/2
+[       OK ] windowing/basic.windowing/2 (289 ms)
+[ RUN      ] windowing/basic.windowing/3
+[       OK ] windowing/basic.windowing/3 (317 ms)
+[ RUN      ] windowing/basic.windowing/4
+[       OK ] windowing/basic.windowing/4 (289 ms)
+[ RUN      ] windowing/basic.windowing/5
+[       OK ] windowing/basic.windowing/5 (324 ms)
+[ RUN      ] windowing/basic.windowing/6
+[       OK ] windowing/basic.windowing/6 (322 ms)
+[ RUN      ] windowing/basic.windowing/7
+[       OK ] windowing/basic.windowing/7 (372 ms)
+[ RUN      ] windowing/basic.windowing/8
+[       OK ] windowing/basic.windowing/8 (420 ms)
+[ RUN      ] windowing/basic.windowing/9
+[       OK ] windowing/basic.windowing/9 (462 ms)
+[ RUN      ] windowing/basic.windowing/10
+[       OK ] windowing/basic.windowing/10 (298 ms)
+[ RUN      ] windowing/basic.windowing/11
+[       OK ] windowing/basic.windowing/11 (323 ms)
+[ RUN      ] windowing/basic.windowing/12
+[       OK ] windowing/basic.windowing/12 (293 ms)
+[ RUN      ] windowing/basic.windowing/13
+[       OK ] windowing/basic.windowing/13 (322 ms)
+[ RUN      ] windowing/basic.windowing/14
+[       OK ] windowing/basic.windowing/14 (323 ms)
+[ RUN      ] windowing/basic.windowing/15
+[       OK ] windowing/basic.windowing/15 (378 ms)
+[----------] 16 tests from windowing/basic (5613 ms total)
+
+[----------] 4 tests from windowing/slicedOutput
+[ RUN      ] windowing/slicedOutput.windowing/0
+[       OK ] windowing/slicedOutput.windowing/0 (132 ms)
+[ RUN      ] windowing/slicedOutput.windowing/1
+[       OK ] windowing/slicedOutput.windowing/1 (149 ms)
+[ RUN      ] windowing/slicedOutput.windowing/2
+[       OK ] windowing/slicedOutput.windowing/2 (147 ms)
+[ RUN      ] windowing/slicedOutput.windowing/3
+[       OK ] windowing/slicedOutput.windowing/3 (160 ms)
+[----------] 4 tests from windowing/slicedOutput (588 ms total)
+
+[----------] 4 tests from windowing/matrixMultiply
+[ RUN      ] windowing/matrixMultiply.windowing/0
+[       OK ] windowing/matrixMultiply.windowing/0 (718 ms)
+[ RUN      ] windowing/matrixMultiply.windowing/1
+[       OK ] windowing/matrixMultiply.windowing/1 (279 ms)
+[ RUN      ] windowing/matrixMultiply.windowing/2
+[       OK ] windowing/matrixMultiply.windowing/2 (277 ms)
+[ RUN      ] windowing/matrixMultiply.windowing/3
+[       OK ] windowing/matrixMultiply.windowing/3 (148 ms)
+[----------] 4 tests from windowing/matrixMultiply (1422 ms total)
+
+[----------] 4 tests from windowing/workspace
+[ RUN      ] windowing/workspace.windowing/0
+[       OK ] windowing/workspace.windowing/0 (272 ms)
+[ RUN      ] windowing/workspace.windowing/1
+[       OK ] windowing/workspace.windowing/1 (143 ms)
+[ RUN      ] windowing/workspace.windowing/2
+[       OK ] windowing/workspace.windowing/2 (145 ms)
+[ RUN      ] windowing/workspace.windowing/3
+[       OK ] windowing/workspace.windowing/3 (159 ms)
+[----------] 4 tests from windowing/workspace (719 ms total)
+
+[----------] 2 tests from windowing/assignment
+[ RUN      ] windowing/assignment.windowing/0
+[       OK ] windowing/assignment.windowing/0 (399 ms)
+[ RUN      ] windowing/assignment.windowing/1
+[       OK ] windowing/assignment.windowing/1 (581 ms)
+[----------] 2 tests from windowing/assignment (981 ms total)
+
+[----------] 4 tests from windowing/cuda
+[ RUN      ] windowing/cuda.windowing/0
+[       OK ] windowing/cuda.windowing/0 (0 ms)
+[ RUN      ] windowing/cuda.windowing/1
+[       OK ] windowing/cuda.windowing/1 (0 ms)
+[ RUN      ] windowing/cuda.windowing/2
+[       OK ] windowing/cuda.windowing/2 (0 ms)
+[ RUN      ] windowing/cuda.windowing/3
+[       OK ] windowing/cuda.windowing/3 (0 ms)
+[----------] 4 tests from windowing/cuda (0 ms total)
+
+[----------] 4 tests from windowing/stride
+[ RUN      ] windowing/stride.windowing/0
+[       OK ] windowing/stride.windowing/0 (519 ms)
+[ RUN      ] windowing/stride.windowing/1
+[       OK ] windowing/stride.windowing/1 (292 ms)
+[ RUN      ] windowing/stride.windowing/2
+[       OK ] windowing/stride.windowing/2 (559 ms)
+[ RUN      ] windowing/stride.windowing/3
+[       OK ] windowing/stride.windowing/3 (311 ms)
+[----------] 4 tests from windowing/stride (1681 ms total)
+
+[----------] 8 tests from windowing/indexSetVectors
+[ RUN      ] windowing/indexSetVectors.windowing/0
+[       OK ] windowing/indexSetVectors.windowing/0 (264 ms)
+[ RUN      ] windowing/indexSetVectors.windowing/1
+[       OK ] windowing/indexSetVectors.windowing/1 (276 ms)
+[ RUN      ] windowing/indexSetVectors.windowing/2
+[       OK ] windowing/indexSetVectors.windowing/2 (276 ms)
+[ RUN      ] windowing/indexSetVectors.windowing/3
+[       OK ] windowing/indexSetVectors.windowing/3 (301 ms)
+[ RUN      ] windowing/indexSetVectors.windowing/4
+[       OK ] windowing/indexSetVectors.windowing/4 (276 ms)
+[ RUN      ] windowing/indexSetVectors.windowing/5
+[       OK ] windowing/indexSetVectors.windowing/5 (307 ms)
+[ RUN      ] windowing/indexSetVectors.windowing/6
+[       OK ] windowing/indexSetVectors.windowing/6 (309 ms)
+[ RUN      ] windowing/indexSetVectors.windowing/7
+[       OK ] windowing/indexSetVectors.windowing/7 (353 ms)
+[----------] 8 tests from windowing/indexSetVectors (2362 ms total)
+
+[----------] 8 tests from windowing/indexSetMatrices
+[ RUN      ] windowing/indexSetMatrices.windowing/0
+[       OK ] windowing/indexSetMatrices.windowing/0 (301 ms)
+[ RUN      ] windowing/indexSetMatrices.windowing/1
+[       OK ] windowing/indexSetMatrices.windowing/1 (156 ms)
+[ RUN      ] windowing/indexSetMatrices.windowing/2
+[       OK ] windowing/indexSetMatrices.windowing/2 (156 ms)
+[ RUN      ] windowing/indexSetMatrices.windowing/3
+[       OK ] windowing/indexSetMatrices.windowing/3 (167 ms)
+[ RUN      ] windowing/indexSetMatrices.windowing/4
+[       OK ] windowing/indexSetMatrices.windowing/4 (314 ms)
+[ RUN      ] windowing/indexSetMatrices.windowing/5
+[       OK ] windowing/indexSetMatrices.windowing/5 (183 ms)
+[ RUN      ] windowing/indexSetMatrices.windowing/6
+[       OK ] windowing/indexSetMatrices.windowing/6 (186 ms)
+[ RUN      ] windowing/indexSetMatrices.windowing/7
+[       OK ] windowing/indexSetMatrices.windowing/7 (223 ms)
+[----------] 8 tests from windowing/indexSetMatrices (1686 ms total)
+
+[----------] 5 tests from reorder/precondition
+[ RUN      ] reorder/precondition.transformations/0
+[       OK ] reorder/precondition.transformations/0 (0 ms)
+[ RUN      ] reorder/precondition.transformations/1
+[       OK ] reorder/precondition.transformations/1 (0 ms)
+[ RUN      ] reorder/precondition.transformations/2
+[       OK ] reorder/precondition.transformations/2 (0 ms)
+[ RUN      ] reorder/precondition.transformations/3
+[       OK ] reorder/precondition.transformations/3 (0 ms)
+[ RUN      ] reorder/precondition.transformations/4
+[       OK ] reorder/precondition.transformations/4 (0 ms)
+[----------] 5 tests from reorder/precondition (0 ms total)
+
+[----------] 6 tests from parallelize/precondition
+[ RUN      ] parallelize/precondition.transformations/0
+[       OK ] parallelize/precondition.transformations/0 (0 ms)
+[ RUN      ] parallelize/precondition.transformations/1
+[       OK ] parallelize/precondition.transformations/1 (0 ms)
+[ RUN      ] parallelize/precondition.transformations/2
+[       OK ] parallelize/precondition.transformations/2 (0 ms)
+[ RUN      ] parallelize/precondition.transformations/3
+[       OK ] parallelize/precondition.transformations/3 (0 ms)
+[ RUN      ] parallelize/precondition.transformations/4
+[       OK ] parallelize/precondition.transformations/4 (0 ms)
+[ RUN      ] parallelize/precondition.transformations/5
+[       OK ] parallelize/precondition.transformations/5 (0 ms)
+[----------] 6 tests from parallelize/precondition (2 ms total)
+
+[----------] 7 tests from reorder/apply
+[ RUN      ] reorder/apply.transformations/0
+[       OK ] reorder/apply.transformations/0 (0 ms)
+[ RUN      ] reorder/apply.transformations/1
+[       OK ] reorder/apply.transformations/1 (0 ms)
+[ RUN      ] reorder/apply.transformations/2
+[       OK ] reorder/apply.transformations/2 (0 ms)
+[ RUN      ] reorder/apply.transformations/3
+[       OK ] reorder/apply.transformations/3 (0 ms)
+[ RUN      ] reorder/apply.transformations/4
+[       OK ] reorder/apply.transformations/4 (0 ms)
+[ RUN      ] reorder/apply.transformations/5
+[       OK ] reorder/apply.transformations/5 (1 ms)
+[ RUN      ] reorder/apply.transformations/6
+[       OK ] reorder/apply.transformations/6 (0 ms)
+[----------] 7 tests from reorder/apply (1 ms total)
+
+[----------] 1 test from precompute/apply
+[ RUN      ] precompute/apply.transformations/0
+[       OK ] precompute/apply.transformations/0 (0 ms)
+[----------] 1 test from precompute/apply (0 ms total)
+
+[----------] 3 tests from parallelize/apply
+[ RUN      ] parallelize/apply.transformations/0
+[       OK ] parallelize/apply.transformations/0 (0 ms)
+[ RUN      ] parallelize/apply.transformations/1
+[       OK ] parallelize/apply.transformations/1 (0 ms)
+[ RUN      ] parallelize/apply.transformations/2
+[       OK ] parallelize/apply.transformations/2 (0 ms)
+[----------] 3 tests from parallelize/apply (0 ms total)
+
+[----------] 13 tests from misc/reorderLoopsTopologically
+[ RUN      ] misc/reorderLoopsTopologically.test/0
+[       OK ] misc/reorderLoopsTopologically.test/0 (0 ms)
+[ RUN      ] misc/reorderLoopsTopologically.test/1
+[       OK ] misc/reorderLoopsTopologically.test/1 (1 ms)
+[ RUN      ] misc/reorderLoopsTopologically.test/2
+[       OK ] misc/reorderLoopsTopologically.test/2 (0 ms)
+[ RUN      ] misc/reorderLoopsTopologically.test/3
+[       OK ] misc/reorderLoopsTopologically.test/3 (0 ms)
+[ RUN      ] misc/reorderLoopsTopologically.test/4
+[       OK ] misc/reorderLoopsTopologically.test/4 (0 ms)
+[ RUN      ] misc/reorderLoopsTopologically.test/5
+[       OK ] misc/reorderLoopsTopologically.test/5 (0 ms)
+[ RUN      ] misc/reorderLoopsTopologically.test/6
+[       OK ] misc/reorderLoopsTopologically.test/6 (0 ms)
+[ RUN      ] misc/reorderLoopsTopologically.test/7
+[       OK ] misc/reorderLoopsTopologically.test/7 (0 ms)
+[ RUN      ] misc/reorderLoopsTopologically.test/8
+[       OK ] misc/reorderLoopsTopologically.test/8 (1 ms)
+[ RUN      ] misc/reorderLoopsTopologically.test/9
+[       OK ] misc/reorderLoopsTopologically.test/9 (0 ms)
+[ RUN      ] misc/reorderLoopsTopologically.test/10
+[       OK ] misc/reorderLoopsTopologically.test/10 (0 ms)
+[ RUN      ] misc/reorderLoopsTopologically.test/11
+[       OK ] misc/reorderLoopsTopologically.test/11 (1 ms)
+[ RUN      ] misc/reorderLoopsTopologically.test/12
+[       OK ] misc/reorderLoopsTopologically.test/12 (0 ms)
+[----------] 13 tests from misc/reorderLoopsTopologically (7 ms total)
+
+[----------] 1 test from spmm/insertTemporaries
+[ RUN      ] spmm/insertTemporaries.test/0
+[       OK ] spmm/insertTemporaries.test/0 (0 ms)
+[----------] 1 test from spmm/insertTemporaries (0 ms total)
+
+[----------] 1 test from scalar_constant/expr
+[ RUN      ] scalar_constant/expr.storage/0
+[       OK ] scalar_constant/expr.storage/0 (126 ms)
+[----------] 1 test from scalar_constant/expr (126 ms total)
+
+[----------] 3 tests from scalar/expr
+[ RUN      ] scalar/expr.storage/0
+[       OK ] scalar/expr.storage/0 (126 ms)
+[ RUN      ] scalar/expr.storage/1
+[       OK ] scalar/expr.storage/1 (124 ms)
+[ RUN      ] scalar/expr.storage/2
+[       OK ] scalar/expr.storage/2 (128 ms)
+[----------] 3 tests from scalar/expr (378 ms total)
+
+[----------] 2 tests from vector_neg/expr
+[ RUN      ] vector_neg/expr.storage/0
+[       OK ] vector_neg/expr.storage/0 (135 ms)
+[ RUN      ] vector_neg/expr.storage/1
+[       OK ] vector_neg/expr.storage/1 (149 ms)
+[----------] 2 tests from vector_neg/expr (284 ms total)
+
+[----------] 3 tests from vector_scalar/expr
+[ RUN      ] vector_scalar/expr.storage/0
+[       OK ] vector_scalar/expr.storage/0 (135 ms)
+[ RUN      ] vector_scalar/expr.storage/1
+[       OK ] vector_scalar/expr.storage/1 (149 ms)
+[ RUN      ] vector_scalar/expr.storage/2
+[       OK ] vector_scalar/expr.storage/2 (136 ms)
+[----------] 3 tests from vector_scalar/expr (420 ms total)
+
+[----------] 4 tests from vector_elmul/expr
+[ RUN      ] vector_elmul/expr.storage/0
+[       OK ] vector_elmul/expr.storage/0 (139 ms)
+[ RUN      ] vector_elmul/expr.storage/1
+[       OK ] vector_elmul/expr.storage/1 (135 ms)
+[ RUN      ] vector_elmul/expr.storage/2
+[       OK ] vector_elmul/expr.storage/2 (132 ms)
+[ RUN      ] vector_elmul/expr.storage/3
+[       OK ] vector_elmul/expr.storage/3 (146 ms)
+[----------] 4 tests from vector_elmul/expr (552 ms total)
+
+[----------] 4 tests from vector_add/expr
+[ RUN      ] vector_add/expr.storage/0
+[       OK ] vector_add/expr.storage/0 (140 ms)
+[ RUN      ] vector_add/expr.storage/1
+[       OK ] vector_add/expr.storage/1 (147 ms)
+[ RUN      ] vector_add/expr.storage/2
+[       OK ] vector_add/expr.storage/2 (159 ms)
+[ RUN      ] vector_add/expr.storage/3
+[       OK ] vector_add/expr.storage/3 (186 ms)
+[----------] 4 tests from vector_add/expr (632 ms total)
+
+[----------] 13 tests from vector_composites/expr
+[ RUN      ] vector_composites/expr.storage/0
+[       OK ] vector_composites/expr.storage/0 (147 ms)
+[ RUN      ] vector_composites/expr.storage/1
+[       OK ] vector_composites/expr.storage/1 (157 ms)
+[ RUN      ] vector_composites/expr.storage/2
+[       OK ] vector_composites/expr.storage/2 (136 ms)
+[ RUN      ] vector_composites/expr.storage/3
+[       OK ] vector_composites/expr.storage/3 (143 ms)
+[ RUN      ] vector_composites/expr.storage/4
+[       OK ] vector_composites/expr.storage/4 (146 ms)
+[ RUN      ] vector_composites/expr.storage/5
+[       OK ] vector_composites/expr.storage/5 (193 ms)
+[ RUN      ] vector_composites/expr.storage/6
+[       OK ] vector_composites/expr.storage/6 (169 ms)
+[ RUN      ] vector_composites/expr.storage/7
+[       OK ] vector_composites/expr.storage/7 (207 ms)
+[ RUN      ] vector_composites/expr.storage/8
+[       OK ] vector_composites/expr.storage/8 (147 ms)
+[ RUN      ] vector_composites/expr.storage/9
+[       OK ] vector_composites/expr.storage/9 (198 ms)
+[ RUN      ] vector_composites/expr.storage/10
+[       OK ] vector_composites/expr.storage/10 (168 ms)
+[ RUN      ] vector_composites/expr.storage/11
+[       OK ] vector_composites/expr.storage/11 (216 ms)
+[ RUN      ] vector_composites/expr.storage/12
+[       OK ] vector_composites/expr.storage/12 (313 ms)
+[----------] 13 tests from vector_composites/expr (2340 ms total)
+
+[----------] 2 tests from matrix_neg/expr
+[ RUN      ] matrix_neg/expr.storage/0
+[       OK ] matrix_neg/expr.storage/0 (140 ms)
+[ RUN      ] matrix_neg/expr.storage/1
+[       OK ] matrix_neg/expr.storage/1 (168 ms)
+[----------] 2 tests from matrix_neg/expr (309 ms total)
+
+[----------] 1 test from matrix_elmul/expr
+[ RUN      ] matrix_elmul/expr.storage/0
+[       OK ] matrix_elmul/expr.storage/0 (173 ms)
+[----------] 1 test from matrix_elmul/expr (173 ms total)
+
+[----------] 7 tests from matrix_add/expr
+[ RUN      ] matrix_add/expr.storage/0
+[       OK ] matrix_add/expr.storage/0 (142 ms)
+[ RUN      ] matrix_add/expr.storage/1
+[       OK ] matrix_add/expr.storage/1 (152 ms)
+[ RUN      ] matrix_add/expr.storage/2
+[       OK ] matrix_add/expr.storage/2 (205 ms)
+[ RUN      ] matrix_add/expr.storage/3
+[       OK ] matrix_add/expr.storage/3 (205 ms)
+[ RUN      ] matrix_add/expr.storage/4
+[       OK ] matrix_add/expr.storage/4 (330 ms)
+[ RUN      ] matrix_add/expr.storage/5
+[       OK ] matrix_add/expr.storage/5 (368 ms)
+[ RUN      ] matrix_add/expr.storage/6
+[       OK ] matrix_add/expr.storage/6 (378 ms)
+[----------] 7 tests from matrix_add/expr (1781 ms total)
+
+[----------] 1 test from tensor_elmul/expr
+[ RUN      ] tensor_elmul/expr.storage/0
+[       OK ] tensor_elmul/expr.storage/0 (204 ms)
+[----------] 1 test from tensor_elmul/expr (204 ms total)
+
+[----------] 3 tests from composite/expr
+[ RUN      ] composite/expr.storage/0
+[       OK ] composite/expr.storage/0 (195 ms)
+[ RUN      ] composite/expr.storage/1
+[       OK ] composite/expr.storage/1 (198 ms)
+[ RUN      ] composite/expr.storage/2
+[       OK ] composite/expr.storage/2 (157 ms)
+[----------] 3 tests from composite/expr (551 ms total)
+
+[----------] 2 tests from residual/expr
+[ RUN      ] residual/expr.storage/0
+[       OK ] residual/expr.storage/0 (147 ms)
+[ RUN      ] residual/expr.storage/1
+[       OK ] residual/expr.storage/1 (154 ms)
+[----------] 2 tests from residual/expr (303 ms total)
+
+[----------] 1 test from matrix_add_vec_mul_composite/expr
+[ RUN      ] matrix_add_vec_mul_composite/expr.storage/0
+[       OK ] matrix_add_vec_mul_composite/expr.storage/0 (155 ms)
+[----------] 1 test from matrix_add_vec_mul_composite/expr (155 ms total)
+
+[----------] 1 test from scaled_matrix_vector/expr
+[ RUN      ] scaled_matrix_vector/expr.storage/0
+[       OK ] scaled_matrix_vector/expr.storage/0 (149 ms)
+[----------] 1 test from scaled_matrix_vector/expr (149 ms total)
+
+[----------] 4 tests from axpy_3x3/expr
+[ RUN      ] axpy_3x3/expr.storage/0
+[       OK ] axpy_3x3/expr.storage/0 (147 ms)
+[ RUN      ] axpy_3x3/expr.storage/1
+[       OK ] axpy_3x3/expr.storage/1 (136 ms)
+[ RUN      ] axpy_3x3/expr.storage/2
+[       OK ] axpy_3x3/expr.storage/2 (319 ms)
+[ RUN      ] axpy_3x3/expr.storage/3
+[       OK ] axpy_3x3/expr.storage/3 (140 ms)
+[----------] 4 tests from axpy_3x3/expr (743 ms total)
+
+[----------] 2 tests from vector_inner/expr
+[ RUN      ] vector_inner/expr.storage/0
+[       OK ] vector_inner/expr.storage/0 (2 ms)
+[ RUN      ] vector_inner/expr.storage/1
+[       OK ] vector_inner/expr.storage/1 (134 ms)
+[----------] 2 tests from vector_inner/expr (136 ms total)
+
+[----------] 5 tests from spmv/expr
+[ RUN      ] spmv/expr.storage/0
+[       OK ] spmv/expr.storage/0 (148 ms)
+[ RUN      ] spmv/expr.storage/1
+[       OK ] spmv/expr.storage/1 (150 ms)
+[ RUN      ] spmv/expr.storage/2
+[       OK ] spmv/expr.storage/2 (142 ms)
+[ RUN      ] spmv/expr.storage/3
+[       OK ] spmv/expr.storage/3 (140 ms)
+[ RUN      ] spmv/expr.storage/4
+[       OK ] spmv/expr.storage/4 (155 ms)
+[----------] 5 tests from spmv/expr (735 ms total)
+
+[----------] 1 test from bspmv/expr
+[ RUN      ] bspmv/expr.storage/0
+[       OK ] bspmv/expr.storage/0 (316 ms)
+[----------] 1 test from bspmv/expr (316 ms total)
+
+[----------] 2 tests from matrix_sum/expr
+[ RUN      ] matrix_sum/expr.storage/0
+[       OK ] matrix_sum/expr.storage/0 (146 ms)
+[ RUN      ] matrix_sum/expr.storage/1
+[       OK ] matrix_sum/expr.storage/1 (145 ms)
+[----------] 2 tests from matrix_sum/expr (291 ms total)
+
+[----------] 2 tests from matrix_mul/expr
+[ RUN      ] matrix_mul/expr.storage/0
+[       OK ] matrix_mul/expr.storage/0 (2 ms)
+[ RUN      ] matrix_mul/expr.storage/1
+[       OK ] matrix_mul/expr.storage/1 (156 ms)
+[----------] 2 tests from matrix_mul/expr (158 ms total)
+
+[----------] 3 tests from tensor_vector_mul/expr
+[ RUN      ] tensor_vector_mul/expr.storage/0
+[       OK ] tensor_vector_mul/expr.storage/0 (313 ms)
+[ RUN      ] tensor_vector_mul/expr.storage/1
+[       OK ] tensor_vector_mul/expr.storage/1 (145 ms)
+[ RUN      ] tensor_vector_mul/expr.storage/2
+[       OK ] tensor_vector_mul/expr.storage/2 (153 ms)
+[----------] 3 tests from tensor_vector_mul/expr (611 ms total)
+
+[----------] 2 tests from tensor_matrix_mul/expr
+[ RUN      ] tensor_matrix_mul/expr.storage/0
+[       OK ] tensor_matrix_mul/expr.storage/0 (147 ms)
+[ RUN      ] tensor_matrix_mul/expr.storage/1
+[       OK ] tensor_matrix_mul/expr.storage/1 (150 ms)
+[----------] 2 tests from tensor_matrix_mul/expr (297 ms total)
+
+[----------] 1 test from mttkrp/expr
+[ RUN      ] mttkrp/expr.storage/0
+[       OK ] mttkrp/expr.storage/0 (158 ms)
+[----------] 1 test from mttkrp/expr (158 ms total)
+
+[----------] 5 tests from emit_avail_exprs/expr
+[ RUN      ] emit_avail_exprs/expr.storage/0
+[       OK ] emit_avail_exprs/expr.storage/0 (144 ms)
+[ RUN      ] emit_avail_exprs/expr.storage/1
+[       OK ] emit_avail_exprs/expr.storage/1 (147 ms)
+[ RUN      ] emit_avail_exprs/expr.storage/2
+[       OK ] emit_avail_exprs/expr.storage/2 (150 ms)
+[ RUN      ] emit_avail_exprs/expr.storage/3
+[       OK ] emit_avail_exprs/expr.storage/3 (148 ms)
+[ RUN      ] emit_avail_exprs/expr.storage/4
+[       OK ] emit_avail_exprs/expr.storage/4 (155 ms)
+[----------] 5 tests from emit_avail_exprs/expr (744 ms total)
+
+[----------] 2 tests from vector_add/alloc
+[ RUN      ] vector_add/alloc.storage/0
+[       OK ] vector_add/alloc.storage/0 (349 ms)
+[ RUN      ] vector_add/alloc.storage/1
+[       OK ] vector_add/alloc.storage/1 (213 ms)
+[----------] 2 tests from vector_add/alloc (562 ms total)
+
+[----------] Global test environment tear-down
+[==========] 914 tests from 288 test cases ran. (117808 ms total)
+[  PASSED  ] 909 tests.
+[  FAILED  ] 5 tests, listed below:
+[  FAILED  ] workspaces.tile_vecElemMul_NoTail
+[  FAILED  ] workspaces.tile_vecElemMul_Tail1
+[  FAILED  ] workspaces.tile_vecElemMul_Tail2
+[  FAILED  ] workspaces.tile_denseMatMul
+[  FAILED  ] workspaces.tile_dotProduct_3
+
+ 5 FAILED TESTS
+  YOU HAVE 13 DISABLED TESTS
+
