@@ -998,6 +998,30 @@ TEST(scheduling_eval_test, indexVarReorder) {
   ASSERT_TENSOR_EQ(expected, a);
 }
 
+// Regression test for issue #403: reordering a compressed dimension before its
+// storage parent must be rejected with a clear error rather than silently
+// emitting code that reads an undefined position variable.
+TEST(scheduling, reorder_invalid_sparse_dependency) {
+  // SpTV: y(j) = A(i,j,k) * x(k), A stored as sss (order i,j,k).
+  // j's compressed level is indexed by i's position variable, so reorder(j,i,k)
+  // is invalid — j cannot be iterated before i.
+  Tensor<double> y("y", {4}, Sparse);
+  Tensor<double> A("A", {4, 4, 4}, {Compressed, Compressed, Compressed});
+  Tensor<double> x("x", {4}, Sparse);
+
+  IndexVar ii("i"), jj("j"), kk("k");
+  y(jj) = A(ii, jj, kk) * x(kk);
+  IndexStmt stmt = y.getAssignment().concretize();
+
+  std::string reason;
+  IndexStmt result = Reorder({jj, ii, kk}).apply(stmt, &reason);
+
+  ASSERT_FALSE(result.defined())
+      << "Expected reorder(j,i,k) to fail for sss tensor, but it succeeded";
+  ASSERT_FALSE(reason.empty())
+      << "Expected a non-empty error reason for invalid sparse reordering";
+}
+
 TEST(scheduling, divide) {
   auto dim = 256;
   float sparsity = 0.1;

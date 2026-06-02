@@ -123,6 +123,57 @@ IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
     *reason = "The foralls of reorder pattern: " + util::join(getreplacepattern()) + " were not directly nested.";
     return IndexStmt();
   }
+
+  // Reject reorderings that move a compressed dimension before its storage
+  // parent. For a tensor stored in CSF/CSR format the position array lookup
+  // for level L uses the level-(L-1) position variable, so the level-L loop
+  // must be nested inside the level-(L-1) loop.  Placing level-L's index
+  // variable before level-(L-1)'s index variable in the requested pattern
+  // silently generates code that reads an undefined variable (issue #403).
+  struct CheckModeOrderingDeps : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+    const std::vector<IndexVar>& pattern;
+    std::string* reason;
+
+    CheckModeOrderingDeps(const std::vector<IndexVar>& p, std::string* r)
+        : pattern(p), reason(r) {}
+
+    void visit(const AccessNode* node) {
+      const auto& modeOrdering = node->tensorVar.getFormat().getModeOrdering();
+      const auto& modeFormats  = node->tensorVar.getFormat().getModeFormats();
+      for (size_t m = 1; m < modeOrdering.size(); ++m) {
+        int prevMode = modeOrdering[m - 1];
+        int curMode  = modeOrdering[m];
+        // Dense levels are accessed by coordinate and do not carry a
+        // positional dependency, so no constraint applies to this pair.
+        if (modeFormats[prevMode] == ModeFormat::Dense) continue;
+
+        IndexVar prevVar = node->indexVars[prevMode];
+        IndexVar curVar  = node->indexVars[curMode];
+
+        auto prevIt = std::find(pattern.begin(), pattern.end(), prevVar);
+        auto curIt  = std::find(pattern.begin(), pattern.end(), curVar);
+        if (prevIt == pattern.end() || curIt == pattern.end()) continue;
+
+        if (curIt < prevIt) {
+          *reason = "Cannot reorder " + util::toString(curVar) +
+                    " before " + util::toString(prevVar) +
+                    ": in tensor " + node->tensorVar.getName() +
+                    ", dimension " + util::toString(curVar) +
+                    " is at a compressed level whose position array is" +
+                    " indexed by " + util::toString(prevVar) + "'s iterator.";
+          return;
+        }
+      }
+    }
+  };
+
+  CheckModeOrderingDeps checker(getreplacepattern(), reason);
+  stmt.accept(&checker);
+  if (!reason->empty()) {
+    return IndexStmt();
+  }
+
   return ForAllReplace(currentOrdering, getreplacepattern()).apply(stmt, reason);
 }
 
