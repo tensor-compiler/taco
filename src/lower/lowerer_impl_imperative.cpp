@@ -497,7 +497,6 @@ Stmt LowererImplImperative::lowerAssignment(Assignment assignment)
     if (isAssembledByUngroupedInsertion(result)) {
       std::vector<Expr> coords;
       Expr prevPos = 0;
-      size_t i = 0;
       const auto resultIterators = getIterators(assignment.getLhs());
       for (const auto& it : resultIterators) {
         // TODO: Should only assemble levels that can be assembled together
@@ -517,7 +516,6 @@ Stmt LowererImplImperative::lowerAssignment(Assignment assignment)
         }
 
         prevPos = pos;
-        ++i;
       }
     }
 
