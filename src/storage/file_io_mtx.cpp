@@ -51,7 +51,7 @@ TensorBase dispatchReadMTX(std::istream& stream, const T& format, bool pack) {
                                        << "Unknown type of MatrixMarket";
   // formats = [coordinate array]
   // field = [real integer complex pattern]
-  taco_uassert(field=="real")          << "MatrixMarket field not available";
+  taco_uassert(field=="real" || field=="integer")          << "MatrixMarket field not available";
   // symmetry = [general symmetric skew-symmetric Hermitian]
   taco_uassert((symmetry=="general") || (symmetry=="symmetric"))
                                        << "MatrixMarket symmetry not available";

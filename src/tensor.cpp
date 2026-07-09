@@ -275,19 +275,19 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
       numVals *= ((int*)tensorData.indices[i][0])[0];
     } else if (modeType.getName() == Sparse.getName()) {
       auto size = ((int*)tensorData.indices[i][0])[numVals];
-      Array pos = Array(type<int>(), tensorData.indices[i][0], numVals+1, Array::UserOwns);
-      Array idx = Array(type<int>(), tensorData.indices[i][1], size, Array::UserOwns);
+      Array pos = Array(type<int>(), tensorData.indices[i][0], numVals+1, Array::Free);
+      Array idx = Array(type<int>(), tensorData.indices[i][1], size, Array::Free);
       modeIndices.push_back(ModeIndex({pos, idx}));
       numVals = size;
     } else if (modeType.getName() == Singleton.getName()) {
-      Array idx = Array(type<int>(), tensorData.indices[i][1], numVals, Array::UserOwns);
+      Array idx = Array(type<int>(), tensorData.indices[i][1], numVals, Array::Free);
       modeIndices.push_back(ModeIndex({makeArray(type<int>(), 0), idx}));
     } else {
       taco_not_supported_yet;
     }
   }
   storage.setIndex(Index(format, modeIndices));
-  storage.setValues(Array(tensor.getComponentType(), tensorData.vals, numVals));
+  storage.setValues(Array(tensor.getComponentType(), tensorData.vals, numVals, Array::Free));
   return numVals;
 }
 
