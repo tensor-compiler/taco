@@ -1932,7 +1932,7 @@ std::vector<ir::Stmt> LowererImplImperative::constructInnerLoopCasePreamble(ir::
   for(size_t i = 0; i < coordComparisons.size(); ++i) {
     Expr nonZeroCase;
     if(coordComparisons[i].defined() && valueComparisons[i].defined()) {
-      nonZeroCase = taco::ir::conjunction({coordComparisons[i], valueComparisons[i]});
+      nonZeroCase = conjunction({coordComparisons[i], valueComparisons[i]});
     } else if (valueComparisons[i].defined()) {
       nonZeroCase = valueComparisons[i];
     } else if (coordComparisons[i].defined()) {

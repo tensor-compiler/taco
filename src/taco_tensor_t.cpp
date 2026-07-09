@@ -40,15 +40,7 @@ taco_tensor_t* init_taco_tensor_t(int32_t order, int32_t csize,
   t->indices = (uint8_t ***) alloc_mem(order * sizeof(uint8_t***));
   t->csize         = csize;
 
-  int fill_bytes = csize / 8;
-  t->fill_value = (uint8_t*) alloc_mem(fill_bytes);
-
-  if (fill_ptr) {
-    uint8_t* fill_inp = (uint8_t*) fill_ptr;
-    for (int i = 0; i < fill_bytes; ++i) {
-      t->fill_value[i] = fill_inp[i];
-    }
-  }
+  t->fill_value = (uint8_t*) fill_ptr;
 
   for (int32_t i = 0; i < order; i++) {
     t->dimensions[i]    = dimensions[i];
@@ -60,6 +52,9 @@ taco_tensor_t* init_taco_tensor_t(int32_t order, int32_t csize,
         break;
       case taco_mode_sparse:
         t->indices[i] = (uint8_t **) alloc_mem(2 * sizeof(uint8_t **));
+        break;
+      case taco_mode_dia1:
+        t->indices[i] = (uint8_t **) alloc_mem(3 * sizeof(uint8_t **));
         break;
     }
   }
